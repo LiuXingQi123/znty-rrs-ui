@@ -1,0 +1,2231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <title>投资池维护</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css" />
+    <script src="https://unpkg.com/vue@2.7.16/dist/vue.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --bg-base: #0d1117;
+            --bg-surface: #161b22;
+            --bg-elevated: #1c2230;
+            --bg-hover: #21293a;
+            --bg-active: #1a2744;
+            --border-subtle: #21293a;
+            --border-default: #2d3748;
+            --border-strong: #3d4f6a;
+            --text-primary: #e2e8f0;
+            --text-secondary: #8fa3b1;
+            --text-muted: #4a5568;
+            --text-inverse: #0d1117;
+            --accent-blue: #3b82f6;
+            --accent-blue-bright: #60a5fa;
+            --accent-blue-dim: #1e3a5f;
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --accent-teal: #14b8a6;
+            --sidebar-w: 300px;
+            --header-h: 56px;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+            --font-sans: 'Noto Sans SC', -apple-system, sans-serif;
+            --font-mono: 'DM Mono', 'Courier New', monospace;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            height: 100%;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-size: 13px;
+            line-height: 1.5;
+            overflow: hidden;
+        }
+
+        [v-cloak] { display: none; }
+
+        /* ── Layout ── */
+        .app-shell {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-topbar {
+            height: var(--header-h);
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 12px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+        }
+
+        .app-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-right: 8px;
+        }
+
+        .logo-mark {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .logo-text {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 0.02em;
+        }
+
+        .topbar-divider {
+            width: 1px;
+            height: 24px;
+            background: var(--border-default);
+        }
+
+        .topbar-breadcrumb {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .topbar-breadcrumb .sep { color: var(--text-muted); }
+
+        .topbar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 6px var(--accent-green);
+        }
+
+        .status-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+        }
+
+        /* ── Main Area ── */
+        .app-body {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: var(--sidebar-w);
+            flex-shrink: 0;
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sidebar-title-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+        }
+
+        .sidebar-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .icon-btn {
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            font-size: 13px;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+
+        .add-root-btn {
+            height: 28px;
+            padding: 0 10px;
+            border: 1px solid var(--accent-blue);
+            border-radius: var(--radius-sm);
+            background: rgba(59,130,246,0.12);
+            color: var(--accent-blue-bright);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            font-family: var(--font-sans);
+            font-weight: 500;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+
+        .add-root-btn:hover {
+            background: rgba(59,130,246,0.22);
+            border-color: var(--accent-blue-bright);
+            color: #93c5fd;
+        }
+
+        .tree-scroll {
+            flex: 1;
+            overflow: auto;
+            padding: 8px;
+        }
+
+        /* ── Tree Node Styles ── */
+        .tree-node {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .tree-node-icon {
+            font-size: 13px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .tree-node.is-parent .tree-node-icon { color: var(--accent-amber); }
+
+        .tree-node.is-disabled {
+            cursor: not-allowed;
+        }
+
+        .tree-node.is-disabled .tree-node-icon,
+        .tree-node.is-disabled .tree-node-name {
+            color: var(--text-muted) !important;
+        }
+
+        .tree-node-name {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .tree-node-actions {
+            display: none;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 0;
+        }
+
+        .el-tree-node__content:hover .tree-node-actions,
+        .el-tree-node.is-current > .el-tree-node__content .tree-node-actions {
+            display: flex;
+        }
+
+        .tree-node-btn {
+            width: 22px;
+            height: 22px;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.12s;
+        }
+
+        .tree-node-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .tree-node-btn.danger:hover { background: rgba(239,68,68,0.15); color: var(--accent-red); }
+
+        /* ── Element UI Tree Overrides ── */
+        .el-tree { background: transparent !important; }
+
+        .el-tree-node__content {
+            height: 34px !important;
+            border-radius: var(--radius-sm) !important;
+            transition: background 0.12s !important;
+            color: var(--text-secondary) !important;
+        }
+
+        .el-tree-node__content:hover {
+            background: var(--bg-hover) !important;
+            color: var(--text-primary) !important;
+        }
+
+        .el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content {
+            background: var(--bg-active) !important;
+            color: var(--accent-blue-bright) !important;
+            border-left: 2px solid var(--accent-blue) !important;
+        }
+
+        .pool-picker-tree .el-tree-node.is-picker-disabled.is-current > .el-tree-node__content {
+            background: transparent !important;
+            color: var(--text-muted) !important;
+            border-left: none !important;
+        }
+
+        .pool-picker-tree .el-tree-node.is-picker-disabled > .el-tree-node__content:hover {
+            background: var(--bg-hover) !important;
+        }
+
+        .el-tree-node__expand-icon { color: var(--text-muted) !important; }
+        .el-tree-node__expand-icon.is-leaf { color: transparent !important; }
+
+        /* ── Content Area ── */
+        .content-area {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Pool Header ── */
+        .pool-header {
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-subtle);
+            flex-shrink: 0;
+            background: var(--bg-surface);
+            gap: 16px;
+        }
+
+        .pool-header-meta {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .pool-header-name {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.3;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .pool-header-code {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            margin-top: 2px;
+        }
+
+        .pool-header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        .status-badge.active {
+            background: rgba(16,185,129,0.12);
+            color: var(--accent-green);
+            border: 1px solid rgba(16,185,129,0.25);
+        }
+
+        /* ── Empty State ── */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text-muted);
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            opacity: 0.3;
+        }
+
+        .empty-text {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* ── Scrollable Body ── */
+        .content-scroll {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+        }
+
+        /* ── Tab Overrides ── */
+        .el-tabs__header {
+            margin: 0 !important;
+            padding: 0 24px;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border-subtle) !important;
+        }
+
+        .el-tabs__nav-wrap::after { display: none !important; }
+        .el-tabs__item { color: var(--text-secondary) !important; font-size: 13px !important; height: 44px !important; line-height: 44px !important; padding: 0 18px !important; }
+        .el-tabs__item:hover { color: var(--text-primary) !important; }
+        .el-tabs__item.is-active { color: var(--accent-blue-bright) !important; font-weight: 600 !important; }
+        .el-tabs__active-bar { background-color: var(--accent-blue) !important; height: 2px !important; }
+
+        /* ── Form Area ── */
+        .form-area {
+            padding: 24px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 18px;
+            margin-top: 4px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+        }
+
+        .section-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border-subtle);
+        }
+
+        /* ── Input Overrides ── */
+        .el-input__inner,
+        .el-textarea__inner {
+            background: var(--bg-elevated) !important;
+            border-color: var(--border-default) !important;
+            color: var(--text-primary) !important;
+            font-family: var(--font-sans) !important;
+            border-radius: var(--radius-sm) !important;
+            transition: border-color 0.15s !important;
+        }
+
+        .el-input__inner:focus,
+        .el-textarea__inner:focus {
+            border-color: var(--accent-blue) !important;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.12) !important;
+        }
+
+        .el-input__inner:hover,
+        .el-textarea__inner:hover {
+            border-color: var(--border-strong) !important;
+        }
+
+        .el-input__inner::placeholder,
+        .el-textarea__inner::placeholder { color: var(--text-muted) !important; }
+
+        .el-input-number .el-input__inner { text-align: left !important; }
+
+        .el-input-number__decrease, .el-input-number__increase {
+            background: var(--bg-hover) !important;
+            border-color: var(--border-default) !important;
+            color: var(--text-secondary) !important;
+        }
+
+        .el-input__prefix, .el-input__suffix { color: var(--text-muted) !important; }
+        .el-input__clear { color: var(--text-muted) !important; }
+
+        /* ── Select Overrides ── */
+        .el-select-dropdown {
+            background: var(--bg-elevated) !important;
+            border-color: var(--border-strong) !important;
+            box-shadow: var(--shadow-md) !important;
+        }
+
+        .el-select-dropdown__item {
+            color: var(--text-secondary) !important;
+            font-family: var(--font-sans) !important;
+        }
+
+        .el-select-dropdown__item.hover,
+        .el-select-dropdown__item:hover {
+            background: var(--bg-hover) !important;
+            color: var(--text-primary) !important;
+        }
+
+        .el-select-dropdown__item.selected { color: var(--accent-blue-bright) !important; }
+
+        .el-tag { border-radius: 4px !important; font-size: 11px !important; }
+        .el-tag--primary { background: rgba(59,130,246,0.15) !important; border-color: rgba(59,130,246,0.3) !important; color: var(--accent-blue-bright) !important; }
+        .el-tag--warning { background: rgba(245,158,11,0.12) !important; border-color: rgba(245,158,11,0.3) !important; color: var(--accent-amber) !important; }
+        .el-tag--success { background: rgba(16,185,129,0.12) !important; border-color: rgba(16,185,129,0.3) !important; color: var(--accent-green) !important; }
+
+        /* ── Checkbox & Radio ── */
+        .el-checkbox__input.is-checked .el-checkbox__inner { background-color: var(--accent-blue) !important; border-color: var(--accent-blue) !important; }
+        .el-checkbox__inner { background: var(--bg-elevated) !important; border-color: var(--border-strong) !important; }
+        .el-checkbox__label { color: var(--text-primary) !important; font-size: 12px !important; }
+
+        /* ── Label & Form ── */
+        .el-form-item { margin-bottom: 16px !important; }
+        .el-form-item__label { color: var(--text-secondary) !important; font-size: 12px !important; line-height: 32px !important; padding-right: 12px !important; }
+        .el-form-item__error { color: var(--accent-red) !important; font-size: 11px !important; }
+
+        /* ── Word Limit ── */
+        .el-input__count { color: var(--text-muted) !important; background: transparent !important; }
+
+        /* ── Form Actions ── */
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding-top: 20px;
+            margin-top: 8px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .btn {
+            height: 34px;
+            padding: 0 16px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s;
+            border: none;
+            outline: none;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid var(--border-default);
+            color: var(--text-secondary);
+        }
+
+        .btn-ghost:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-strong);
+            color: var(--text-primary);
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.25);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ── Relation Cards ── */
+        .relation-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .relation-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            transition: border-color 0.15s;
+        }
+
+        .relation-card:hover {
+            border-color: var(--border-strong);
+        }
+
+        .relation-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 12px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .relation-card-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .relation-card-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 9px;
+            background: var(--accent-blue-dim);
+            color: var(--accent-blue-bright);
+            font-size: 10px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+
+        .relation-card-count.empty {
+            background: var(--border-subtle);
+            color: var(--text-muted);
+        }
+
+        .relation-select-btn {
+            height: 24px;
+            padding: 0 10px;
+            border: 1px solid var(--border-strong);
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 11px;
+            font-family: var(--font-sans);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s;
+        }
+
+        .relation-select-btn:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue-bright);
+            background: rgba(59,130,246,0.08);
+        }
+
+        .relation-card-body {
+            padding: 10px 12px;
+            min-height: 56px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-content: flex-start;
+        }
+
+        .relation-card-empty {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            height: 36px;
+            border: 1px dashed var(--border-subtle);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .relation-card-empty:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue-bright);
+            background: rgba(59,130,246,0.04);
+        }
+
+        .relation-pool-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px 3px 6px;
+            background: rgba(59,130,246,0.1);
+            border: 1px solid rgba(59,130,246,0.2);
+            border-radius: 20px;
+            max-width: 100%;
+            transition: background 0.12s;
+        }
+
+        .relation-pool-chip:hover {
+            background: rgba(59,130,246,0.18);
+        }
+
+        .chip-path {
+            font-size: 10px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 80px;
+        }
+
+        .chip-name {
+            font-size: 12px;
+            color: var(--accent-blue-bright);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 120px;
+        }
+
+        .chip-remove {
+            width: 14px;
+            height: 14px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            flex-shrink: 0;
+            padding: 0;
+            line-height: 1;
+            transition: all 0.12s;
+        }
+
+        .chip-remove:hover {
+            background: rgba(239,68,68,0.2);
+            color: var(--accent-red);
+        }
+
+        /* ── Pool Tree Dialog ── */
+        .pool-tree-dialog-body {
+            display: flex;
+            gap: 16px;
+            height: 440px;
+        }
+
+        .ptd-left {
+            width: 300px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .ptd-search {
+            flex-shrink: 0;
+        }
+
+        .ptd-tree-scroll {
+            flex: 1;
+            overflow: auto;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 8px;
+        }
+
+        .ptd-right {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .ptd-right-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .ptd-selected-list {
+            flex: 1;
+            overflow: auto;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ptd-selected-empty {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .ptd-selected-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            background: rgba(59,130,246,0.08);
+            border: 1px solid rgba(59,130,246,0.18);
+            border-radius: var(--radius-sm);
+            transition: background 0.12s;
+        }
+
+        .ptd-selected-item:hover {
+            background: rgba(59,130,246,0.14);
+        }
+
+        .ptd-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .ptd-item-name {
+            font-size: 13px;
+            color: var(--text-primary);
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ptd-item-path {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+
+        .ptd-item-remove {
+            width: 22px;
+            height: 22px;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+            transition: all 0.12s;
+        }
+
+        .ptd-item-remove:hover {
+            background: rgba(239,68,68,0.15);
+            color: var(--accent-red);
+        }
+
+        .ptd-count-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            border-radius: 10px;
+            background: var(--accent-blue-dim);
+            color: var(--accent-blue-bright);
+            font-size: 11px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+
+        /* ── Permission Tags ── */
+        .perm-section {
+            margin-bottom: 20px;
+        }
+
+        .perm-tag-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            padding: 12px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            min-height: 48px;
+        }
+
+        .add-perm-btn {
+            height: 26px;
+            padding: 0 10px;
+            border: 1px dashed var(--border-strong);
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 11px;
+            font-family: var(--font-sans);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s;
+        }
+
+        .add-perm-btn:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue-bright);
+            background: rgba(59,130,246,0.08);
+        }
+
+        /* ── Dialog Overrides ── */
+        .el-dialog {
+            background: var(--bg-surface) !important;
+            border: 1px solid var(--border-strong) !important;
+            border-radius: var(--radius-lg) !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        .el-dialog__title { color: var(--text-primary) !important; font-size: 15px !important; font-weight: 600 !important; }
+        .el-dialog__header { padding: 18px 20px 14px !important; border-bottom: 1px solid var(--border-subtle) !important; }
+        .el-dialog__body { padding: 20px !important; }
+        .el-dialog__footer { padding: 14px 20px !important; border-top: 1px solid var(--border-subtle) !important; background: var(--bg-elevated) !important; border-radius: 0 0 var(--radius-lg) var(--radius-lg) !important; }
+        .el-dialog__headerbtn .el-dialog__close { color: var(--text-secondary) !important; }
+        .el-dialog__headerbtn:hover .el-dialog__close { color: var(--text-primary) !important; }
+        .el-overlay { background: rgba(0,0,0,0.7) !important; }
+        .v-modal { background: rgba(0,0,0,0.7) !important; opacity: 1 !important; }
+
+        .dialog-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        /* ── Table Overrides ── */
+        .el-table { background: transparent !important; color: var(--text-secondary) !important; font-size: 12px !important; }
+        .el-table th.el-table__cell { background: var(--bg-elevated) !important; color: var(--text-muted) !important; border-color: var(--border-subtle) !important; font-size: 11px !important; text-transform: uppercase; letter-spacing: 0.06em; }
+        .el-table td.el-table__cell { border-color: var(--border-subtle) !important; background: transparent !important; }
+        .el-table tr { background: transparent !important; }
+        .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background: rgba(255,255,255,0.025) !important; }
+        .el-table__body tr.hover-row td.el-table__cell, .el-table__body tr:hover td.el-table__cell { background: var(--bg-hover) !important; }
+        .el-table__empty-text { color: var(--text-muted) !important; }
+        .el-table__body-wrapper { overflow-y: auto !important; }
+        .el-checkbox__inner { background: var(--bg-elevated) !important; }
+
+        /* ── Selected Summary Box ── */
+        .selected-summary {
+            margin-top: 14px;
+            padding: 12px 14px;
+            background: var(--bg-elevated);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .selected-summary-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .selected-summary-row + .selected-summary-row { margin-top: 8px; }
+        .selected-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; }
+        .selected-empty { font-size: 11px; color: var(--text-muted); }
+
+        /* ── Role Tree ── */
+        .el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content { background: var(--bg-active) !important; }
+        .el-tree-node__content { border-radius: var(--radius-sm) !important; }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+        /* ── Loading ── */
+        .el-loading-mask { background: rgba(13,17,23,0.7) !important; }
+        .el-loading-spinner .el-loading-text { color: var(--text-secondary) !important; }
+        .el-loading-spinner .path { stroke: var(--accent-blue) !important; }
+
+        /* full-width helper */
+        .full-width { width: 100%; }
+
+        /* message box */
+        .el-message-box { background: var(--bg-surface) !important; border: 1px solid var(--border-strong) !important; border-radius: var(--radius-lg) !important; }
+        .el-message-box__header { background: var(--bg-elevated) !important; border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important; }
+        .el-message-box__title { color: var(--text-primary) !important; }
+        .el-message-box__content { color: var(--text-secondary) !important; }
+        .el-message-box__btns .el-button { border-radius: var(--radius-sm) !important; }
+
+        /* responsive */
+        @media (max-width: 900px) {
+            .app-body { flex-direction: column; }
+            .sidebar { width: 100%; height: 260px; border-right: none; border-bottom: 1px solid var(--border-subtle); }
+            .relation-grid { grid-template-columns: 1fr; }
+        }
+        /* ── Template Picker ── */
+        .template-picker-wrap { width: 100%; }
+        .template-picker-display {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            height: 36px;
+            padding: 0 10px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: border-color 0.15s;
+            gap: 6px;
+            min-width: 0;
+        }
+        .template-picker-display:hover { border-color: var(--border-strong); }
+        .template-picker-value {
+            flex: 1;
+            min-width: 0;
+            font-size: 13px;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+        }
+        .template-picker-placeholder {
+            flex: 1;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .template-picker-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            color: var(--text-muted);
+        }
+        .template-picker-clear:hover { color: var(--accent-red); }
+        .template-picker-arrow { font-size: 12px; }
+
+    </style>
+</head>
+<body>
+<div id="app" class="app-shell" v-cloak>
+
+    <!-- ── Top Bar ── -->
+    <header class="app-topbar">
+        <div class="app-logo">
+            <div class="logo-mark">📊</div>
+            <span class="logo-text">投资管理平台</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-breadcrumb">
+            <span>系统配置</span>
+            <span class="sep">›</span>
+            <span style="color: var(--text-primary); font-weight: 500;">投资池维护</span>
+        </div>
+        <div class="topbar-right">
+            <div class="status-dot"></div>
+            <span class="status-label">系统运行中</span>
+        </div>
+    </header>
+
+    <!-- ── Body ── -->
+    <div class="app-body">
+
+        <!-- ── Sidebar ── -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    <div class="sidebar-title-dot"></div>
+                    投资池树
+                </div>
+                <div class="sidebar-actions">
+                    <button class="add-root-btn" @click="handleOpenAddRoot">
+                        <i class="el-icon-plus"></i> 新增顶级
+                    </button>
+                    <button class="icon-btn" @click="loadPoolTree()" title="刷新">
+                        <i class="el-icon-refresh"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="tree-scroll" v-loading="treeLoading">
+                <el-tree
+                        ref="poolTree"
+                        node-key="id"
+                        :data="poolTree"
+                        :props="treeProps"
+                        highlight-current
+                        default-expand-all
+                        @node-click="handlePoolClick">
+          <span slot-scope="{ node, data }" class="tree-node" :class="{ 'is-parent': data.children && data.children.length }">
+            <i :class="data.children && data.children.length ? 'el-icon-folder-opened tree-node-icon' : 'el-icon-document tree-node-icon'"></i>
+            <span class="tree-node-name">{{ node.label }}</span>
+            <span class="tree-node-actions">
+              <button class="tree-node-btn" title="添加子节点" @click.stop="handleOpenAddChild(data)">
+                <i class="el-icon-plus"></i>
+              </button>
+              <button class="tree-node-btn danger" title="删除节点" @click.stop="handleDeletePool(data)">
+                <i class="el-icon-delete"></i>
+              </button>
+            </span>
+          </span>
+                </el-tree>
+            </div>
+        </aside>
+
+        <!-- ── Content ── -->
+        <main class="content-area">
+            <!-- Pool Header -->
+            <div class="pool-header">
+                <div class="pool-header-meta">
+                    <div class="pool-header-name">{{ currentPool.poolName || '请选择投资池' }}</div>
+                    <div class="pool-header-code">
+                        {{ currentPool.poolCode ? 'CODE: ' + currentPool.poolCode : '从左侧选择一个投资池进行配置管理' }}
+                    </div>
+                </div>
+                <div class="pool-header-right">
+          <span v-if="currentPool.status" class="status-badge active">
+            <i class="el-icon-check"></i> 启用
+          </span>
+                </div>
+            </div>
+
+            <!-- Empty -->
+            <div v-if="!currentPool.id" class="empty-state">
+                <div class="empty-icon">🗂</div>
+                <div class="empty-text">请选择左侧投资池以开始配置</div>
+            </div>
+
+            <!-- Detail -->
+            <div v-else class="content-scroll" v-loading="detailLoading">
+                <el-tabs v-model="activeTab">
+                    <!-- ── Base Config ── -->
+                    <el-tab-pane label="基础配置" name="base">
+                        <div class="form-area">
+
+                            <div class="section-header">
+                                <span class="section-title">基础信息</span>
+                                <div class="section-line"></div>
+                            </div>
+
+                            <el-form ref="baseFormRef" :model="baseForm" :rules="baseRules" label-width="130px">
+                                <el-row :gutter="20">
+                                    <el-col :span="12">
+                                        <el-form-item label="投资池名称" prop="poolName">
+                                            <el-input v-model="baseForm.poolName" maxlength="128" clearable placeholder="请输入投资池名称"></el-input>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="12">
+                                        <el-form-item label="恒生池名称">
+                                            <el-input v-model="baseForm.hsPoolName" maxlength="128" clearable placeholder="请输入恒生系统名称"></el-input>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="12">
+                                        <el-form-item label="投资市场">
+                                            <el-checkbox-group v-model="baseForm.marketCodes">
+                                                <el-checkbox v-for="item in marketOptions" :key="item.value" :label="item.value">{{ item.label }}</el-checkbox>
+                                            </el-checkbox-group>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="12">
+                                        <el-form-item label="投资品种">
+                                            <el-checkbox-group v-model="baseForm.varietyCodes">
+                                                <el-checkbox v-for="item in varietyOptions" :key="item.value" :label="item.value">{{ item.label }}</el-checkbox>
+                                            </el-checkbox-group>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="8">
+                                        <el-form-item label="最大上限数量">
+                                            <el-input-number v-model="baseForm.maxCapacity" :min="0" :max="999999999" class="full-width" controls-position="right"></el-input-number>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="8">
+                                        <el-form-item label="外部排序">
+                                            <el-input-number v-model="baseForm.outerSort" :min="0" :max="9999" class="full-width" controls-position="right"></el-input-number>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="8">
+                                        <el-form-item label="内部排序">
+                                            <el-input-number v-model="baseForm.innerSort" :min="0" :max="9999" class="full-width" controls-position="right"></el-input-number>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="24">
+                                        <el-form-item label="投资池描述">
+                                            <el-input v-model="baseForm.description" type="textarea" :rows="3" maxlength="512" show-word-limit placeholder="请输入描述信息..."></el-input>
+                                        </el-form-item>
+                                    </el-col>
+                                </el-row>
+
+                                <div class="section-header" style="margin-top: 8px;">
+                                    <span class="section-title">审批流程</span>
+                                    <div class="section-line"></div>
+                                </div>
+
+                                <el-row :gutter="20">
+                                    <el-col v-for="item in flowFields" :key="item.key" :span="12">
+                                        <el-form-item :label="item.label">
+                                            <el-select v-model="baseForm[item.key]" filterable class="full-width" placeholder="不需要审批">
+                                                <el-option v-for="flow in flowOptions" :key="flow.optionKey" :label="flow.flowName" :value="flow.optionKey"></el-option>
+                                            </el-select>
+                                        </el-form-item>
+                                    </el-col>
+                                </el-row>
+
+                                <div class="form-actions">
+                                    <button class="btn btn-ghost" @click="loadPoolDetail(currentPool.id)">
+                                        <i class="el-icon-refresh"></i> 刷新
+                                    </button>
+                                    <button class="btn btn-primary" :disabled="baseSubmitLoading" @click="handleSaveBase">
+                                        <i :class="baseSubmitLoading ? 'el-icon-loading' : 'el-icon-check'"></i>
+                                        {{ baseSubmitLoading ? '保存中...' : '保存基础配置' }}
+                                    </button>
+                                </div>
+                            </el-form>
+                        </div>
+                    </el-tab-pane>
+
+                    <!-- ── Relation Config ── -->
+                    <el-tab-pane label="关系配置" name="relation">
+                        <div class="form-area">
+                            <div class="section-header">
+                                <span class="section-title">关系池选择</span>
+                                <div class="section-line"></div>
+                            </div>
+
+                            <div class="relation-grid">
+                                <div v-for="item in relationFields" :key="item.key" class="relation-card">
+                                    <div class="relation-card-header">
+                                        <div class="relation-card-label">
+                                            <span>{{ item.label }}</span>
+                                            <span class="relation-card-count" :class="{ empty: !relationForm.relationPoolIds[item.key] || !relationForm.relationPoolIds[item.key].length }">
+                        {{ (relationForm.relationPoolIds[item.key] || []).length }}
+                      </span>
+                                        </div>
+                                        <button class="relation-select-btn" @click="openPoolTreePicker(item)">
+                                            <i class="el-icon-plus"></i> 选择
+                                        </button>
+                                    </div>
+                                    <div class="relation-card-body">
+                                        <template v-if="relationForm.relationPoolIds[item.key] && relationForm.relationPoolIds[item.key].length">
+                                            <div
+                                                    v-for="poolId in relationForm.relationPoolIds[item.key]"
+                                                    :key="poolId"
+                                                    class="relation-pool-chip">
+                                                <template v-if="getPoolBreadcrumb(poolId).parent">
+                                                    <span class="chip-path">{{ getPoolBreadcrumb(poolId).parent }}</span>
+                                                    <span style="color: var(--text-muted); font-size:10px; flex-shrink:0;">›</span>
+                                                </template>
+                                                <span class="chip-name">{{ getPoolBreadcrumb(poolId).name }}</span>
+                                                <button class="chip-remove" @click="removeRelationPool(item.key, poolId)" title="移除">✕</button>
+                                            </div>
+                                        </template>
+                                        <div v-else class="relation-card-empty" @click="openPoolTreePicker(item)">
+                                            <i class="el-icon-plus" style="margin-right:5px;"></i> 点击选择投资池
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section-header" style="margin-top: 20px;">
+                                <span class="section-title">自动规则备注</span>
+                                <div class="section-line"></div>
+                            </div>
+
+                            <el-row :gutter="20">
+                                <el-col :span="12">
+                                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">自动调入规则</div>
+                                    <el-input v-model="relationForm.autoInRuleDesc" type="textarea" :rows="4" maxlength="512" show-word-limit placeholder="描述自动调入规则..."></el-input>
+                                </el-col>
+                                <el-col :span="12">
+                                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">自动调出规则</div>
+                                    <el-input v-model="relationForm.autoOutRuleDesc" type="textarea" :rows="4" maxlength="512" show-word-limit placeholder="描述自动调出规则..."></el-input>
+                                </el-col>
+                            </el-row>
+
+                            <div class="form-actions">
+                                <button class="btn btn-ghost" @click="loadPoolDetail(currentPool.id)">
+                                    <i class="el-icon-refresh"></i> 刷新
+                                </button>
+                                <button class="btn btn-primary" :disabled="relationSubmitLoading" @click="handleSaveRelation">
+                                    <i :class="relationSubmitLoading ? 'el-icon-loading' : 'el-icon-check'"></i>
+                                    {{ relationSubmitLoading ? '保存中...' : '保存关系配置' }}
+                                </button>
+                            </div>
+                        </div>
+                    </el-tab-pane>
+
+                    <!-- ── Permission Config ── -->
+                    <el-tab-pane label="权限配置" name="permission">
+                        <div class="form-area">
+
+                            <div class="section-header">
+                                <span class="section-title">可查看人员</span>
+                                <div class="section-line"></div>
+                            </div>
+                            <div class="perm-section">
+                                <div class="perm-tag-row">
+                                    <el-tag
+                                            v-for="item in permissionForm.viewable"
+                                            :key="'v_' + item.subjectType + '_' + item.subjectId"
+                                            closable :disable-transitions="false"
+                                            @close="handleRemovePermission('viewable', item)"
+                                            :type="item.subjectType === 'role' ? 'warning' : 'primary'"
+                                            size="small">{{ item.subjectName }}</el-tag>
+                                    <button class="add-perm-btn" @click="handleOpenPermissionDialog('viewable')">
+                                        <i class="el-icon-plus"></i> 添加人员
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="section-header">
+                                <span class="section-title">可调整人员</span>
+                                <div class="section-line"></div>
+                            </div>
+                            <div class="perm-section">
+                                <div class="perm-tag-row">
+                                    <el-tag
+                                            v-for="item in permissionForm.adjustable"
+                                            :key="'a_' + item.subjectType + '_' + item.subjectId"
+                                            closable :disable-transitions="false"
+                                            @close="handleRemovePermission('adjustable', item)"
+                                            :type="item.subjectType === 'role' ? 'warning' : 'primary'"
+                                            size="small">{{ item.subjectName }}</el-tag>
+                                    <button class="add-perm-btn" @click="handleOpenPermissionDialog('adjustable')">
+                                        <i class="el-icon-plus"></i> 添加人员
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="section-header">
+                                <span class="section-title">可 Excel 导入人员</span>
+                                <div class="section-line"></div>
+                            </div>
+                            <div class="perm-section">
+                                <div class="perm-tag-row">
+                                    <el-tag
+                                            v-for="item in permissionForm.excelImportable"
+                                            :key="'e_' + item.subjectType + '_' + item.subjectId"
+                                            closable :disable-transitions="false"
+                                            @close="handleRemovePermission('excelImportable', item)"
+                                            :type="item.subjectType === 'role' ? 'warning' : 'primary'"
+                                            size="small">{{ item.subjectName }}</el-tag>
+                                    <button class="add-perm-btn" @click="handleOpenPermissionDialog('excelImportable')">
+                                        <i class="el-icon-plus"></i> 添加人员
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button class="btn btn-ghost" @click="loadPoolDetail(currentPool.id)">
+                                    <i class="el-icon-refresh"></i> 刷新
+                                </button>
+                                <button class="btn btn-primary" :disabled="permissionSubmitLoading" @click="handleSavePermission">
+                                    <i :class="permissionSubmitLoading ? 'el-icon-loading' : 'el-icon-check'"></i>
+                                    {{ permissionSubmitLoading ? '保存中...' : '保存权限配置' }}
+                                </button>
+                            </div>
+                        </div>
+                    </el-tab-pane>
+                </el-tabs>
+            </div>
+        </main>
+    </div>
+
+    <!-- ── Add Child Dialog ── -->
+    <el-dialog title="添加子投资池" :visible.sync="childDialogVisible" width="480px" @closed="handleChildDialogClosed">
+        <el-form ref="childFormRef" :model="childForm" :rules="childRules" label-width="110px">
+            <el-form-item label="父级投资池">
+                <el-input v-model="childForm.parentName" disabled></el-input>
+            </el-form-item>
+            <el-form-item label="父级池类型">
+                <el-input v-model="childForm.parentTypeName" disabled></el-input>
+            </el-form-item>
+            <el-form-item label="子节点名称" prop="poolName">
+                <el-input v-model="childForm.poolName" maxlength="128" clearable placeholder="请输入节点名称"></el-input>
+            </el-form-item>
+            <el-form-item label="内部排序">
+                <el-input-number v-model="childForm.innerSort" :min="0" :max="9999" class="full-width" controls-position="right"></el-input-number>
+            </el-form-item>
+            <el-form-item label="配置模板">
+                <div class="template-picker-wrap">
+                    <div class="template-picker-display" @click="openTemplatePicker('child')">
+            <span v-if="childForm.templatePoolId" class="template-picker-value">
+              <i class="el-icon-document" style="color: var(--accent-blue-bright); margin-right:5px;"></i>
+              {{ getPoolLabel(childForm.templatePoolId) }}
+            </span>
+                        <span v-else class="template-picker-placeholder">不选择则创建空配置</span>
+                        <span class="template-picker-actions">
+              <i v-if="childForm.templatePoolId" class="el-icon-circle-close template-picker-clear" @click.stop="childForm.templatePoolId = null"></i>
+              <i class="el-icon-arrow-down template-picker-arrow"></i>
+            </span>
+                    </div>
+                </div>
+            </el-form-item>
+        </el-form>
+        <span slot="footer">
+      <button class="btn btn-ghost" @click="childDialogVisible = false">取消</button>
+      <button class="btn btn-primary" :disabled="childSubmitLoading" @click="handleAddChild">
+        <i :class="childSubmitLoading ? 'el-icon-loading' : 'el-icon-plus'"></i>
+        {{ childSubmitLoading ? '创建中...' : '确认新增' }}
+      </button>
+    </span>
+    </el-dialog>
+
+    <!-- ── Add Root Dialog ── -->
+    <el-dialog title="新增顶级投资池" :visible.sync="rootDialogVisible" width="500px" @closed="handleRootDialogClosed">
+        <el-form ref="rootFormRef" :model="rootForm" :rules="rootRules" label-width="110px">
+            <el-form-item label="投资池名称" prop="poolName">
+                <el-input v-model="rootForm.poolName" maxlength="128" clearable placeholder="请输入投资池名称"></el-input>
+            </el-form-item>
+            <el-form-item label="投资池类型" prop="poolType">
+                <el-select v-model="rootForm.poolType" class="full-width" placeholder="请选择投资池类型">
+                    <el-option v-for="item in poolTypeOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                </el-select>
+            </el-form-item>
+            <el-form-item label="外部排序">
+                <el-input-number v-model="rootForm.outerSort" :min="0" :max="9999" class="full-width" controls-position="right"></el-input-number>
+            </el-form-item>
+            <el-form-item label="配置模板">
+                <div class="template-picker-wrap">
+                    <div class="template-picker-display" @click="openTemplatePicker('root')">
+            <span v-if="rootForm.templatePoolId" class="template-picker-value">
+              <i class="el-icon-document" style="color: var(--accent-blue-bright); margin-right:5px;"></i>
+              {{ getPoolLabel(rootForm.templatePoolId) }}
+            </span>
+                        <span v-else class="template-picker-placeholder">不选择则创建空配置</span>
+                        <span class="template-picker-actions">
+              <i v-if="rootForm.templatePoolId" class="el-icon-circle-close template-picker-clear" @click.stop="rootForm.templatePoolId = null"></i>
+              <i class="el-icon-arrow-down template-picker-arrow"></i>
+            </span>
+                    </div>
+                </div>
+            </el-form-item>
+        </el-form>
+        <span slot="footer">
+      <button class="btn btn-ghost" @click="rootDialogVisible = false">取消</button>
+      <button class="btn btn-primary" :disabled="rootSubmitLoading" @click="handleAddRoot">
+        <i :class="rootSubmitLoading ? 'el-icon-loading' : 'el-icon-plus'"></i>
+        {{ rootSubmitLoading ? '创建中...' : '确认新增' }}
+      </button>
+    </span>
+    </el-dialog>
+
+    <!-- ── Pool Tree Picker Dialog ── -->
+    <el-dialog
+            :title="poolPickerField ? '选择' + poolPickerField.label : '选择投资池'"
+            :visible.sync="poolPickerVisible"
+            width="700px"
+            @closed="handlePoolPickerClosed">
+        <div class="pool-tree-dialog-body">
+            <!-- Left: tree -->
+            <div class="ptd-left">
+                <div class="dialog-section-title" style="margin-bottom:0;">投资池树</div>
+                <el-input
+                        v-model="poolPickerSearch"
+                        placeholder="搜索投资池..."
+                        clearable size="small"
+                        prefix-icon="el-icon-search"
+                        class="ptd-search"
+                        @input="handlePoolPickerSearch">
+                </el-input>
+                <div class="ptd-tree-scroll">
+                    <el-tree
+                            ref="poolPickerTreeRef"
+                            node-key="id"
+                            :data="poolPickerTreeData"
+                            :props="treeProps"
+                            :filter-node-method="filterPoolPickerNode"
+                            :node-class-name="getPoolPickerNodeClass"
+                            class="pool-picker-tree"
+                            default-expand-all
+                            highlight-current
+                            @node-click="handlePoolPickerNodeClick">
+            <span slot-scope="{ node, data }" class="tree-node" :class="{ 'is-disabled': !isPoolPickerNodeSelectable(data) }">
+              <i :class="data.children && data.children.length ? 'el-icon-folder-opened tree-node-icon' : 'el-icon-document tree-node-icon'"></i>
+              <span class="tree-node-name">{{ node.label }}</span>
+              <i v-if="isPoolPickerSelected(data.id)" class="el-icon-check" style="color: var(--accent-blue-bright); font-size:12px; flex-shrink:0;"></i>
+            </span>
+                    </el-tree>
+                </div>
+            </div>
+            <!-- Right: selected list -->
+            <div class="ptd-right">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="ptd-right-label">已选投资池</div>
+                    <span class="ptd-count-badge">{{ poolPickerSelected.length }}</span>
+                    <button v-if="poolPickerSelected.length" class="btn btn-ghost" style="height:24px;padding:0 8px;font-size:11px;margin-left:auto;" @click="poolPickerSelected = []">
+                        清空
+                    </button>
+                </div>
+                <div class="ptd-selected-list">
+                    <div v-if="!poolPickerSelected.length" class="ptd-selected-empty">
+                        <span>从左侧树中点击节点添加</span>
+                    </div>
+                    <div
+                            v-for="item in poolPickerSelected"
+                            :key="item.id"
+                            class="ptd-selected-item">
+                        <div class="ptd-item-info">
+                            <div class="ptd-item-name">{{ item.poolName }}</div>
+                            <div v-if="item.parentPath" class="ptd-item-path">{{ item.parentPath }}</div>
+                        </div>
+                        <button class="ptd-item-remove" @click="removeFromPickerSelected(item.id)" title="移除">
+                            <i class="el-icon-close"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <span slot="footer">
+      <button class="btn btn-ghost" @click="poolPickerVisible = false">取消</button>
+      <button class="btn btn-primary" @click="confirmPoolPicker">
+        <i class="el-icon-check"></i> 确认（{{ poolPickerSelected.length }} 项）
+      </button>
+    </span>
+    </el-dialog>
+
+    <!-- ── Template Pool Picker Dialog ── -->
+    <el-dialog
+            title="选择配置模板"
+            :visible.sync="templatePickerVisible"
+            width="560px"
+            @closed="handleTemplatePickerClosed">
+        <div style="display:flex;flex-direction:column;gap:10px;height:380px;">
+            <el-input
+                    v-model="templatePickerSearch"
+                    placeholder="搜索投资池..."
+                    clearable size="small"
+                    prefix-icon="el-icon-search"
+                    @input="handleTemplatePickerSearch">
+            </el-input>
+            <div class="ptd-tree-scroll" style="flex:1;">
+                <el-tree
+                        ref="templatePickerTreeRef"
+                        node-key="id"
+                        :data="poolTree"
+                        :props="treeProps"
+                        :filter-node-method="filterTemplatePickerNode"
+                        default-expand-all
+                        highlight-current
+                        @node-click="handleTemplatePickerNodeClick">
+          <span slot-scope="{ node, data }" class="tree-node">
+            <i :class="data.children && data.children.length ? 'el-icon-folder-opened tree-node-icon' : 'el-icon-document tree-node-icon'"></i>
+            <span class="tree-node-name">{{ node.label }}</span>
+            <i v-if="templatePickerCurrentId === data.id" class="el-icon-check" style="color: var(--accent-blue-bright); font-size:12px; flex-shrink:0;"></i>
+          </span>
+                </el-tree>
+            </div>
+            <div v-if="templatePickerCurrentId" style="padding:10px 12px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-md);display:flex;align-items:center;gap:8px;">
+                <i class="el-icon-document" style="color:var(--accent-blue-bright);"></i>
+                <span style="font-size:13px;color:var(--text-primary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ getPoolLabel(templatePickerCurrentId) }}</span>
+                <button class="btn btn-ghost" style="height:24px;padding:0 8px;font-size:11px;" @click="templatePickerCurrentId = null">清除</button>
+            </div>
+        </div>
+        <span slot="footer">
+      <button class="btn btn-ghost" @click="templatePickerVisible = false">取消</button>
+      <button class="btn btn-primary" @click="confirmTemplatePicker">
+        <i class="el-icon-check"></i> {{ templatePickerCurrentId ? '确认选择' : '不使用模板' }}
+      </button>
+    </span>
+    </el-dialog>
+
+    <!-- ── Permission Dialog ── -->
+    <el-dialog :title="permissionDialogTitle" :visible.sync="permissionDialogVisible" width="880px" @closed="handlePermissionDialogClosed">
+        <el-row :gutter="16">
+            <el-col :span="10">
+                <div class="dialog-section-title">角色选择</div>
+                <button class="add-perm-btn" :style="currentRoleId === '__all__' ? 'border-color: var(--accent-blue); color: var(--accent-blue-bright);' : ''"
+                        @click="handleShowAllUsers" style="margin-bottom: 10px; width: 100%; justify-content: center;">
+                    <i class="el-icon-user"></i> 显示全部人员
+                </button>
+                <el-tree ref="roleTreeRef" :data="roleTreeData" node-key="id"
+                         :props="{ label: 'roleName', children: 'children' }"
+                         show-checkbox check-strictly
+                         @check="handleRoleCheck"
+                         @node-click="handleRoleNodeClick"
+                         style="max-height: 320px; overflow: auto;"></el-tree>
+            </el-col>
+            <el-col :span="14">
+                <div class="dialog-section-title">人员选择</div>
+                <el-input v-model="userSearchKeyword" placeholder="搜索姓名..." clearable size="small"
+                          prefix-icon="el-icon-search"
+                          style="margin-bottom: 10px;" @input="handleUserSearch"></el-input>
+                <el-table :data="filteredUserTableData" v-loading="userTableLoading" max-height="320" stripe
+                          @selection-change="handleUserSelectionChange" ref="userTableRef">
+                    <el-table-column type="selection" width="46"></el-table-column>
+                    <el-table-column prop="userName" label="姓名"></el-table-column>
+                    <el-table-column prop="roleName" label="所属角色"></el-table-column>
+                </el-table>
+            </el-col>
+        </el-row>
+
+        <div class="selected-summary">
+            <div class="selected-summary-row">
+                <span class="selected-label">已选角色</span>
+                <template v-if="selectedRoles.length">
+                    <el-tag v-for="r in selectedRoles" :key="'r_' + r.id" size="small" type="warning">{{ r.roleName }}</el-tag>
+                </template>
+                <span v-else class="selected-empty">暂无</span>
+            </div>
+            <div class="selected-summary-row">
+                <span class="selected-label">已选人员</span>
+                <template v-if="selectedUsers.length">
+                    <el-tag v-for="u in selectedUsers" :key="'u_' + u.id" size="small" type="primary">{{ u.userName }}</el-tag>
+                </template>
+                <span v-else class="selected-empty">暂无</span>
+            </div>
+        </div>
+
+        <span slot="footer">
+      <button class="btn btn-ghost" @click="permissionDialogVisible = false">取消</button>
+      <button class="btn btn-primary" @click="handleConfirmPermissionDialog">
+        <i class="el-icon-check"></i> 确认添加
+      </button>
+    </span>
+    </el-dialog>
+
+</div>
+
+<script>
+    Vue.prototype.apiBase = 'http://localhost:18090'
+    Vue.prototype.apiPost = async function(path, body) {
+        const resp = await axios.post(this.apiBase + path, body || {})
+        const json = resp.data
+        if (json.code !== 0) {
+            this.$message.error(json.message || '接口异常')
+            throw new Error(json.message || '接口异常')
+        }
+        return json.data
+    }
+
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                poolTree: [],
+                flatPoolOptions: [],
+                flowOptions: [],
+                currentPool: {},
+                activeTab: 'base',
+                treeLoading: false,
+                detailLoading: false,
+                baseSubmitLoading: false,
+                relationSubmitLoading: false,
+                rootDialogVisible: false,
+                rootSubmitLoading: false,
+                childDialogVisible: false,
+                childSubmitLoading: false,
+                treeProps: { label: 'poolName', children: 'children' },
+                baseForm: {
+                    id: null, poolName: '', marketCodes: [], varietyCodes: ['bond'], hsPoolName: '',
+                    inFlowId: '', outFlowId: '', simpleInFlowId: '', simpleOutFlowId: '', batchInFlowId: '', batchOutFlowId: '',
+                    maxCapacity: null, outerSort: 0, innerSort: 0, description: ''
+                },
+                relationForm: { id: null, relationPoolIds: {}, autoInRuleDesc: '', autoOutRuleDesc: '' },
+                childForm: { parentId: null, parentName: '', parentTypeName: '', poolName: '', innerSort: null, templatePoolId: null },
+                rootForm: { poolName: '', poolType: '', outerSort: null, templatePoolId: null },
+                poolTypeOptions: [
+                    { label: '信用债', value: 'credit_bond' }, { label: '境外债', value: 'offshore_bond' },
+                    { label: '转债', value: 'convertible_bond' }, { label: '专户产品', value: 'special_account' }, { label: '其他', value: 'other' }
+                ],
+                marketOptions: [
+                    { label: '未知', value: 'UNKNOWN' }, { label: '上海证券交易所', value: 'SSE' },
+                    { label: '深圳证券交易所', value: 'SZSE' }, { label: '银行间市场', value: 'CIBM' }
+                ],
+                varietyOptions: [
+                    { label: '债券', value: 'bond' }, { label: '权证', value: 'warrant' }, { label: '信托', value: 'trust' },
+                    { label: '指数', value: 'index' }, { label: '股票', value: 'stock' }, { label: '公司主体', value: 'issuer' }, { label: '基金', value: 'fund' }
+                ],
+                flowFields: [
+                    { key: 'inFlowId', label: '调入审批流程' }, { key: 'outFlowId', label: '调出审批流程' },
+                    { key: 'simpleInFlowId', label: '简易调入流程' }, { key: 'simpleOutFlowId', label: '简易调出流程' },
+                    { key: 'batchInFlowId', label: '批量调入流程' }, { key: 'batchOutFlowId', label: '批量调出流程' }
+                ],
+                relationFields: [
+                    { key: 'source', label: '来源池' }, { key: 'in_restrict', label: '调入限制池' }, { key: 'out_restrict', label: '调出限制池' },
+                    { key: 'in_linked', label: '调入联动池' }, { key: 'out_linked', label: '调出联动池' },
+                    { key: 'in_mutex', label: '调入互斥池' }, { key: 'out_mutex', label: '调出互斥池' },
+                    { key: 'in_soft_restrict', label: '调入弹性禁投池' }, { key: 'out_soft_restrict', label: '调出弹性禁投池' }
+                ],
+                baseRules: { poolName: [{ required: true, message: '请输入投资池名称', trigger: 'blur' }] },
+                childRules: { poolName: [{ required: true, message: '请输入子节点名称', trigger: 'blur' }] },
+                rootRules: {
+                    poolName: [{ required: true, message: '请输入投资池名称', trigger: 'blur' }],
+                    poolType: [{ required: true, message: '请选择投资池类型', trigger: 'change' }]
+                },
+                // Pool tree picker
+                poolPickerVisible: false,
+                poolPickerField: null,
+                poolPickerSelected: [],
+                poolPickerSearch: '',
+                poolPickerTreeData: [],
+                poolParentMap: {},         // id -> { parentPath, poolName }
+
+                permissionSubmitLoading: false,
+                permissionDialogVisible: false,
+                permissionDialogTitle: '',
+                currentPermissionType: '',
+                permissionForm: { viewable: [], adjustable: [], excelImportable: [] },
+                roleTreeData: [],
+                selectedRoles: [],
+                selectedUsers: [],
+                userTableData: [],
+                filteredUserTableData: [],
+                userTableLoading: false,
+                userSearchKeyword: '',
+                currentRoleId: null,
+                restoringSelection: false,
+
+                // Template picker
+                templatePickerVisible: false,
+                templatePickerTarget: null,   // 'child' | 'root'
+                templatePickerCurrentId: null,
+                templatePickerSearch: ''
+            }
+        },
+        created() {
+            this.initRelationForm()
+            this.loadFlowOptions()
+            this.loadPoolTree()
+        },
+        methods: {
+            getPoolLabel(id) {
+                const flat = this.flatPoolOptions.find(p => p.id === id)
+                return flat ? flat.fullName : String(id)
+            },
+            openTemplatePicker(target) {
+                this.templatePickerTarget = target
+                this.templatePickerCurrentId = target === 'child' ? this.childForm.templatePoolId : this.rootForm.templatePoolId
+                this.templatePickerSearch = ''
+                this.templatePickerVisible = true
+                this.$nextTick(() => {
+                    if (this.$refs.templatePickerTreeRef) {
+                        this.$refs.templatePickerTreeRef.filter('')
+                        if (this.templatePickerCurrentId) this.$refs.templatePickerTreeRef.setCurrentKey(this.templatePickerCurrentId)
+                    }
+                })
+            },
+            handleTemplatePickerClosed() {
+                this.templatePickerTarget = null
+                this.templatePickerCurrentId = null
+                this.templatePickerSearch = ''
+            },
+            handleTemplatePickerSearch(val) {
+                if (this.$refs.templatePickerTreeRef) this.$refs.templatePickerTreeRef.filter(val)
+            },
+            filterTemplatePickerNode(value, data) {
+                if (!value) return true
+                return data.poolName && data.poolName.toLowerCase().indexOf(value.toLowerCase()) !== -1
+            },
+            handleTemplatePickerNodeClick(data) {
+                this.templatePickerCurrentId = (this.templatePickerCurrentId === data.id) ? null : data.id
+                if (this.$refs.templatePickerTreeRef) this.$refs.templatePickerTreeRef.setCurrentKey(this.templatePickerCurrentId)
+            },
+            confirmTemplatePicker() {
+                if (this.templatePickerTarget === 'child') {
+                    this.childForm.templatePoolId = this.templatePickerCurrentId || null
+                } else if (this.templatePickerTarget === 'root') {
+                    this.rootForm.templatePoolId = this.templatePickerCurrentId || null
+                }
+                this.templatePickerVisible = false
+            },
+            initRelationForm() {
+                const r = {}
+                this.relationFields.forEach(item => { r[item.key] = [] })
+                this.relationForm.relationPoolIds = r
+            },
+
+            // Build a flat map of id -> { poolName, parentPath } for breadcrumb display
+            buildPoolParentMap(nodes, parentPath) {
+                ;(nodes || []).forEach(node => {
+                    this.poolParentMap[node.id] = {
+                        poolName: node.poolName,
+                        parentPath: parentPath || '',
+                        hasChildren: !!(node.children && node.children.length)
+                    }
+                    if (node.children && node.children.length) {
+                        const nextPath = parentPath ? parentPath + ' › ' + node.poolName : node.poolName
+                        this.buildPoolParentMap(node.children, nextPath)
+                    }
+                })
+            },
+
+            // Get breadcrumb for a pool id: { name, parent }
+            getPoolBreadcrumb(id) {
+                const info = this.poolParentMap[id]
+                if (!info) {
+                    const flat = this.flatPoolOptions.find(p => p.id === id)
+                    return flat ? { name: flat.poolName, parent: '' } : { name: String(id), parent: '' }
+                }
+                const parts = info.parentPath ? info.parentPath.split(' › ') : []
+                const parent = parts.length ? parts[parts.length - 1] : ''
+                return { name: info.poolName, parent }
+            },
+
+            // Remove a pool from a relation type
+            removeRelationPool(key, poolId) {
+                const ids = this.relationForm.relationPoolIds[key] || []
+                const idx = ids.indexOf(poolId)
+                if (idx !== -1) ids.splice(idx, 1)
+            },
+
+            // Open tree picker for a relation field
+            openPoolTreePicker(field) {
+                this.poolPickerField = field
+                this.poolPickerSearch = ''
+                this.poolPickerTreeData = this.deepCloneTree(this.poolTree)
+                // Pre-populate selected
+                const currentIds = this.relationForm.relationPoolIds[field.key] || []
+                this.poolPickerSelected = currentIds.map(id => {
+                    const info = this.poolParentMap[id]
+                    return { id, poolName: info ? info.poolName : String(id), parentPath: info ? info.parentPath : '' }
+                }).filter(item => this.isPoolPickerIdSelectable(item.id))
+                this.poolPickerVisible = true
+                this.$nextTick(() => {
+                    if (this.$refs.poolPickerTreeRef) this.$refs.poolPickerTreeRef.filter('')
+                })
+            },
+
+            handlePoolPickerClosed() {
+                this.poolPickerField = null
+                this.poolPickerSelected = []
+                this.poolPickerSearch = ''
+            },
+
+            handlePoolPickerSearch(val) {
+                if (this.$refs.poolPickerTreeRef) this.$refs.poolPickerTreeRef.filter(val)
+            },
+
+            filterPoolPickerNode(value, data) {
+                if (!value) return true
+                return data.poolName && data.poolName.toLowerCase().indexOf(value.toLowerCase()) !== -1
+            },
+
+            isPoolPickerSelected(id) {
+                return this.poolPickerSelected.some(s => this.isSamePoolId(s.id, id))
+            },
+
+            isSamePoolId(a, b) {
+                return String(a) === String(b)
+            },
+
+            isPoolPickerNodeSelectable(data) {
+                return !!data && !this.isSamePoolId(data.id, this.currentPool.id) && !(data.children && data.children.length)
+            },
+
+            getPoolPickerNodeClass(data) {
+                return this.isPoolPickerNodeSelectable(data) ? '' : 'is-picker-disabled'
+            },
+
+            isPoolPickerIdSelectable(id) {
+                if (this.isSamePoolId(id, this.currentPool.id)) return false
+                const info = this.poolParentMap[id]
+                return !info || !info.hasChildren
+            },
+
+            handlePoolPickerNodeClick(data) {
+                if (!this.isPoolPickerNodeSelectable(data)) {
+                    this.$nextTick(() => {
+                        if (this.$refs.poolPickerTreeRef) this.$refs.poolPickerTreeRef.setCurrentKey()
+                    })
+                    return
+                }
+                const already = this.poolPickerSelected.findIndex(s => this.isSamePoolId(s.id, data.id))
+                if (already !== -1) {
+                    this.poolPickerSelected.splice(already, 1)
+                } else {
+                    const info = this.poolParentMap[data.id]
+                    this.poolPickerSelected.push({
+                        id: data.id,
+                        poolName: data.poolName,
+                        parentPath: info ? info.parentPath : ''
+                    })
+                }
+            },
+
+            removeFromPickerSelected(id) {
+                const idx = this.poolPickerSelected.findIndex(s => this.isSamePoolId(s.id, id))
+                if (idx !== -1) this.poolPickerSelected.splice(idx, 1)
+            },
+
+            confirmPoolPicker() {
+                if (!this.poolPickerField) return
+                this.relationForm.relationPoolIds[this.poolPickerField.key] = this.poolPickerSelected.map(s => s.id)
+                this.poolPickerVisible = false
+            },
+
+            deepCloneTree(nodes) {
+                return (nodes || []).map(n => ({
+                    ...n,
+                    children: n.children ? this.deepCloneTree(n.children) : []
+                }))
+            },
+            async loadFlowOptions() {
+                try {
+                    const data = await this.apiPost('/api/v1/investmentPool/queryFlowOptionList', {})
+                    this.flowOptions = (data || []).map(item => ({
+                        flowId: item.flowId, flowKey: item.flowKey, flowName: item.flowName || '不需要审批',
+                        optionKey: item.flowId === null || item.flowId === undefined ? '' : String(item.flowId)
+                    }))
+                } catch (e) {
+                    this.flowOptions = [{ flowId: null, flowKey: '', flowName: '不需要审批', optionKey: '' }]
+                }
+            },
+            async loadPoolTree(selectId) {
+                this.treeLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/investmentPool/queryPoolTree', {})
+                    this.poolTree = data || []
+                    this.flatPoolOptions = this.flattenPools(this.poolTree)
+                    this.poolParentMap = {}
+                    this.buildPoolParentMap(this.poolTree, '')
+                    const targetId = selectId || this.currentPool.id || (this.flatPoolOptions[0] && this.flatPoolOptions[0].id)
+                    const targetExists = this.flatPoolOptions.some(p => p.id === targetId)
+                    if (targetExists) {
+                        this.$nextTick(() => { this.$refs.poolTree.setCurrentKey(targetId) })
+                        this.loadPoolDetail(targetId)
+                    } else if (this.flatPoolOptions.length) {
+                        this.$nextTick(() => { this.$refs.poolTree.setCurrentKey(this.flatPoolOptions[0].id) })
+                        this.loadPoolDetail(this.flatPoolOptions[0].id)
+                    } else { this.currentPool = {} }
+                } catch (e) { this.poolTree = []; this.flatPoolOptions = [] }
+                this.treeLoading = false
+            },
+            flattenPools(nodes, parentName) {
+                let result = []
+                ;(nodes || []).forEach(node => {
+                    const fullName = parentName ? parentName + ' / ' + node.poolName : node.poolName
+                    result.push({ id: node.id, poolName: node.poolName, fullName, poolType: node.poolType })
+                    if (node.children && node.children.length) result = result.concat(this.flattenPools(node.children, fullName))
+                })
+                return result
+            },
+            handlePoolClick(data) { this.loadPoolDetail(data.id) },
+            handleOpenAddRoot() {
+                this.rootForm = { poolName: '', poolType: '', outerSort: null, templatePoolId: null }
+                this.rootDialogVisible = true
+            },
+            handleRootDialogClosed() { if (this.$refs.rootFormRef) this.$refs.rootFormRef.clearValidate() },
+            async handleAddRoot() {
+                try { await this.$refs.rootFormRef.validate() } catch (e) { return }
+                this.rootSubmitLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/investmentPool/addRootPool', {
+                        poolName: this.rootForm.poolName, poolType: this.rootForm.poolType,
+                        outerSort: this.rootForm.outerSort, templatePoolId: this.rootForm.templatePoolId, operatorId: 'system'
+                    })
+                    this.$message.success('顶级投资池已新增')
+                    this.rootDialogVisible = false
+                    await this.loadPoolTree(data.id)
+                } catch (e) { this.$message.error('新增顶级投资池失败') }
+                this.rootSubmitLoading = false
+            },
+            handleOpenAddChild(data) {
+                this.childForm = { parentId: data.id, parentName: data.poolName, parentTypeName: this.getPoolTypeName(data.poolType), poolName: '', innerSort: null, templatePoolId: data.id }
+                this.childDialogVisible = true
+            },
+            handleChildDialogClosed() { if (this.$refs.childFormRef) this.$refs.childFormRef.clearValidate() },
+            async handleAddChild() {
+                try { await this.$refs.childFormRef.validate() } catch (e) { return }
+                this.childSubmitLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/investmentPool/addChildPool', {
+                        parentId: this.childForm.parentId, poolName: this.childForm.poolName,
+                        innerSort: this.childForm.innerSort, templatePoolId: this.childForm.templatePoolId, operatorId: 'system'
+                    })
+                    this.$message.success('子节点已新增')
+                    this.childDialogVisible = false
+                    await this.loadPoolTree(data.id)
+                } catch (e) { this.$message.error('新增子节点失败') }
+                this.childSubmitLoading = false
+            },
+            async handleDeletePool(data) {
+                try {
+                    await this.$confirm('确认删除"' + data.poolName + '"及其所有下级节点？删除后相关关系配置也会同步清理。', '确认删除', {
+                        type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消'
+                    })
+                    await this.apiPost('/api/v1/investmentPool/deletePoolNode', { id: data.id, operatorId: 'system' })
+                    this.$message.success('节点已删除')
+                    this.currentPool = {}
+                    await this.loadPoolTree()
+                } catch (e) { if (e !== 'cancel') this.$message.error('删除节点失败') }
+            },
+            async loadPoolDetail(id) {
+                if (!id) return
+                this.detailLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/investmentPool/queryPoolDetail', { id })
+                    this.currentPool = data || {}
+                    this.fillBaseForm(data || {})
+                    this.fillRelationForm(data || {})
+                    this.fillPermissionForm(data || {})
+                } catch (e) { this.currentPool = {} }
+                this.detailLoading = false
+            },
+            fillBaseForm(data) {
+                this.baseForm = {
+                    id: data.id, poolName: data.poolName || '', marketCodes: data.marketCodes || [],
+                    varietyCodes: data.varietyCodes && data.varietyCodes.length ? data.varietyCodes : ['bond'],
+                    hsPoolName: data.hsPoolName || '',
+                    inFlowId: this.getFlowValue(data.inFlow), outFlowId: this.getFlowValue(data.outFlow),
+                    simpleInFlowId: this.getFlowValue(data.simpleInFlow), simpleOutFlowId: this.getFlowValue(data.simpleOutFlow),
+                    batchInFlowId: this.getFlowValue(data.batchInFlow), batchOutFlowId: this.getFlowValue(data.batchOutFlow),
+                    maxCapacity: data.maxCapacity, outerSort: data.outerSort || 0, innerSort: data.innerSort || 0, description: data.description || ''
+                }
+            },
+            fillRelationForm(data) {
+                this.initRelationForm()
+                const rel = data.relationPoolIds || {}
+                this.relationFields.forEach(item => { this.relationForm.relationPoolIds[item.key] = rel[item.key] || [] })
+                this.relationForm.id = data.id
+                this.relationForm.autoInRuleDesc = data.autoInRuleDesc || ''
+                this.relationForm.autoOutRuleDesc = data.autoOutRuleDesc || ''
+            },
+            getFlowValue(flow) { return flow && flow.flowId ? String(flow.flowId) : '' },
+            getFlowOption(optionKey) {
+                const item = this.flowOptions.find(f => f.optionKey === optionKey)
+                if (!item || !item.flowId) return null
+                return { flowId: item.flowId, flowKey: item.flowKey, flowName: item.flowName }
+            },
+            getPoolTypeName(poolType) {
+                const item = this.poolTypeOptions.find(o => o.value === poolType)
+                return item ? item.label : (poolType || '')
+            },
+            async handleSaveBase() {
+                try { await this.$refs.baseFormRef.validate() } catch (e) { return }
+                this.baseSubmitLoading = true
+                try {
+                    const body = {
+                        id: this.baseForm.id, poolName: this.baseForm.poolName, marketCodes: this.baseForm.marketCodes,
+                        varietyCodes: this.baseForm.varietyCodes, hsPoolName: this.baseForm.hsPoolName,
+                        inFlow: this.getFlowOption(this.baseForm.inFlowId), outFlow: this.getFlowOption(this.baseForm.outFlowId),
+                        simpleInFlow: this.getFlowOption(this.baseForm.simpleInFlowId), simpleOutFlow: this.getFlowOption(this.baseForm.simpleOutFlowId),
+                        batchInFlow: this.getFlowOption(this.baseForm.batchInFlowId), batchOutFlow: this.getFlowOption(this.baseForm.batchOutFlowId),
+                        maxCapacity: this.baseForm.maxCapacity, outerSort: this.baseForm.outerSort, innerSort: this.baseForm.innerSort,
+                        description: this.baseForm.description, operatorId: 'system'
+                    }
+                    const data = await this.apiPost('/api/v1/investmentPool/editPoolConfig', body)
+                    this.$message.success('基础配置已保存')
+                    this.currentPool = data; this.fillBaseForm(data); this.loadPoolTree()
+                } catch (e) { this.$message.error('保存基础配置失败') }
+                this.baseSubmitLoading = false
+            },
+            async handleSaveRelation() {
+                this.relationSubmitLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/investmentPool/editPoolRelation', {
+                        id: this.currentPool.id, relationPoolIds: this.relationForm.relationPoolIds,
+                        autoInRuleDesc: this.relationForm.autoInRuleDesc, autoOutRuleDesc: this.relationForm.autoOutRuleDesc, operatorId: 'system'
+                    })
+                    this.$message.success('关系配置已保存')
+                    this.currentPool = data; this.fillRelationForm(data)
+                } catch (e) { this.$message.error('保存关系配置失败') }
+                this.relationSubmitLoading = false
+            },
+            fillPermissionForm(data) {
+                const permissions = data.permissions || []
+                this.permissionForm = { viewable: [], adjustable: [], excelImportable: [] }
+                permissions.forEach(function(item) {
+                    if (item.permissionType === 'viewable') this.permissionForm.viewable.push(item)
+                    if (item.permissionType === 'adjustable') this.permissionForm.adjustable.push(item)
+                    if (item.permissionType === 'excel_importable') this.permissionForm.excelImportable.push(item)
+                }.bind(this))
+            },
+            handleRemovePermission(type, item) {
+                const list = this.permissionForm[type]
+                const idx = list.findIndex(p => p.subjectType === item.subjectType && p.subjectId === item.subjectId)
+                if (idx !== -1) list.splice(idx, 1)
+            },
+            async handleOpenPermissionDialog(type) {
+                this.currentPermissionType = type
+                const labels = { viewable: '选择可查看人员', adjustable: '选择可调整人员', excelImportable: '选择可 Excel 导入人员' }
+                this.permissionDialogTitle = labels[type] || '选择人员'
+                this.userSearchKeyword = ''; this.currentRoleId = '__all__'; this.permissionDialogVisible = true
+                if (this.roleTreeData.length === 0) {
+                    const flatRoles = await this.apiPost('/api/v1/investmentPool/queryRoleList', {})
+                    this.roleTreeData = this.buildRoleTree(flatRoles)
+                }
+                this.initPermissionDialogSelection(type)
+                this.userTableData = await this.apiPost('/api/v1/investmentPool/queryUserList', {})
+                this.setUserTableData(this.userTableData)
+                this.$nextTick(() => { this.restoreRoleTreeSelection() })
+            },
+            handlePermissionDialogClosed() {
+                this.selectedRoles = []; this.selectedUsers = []; this.userSearchKeyword = ''
+                this.currentRoleId = null; this.restoringSelection = false; this.userTableData = []; this.filteredUserTableData = []
+            },
+            initPermissionDialogSelection(type) {
+                const list = this.permissionForm[type] || []
+                this.selectedRoles = list.filter(i => i.subjectType === 'role').map(i => ({ id: i.subjectId, roleName: i.subjectName }))
+                this.selectedUsers = list.filter(i => i.subjectType === 'user').map(i => ({ id: i.subjectId, userName: i.subjectName, roleName: i.roleName || '' }))
+            },
+            restoreRoleTreeSelection() {
+                if (!this.$refs.roleTreeRef) return
+                this.$refs.roleTreeRef.setCheckedKeys(this.selectedRoles.map(r => r.id))
+            },
+            handleRoleCheck(checkedNode, checkedState) {
+                const keys = checkedState.checkedKeys
+                this.selectedRoles = []
+                keys.forEach(key => {
+                    const role = this.findRoleById(this.roleTreeData, key)
+                    if (role) this.selectedRoles.push(role)
+                })
+            },
+            async handleShowAllUsers() {
+                this.currentRoleId = '__all__'; this.userTableLoading = true
+                try {
+                    this.userTableData = await this.apiPost('/api/v1/investmentPool/queryUserList', {})
+                    this.setUserTableData(this.userTableData); this.userSearchKeyword = ''
+                } catch (e) { this.userTableData = []; this.filteredUserTableData = []; this.restoringSelection = false }
+                this.userTableLoading = false
+            },
+            async handleRoleNodeClick(data) {
+                this.currentRoleId = data.id; this.userTableLoading = true
+                try {
+                    this.userTableData = await this.apiPost('/api/v1/investmentPool/queryUserList', { roleId: data.id })
+                    this.setUserTableData(this.userTableData); this.userSearchKeyword = ''
+                } catch (e) { this.userTableData = []; this.filteredUserTableData = []; this.restoringSelection = false }
+                this.userTableLoading = false
+            },
+            setUserTableData(data) {
+                this.restoringSelection = true; this.userTableData = data || []; this.filteredUserTableData = this.userTableData
+                this.$nextTick(() => { this.restoreUserTableSelection() })
+            },
+            restoreUserTableSelection() {
+                if (!this.$refs.userTableRef) { this.restoringSelection = false; return }
+                this.restoringSelection = true; this.$refs.userTableRef.clearSelection()
+                this.filteredUserTableData.forEach(row => {
+                    const isSelected = this.selectedUsers.some(u => String(u.id) === String(row.id))
+                    this.$refs.userTableRef.toggleRowSelection(row, isSelected)
+                })
+                this.$nextTick(() => { this.restoringSelection = false })
+            },
+            buildRoleTree(flatList) {
+                if (!flatList || !flatList.length) return []
+                const map = {}; const roots = []
+                flatList.forEach(item => { map[item.id] = { id: item.id, roleName: item.roleName, parentId: item.parentId, children: [] } })
+                flatList.forEach(item => {
+                    const node = map[item.id]
+                    if (item.parentId && map[item.parentId]) map[item.parentId].children.push(node)
+                    else roots.push(node)
+                })
+                return roots
+            },
+            findRoleById(tree, id) {
+                for (let i = 0; i < tree.length; i++) {
+                    const node = tree[i]
+                    if (String(node.id) === String(id)) return node
+                    if (node.children && node.children.length) { const found = this.findRoleById(node.children, id); if (found) return found }
+                }
+                return null
+            },
+            handleUserSearch() {
+                const kw = this.userSearchKeyword.trim().toLowerCase()
+                this.restoringSelection = true
+                this.filteredUserTableData = kw ? this.userTableData.filter(u => u.userName.toLowerCase().indexOf(kw) !== -1) : this.userTableData
+                this.$nextTick(() => { this.restoreUserTableSelection() })
+            },
+            handleUserSelectionChange(rows) {
+                if (this.restoringSelection) return
+                const visibleIds = this.filteredUserTableData.map(u => String(u.id))
+                const userMap = {}
+                this.selectedUsers.forEach(u => { if (visibleIds.indexOf(String(u.id)) === -1) userMap[u.id] = u })
+                rows.forEach(row => { userMap[row.id] = { id: row.id, userName: row.userName, roleName: row.roleName } })
+                this.selectedUsers = Object.keys(userMap).map(key => userMap[key])
+            },
+            handleConfirmPermissionDialog() {
+                const type = this.currentPermissionType
+                const dbTypeMap = { viewable: 'viewable', adjustable: 'adjustable', excelImportable: 'excel_importable' }
+                const dbType = dbTypeMap[type] || type; const list = []
+                this.selectedRoles.forEach(role => { list.push({ subjectType: 'role', subjectId: role.id, subjectName: role.roleName, permissionType: dbType }) })
+                this.selectedUsers.forEach(user => { list.push({ subjectType: 'user', subjectId: user.id, subjectName: user.userName, permissionType: dbType }) })
+                this.permissionForm[type] = list; this.permissionDialogVisible = false; this.$message.success('已添加')
+            },
+            async handleSavePermission() {
+                this.permissionSubmitLoading = true
+                try {
+                    const allPermissions = [].concat(this.permissionForm.viewable).concat(this.permissionForm.adjustable).concat(this.permissionForm.excelImportable)
+                    const data = await this.apiPost('/api/v1/investmentPool/editPoolPermission', { id: this.currentPool.id, permissions: allPermissions, operatorId: 'system' })
+                    this.$message.success('权限配置已保存')
+                    this.currentPool = data; this.fillPermissionForm(data)
+                } catch (e) { this.$message.error('保存权限配置失败') }
+                this.permissionSubmitLoading = false
+            }
+        }
+    })
+</script>
+</body>
+</html>

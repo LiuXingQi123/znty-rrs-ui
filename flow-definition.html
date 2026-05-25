@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流程定义 - 工作流平台</title>
+    <!-- ElementUI CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <!-- Vue2 -->
+    <script src="https://unpkg.com/vue@2.7.16/dist/vue.min.js"></script>
+    <!-- ElementUI JS -->
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <!-- Axios -->
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #f4f5f8; --white: #fff; --border: #e2e5ee; --border2: #cdd2e4;
+            --text: #1c1f2e; --text2: #5c6282; --text3: #9ba3c0;
+            --blue: #3b6bff; --blue-l: #eef2ff; --blue-m: rgba(59,107,255,.13);
+            --green: #16a34a; --green-l: #f0fdf4;
+            --amber: #b45309; --amber-l: #fffbeb;
+            --red: #dc2626; --red-l: #fef2f2;
+            --gray-l: #f8f9fc;
+            --shadow: 0 1px 3px rgba(28,31,46,.08), 0 1px 2px rgba(28,31,46,.05);
+            --shadow-md: 0 4px 12px rgba(28,31,46,.10);
+            --r: 8px; --r-lg: 12px; --mono: 'Courier New', monospace;
+        }
+        html, body { height: 100%; overflow: hidden; }
+        body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+        #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        .topbar-stat { display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--white); font-size: 12.5px; color: var(--text2); cursor: default; }
+        .topbar-stat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .topbar-stat-num { font-weight: 700; font-size: 13.5px; }
+
+        /* 页面切换 */
+        .page { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+        .page.active { display: flex; }
+
+        /* 列表页面 */
+        .list-topbar { height: 54px; background: var(--white); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 8px; flex-shrink: 0; }
+        .list-topbar-title { font-size: 15px; font-weight: 600; color: var(--text); }
+        .list-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+        .toolbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+
+        /* 表格单元格 */
+        .proc-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
+        .proc-desc { font-size: 12.5px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cell-mono { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+        .cell-ver { display: inline-flex; align-items: center; font-family: var(--mono); font-size: 11.5px; font-weight: 600; color: var(--text2); background: var(--gray-l); border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; }
+        .cell-time { font-size: 12px; color: var(--text2); font-family: var(--mono); }
+
+        .flex1 { flex: 1; }
+
+        /* 设计器 */
+        .designer-topbar { height: 54px; background: var(--white); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 8px; flex-shrink: 0; }
+        .proc-info-name { font-size: 14px; font-weight: 600; color: var(--text); }
+        .proc-info-key { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 1px; }
+        .tool-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+        .designer-body { flex: 1; display: flex; overflow: hidden; }
+
+        /* 节点面板 */
+        .palette { width: 186px; min-width: 186px; background: var(--white); border-right: 1px solid var(--border); overflow-y: auto; padding: 14px 12px; flex-shrink: 0; }
+        .palette-group { margin-bottom: 16px; }
+        .palette-group-label { font-size: 10px; font-weight: 700; color: var(--text3); letter-spacing: .09em; text-transform: uppercase; padding: 0 2px 7px; display: flex; align-items: center; gap: 5px; }
+        .palette-group-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        .palette-node { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; margin-bottom: 6px; cursor: grab; font-size: 12.5px; font-weight: 500; color: var(--text2); background: var(--white); transition: all .14s; user-select: none; position: relative; overflow: hidden; }
+        .palette-node::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 9px 0 0 9px; opacity: 0; transition: opacity .14s; }
+        .palette-node:hover { border-color: var(--border2); box-shadow: 0 2px 8px rgba(28,31,46,.09); color: var(--text); transform: translateY(-1px); }
+        .palette-node:hover::before { opacity: 1; }
+        .palette-node:active { cursor: grabbing; transform: scale(.97); opacity: .75; }
+        .pn-dot { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .pn-dot svg { display: block; }
+        .pn-label { display: flex; flex-direction: column; gap: 1px; }
+        .pn-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
+        .pn-desc { font-size: 10.5px; color: var(--text3); font-weight: 400; }
+        .pn-start { background: #dcfce7; color: #16a34a; }
+        .pn-end   { background: #fee2e2; color: #dc2626; }
+        .pn-appv  { background: #dbeafe; color: #1d4ed8; }
+        .pn-cond  { background: #fef3c7; color: #b45309; }
+        .pn-auto  { background: #ede9fe; color: #7c3aed; }
+        .pn-notify{ background: #cffafe; color: #0e7490; }
+        .palette-node.pn-start-wrap:hover::before { background: #16a34a; }
+        .palette-node.pn-end-wrap:hover::before   { background: #dc2626; }
+        .palette-node.pn-appv-wrap:hover::before  { background: #1d4ed8; }
+        .palette-node.pn-cond-wrap:hover::before  { background: #b45309; }
+        .palette-node.pn-auto-wrap:hover::before  { background: #7c3aed; }
+        .palette-node.pn-notify-wrap:hover::before{ background: #0e7490; }
+        .palette-hint { background: var(--gray-l); border-radius: var(--r); padding: 9px 10px; font-size: 11px; color: var(--text3); line-height: 1.75; margin-top: 4px; border: 1px dashed var(--border2); }
+
+        /* 画布 */
+        .canvas-wrap { flex: 1; position: relative; background: var(--bg); overflow: hidden; cursor: default; }
+        .canvas-wrap.panning { cursor: grabbing; }
+        .canvas-wrap.link-mode { cursor: crosshair; }
+        .canvas-wrap.drag-over { outline: 2px dashed var(--blue); outline-offset: -2px; }
+        .canvas-toolbar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: var(--white); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 4px; padding: 5px 8px; z-index: 20; }
+        .canvas-toolbar .el-button--mini { padding: 5px 10px; font-size: 12.5px; }
+        .canvas-toolbar .el-divider--vertical { margin: 0 2px; height: 16px; }
+        .zoom-label { min-width: 52px; justify-content: center; font-family: var(--mono) !important; cursor: default !important; }
+        .statusbar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: var(--white); border: 1px solid var(--border); border-radius: 20px; padding: 4px 14px; font-size: 12px; color: var(--text3); display: flex; align-items: center; gap: 8px; font-family: var(--mono); box-shadow: var(--shadow); pointer-events: none; white-space: nowrap; }
+        .sbar-sep { color: var(--border2); }
+
+        /* 属性面板 */
+        .props-panel { width: 268px; min-width: 268px; background: var(--white); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+        .props-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
+        .props-head-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .props-head-title { font-size: 13px; font-weight: 700; color: var(--text); }
+        .props-head-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+        .props-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+        .props-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text3); padding: 40px 20px; text-align: center; gap: 8px; height: 100%; }
+        .props-empty-icon { font-size: 28px; opacity: .5; }
+        .fsec { margin-bottom: 18px; background: var(--gray-l); border-radius: 10px; padding: 11px 12px; border: 1px solid var(--border); }
+        .fsec-title { font-size: 10px; font-weight: 700; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+        .fsec-title::before { content: ''; width: 3px; height: 10px; border-radius: 2px; background: var(--blue); flex-shrink: 0; }
+        .fsec-title.green::before { background: var(--green); }
+        .fsec-title.amber::before { background: var(--amber); }
+        .fsec-title.purple::before { background: #7c3aed; }
+        .fsec-title.cyan::before { background: #0e7490; }
+        .divider { height: 1px; background: var(--border); margin: 10px 0; }
+
+        /* 条件编辑器 */
+        .cond-rule { background: var(--white); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(28,31,46,.05); }
+        .cond-rule-header { display: flex; align-items: center; justify-content: space-between; padding: 7px 11px; background: var(--gray-l); border-bottom: 1px solid var(--border); }
+        .cond-rule-label { font-size: 10.5px; font-weight: 700; color: var(--text3); letter-spacing:.04em; text-transform: uppercase; }
+        .cond-rule-body { padding: 10px 11px; }
+        /* 规则间逻辑连接符 */
+        .cond-logic-sep { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; }
+        .cond-logic-line { flex: 1; height: 1px; background: var(--border); }
+        .cond-logic-badge { font-size: 10.5px; font-weight: 700; color: var(--blue); background: var(--blue-l); border: 1px solid rgba(59,107,255,.2); border-radius: 20px; padding: 1px 10px; white-space: nowrap; }
+        /* 条件预览 */
+        .cond-preview { font-size: 11px; font-family: var(--mono); color: var(--text2); background: var(--gray-l); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-top: 10px; word-break: break-all; line-height: 1.7; }
+        .cond-preview-lbl { font-size: 10px; font-weight: 700; color: var(--text3); letter-spacing:.06em; text-transform:uppercase; margin-bottom: 4px; }
+
+        /* 新建流程弹窗 */
+        .create-dialog .el-dialog__header { padding: 0; border-bottom: 1px solid var(--border); }
+        .create-dialog .el-dialog__body   { padding: 24px 28px 8px; }
+        .create-dialog .el-dialog__footer { padding: 16px 28px 22px; border-top: 1px solid var(--border); }
+
+        .create-dialog-header { display: flex; align-items: center; gap: 14px; padding: 20px 28px; }
+        .create-dialog-icon { width: 42px; height: 42px; border-radius: 10px; background: var(--blue-l); color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; border: 1px solid rgba(59,107,255,.18); }
+        .create-dialog-title { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.2; }
+        .create-dialog-sub { font-size: 12.5px; color: var(--text3); margin-top: 3px; }
+
+        .create-form { }
+        .create-form-item { margin-bottom: 16px; }
+        .create-form .el-form-item__label { padding-bottom: 5px !important; }
+        .create-label { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: var(--text2); }
+        .create-label-icon { font-size: 13px; color: var(--text3); }
+        .create-label-required { color: var(--red); font-weight: 700; margin-left: 1px; }
+        .create-label-optional { font-size: 11px; font-weight: 400; color: var(--text3); margin-left: 4px; background: var(--gray-l); padding: 1px 6px; border-radius: 10px; border: 1px solid var(--border); }
+        .create-hint { font-size: 11.5px; color: var(--text3); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+        .create-hint::before { content: ''; display: inline-block; width: 3px; height: 3px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+
+        .create-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+
+        .key-prepend { font-size: 10.5px; font-weight: 700; color: var(--text3); letter-spacing: .05em; }
+        .sel-opt-dot { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 4px; vertical-align: middle; }
+
+        .create-dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
+        .create-btn-cancel { color: var(--text2) !important; border-color: var(--border) !important; }
+        .create-btn-confirm { font-weight: 600 !important; letter-spacing: .02em; }
+
+        /* ElementUI 样式覆盖 */
+        .el-button--mini { padding: 5px 11px; font-size: 12.5px; }
+        .el-input__inner { font-size: 13px; }
+        .el-select .el-input__inner { font-size: 13px; }
+        .el-dialog__body { padding: 16px 24px 0; }
+        .el-dialog__header { padding: 20px 24px 10px; }
+        .el-dialog__footer { padding: 10px 24px 20px; }
+        .el-pagination { margin-top: 0; }
+
+        /* 右键菜单 */
+        .ctx-menu { position: fixed; display: none; background: var(--white); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow-md); padding: 4px; z-index: 9999; min-width: 130px; }
+        .ctx-menu.show { display: block; }
+        .ctx-item { display: flex; align-items: center; gap: 7px; padding: 7px 10px; border-radius: 6px; font-size: 13px; color: var(--text2); cursor: pointer; transition: all .12s; }
+        .ctx-item:hover { background: var(--gray-l); color: var(--text); }
+        .ctx-item.danger:hover { background: var(--red-l); color: var(--red); }
+
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+        /* 发布检查清单 */
+        .checklist { background: var(--gray-l); border-radius: var(--r); padding: 11px 13px; margin-bottom: 14px; }
+        .check-item { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 2px 0; }
+        .check-ok { color: var(--green); }
+        .check-warn { color: var(--amber); }
+        .check-err { color: var(--red); }
+        .delete-confirm-box { background: var(--red-l); border: 1px solid rgba(220,38,38,.18); border-radius: var(--r); padding: 11px 13px; font-size: 13px; color: var(--red); }
+
+        /* 历史版本弹窗 */
+        .hist-dialog .el-dialog__header { padding: 0; border-bottom: 1px solid var(--border); }
+        .hist-dialog .el-dialog__body   { padding: 0; }
+        .hist-dialog .el-dialog__footer { padding: 14px 24px; border-top: 1px solid var(--border); }
+        .hist-dialog-header { display: flex; align-items: center; gap: 14px; padding: 18px 24px; }
+        .hist-dialog-icon { width: 40px; height: 40px; border-radius: 10px; background: #eff6ff; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; border: 1px solid rgba(59,107,255,.18); }
+        .hist-dialog-title { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.2; }
+        .hist-dialog-sub { font-size: 12.5px; color: var(--text3); margin-top: 3px; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <!-- 列表页面 -->
+    <div class="page" :class="{ active: currentPage === 'list' }">
+        <div class="list-topbar">
+            <span class="list-topbar-title">流程定义</span>
+            <div class="topbar-stat" style="margin-left:16px">
+                <div class="topbar-stat-dot" style="background:#94a3b8"></div>
+                总计 <span class="topbar-stat-num">{{ listTotal }}</span>
+            </div>
+            <div class="topbar-stat">
+                <div class="topbar-stat-dot" style="background:var(--green)"></div>
+                已发布 <span class="topbar-stat-num" style="color:var(--green)">{{ tableData.filter(r=>r.status==='active').length }}</span>
+            </div>
+            <div class="topbar-stat">
+                <div class="topbar-stat-dot" style="background:var(--amber)"></div>
+                草稿 <span class="topbar-stat-num" style="color:var(--amber)">{{ tableData.filter(r=>r.status==='draft').length }}</span>
+            </div>
+            <div class="topbar-stat">
+                <div class="topbar-stat-dot" style="background:#cbd5e1"></div>
+                已停用 <span class="topbar-stat-num" style="color:var(--text3)">{{ tableData.filter(r=>r.status==='disabled').length }}</span>
+            </div>
+            <div class="flex1"></div>
+            <el-button type="primary" size="small" icon="el-icon-plus" @click="openCreate">新建流程</el-button>
+        </div>
+        <div class="list-body">
+
+            <!-- 搜索筛选工具栏 -->
+            <div class="toolbar-row">
+                <el-input v-model="searchText" placeholder="搜索名称 / Key…" prefix-icon="el-icon-search" size="small" style="width:220px" clearable></el-input>
+                <el-select v-model="statusFilter" placeholder="全部状态" size="small" style="width:110px" clearable>
+                    <el-option label="已发布" value="active"></el-option>
+                    <el-option label="草稿" value="draft"></el-option>
+                    <el-option label="已停用" value="disabled"></el-option>
+                </el-select>
+                <el-select v-model="categoryFilter" placeholder="全部分类" size="small" style="width:110px" clearable>
+                    <el-option label="利率债" value="bond"></el-option>
+                    <el-option label="基金" value="fund"></el-option>
+                    <el-option label="信用债" value="credit"></el-option>
+                    <el-option label="其他" value="other"></el-option>
+                </el-select>
+                <div class="flex1"></div>
+                <span style="font-size:13px;color:var(--text3)">共 <b style="color:var(--text)">{{ listTotal }}</b> 条</span>
+            </div>
+
+            <!-- 流程列表表格 -->
+            <el-table :data="tableData" v-loading="loading" style="width:100%" stripe>
+                <el-table-column label="流程名称" min-width="140">
+                    <template slot-scope="scope"><div class="proc-name">{{ scope.row.name }}</div></template>
+                </el-table-column>
+                <el-table-column label="描述" min-width="200" show-overflow-tooltip>
+                    <template slot-scope="scope"><div class="proc-desc">{{ scope.row.desc || '' }}</div></template>
+                </el-table-column>
+                <el-table-column label="流程 Key" width="160">
+                    <template slot-scope="scope"><div class="cell-mono">{{ scope.row.key }}</div></template>
+                </el-table-column>
+                <el-table-column label="业务分类" width="90">
+                    <template slot-scope="scope"><el-tag :type="catTagType(scope.row.category)" size="small">{{ catLabel(scope.row.category) }}</el-tag></template>
+                </el-table-column>
+                <el-table-column label="版本" width="65">
+                    <template slot-scope="scope"><span class="cell-ver">{{ scope.row.ver }}</span></template>
+                </el-table-column>
+                <el-table-column label="状态" width="80">
+                    <template slot-scope="scope"><el-tag :type="statusTagType(scope.row.status)" size="small">{{ statusLabel(scope.row.status) }}</el-tag></template>
+                </el-table-column>
+                <el-table-column label="更新时间" width="180">
+                    <template slot-scope="scope"><div class="cell-time">{{ scope.row.updateTime }}</div></template>
+                </el-table-column>
+                <el-table-column label="操作" width="450">
+                    <template slot-scope="scope">
+                        <el-button v-if="scope.row.status === 'active'" size="mini" type="primary" plain @click="forkFlow(scope.row.id)">更新流程</el-button>
+                        <el-button v-if="scope.row.status === 'draft'" size="mini" type="primary" plain @click="openDesigner(scope.row.id, false, false)">编辑流程</el-button>
+                        <el-button size="mini" @click="openEditInfo(scope.row)">基础信息</el-button>
+                        <el-button size="mini" @click="openDesigner(scope.row.id, false, true)">查看</el-button>
+                        <el-button size="mini" icon="el-icon-time" @click="openHistory(scope.row)">历史</el-button>
+                        <!-- 仅已发布 → 停用 -->
+                        <el-button v-if="scope.row.status === 'active'" size="mini" type="warning" plain @click="disableFlow(scope.row)">停用</el-button>
+                        <!-- 仅已停用 → 恢复（固定恢复为草稿） -->
+                        <el-button v-if="scope.row.status === 'disabled'" size="mini" type="success" plain @click="restoreFlow(scope.row)">恢复</el-button>
+                        <!-- 草稿 → 发布 -->
+                        <el-button v-if="scope.row.status === 'draft'" size="mini" type="success" plain @click="pubRow(scope.row.id)">发布</el-button>
+                        <el-button size="mini" type="danger" plain @click="openDel(scope.row.id)">删除</el-button>
+                    </template>
+                </el-table-column>
+                <template slot="empty">
+                    <div style="text-align:center;padding:40px;color:#9ba3c0">暂无数据</div>
+                </template>
+            </el-table>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;font-size:12.5px;color:var(--text3)">
+                <span>共 {{ listTotal }} 条</span>
+                <el-pagination layout="prev, pager, next" :total="listTotal" :page-size="pageSize" :current-page.sync="currentPageNum" small></el-pagination>
+            </div>
+        </div>
+    </div>
+
+    <!-- 流程设计器页面 -->
+    <div class="page" :class="{ active: currentPage === 'designer' }">
+        <div class="designer-topbar">
+            <el-button size="mini" icon="el-icon-arrow-left" @click="currentPage = 'list'">返回列表</el-button>
+            <div style="margin-left:6px">
+                <div class="proc-info-name">{{ designerInfo.name }}</div>
+                <div class="proc-info-key">{{ designerInfo.keyVer }}</div>
+            </div>
+            <span v-if="viewMode" style="margin-left:8px;padding:2px 10px;background:#fffbeb;border:1px solid #fde68a;border-radius:20px;font-size:12px;color:#b45309;font-weight:500">👁 只读预览</span>
+            <el-button size="mini" icon="el-icon-time" style="margin-left:10px" @click="openHistoryFromDesigner">流程历史</el-button>
+            <div class="flex1"></div>
+            <template v-if="!viewMode">
+                <el-button size="mini" @click="undo" :disabled="histIdx <= 0">↺ 撤销</el-button>
+                <el-button size="mini" @click="redo" :disabled="histIdx >= hist.length - 1">↻ 重做</el-button>
+                <div class="tool-sep"></div>
+                <el-button size="mini" @click="saveDraft">保存草稿</el-button>
+                <el-button type="primary" size="mini" icon="el-icon-upload2" @click="publishVisible = true">发布</el-button>
+            </template>
+        </div>
+        <div class="designer-body">
+
+            <!-- 左侧节点面板 -->
+            <div class="palette" v-if="!viewMode">
+                <div class="palette-group">
+                    <div class="palette-group-label">基础</div>
+                    <div class="palette-node pn-start-wrap" draggable="true" data-ntype="start" @dragstart="palDragStart">
+                        <div class="pn-dot">
+                            <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="14" cy="14" r="13" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+                                <circle cx="14" cy="14" r="9" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+                            </svg>
+                        </div>
+                        <div class="pn-label"><div class="pn-name">开始节点</div><div class="pn-desc">流程入口</div></div>
+                    </div>
+                    <div class="palette-node pn-end-wrap" draggable="true" data-ntype="end" @dragstart="palDragStart">
+                        <div class="pn-dot">
+                            <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="14" cy="14" r="13" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/>
+                                <circle cx="14" cy="14" r="9" fill="#dc2626" stroke="#dc2626" stroke-width="1"/>
+                            </svg>
+                        </div>
+                        <div class="pn-label"><div class="pn-name">结束节点</div><div class="pn-desc">流程出口</div></div>
+                    </div>
+                </div>
+                <div class="palette-group">
+                    <div class="palette-group-label">流程</div>
+                    <div class="palette-node pn-appv-wrap" draggable="true" data-ntype="approval" @dragstart="palDragStart">
+                        <div class="pn-dot">
+                            <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="1" y="4" width="26" height="20" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+                                <rect x="1" y="4" width="26" height="4" rx="4" fill="#3b82f6"/>
+                                <rect x="1" y="6" width="26" height="2" fill="#3b82f6"/>
+                            </svg>
+                        </div>
+                        <div class="pn-label"><div class="pn-name">审批节点</div><div class="pn-desc">人工审核处理</div></div>
+                    </div>
+                    <div class="palette-node pn-cond-wrap" draggable="true" data-ntype="condition" @dragstart="palDragStart">
+                        <div class="pn-dot">
+                            <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+                                <polygon points="14,1 27,14 14,27 1,14" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+                            </svg>
+                        </div>
+                        <div class="pn-label"><div class="pn-name">条件判断</div><div class="pn-desc">流程分叉路口</div></div>
+                    </div>
+                    <div class="palette-node pn-auto-wrap" draggable="true" data-ntype="auto" @dragstart="palDragStart">
+                        <div class="pn-dot">
+                            <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="1" y="4" width="26" height="20" rx="4" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+                                <rect x="1" y="4" width="26" height="4" rx="4" fill="#7c3aed"/>
+                                <rect x="1" y="6" width="26" height="2" fill="#7c3aed"/>
+                            </svg>
+                        </div>
+                        <div class="pn-label"><div class="pn-name">自动执行</div><div class="pn-desc">系统自动任务</div></div>
+                    </div>
+                    <div class="palette-node pn-notify-wrap" draggable="true" data-ntype="notify" @dragstart="palDragStart">
+                        <div class="pn-dot">
+                            <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="1" y="4" width="26" height="20" rx="4" fill="#cffafe" stroke="#0891b2" stroke-width="1.5"/>
+                                <rect x="1" y="4" width="26" height="4" rx="4" fill="#0891b2"/>
+                                <rect x="1" y="6" width="26" height="2" fill="#0891b2"/>
+                            </svg>
+                        </div>
+                        <div class="pn-label"><div class="pn-name">消息通知</div><div class="pn-desc">发送通知消息</div></div>
+                    </div>
+                </div>
+                <div class="palette-hint">
+                    💡 拖拽节点到画布<br>
+                    拖空白处平移 · 滚轮缩放<br>
+                    连线模式点击连接节点<br>
+                    双击连线编辑条件
+                </div>
+            </div>
+
+            <!-- 中间画布区域 -->
+            <div
+                    id="cw"
+                    class="canvas-wrap"
+                    :class="{ panning: isPanning, 'link-mode': tool === 'link', 'drag-over': isDragOver }"
+                    @dragover.prevent="isDragOver = true"
+                    @dragleave="isDragOver = false"
+                    @drop="cvDrop"
+                    @mousedown="canvasMousedown"
+                    @wheel.prevent="onWheel"
+            >
+                <div class="canvas-toolbar">
+                    <el-button-group v-if="!viewMode">
+                        <el-button size="mini" :type="tool === 'select' ? 'primary' : ''" @click="setTool('select')"><i class="el-icon-cursor"></i> 选择</el-button>
+                        <el-button size="mini" :type="tool === 'link' ? 'primary' : ''" @click="setTool('link')"><i class="el-icon-share"></i> 连线</el-button>
+                    </el-button-group>
+                    <el-divider v-if="!viewMode" direction="vertical"></el-divider>
+                    <el-button-group>
+                        <el-button size="mini" @click="changeZoom(-0.1)">−</el-button>
+                        <el-button size="mini" class="zoom-label" style="cursor:default;pointer-events:none">{{ Math.round(zoom * 100) }}%</el-button>
+                        <el-button size="mini" @click="changeZoom(0.1)">+</el-button>
+                    </el-button-group>
+                    <el-divider direction="vertical"></el-divider>
+                    <el-button size="mini" icon="el-icon-full-screen" @click="fitView">适应</el-button>
+                    <template v-if="!viewMode">
+                        <el-divider direction="vertical"></el-divider>
+                        <el-button size="mini" type="danger" plain @click="clearCanvas">清空</el-button>
+                    </template>
+                </div>
+
+                <svg id="fsvg" style="width:100%;height:100%;display:block" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+                            <circle cx="1" cy="1" r="1" fill="#dde1ec"/>
+                        </pattern>
+                        <marker id="arr" viewBox="0 0 12 10" refX="10" refY="5" markerWidth="10" markerHeight="10" orient="auto">
+                            <path d="M0 0L12 5L0 10Z" fill="#8a94b8"/>
+                        </marker>
+                        <marker id="arr-sel" viewBox="0 0 12 10" refX="10" refY="5" markerWidth="10" markerHeight="10" orient="auto">
+                            <path d="M0 0L12 5L0 10Z" fill="#3b6bff"/>
+                        </marker>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#dots)"/>
+                    <g id="el" :transform="`translate(${panX},${panY}) scale(${zoom})`">
+                        <g id="eg"></g>
+                        <g id="ng"></g>
+                    </g>
+                    <line id="llink" display="none" stroke="#3b6bff" stroke-width="1.5" stroke-dasharray="5 3" pointer-events="none"/>
+                </svg>
+
+                <div class="statusbar">
+                    <span>{{ nodes.length }} 个节点</span>
+                    <span class="sbar-sep">·</span>
+                    <span>{{ edges.length }} 条连线</span>
+                    <span class="sbar-sep">·</span>
+                    <span>缩放 {{ Math.round(zoom * 100) }}%</span>
+                    <span class="sbar-sep">·</span>
+                    <span>{{ statusbarSel }}</span>
+                </div>
+            </div>
+
+            <!-- 右侧属性面板 -->
+            <div class="props-panel">
+                <div class="props-head">
+                    <div class="props-head-icon" :style="propHeadIconStyle" v-html="propHeadIcon"></div>
+                    <div>
+                        <div class="props-head-title">{{ propsTitle }}</div>
+                        <div class="props-head-sub">{{ propsSub }}</div>
+                    </div>
+                </div>
+                <div class="props-body">
+                    <div v-if="!selId" class="props-empty">
+                        <div class="props-empty-icon">🖱</div>
+                        <div style="font-size:13px;line-height:1.7">点击画布中的节点<br>在此编辑属性</div>
+                    </div>
+                    <div v-else-if="selEdge">
+                        <el-form label-position="top" size="small">
+                        <div class="fsec">
+                            <div class="fsec-title">连线标签</div>
+                            <el-form-item label="显示名称">
+                                <el-input size="small" v-model="selEdge.label" @change="renderAll" placeholder="自动生成 / 手动覆盖" :readonly="viewMode" :disabled="viewMode"></el-input>
+                            </el-form-item>
+                        </div>
+                        <div class="fsec">
+                            <div class="fsec-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                                <span>触发条件</span>
+                                <el-radio-group v-if="!viewMode" v-model="condLogic" size="mini">
+                                    <el-radio-button label="AND">且 AND</el-radio-button>
+                                    <el-radio-button label="OR">或 OR</el-radio-button>
+                                </el-radio-group>
+                                <span v-else style="font-size:11.5px;color:var(--text3)">{{ condLogic === 'AND' ? '且 AND' : '或 OR' }}</span>
+                            </div>
+
+                            <div v-if="condRules.length === 0" style="font-size:12px;color:var(--text3);text-align:center;padding:12px 0;background:var(--gray-l);border-radius:8px">
+                                暂无条件，连线始终通过
+                            </div>
+
+                            <div v-for="(rule, idx) in condRules" :key="idx">
+                                <div class="cond-rule">
+                                    <!-- 条件卡片头 -->
+                                    <div class="cond-rule-header">
+                                        <span class="cond-rule-label">条件 {{ idx + 1 }}</span>
+                                        <el-button v-if="!viewMode" size="mini" type="text" icon="el-icon-close" style="color:var(--red);padding:0" @click="removeCondRule(idx)"></el-button>
+                                    </div>
+                                    <!-- 条件卡片体 -->
+                                    <div class="cond-rule-body">
+                                        <!-- 判断字段 -->
+                                        <el-form-item label="判断字段" label-width="auto" style="margin-bottom:8px">
+                                        <el-select v-model="rule.field" size="small" style="width:100%" placeholder="选择判断字段" :disabled="viewMode" @change="onFieldChange(rule)">
+                                            <el-option-group v-for="g in condFieldGroupOptions" :key="g.groupName" :label="'── ' + g.groupName + ' ──'">
+                                                <el-option v-for="f in g.fields" :key="f.value" :label="f.label" :value="f.value"></el-option>
+                                            </el-option-group>
+                                        </el-select>
+                                        </el-form-item>
+
+                                        <template v-if="isBoolField(rule.field)">
+                                            <el-radio-group v-model="rule.val" size="small" :disabled="viewMode || !rule.field" @change="rule.op='eq'; syncEdgeLabel()" style="width:100%;display:flex">
+                                                <el-radio-button label="是" style="flex:1;text-align:center">✓ 是</el-radio-button>
+                                                <el-radio-button label="否" style="flex:1;text-align:center">✕ 否</el-radio-button>
+                                            </el-radio-group>
+                                        </template>
+
+                                        <!-- 非布尔字段：运算符 + 判断值 -->
+                                        <template v-else>
+                                            <div style="display:flex;gap:6px;align-items:flex-start">
+                                                <div style="flex:0 0 72px">
+                                                    <el-form-item label="运算符" label-width="auto" style="margin-bottom:0">
+                                                        <el-select v-model="rule.op" size="small" style="width:100%" :disabled="viewMode || !rule.field">
+                                                            <el-option v-for="op in getOps(rule.field)" :key="op.value" :label="op.label" :value="op.value"></el-option>
+                                                        </el-select>
+                                                    </el-form-item>
+                                                </div>
+                                                <div style="flex:1;min-width:0">
+                                                    <el-form-item label="判断值" label-width="auto" style="margin-bottom:0">
+                                                        <el-select v-model="rule.val" size="small" style="width:100%" placeholder="选择值" :disabled="viewMode || !rule.field" @change="syncEdgeLabel">
+                                                            <el-option v-for="v in getVals(rule.field)" :key="v.value" :label="v.label" :value="v.value"></el-option>
+                                                        </el-select>
+                                                    </el-form-item>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                                <!-- 且/或 分隔 -->
+                                <div v-if="idx < condRules.length - 1" class="cond-logic-sep">
+                                    <div class="cond-logic-line"></div>
+                                    <span class="cond-logic-badge">{{ condLogic === 'AND' ? '且' : '或' }}</span>
+                                    <div class="cond-logic-line"></div>
+                                </div>
+                            </div>
+
+                            <el-button v-if="!viewMode" size="mini" style="width:100%;margin-top:8px" icon="el-icon-plus" @click="addCondRule">添加条件</el-button>
+
+                            <div v-if="condPreview" class="cond-preview">
+                                <div class="cond-preview-lbl">条件预览</div>
+                                {{ condPreview }}
+                            </div>
+                        </div>
+
+                        <div class="fsec">
+                            <div class="fsec-title">备注</div>
+                            <el-form-item label="备注">
+                                <el-input type="textarea" :rows="2" v-model="selEdge.remark" placeholder="连线说明…" :disabled="viewMode"></el-input>
+                            </el-form-item>
+                        </div>
+                        </el-form>
+
+                        <el-button v-if="!viewMode" type="danger" size="mini" style="width:100%;margin-top:4px" @click="deleteEdge">删除此连线</el-button>
+                    </div>
+                    <div v-else-if="selNode">
+                        <el-form label-position="top" size="small">
+                        <!-- 基本信息 -->
+                        <div class="fsec">
+                            <div class="fsec-title">基本信息</div>
+                            <el-form-item label="节点名称">
+                                <el-input size="small" v-model="selNode.label" @input="!viewMode && renderAll()" :disabled="viewMode"></el-input>
+                            </el-form-item>
+                            <el-form-item label="节点标识">
+                                <el-input size="small" :value="selNode.id" readonly style="font-family:var(--mono)"></el-input>
+                            </el-form-item>
+                        </div>
+                        <!-- 审批节点配置 -->
+                        <template v-if="selNode.type === 'approval'">
+                            <div class="fsec">
+                                <div class="fsec-title">处理人配置</div>
+                                <el-form-item label="处理策略">
+                                    <el-select size="small" style="width:100%" v-model="selNode.approvalStrategy" :disabled="viewMode">
+                                        <el-option label="抢占审批（任一人处理即可）" value="preempt"></el-option>
+                                        <el-option label="指定特定人（全部处理）" value="all"></el-option>
+                                        <el-option label="流程发起人" value="initiator"></el-option>
+                                    </el-select>
+                                </el-form-item>
+                                <el-form-item v-if="selNode.approvalStrategy !== 'initiator'" label="处理人">
+                                    <el-select
+                                            size="small" style="width:100%"
+                                            v-model="selNode.approvalPersons"
+                                            multiple collapse-tags
+                                            placeholder="请选择处理人"
+                                            :disabled="viewMode"
+                                    >
+                                        <el-option v-for="r in roleOptions" :key="r.value" :label="r.label" :value="r.value"></el-option>
+                                    </el-select>
+                                </el-form-item>
+                                <el-form-item label="备注">
+                                    <el-input type="textarea" :rows="2" v-model="selNode.approvalRemark" placeholder="节点说明…" :disabled="viewMode"></el-input>
+                                </el-form-item>
+                            </div>
+                        </template>
+                        <!-- 条件节点配置 -->
+                        <template v-if="selNode.type === 'condition'">
+                            <div class="fsec">
+                                <div class="fsec-title amber">条件说明</div>
+                                <div style="font-size:12px;color:var(--text2);background:var(--white);border-radius:7px;padding:9px 11px;line-height:1.7;margin-bottom:10px;border:1px solid var(--border)">
+                                    💡 条件分支逻辑请在<b style="color:var(--blue)">出线</b>上配置，此节点作为分叉路口使用
+                                </div>
+                                <el-form-item label="备注">
+                                    <el-input type="textarea" :rows="2" v-model="selNode.conditionRemark" placeholder="节点说明…" :disabled="viewMode"></el-input>
+                                </el-form-item>
+                            </div>
+                        </template>
+                        <template v-if="selNode.type === 'auto'">
+                            <div class="fsec">
+                                <div class="fsec-title purple" style="display:flex;align-items:center;justify-content:space-between">
+                                    <span style="display:flex;align-items:center;gap:5px"><span style="width:3px;height:10px;border-radius:2px;background:#7c3aed;flex-shrink:0;display:inline-block"></span>执行任务</span>
+                                    <el-button v-if="!viewMode" size="mini" type="text" icon="el-icon-plus" @click="addAutoTask" style="padding:0;color:#7c3aed">添加任务</el-button>
+                                </div>
+                                <div v-if="!selNode.autoTasks.length" style="font-size:12px;color:var(--text3);text-align:center;padding:12px 0;background:var(--white);border-radius:7px;margin-bottom:8px;border:1px dashed var(--border2)">暂无任务，点击添加</div>
+                                <div v-for="(task, idx) in selNode.autoTasks" :key="task.id" style="display:flex;gap:5px;align-items:center;margin-bottom:6px">
+                                    <span style="font-size:11.5px;color:var(--text3);flex-shrink:0;min-width:38px">任务{{ idx+1 }}</span>
+                                    <el-select size="small" style="flex:1" v-model="task.task" placeholder="选择任务" :disabled="viewMode">
+                                        <el-option v-for="t in autoTaskOptions" :key="t.value" :label="t.label" :value="t.value"></el-option>
+                                    </el-select>
+                                    <el-button v-if="!viewMode" size="mini" type="danger" plain icon="el-icon-close" circle @click="pushH(); selNode.autoTasks.splice(idx,1)"></el-button>
+                                </div>
+                                <el-form-item label="备注" style="margin-top:8px">
+                                    <el-input type="textarea" :rows="2" v-model="selNode.autoRemark" placeholder="节点说明…" :disabled="viewMode"></el-input>
+                                </el-form-item>
+                            </div>
+                        </template>
+                        <!-- 通知节点配置 -->
+                        <template v-if="selNode.type === 'notify'">
+                            <div class="fsec">
+                                <div class="fsec-title cyan">通知配置</div>
+                                <el-form-item label="通知方式">
+                                    <el-select size="small" style="width:100%" v-model="selNode.notifyChannels" multiple collapse-tags placeholder="请选择通知方式" :disabled="viewMode">
+                                        <el-option label="系统消息" value="system"></el-option>
+                                        <el-option label="邮件" value="email"></el-option>
+                                        <el-option label="短信" value="sms"></el-option>
+                                        <el-option label="企业微信" value="wecom"></el-option>
+                                    </el-select>
+                                </el-form-item>
+                                <el-form-item label="通知对象">
+                                    <el-select size="small" style="width:100%" v-model="selNode.notifyTarget" :disabled="viewMode">
+                                        <el-option label="流程发起人" value="initiator"></el-option>
+                                        <el-option label="指定人员" value="person"></el-option>
+                                    </el-select>
+                                </el-form-item>
+                                <el-form-item v-if="selNode.notifyTarget === 'person'" label="指定人员">
+                                    <el-select size="small" style="width:100%" v-model="selNode.notifyPersons" multiple collapse-tags placeholder="请选择通知人员" :disabled="viewMode">
+                                        <el-option v-for="r in roleOptions" :key="r.value" :label="r.label" :value="r.value"></el-option>
+                                    </el-select>
+                                </el-form-item>
+                                <el-form-item label="消息模板">
+                                    <el-input type="textarea" :rows="2" v-model="selNode.notifyTpl" :disabled="viewMode"></el-input>
+                                </el-form-item>
+                                <el-form-item label="备注">
+                                    <el-input type="textarea" :rows="2" v-model="selNode.notifyRemark" placeholder="节点说明…" :disabled="viewMode"></el-input>
+                                </el-form-item>
+                            </div>
+                        </template>
+                        </el-form>
+                        <div class="divider"></div>
+                        <el-button v-if="!viewMode" type="danger" size="mini" style="width:100%" @click="deleteNode">删除此节点</el-button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 右键菜单 -->
+    <div id="ctx-menu" class="ctx-menu" :class="{ show: ctxVisible }" :style="{ left: ctxX + 'px', top: ctxY + 'px' }">
+        <div class="ctx-item danger" @click="ctxDo('del')">
+            <i class="el-icon-delete"></i> 删除节点
+        </div>
+        <div class="ctx-item" @click="ctxDo('dup')">
+            <i class="el-icon-copy-document"></i> 复制节点
+        </div>
+    </div>
+
+    <!-- 新建流程弹窗 -->
+    <el-dialog :visible.sync="createVisible" width="520px" :show-close="false" custom-class="create-dialog">
+        <div slot="title" class="create-dialog-header">
+            <div class="create-dialog-icon"><i class="el-icon-s-operation"></i></div>
+            <div>
+                <div class="create-dialog-title">新建流程定义</div>
+                <div class="create-dialog-sub">填写基本信息，创建后进入设计器开始编排</div>
+            </div>
+        </div>
+        <el-form :model="createForm" label-position="top" size="small" class="create-form">
+
+            <!-- 流程名称字段 -->
+            <el-form-item class="create-form-item">
+                <label slot="label" class="create-label">
+                    <i class="el-icon-edit-outline create-label-icon"></i> 流程名称
+                    <span class="create-label-required">*</span>
+                </label>
+                <el-input v-model="createForm.name" placeholder="例：信用债入库审批流程" class="create-input"></el-input>
+            </el-form-item>
+
+            <!-- Key 与业务分类双列布局 -->
+            <div class="create-row-2">
+                <el-form-item class="create-form-item">
+                    <label slot="label" class="create-label">
+                        <i class="el-icon-key create-label-icon"></i> 流程 Key
+                    </label>
+                    <el-input v-model="createForm.key" placeholder="选填，如 bond:credit-inbound" class="create-input">
+                        <span slot="prepend" class="key-prepend">KEY</span>
+                    </el-input>
+                    <div class="create-hint">程序化标识，供外部系统调用时使用</div>
+                </el-form-item>
+                <el-form-item class="create-form-item">
+                    <label slot="label" class="create-label">
+                        <i class="el-icon-collection-tag create-label-icon"></i> 业务分类
+                    </label>
+                    <el-select v-model="createForm.category" style="width:100%" placeholder="请选择">
+                        <el-option label="利率债" value="bond">
+                            <span class="sel-opt-dot" style="background:#dbeafe;color:#1d4ed8">债</span> 利率债
+                        </el-option>
+                        <el-option label="基金" value="fund">
+                            <span class="sel-opt-dot" style="background:#fdf4ff;color:#7c3aed">基</span> 基金
+                        </el-option>
+                        <el-option label="信用债" value="credit">
+                            <span class="sel-opt-dot" style="background:#fff7ed;color:#c2410c">信</span> 信用债
+                        </el-option>
+                        <el-option label="其他" value="other">
+                            <span class="sel-opt-dot" style="background:#f1f5f9;color:#64748b">他</span> 其他
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+            </div>
+
+            <!-- 描述字段 -->
+            <el-form-item class="create-form-item">
+                <label slot="label" class="create-label">
+                    <i class="el-icon-document create-label-icon"></i> 描述
+                </label>
+                <el-input type="textarea" v-model="createForm.desc" :rows="2" placeholder="简述业务场景及用途…" class="create-input"></el-input>
+            </el-form-item>
+
+            <!-- 备注字段 -->
+            <el-form-item class="create-form-item" style="margin-bottom:0">
+                <label slot="label" class="create-label">
+                    <i class="el-icon-chat-dot-square create-label-icon"></i> 备注
+                    <span class="create-label-optional">内部可见</span>
+                </label>
+                <el-input type="textarea" v-model="createForm.remark" :rows="2" placeholder="内部备注，不对发起人展示…" class="create-input"></el-input>
+            </el-form-item>
+
+        </el-form>
+        <span slot="footer" class="create-dialog-footer">
+      <el-button @click="createVisible = false" class="create-btn-cancel">取消</el-button>
+      <el-button type="primary" @click="confirmCreate" class="create-btn-confirm">
+        <i class="el-icon-right"></i> 创建并进入设计器
+      </el-button>
+    </span>
+    </el-dialog>
+
+    <!-- 发布流程弹窗 -->
+    <el-dialog title="发布流程" :visible.sync="publishVisible" width="380px">
+        <div style="font-size:13px;color:var(--text3);margin-bottom:14px">发布后生成新版本，运行中实例继续使用原版本</div>
+        <div class="checklist">
+            <div class="check-item check-ok">✓ 存在唯一开始节点</div>
+            <div class="check-item check-ok">✓ 所有节点已连通</div>
+            <div class="check-item check-ok">✓ 条件分支已配置</div>
+            <div class="check-item check-warn">⚠ 部分节点未配置超时策略（可选）</div>
+        </div>
+        <el-form label-position="top" size="small">
+            <el-form-item label="版本备注">
+                <el-input v-model="publishNote" placeholder="描述本次改动…"></el-input>
+            </el-form-item>
+        </el-form>
+        <span slot="footer">
+      <el-button @click="publishVisible = false">取消</el-button>
+      <el-button type="primary" @click="confirmPublish">确认发布</el-button>
+    </span>
+    </el-dialog>
+
+    <!-- 编辑基础信息弹窗 -->
+    <el-dialog :visible.sync="editInfoVisible" width="520px" :show-close="false" custom-class="create-dialog">
+        <div slot="title" class="create-dialog-header">
+            <div class="create-dialog-icon" style="background:#f0fdf4;color:#16a34a;border-color:rgba(22,163,74,.18)"><i class="el-icon-edit"></i></div>
+            <div>
+                <div class="create-dialog-title">编辑基础信息</div>
+                <div class="create-dialog-sub">修改流程的名称、分类、描述等基本属性</div>
+            </div>
+        </div>
+        <el-form :model="editInfoForm" label-position="top" size="small" class="create-form">
+
+            <el-form-item class="create-form-item">
+                <label slot="label" class="create-label">
+                    <i class="el-icon-edit-outline create-label-icon"></i> 流程名称
+                    <span class="create-label-required">*</span>
+                </label>
+                <el-input v-model="editInfoForm.name" placeholder="例：信用债入库审批流程" class="create-input"></el-input>
+            </el-form-item>
+
+            <div class="create-row-2">
+                <el-form-item class="create-form-item">
+                    <label slot="label" class="create-label">
+                        <i class="el-icon-key create-label-icon"></i> 流程 Key
+                    </label>
+                    <el-input v-model="editInfoForm.key" placeholder="选填，如 bond:credit-inbound" class="create-input">
+                        <span slot="prepend" class="key-prepend">KEY</span>
+                    </el-input>
+                    <div class="create-hint">程序化标识，供外部系统调用时使用</div>
+                </el-form-item>
+                <el-form-item class="create-form-item">
+                    <label slot="label" class="create-label">
+                        <i class="el-icon-collection-tag create-label-icon"></i> 业务分类
+                    </label>
+                    <el-select v-model="editInfoForm.category" style="width:100%" placeholder="请选择">
+                        <el-option label="利率债" value="bond"><span class="sel-opt-dot" style="background:#dbeafe;color:#1d4ed8">债</span> 利率债</el-option>
+                        <el-option label="基金" value="fund"><span class="sel-opt-dot" style="background:#fdf4ff;color:#7c3aed">基</span> 基金</el-option>
+                        <el-option label="信用债" value="credit"><span class="sel-opt-dot" style="background:#fff7ed;color:#c2410c">信</span> 信用债</el-option>
+                        <el-option label="其他" value="other"><span class="sel-opt-dot" style="background:#f1f5f9;color:#64748b">他</span> 其他</el-option>
+                    </el-select>
+                </el-form-item>
+            </div>
+
+            <el-form-item class="create-form-item">
+                <label slot="label" class="create-label">
+                    <i class="el-icon-document create-label-icon"></i> 描述
+                </label>
+                <el-input type="textarea" v-model="editInfoForm.desc" :rows="2" placeholder="简述业务场景及用途…" class="create-input"></el-input>
+            </el-form-item>
+
+            <el-form-item class="create-form-item" style="margin-bottom:0">
+                <label slot="label" class="create-label">
+                    <i class="el-icon-chat-dot-square create-label-icon"></i> 备注
+                    <span class="create-label-optional">内部可见</span>
+                </label>
+                <el-input type="textarea" v-model="editInfoForm.remark" :rows="2" placeholder="内部备注，不对发起人展示…" class="create-input"></el-input>
+            </el-form-item>
+
+        </el-form>
+        <span slot="footer" class="create-dialog-footer">
+      <el-button @click="editInfoVisible = false" class="create-btn-cancel">取消</el-button>
+      <el-button type="primary" @click="confirmEditInfo" class="create-btn-confirm">
+        <i class="el-icon-check"></i> 保存修改
+      </el-button>
+    </span>
+    </el-dialog>
+
+    <!-- 删除确认弹窗 -->
+    <el-dialog title="删除流程定义" :visible.sync="deleteVisible" width="380px">
+        <div style="font-size:13px;color:var(--text3);margin-bottom:14px">此操作不可撤销，已发布版本同时停用</div>
+        <div class="delete-confirm-box">确认删除「{{ deleteTarget ? deleteTarget.name : '' }}」？</div>
+        <span slot="footer">
+      <el-button @click="deleteVisible = false">取消</el-button>
+      <el-button type="danger" @click="confirmDelete">确认删除</el-button>
+    </span>
+    </el-dialog>
+
+    <!-- 流程历史弹窗 -->
+    <el-dialog :visible.sync="historyVisible" width="980px" :show-close="false" custom-class="hist-dialog">
+        <div slot="title" class="hist-dialog-header">
+            <div class="hist-dialog-icon"><i class="el-icon-time"></i></div>
+            <div>
+                <div class="hist-dialog-title">流程历史 — {{ historyTarget ? historyTarget.name : '' }}</div>
+                <div class="hist-dialog-sub">查看该流程所有历史版本的发布记录</div>
+            </div>
+        </div>
+        <el-table :data="historyRows" style="width:100%" stripe>
+            <el-table-column label="流程名称" min-width="140">
+                <template slot-scope="scope"><div class="proc-name">{{ scope.row.name }}</div></template>
+            </el-table-column>
+            <el-table-column label="描述" min-width="160" show-overflow-tooltip>
+                <template slot-scope="scope"><div class="proc-desc">{{ scope.row.desc || '' }}</div></template>
+            </el-table-column>
+            <el-table-column label="流程 Key" width="160">
+                <template slot-scope="scope"><div class="cell-mono">{{ scope.row.key }}</div></template>
+            </el-table-column>
+            <el-table-column label="业务分类" width="90">
+                <template slot-scope="scope"><el-tag :type="catTagType(scope.row.category)" size="small">{{ catLabel(scope.row.category) }}</el-tag></template>
+            </el-table-column>
+            <el-table-column label="版本" width="65">
+                <template slot-scope="scope"><span class="cell-ver">{{ scope.row.ver }}</span></template>
+            </el-table-column>
+            <el-table-column label="状态" width="80">
+                <template slot-scope="scope"><el-tag :type="statusTagType(scope.row.status)" size="small">{{ statusLabel(scope.row.status) }}</el-tag></template>
+            </el-table-column>
+            <el-table-column label="更新时间" width="180">
+                <template slot-scope="scope"><div class="cell-time">{{ scope.row.updateTime }}</div></template>
+            </el-table-column>
+            <el-table-column label="操作" min-width="100">
+                <template slot-scope="scope">
+                    <el-button v-if="scope.row.status === 'draft'" size="mini" type="primary" plain @click="openDesigner(scope.row.rowId || historyTarget.id, false, false); historyVisible = false">编辑流程</el-button>
+                    <el-button v-else size="mini" @click="viewVersion(scope.row.rowId || historyTarget.id, scope.row.versionId); historyVisible = false">查看流程</el-button>
+                </template>
+            </el-table-column>
+            <template slot="empty">
+                <div style="text-align:center;padding:40px;color:#9ba3c0;font-size:13px">暂无历史版本</div>
+            </template>
+        </el-table>
+        <span slot="footer">
+      <el-button @click="historyVisible = false">关闭</el-button>
+    </span>
+    </el-dialog>
+
+</div>
+
+<script>
+    // ─── 节点类型配置：定义六种流程节点的外观与默认文本 ───
+    const NCfg = {
+        start:    { label: '开始',    fill: '#dcfce7', stroke: '#16a34a', tc: '#15803d', badge: 'START',    shape: 'circle' },
+        end:      { label: '结束',    fill: '#fee2e2', stroke: '#dc2626', tc: '#dc2626', badge: 'END',      shape: 'circle' },
+        approval: { label: '审批节点',fill: '#dbeafe', stroke: '#3b82f6', tc: '#1d4ed8', badge: 'APPROVAL', shape: 'rect' },
+        condition:{ label: '条件判断',fill: '#fef3c7', stroke: '#d97706', tc: '#b45309', badge: 'CONDITION',shape: 'diamond' },
+        auto:     { label: '自动执行',fill: '#ede9fe', stroke: '#7c3aed', tc: '#6d28d9', badge: 'AUTO',     shape: 'rect' },
+        notify:   { label: '消息通知',fill: '#cffafe', stroke: '#0891b2', tc: '#0e7490', badge: 'NOTIFY',   shape: 'rect' },
+    };
+    // 节点尺寸常量：NW=矩形宽 NH=矩形高 CR=圆形半径 DH=菱形半高 DW=菱形半宽
+    const NW = 148, NH = 60, CR = 38, DH = 38, DW = 52;
+    // SVG 命名空间 URI（XML 标识符，非网络请求）
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    // 创建 SVG 元素的工具函数
+    const mkEl = (tag, attrs = {}) => {
+        const e = document.createElementNS(SVG_NS, tag);
+        Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
+        return e;
+    };
+
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                // ── 页面路由 ──
+                currentPage: 'list',            // 当前页面：'list' | 'designer'
+
+                // ── 列表数据 ──
+                tableData: [],                  // 流程定义列表（从 API 加载）
+                listTotal: 0,                   // 列表总数（服务端分页）
+                loading: false,                  // 列表加载状态
+                // 字典缓存
+                roleOptions: [],                // 角色选项 [{value, label}]
+                autoTaskOptions: [],            // 自动任务选项 [{value, label}]
+                condFieldGroupOptions: [],      // 条件字段分组 [{groupName, fields: [{value, label}]}]
+                // 列表搜索与筛选
+                _searchTimer: null,             // 搜索防抖定时器
+                searchText: '',                 // 搜索关键字
+                statusFilter: '',               // 状态筛选：'' | 'active' | 'draft' | 'disabled'
+                categoryFilter: '',             // 分类筛选：'' | 'bond' | 'fund' | 'credit' | 'other'
+                currentPageNum: 1,              // 当前页码
+                pageSize: 10,                   // 每页条数
+
+                // ── 弹窗状态 ──
+                createVisible: false,           // 新建流程弹窗
+                createForm: { name: '', key: '', desc: '', remark: '', category: '' },
+                editInfoVisible: false,         // 编辑基础信息弹窗
+                editInfoForm: { id: null, name: '', key: '', desc: '', remark: '', category: '' },
+                publishVisible: false,          // 发布流程弹窗
+                publishNote: '',                // 发布版本备注
+                deleteVisible: false,           // 删除确认弹窗
+                deleteTarget: null,             // 待删除的流程对象
+
+                // ── 流程历史 ──
+                historyVisible: false,          // 历史版本弹窗
+                historyTarget: null,            // 当前查看历史的流程对象
+                historyRows: [],                // 历史版本列表数据
+
+                // ── 设计器基本信息 ──
+                designerInfo: { name: '—', keyVer: '—' },  // 设计器顶部显示的流程信息
+                designerFlowId: null,           // 当前编辑的流程 ID
+                viewMode: false,                // 只读预览模式
+
+                // ── 画布状态 ──
+                nodes: [],                      // 节点数组
+                edges: [],                      // 连线数组
+                selId: null,                    // 当前选中的节点/连线 ID
+                tool: 'select',                 // 当前工具：'select' | 'link'
+                zoom: 1,                        // 缩放比例（0.25 ~ 2.5）
+                panX: 60,                       // 水平平移偏移
+                panY: 50,                       // 垂直平移偏移
+                hist: [],                       // 撤销历史栈
+                histIdx: -1,                    // 当前历史位置（-1 表示空）
+                seq: 100,                       // 节点/连线自增 ID 序号
+                dragNode: null,                 // 当前拖拽中的节点 ID
+                dragMoved: false,               // 拖拽是否发生实际位移
+                dOx: 0, dOy: 0,                 // 拖拽时鼠标相对于节点左上角的偏移
+                isPanning: false,               // 是否正在平移画布
+                panSt: { x: 0, y: 0 },          // 平移起始点（屏幕坐标）
+                panOr: { x: 0, y: 0 },          // 平移开始时 panX/panY 的原始值
+                linkSrc: null,                  // 连线模式下的起始节点
+                dragType: null,                 // 从面板拖入的节点类型
+                isDragOver: false,              // 拖拽元素是否在画布上方
+                statusbarSel: '未选中',          // 状态栏选中信息
+
+                // ── 右键菜单 ──
+                ctxVisible: false,              // 菜单是否可见
+                ctxX: 0, ctxY: 0,               // 菜单显示位置
+                ctxNid: null,                   // 右键点击的节点 ID
+
+                // ── 属性面板 ──
+                propsTitle: '属性',              // 面板标题
+                propsSub: '点击节点编辑',          // 面板副标题
+
+                // 自动任务序号计数器（per-node 配置由 nodeDefaults() 初始化）
+                autoSeq: 1,
+                // 连线条件编辑器（绑定到当前选中连线）
+                condRules: [],                  // 条件规则列表
+                condLogic: 'AND',               // 条件间逻辑：'AND' | 'OR'
+            };
+        },
+        computed: {
+            // 属性面板头部图标（根据选中类型动态返回 SVG）
+            propHeadIcon() {
+                if (this.selEdge) return '<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M2 8h10M9 5l3 3-3 3" stroke="#64748b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+                if (!this.selNode) return '🖱';
+                const icons = {
+                    start:    '<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="9" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/><circle cx="10" cy="10" r="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/></svg>',
+                    end:      '<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="9" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/><circle cx="10" cy="10" r="6" fill="#dc2626" stroke="#dc2626" stroke-width="1"/></svg>',
+                    approval: '<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="18" height="14" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/><rect x="1" y="3" width="18" height="3.5" rx="3" fill="#3b82f6"/><rect x="1" y="5" width="18" height="1.5" fill="#3b82f6"/></svg>',
+                    condition:'<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><polygon points="10,1 19,10 10,19 1,10" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/></svg>',
+                    auto:     '<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="18" height="14" rx="3" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/><rect x="1" y="3" width="18" height="3.5" rx="3" fill="#7c3aed"/><rect x="1" y="5" width="18" height="1.5" fill="#7c3aed"/></svg>',
+                    notify:   '<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="18" height="14" rx="3" fill="#cffafe" stroke="#0891b2" stroke-width="1.5"/><rect x="1" y="3" width="18" height="3.5" rx="3" fill="#0891b2"/><rect x="1" y="5" width="18" height="1.5" fill="#0891b2"/></svg>',
+                };
+                return icons[this.selNode.type] || icons.approval;
+            },
+            // 属性面板头部图标容器样式
+            propHeadIconStyle() {
+                if (this.selEdge) return 'background:#f1f5f9;color:#64748b;display:flex;align-items:center;justify-content:center';
+                if (!this.selNode) return 'background:var(--gray-l);color:var(--text3)';
+                return 'background:transparent;display:flex;align-items:center;justify-content:center';
+            },
+            // 当前选中的节点对象
+            selNode() {
+                if (!this.selId) return null;
+                return this.nodes.find(n => n.id === this.selId) || null;
+            },
+            // 当前选中的连线对象
+            selEdge() {
+                if (!this.selId) return null;
+                return this.edges.find(e => e.id === this.selId) || null;
+            },
+            // 连线条件的人类可读预览
+            condPreview() {
+                // 从 API 字典构建字段名映射（兜底硬编码）
+                const fieldMap = { auditStatus:'审核状态', auditComment:'审核意见', isDebtSimple:'债大库简易流程', isWhitelist:'白名单流程', isSimple:'简易流程', isRestricted:'禁止库标的', isLargeAmount:'大额交易', applyAmount:'申请金额', creditRating:'标的评级', investType:'投资类型' };
+                this.condFieldGroupOptions.forEach(g => (g.fields || []).forEach(f => { if (!fieldMap[f.value]) fieldMap[f.value] = f.label; }));
+                const opMap = { eq:'==', neq:'≠', gt:'>', lt:'<', gte:'≥', lte:'≤' };
+                const boolFields = ['isDebtSimple','isWhitelist','isSimple','isRestricted','isLargeAmount'];
+                const parts = this.condRules.filter(r => r.field && r.val).map(r => {
+                    const fname = fieldMap[r.field] || r.field;
+                    if (boolFields.includes(r.field)) return `${fname} 为${r.val}`;
+                    return `${fname} ${opMap[r.op]||r.op} "${r.val}"`;
+                });
+                if (!parts.length) return '';
+                return parts.join(` ${this.condLogic} `);
+            },
+        },
+        mounted() {
+            // 配置 axios
+            axios.defaults.baseURL = 'http://localhost:18090';
+            axios.defaults.headers.common['Content-Type'] = 'application/json; charset=utf-8';
+
+            // 在 window 上注册全局鼠标事件
+            window.addEventListener('mousemove', this.globalMousemove);
+            window.addEventListener('mouseup', this.globalMouseup);
+            document.addEventListener('click', this.hideCtx);
+
+            // 加载字典和列表数据
+            this.loadDicts();
+            this.loadList();
+        },
+        beforeDestroy() {
+            window.removeEventListener('mousemove', this.globalMousemove);
+            window.removeEventListener('mouseup', this.globalMouseup);
+            document.removeEventListener('click', this.hideCtx);
+        },
+        watch: {
+            // 筛选条件变化时重新加载列表（300ms 防抖）
+            searchText() { clearTimeout(this._searchTimer); this._searchTimer = setTimeout(() => { this.currentPageNum = 1; this.loadList(); }, 300); },
+            statusFilter() { this.currentPageNum = 1; this.loadList(); },
+            categoryFilter() { this.currentPageNum = 1; this.loadList(); },
+            currentPageNum() { this.loadList(); },
+            // 选中 ID 变化时，更新属性面板标题和状态栏
+            selId(val, oldVal) {
+                // 从已编辑节点/连线切换走时，保存当前快照以便撤销
+                if (oldVal && !this.viewMode) this.pushH();
+                if (!val) {
+                    this.propsTitle = '属性';
+                    this.propsSub = this.viewMode ? '点击节点查看属性' : '点击节点编辑';
+                    this.statusbarSel = '未选中';
+                } else if (this.selNode) {
+                    const cfg = NCfg[this.selNode.type] || NCfg.approval;
+                    this.propsTitle = this.viewMode ? '节点详情' : '节点属性';
+                    this.propsSub = (this.selNode.label || cfg.label) + ' · ' + this.selNode.type.toUpperCase();
+                    this.statusbarSel = this.selNode.label || cfg.label;
+                } else if (this.selEdge) {
+                    this.propsTitle = '连线属性';
+                    this.propsSub = this.viewMode ? '只读预览' : '配置触发条件';
+                    this.statusbarSel = '连线已选中';
+                    // 从连线对象加载已保存的条件规则
+                    this.condRules = this.selEdge.condRules ? JSON.parse(JSON.stringify(this.selEdge.condRules)) : [];
+                    this.condLogic = this.selEdge.condLogic || 'AND';
+                }
+            },
+            // 条件逻辑运算符变化时同步更新连线标签
+            condLogic() { this.syncEdgeLabel(); },
+        },
+        methods: {
+            // ─── API 辅助函数 ───
+            // 将后端 FlowListDto 映射为前端行格式
+            mapFlowItem(r) {
+                return {
+                    id: r.id,
+                    name: r.name,
+                    key: r.flowKey,
+                    flowKey: r.flowKey,
+                    category: r.category || 'other',
+                    desc: r.description || '',
+                    description: r.description || '',
+                    remark: r.remark || '',
+                    ver: 'v' + (r.currentVer || 0),
+                    currentVer: r.currentVer || 0,
+                    status: r.status || 'draft',
+                    time: r.crteTime || '',
+                    updateTime: r.updtTime || '',
+                };
+            },
+            nowStr() {
+                const d = new Date();
+                const pad = n => String(n).padStart(2, '0');
+                return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
+                       pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+            },
+            // 统一请求封装：自动处理 code !== 0 异常
+            async apiPost(path, body) {
+                const resp = await axios.post(path, body || {});
+                const json = resp.data;
+                if (json.code !== 0) {
+                    throw new Error(json.message || '接口异常');
+                }
+                return json.data;
+            },
+            // 加载流程列表（服务端分页+搜索）
+            async loadList() {
+                this.loading = true;
+                const params = { pageIndex: this.currentPageNum, pageSize: this.pageSize, keyword: this.searchText || '', status: this.statusFilter || '', category: this.categoryFilter || '' };
+                console.log('loadList params:', params);
+                try {
+                    const res = await this.apiPost('/api/v1/flows/queryFlowPage', params);
+                    this.tableData = (res.records || []).map(r => this.mapFlowItem(r));
+                    this.listTotal = res.total || 0;
+                } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                }
+                this.loading = false;
+            },
+            // 加载所有字典
+            async loadDicts() {
+                const errors = [];
+                // 角色字典
+                try {
+                    const roles = await this.apiPost('/api/v1/dict/roles', {});
+                    this.roleOptions = roles.map(r => ({ value: r.roleCode, label: r.roleName }));
+                } catch (e) { console.error('loadDicts roles:', e); errors.push('角色'); }
+                // 自动任务选项
+                try {
+                    const tasks = await this.apiPost('/api/v1/dict/auto-tasks', {});
+                    this.autoTaskOptions = tasks.map(t => ({ value: t.taskCode, label: t.taskName }));
+                } catch (e) { console.error('loadDicts tasks:', e); errors.push('自动任务'); }
+                // 条件字段选项（三级分组）
+                try {
+                    const groups = await this.apiPost('/api/v1/dict/cond-fields', {});
+                    this.condFieldGroupOptions = groups.map(g => ({
+                        groupName: g.groupName,
+                        fields: (g.fields || []).map(f => ({ value: f.fieldCode, label: f.fieldName })),
+                    }));
+                } catch (e) { console.error('loadDicts cond-fields:', e); errors.push('条件字段'); }
+                if (errors.length) {
+                    this.$message.warning('字典加载失败：' + errors.join('、') + '，部分下拉选项可能为空');
+                }
+            },
+            // ─── 状态与分类辅助函数 ───
+            // 返回 ElementUI el-tag 的 type 属性
+            statusTagType(s) {
+                return { active: 'success', draft: 'warning', disabled: 'info', archived: 'info' }[s] || 'info';
+            },
+            // 返回状态中文标签
+            statusLabel(s) {
+                return { active: '已发布', draft: '草稿', disabled: '已停用', archived: '已归档' }[s] || '草稿';
+            },
+            // 返回业务分类的 el-tag type
+            catTagType(c) {
+                return { bond: '', fund: 'danger', credit: 'warning', other: 'info' }[c] || 'info';
+            },
+            // 返回业务分类中文标签
+            catLabel(c) {
+                return { bond: '利率债', fund: '基金', credit: '信用债', other: '其他' }[c] || '其他';
+            },
+            // 根据节点类型返回默认配置对象（用于新建节点时初始化 per-node 配置）
+            nodeDefaults(type) {
+                switch (type) {
+                    case 'approval':  return { approvalStrategy: 'preempt', approvalPersons: [], approvalRemark: '' };
+                    case 'condition': return { conditionRemark: '' };
+                    case 'auto':      return { autoTasks: [{ id: 1, task: '' }], autoRemark: '' };
+                    case 'notify':    return { notifyTarget: 'initiator', notifyTpl: '您的申请【#{procName}】已完成', notifyChannels: ['system'], notifyPersons: [], notifyRemark: '' };
+                    default:          return {};
+                }
+            },
+
+            // ─── 列表操作 ───
+            // 快速发布：从列表直接发布（需先加载画布数据）
+            async pubRow(id) {
+                const row = this.tableData.find(x => x.id === id);
+                if (!row) return;
+                try {
+                    await this.$confirm('发布后该流程将正式生效，可被业务系统调用。', '发布流程', {
+                        confirmButtonText: '确认发布',
+                        cancelButtonText: '取消',
+                        type: 'success',
+                    });
+                    // 先加载详情获取 nodes/edges
+                    const flow = await this.apiPost('/api/v1/flows/queryFlowDetail', { id: id });
+                    const nodes = (flow.draft && flow.draft.nodes) ? flow.draft.nodes : [];
+                    const edges = (flow.draft && flow.draft.edges) ? flow.draft.edges : [];
+                    // 快速发布前的基础校验
+                    if (!nodes.length) {
+                        this.$message.warning('画布为空，请先进入设计器编排流程');
+                        return;
+                    }
+                    if (!nodes.some(n => n.type === 'start')) {
+                        this.$message.warning('缺少开始节点，请先进入设计器编排流程');
+                        return;
+                    }
+                    if (!nodes.some(n => n.type === 'end')) {
+                        this.$message.warning('缺少结束节点，请先进入设计器编排流程');
+                        return;
+                    }
+                    const panX = (flow.draft && flow.draft.panX != null) ? flow.draft.panX : 60;
+                    const panY = (flow.draft && flow.draft.panY != null) ? flow.draft.panY : 50;
+                    const zoom = (flow.draft && flow.draft.zoom != null) ? flow.draft.zoom : 1;
+                    const pubParams = { id: id, publishNote: '', nodes, edges, panX, panY, zoom };
+                    console.log('pubRow params:', pubParams);
+                    const pubResult = await this.apiPost('/api/v1/flows/publishFlow', pubParams);
+                    if (pubResult && pubResult.verNum != null) {
+                        row.ver = 'v' + pubResult.verNum;
+                        row.currentVer = pubResult.verNum;
+                    }
+                    row.status = 'active';
+                    this.$message.success('已发布');
+                } catch (e) {
+                    if (e === 'cancel') return;
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+            // 打开删除确认弹窗
+            openDel(id) {
+                this.deleteTarget = this.tableData.find(x => x.id === id);
+                this.deleteVisible = true;
+            },
+            // 打开流程历史弹窗：从 API 加载版本列表并合并当前流程信息
+            async openHistory(row) {
+                this.historyTarget = row;
+                console.log('openHistory params:', { id: row.id });
+                try {
+                    const versions = await this.apiPost('/api/v1/flows/queryFlowVersionList', { id: row.id });
+                    this.historyRows = (versions || []).map(v => ({
+                        rowId: row.id,
+                        versionId: v.versionId,
+                        name: row.name,
+                        desc: row.desc || '',
+                        key: row.key,
+                        category: row.category,
+                        ver: 'v' + (v.verNum || 0),
+                        status: v.status,
+                        updateTime: v.publishedTime || v.crteTime || '',
+                        publishNote: v.publishNote || '',
+                    })).sort((a, b) => {
+                        const va = parseInt((a.ver || 'v0').replace('v', ''));
+                        const vb = parseInt((b.ver || 'v0').replace('v', ''));
+                        return vb - va;
+                    });
+                    this.historyVisible = true;
+                } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+            // 从设计器顶部栏打开当前流程的历史
+            openHistoryFromDesigner() {
+                const row = this.tableData.find(r => r.id === this.designerFlowId);
+                if (row) this.openHistory(row);
+            },
+            // 查看历史版本详情（只读模式，加载指定版本的真实数据）
+            async viewVersion(flowId, versionId) {
+                console.log('viewVersion params:', { flowId, versionId });
+                try {
+                    const ver = await this.apiPost('/api/v1/flows/queryFlowVersionDetail', { flowId, versionId });
+                    this.designerFlowId = flowId;
+                    this.viewMode = true;
+                    this.currentPage = 'designer';
+                    this.designerInfo = {
+                        name: '版本 v' + (ver.verNum || 0),
+                        keyVer: '历史版本 · 只读',
+                    };
+                    this.$nextTick(() => {
+                        this.nodes = JSON.parse(JSON.stringify(ver.nodes || []));
+                        this.edges = JSON.parse(JSON.stringify(ver.edges || []));
+                        this.panX = ver.panX != null ? ver.panX : 60;
+                        this.panY = ver.panY != null ? ver.panY : 50;
+                        this.zoom = ver.zoom != null ? ver.zoom : 1;
+                        this.selId = null;
+                        this.hist = [];
+                        this.histIdx = -1;
+                        this.pushH();
+                        this.renderAll();
+                    });
+                } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+            // 确认删除流程（软删除）
+            async confirmDelete() {
+                if (!this.deleteTarget) return;
+                console.log('confirmDelete params:', { id: this.deleteTarget.id });
+                try {
+                    await this.apiPost('/api/v1/flows/deleteFlow', { id: this.deleteTarget.id });
+                    this.deleteVisible = false;
+                    this.$message.success('已删除');
+                    this.loadList(); // 从服务端重新加载，保证计数和分页准确
+                } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+            // 打开新建流程弹窗
+            openCreate() {
+                this.createForm = { name: '', key: '', desc: '', remark: '', category: '' };
+                this.createVisible = true;
+            },
+            // 打开编辑基础信息弹窗（回填当前行数据）
+            openEditInfo(row) {
+                this.editInfoForm = { id: row.id, name: row.name, key: row.key, desc: row.desc || '', remark: row.remark || '', category: row.category || '' };
+                this.editInfoVisible = true;
+            },
+            // 确认修改基础信息
+            async confirmEditInfo() {
+                if (!this.editInfoForm.name) {
+                    this.$message.warning('请填写名称');
+                    return;
+                }
+                const params = { id: this.editInfoForm.id, name: this.editInfoForm.name, flowKey: this.editInfoForm.key, category: this.editInfoForm.category, description: this.editInfoForm.desc, remark: this.editInfoForm.remark };
+                console.log('confirmEditInfo params:', params);
+                try {
+                    await this.apiPost('/api/v1/flows/updateFlow', params);
+                    const row = this.tableData.find(r => r.id === this.editInfoForm.id);
+                    if (row) {
+                        row.name = this.editInfoForm.name;
+                        row.key  = this.editInfoForm.key;
+                        row.desc = this.editInfoForm.desc;
+                        row.remark = this.editInfoForm.remark;
+                        row.category = this.editInfoForm.category;
+                    }
+                    this.editInfoVisible = false;
+                    this.$message.success('基础信息已更新');
+                } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+            // 确认新建流程：调用 API 创建，成功后进入空画布设计器
+            async confirmCreate() {
+                if (!this.createForm.name) {
+                    this.$message.warning('请填写名称');
+                    return;
+                }
+                const params = { name: this.createForm.name, flowKey: this.createForm.key, category: this.createForm.category || 'other', description: this.createForm.desc || '', remark: this.createForm.remark || '' };
+                console.log('confirmCreate params:', params);
+                try {
+                    const res = await this.apiPost('/api/v1/flows/createFlow', params);
+                    this.$message.success('创建成功');
+                    this.createVisible = false;
+                    const newId = (res && res.flowId) ? res.flowId : null;
+                    if (newId) {
+                        // 在列表头部插入新行（本地构造）
+                        const now = this.nowStr();
+                        this.tableData.unshift({
+                            id: newId,
+                            name: this.createForm.name,
+                            key: this.createForm.key,
+                            flowKey: this.createForm.key,
+                            category: this.createForm.category || 'other',
+                            desc: this.createForm.desc || '',
+                            remark: this.createForm.remark || '',
+                            ver: 'v1',
+                            currentVer: 1,
+                            status: 'draft',
+                            time: now,
+                            updateTime: now,
+                        });
+                        this.listTotal++;
+                        this.openDesigner(newId, true);
+                    } else {
+                        this.loadList();
+                        this.$message.warning('请刷新列表查看');
+                    }
+                } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+            // 打开流程设计器（empty=true 初始化空白画布；readOnly=true 只读模式）
+            async openDesigner(id, empty, readOnly) {
+                const row = this.tableData.find(x => x.id === id);
+                const fallbackName = row ? row.name : '流程';
+                const fallbackKeyVer = row ? (row.key + ' · ' + row.ver) : 'proc · v1';
+                this.designerInfo = { name: fallbackName, keyVer: fallbackKeyVer };
+                this.designerFlowId = id;
+                this.viewMode = !!readOnly;
+                this.currentPage = 'designer';
+
+                if (empty) {
+                    // 全新流程，空白画布
+                    this.$nextTick(() => { this.initCanvas(true); });
+                    return;
+                }
+
+                // 从 API 加载流程详情（含画布节点/连线）
+                console.log('openDesigner params:', { id: id });
+                try {
+                    const flow = await this.apiPost('/api/v1/flows/queryFlowDetail', { id: id });
+                    // 更新设计器信息
+                    this.designerInfo = {
+                        name: flow.name || fallbackName,
+                        keyVer: (flow.flowKey || 'proc') + ' · v' + (flow.currentVer || 0),
+                    };
+                    this.$nextTick(() => {
+                        if (flow.draft && flow.draft.nodes) {
+                            // 恢复画布存档
+                            this.nodes = JSON.parse(JSON.stringify(flow.draft.nodes));
+                            this.edges = JSON.parse(JSON.stringify(flow.draft.edges || []));
+                            this.panX = flow.draft.panX != null ? flow.draft.panX : 60;
+                            this.panY = flow.draft.panY != null ? flow.draft.panY : 50;
+                            this.zoom = flow.draft.zoom != null ? flow.draft.zoom : 1;
+                        } else {
+                            // 无草稿数据，初始化演示画布
+                            this.initCanvas(false);
+                        }
+                        this.selId = null;
+                        this.hist = [];
+                        this.histIdx = -1;
+                        this.pushH();
+                        this.renderAll();
+                    });
+                } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                    this.currentPage = 'list';
+                    this.designerFlowId = null;
+                    this.viewMode = false;
+                    this.nodes = []; this.edges = []; this.selId = null;
+                    this.hist = []; this.histIdx = -1;
+                }
+            },
+            // 保存草稿：调用 API 保存当前画布
+            async saveDraft() {
+                const id = this.designerFlowId;
+                if (!id) { this.$message.warning('请先创建流程'); return; }
+                const row = this.tableData.find(x => x.id === id);
+                const params = { id: id, name: row ? row.name : undefined, flowKey: row ? row.key : undefined, nodes: JSON.parse(JSON.stringify(this.nodes)), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
+                console.log('saveDraft params:', params);
+                try {
+                    const res = await this.apiPost('/api/v1/flows/saveFlowDraft', params);
+                    if (row) {
+                        row.status = res.status || 'draft';
+                        if (res.verNum != null) row.ver = 'v' + res.verNum;
+                        row.updateTime = this.nowStr();
+                    }
+                    this.$message.success('草稿已保存');
+                } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+            // 确认发布：调用 API 发布流程
+            async confirmPublish() {
+                const id = this.designerFlowId;
+                if (!id) { this.$message.warning('请先创建流程'); return; }
+                const row = this.tableData.find(x => x.id === id);
+                const pubParams = { id: id, publishNote: this.publishNote || '', nodes: JSON.parse(JSON.stringify(this.nodes)), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
+                console.log('confirmPublish params:', pubParams);
+                try {
+                    const res = await this.apiPost('/api/v1/flows/publishFlow', pubParams);
+                    if (row) {
+                        row.status = 'active';
+                        if (res && res.verNum != null) {
+                            row.ver = 'v' + res.verNum;
+                            row.currentVer = res.verNum;
+                        }
+                        row.updateTime = this.nowStr();
+                    }
+                    this.designerInfo.keyVer = (row ? row.key : 'proc') + ' · ' + (row ? row.ver : 'v1');
+                    this.publishVisible = false;
+                    this.publishNote = '';
+                    this.$message.success('发布成功，已生成新版本');
+                } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+            // 更新流程：直接进入设计器编辑（后端自动管理草稿版本）
+            forkFlow(id) {
+                this.$message.info('进入编辑模式');
+                this.openDesigner(id, false, false);
+            },
+            // 停用流程：active → disabled（在版本历史中记录停用事件）
+            async disableFlow(row) {
+                try {
+                    await this.$confirm('停用后该流程将不可使用，历史版本中会记录本次停用操作。', '停用流程', {
+                        confirmButtonText: '确认停用',
+                        cancelButtonText: '取消',
+                        type: 'warning',
+                    });
+                    console.log('disableFlow params:', { id: row.id });
+                    await this.apiPost('/api/v1/flows/disableFlow', { id: row.id });
+                    row.status = 'disabled';
+                    this.$message.success('已停用');
+                } catch (e) {
+                    if (e === 'cancel') return;
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+            // 恢复流程：disabled → draft（生成新草稿版本，可从历史中追溯）
+            async restoreFlow(row) {
+                try {
+                    await this.$confirm('恢复后将生成新的草稿版本，可编辑后重新发布。', '恢复流程', {
+                        confirmButtonText: '确认恢复',
+                        cancelButtonText: '取消',
+                        type: 'info',
+                    });
+                    console.log('restoreFlow params:', { id: row.id });
+                    await this.apiPost('/api/v1/flows/restoreFlow', { id: row.id });
+                    row.status = 'draft';
+                    this.$message.success('已恢复为草稿');
+                } catch (e) {
+                    if (e === 'cancel') return;
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+
+            // ─── 画布引擎 ───
+            // 屏幕坐标 → SVG 画布坐标（考虑平移和缩放）
+            svgPt(cx, cy) {
+                const r = document.getElementById('cw').getBoundingClientRect();
+                return { x: (cx - r.left - this.panX) / this.zoom, y: (cy - r.top - this.panY) / this.zoom };
+            },
+            // 缩放步进（限制 25%~250%）
+            changeZoom(d) { this.zoom = Math.max(.25, Math.min(2.5, this.zoom + d)); },
+            // 适应窗口：恢复默认缩放与平移
+            fitView() { this.zoom = 1; this.panX = 60; this.panY = 50; },
+            // 清空画布所有节点和连线
+            clearCanvas() {
+                if (!this.nodes.length && !this.edges.length) return;
+                this.pushH();
+                this.nodes = []; this.edges = []; this.selId = null;
+                this.renderAll();
+            },
+            // 推入撤销历史快照（在每次修改前调用）
+            pushH() {
+                this.hist = this.hist.slice(0, this.histIdx + 1);
+                this.hist.push({ n: JSON.stringify(this.nodes), e: JSON.stringify(this.edges) });
+                this.histIdx = this.hist.length - 1;
+            },
+            // 撤销：恢复到上一个历史快照
+            undo() {
+                if (this.histIdx <= 0) { this.$message.info('没有可撤销的操作'); return; }
+                this.histIdx--;
+                const s = this.hist[this.histIdx];
+                this.nodes = JSON.parse(s.n); this.edges = JSON.parse(s.e); this.selId = null;
+                this.renderAll();
+            },
+            // 重做：前进到下一个历史快照
+            redo() {
+                if (this.histIdx >= this.hist.length - 1) { this.$message.info('没有可重做的操作'); return; }
+                this.histIdx++;
+                const s = this.hist[this.histIdx];
+                this.nodes = JSON.parse(s.n); this.edges = JSON.parse(s.e); this.selId = null;
+                this.renderAll();
+            },
+            // 获取节点几何中心坐标
+            nc(n) {
+                if (n.shape === 'circle')  return { x: n.x + CR, y: n.y + CR };
+                if (n.shape === 'diamond') return { x: n.x + DW, y: n.y + DH };
+                return { x: n.x + NW / 2, y: n.y + NH / 2 };
+            },
+            // 计算连线与节点边界的交点（支持圆形/菱形/矩形三种形状）
+            edgePt(n, tx, ty) {
+                const c = this.nc(n), dx = tx - c.x, dy = ty - c.y, ang = Math.atan2(dy, dx);
+                if (n.shape === 'circle') return { x: c.x + Math.cos(ang) * CR, y: c.y + Math.sin(ang) * CR };
+                if (n.shape === 'diamond') {
+                    const ca = Math.abs(Math.cos(ang)) || .001, sa = Math.abs(Math.sin(ang)) || .001;
+                    const r = Math.min(DW / ca, DH / sa);
+                    return { x: c.x + Math.cos(ang) * r, y: c.y + Math.sin(ang) * r };
+                }
+                const hw = NW / 2, hh = NH / 2, aDx = Math.abs(dx), aDy = Math.abs(dy);
+                let r;
+                if (aDx * hh > aDy * hw) r = hw / Math.abs(Math.cos(ang) || .001);
+                else r = hh / Math.abs(Math.sin(ang) || .001);
+                return { x: c.x + Math.cos(ang) * r, y: c.y + Math.sin(ang) * r };
+            },
+            // 全量重绘（下一帧执行，避免重复渲染）
+            renderAll() { this.$nextTick(() => { this.renderEdges(); this.renderNodes(); }); },
+            // 渲染所有连线（含贝塞尔曲线、标签、双向偏移、删除按钮）
+            renderEdges() {
+                const L = document.getElementById('eg'); if (!L) return; L.innerHTML = '';
+                this.edges.forEach(e => {
+                    const fn = this.nodes.find(x => x.id === e.from), tn = this.nodes.find(x => x.id === e.to);
+                    if (!fn || !tn) return; // 节点不存在则跳过
+                    const tc = this.nc(tn), fc = this.nc(fn);
+                    // 计算连线在节点边界的实际起止点
+                    const fp = this.edgePt(fn, tc.x, tc.y), tp = this.edgePt(tn, fc.x, fc.y);
+                    const mx = (fp.x + tp.x) / 2, my = (fp.y + tp.y) / 2;
+                    const isSel = e.id === this.selId;
+
+                    // 检测是否存在反向连线（双向连接），如有则偏移避免重叠
+                    const hasReverse = this.edges.some(r => r.from === e.to && r.to === e.from);
+                    const dx = tp.x - fp.x, dy = tp.y - fp.y;
+                    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                    // 计算垂直方向单位向量，用于双向偏移
+                    const perpX = -dy / len, perpY = dx / len;
+                    const offset = hasReverse ? 28 : 0;
+                    // 贝塞尔曲线控制点（0.4 位置向外偏移）
+                    const cx1 = fp.x + dx * 0.4 + perpX * offset;
+                    const cy1 = fp.y + dy * 0.4 + perpY * offset;
+                    const cx2 = tp.x - dx * 0.4 + perpX * offset;
+                    const cy2 = tp.y - dy * 0.4 + perpY * offset;
+                    const d = `M${fp.x},${fp.y} C${cx1},${cy1} ${cx2},${cy2} ${tp.x},${tp.y}`;
+                    // 曲线中点近似坐标（t≈0.5 的贝塞尔插值），用于放置标签
+                    const lmx = 0.125*fp.x + 0.375*cx1 + 0.375*cx2 + 0.125*tp.x + perpX * offset * 0.5;
+                    const lmy = 0.125*fp.y + 0.375*cy1 + 0.375*cy2 + 0.125*tp.y + perpY * offset * 0.5;
+
+                    const g = mkEl('g');
+                    // 透明宽路径提升点击热区
+                    const hit = mkEl('path', { d, fill: 'none', stroke: 'transparent', 'stroke-width': '14' });
+                    hit.style.cursor = 'pointer';
+                    hit.addEventListener('click', ev => { ev.stopPropagation(); this.selId = e.id; this.renderAll(); });
+                    hit.addEventListener('dblclick', ev => { ev.stopPropagation(); this.editEdgeLbl(e.id); });
+                    // 实际可见的连线路径
+                    const path = mkEl('path', { d, fill: 'none', stroke: isSel ? '#3b6bff' : '#a0a8c8', 'stroke-width': isSel ? 2.5 : 1.8, 'marker-end': isSel ? 'url(#arr-sel)' : 'url(#arr)' });
+                    path.style.pointerEvents = 'none';
+                    g.appendChild(hit); g.appendChild(path);
+                    // 如果有标签文本则渲染
+                    if (e.label) {
+                        const bg = mkEl('rect', { x: lmx - 22, y: lmy - 10, width: 44, height: 19, rx: 4, fill: isSel ? '#eef2ff' : '#fff', stroke: isSel ? '#3b6bff' : '#e2e5ee', 'stroke-width': 1 });
+                        const lt = mkEl('text', { x: lmx, y: lmy + 4, 'text-anchor': 'middle', 'font-size': 11, fill: isSel ? '#3b6bff' : '#5c6282', 'font-family': 'sans-serif', 'font-weight': 500 });
+                        lt.textContent = e.label; lt.style.pointerEvents = 'none';
+                        g.appendChild(bg); g.appendChild(lt);
+                    }
+                    // 选中态：显示删除按钮
+                    if (isSel) {
+                        const dc = mkEl('circle', { cx: lmx, cy: lmy - 20, r: 9, fill: '#fee2e2', stroke: 'rgba(220,38,38,.4)', 'stroke-width': 1 });
+                        const dt = mkEl('text', { x: lmx, y: lmy - 16, 'text-anchor': 'middle', 'font-size': 13, fill: '#dc2626' });
+                        dt.textContent = '✕'; dt.style.pointerEvents = 'none';
+                        const dg = mkEl('g'); dg.style.cursor = 'pointer';
+                        dg.appendChild(dc); dg.appendChild(dt);
+                        dg.addEventListener('click', ev => { ev.stopPropagation(); this.edges = this.edges.filter(x => x.id !== e.id); this.selId = null; this.renderAll(); });
+                        g.appendChild(dg);
+                    }
+                    L.appendChild(g);
+                });
+            },
+            // 渲染所有节点（含选中态虚线圈、拖拽手柄等交互元素）
+            renderNodes() {
+                const L = document.getElementById('ng'); if (!L) return; L.innerHTML = '';
+                this.nodes.forEach(n => {
+                    const cfg = NCfg[n.type] || NCfg.approval;
+                    const isSel = n.id === this.selId;
+                    const g = mkEl('g'); g.style.cursor = 'pointer';
+                    // 圆形节点：开始/结束
+                    if (cfg.shape === 'circle') {
+                        const cx = n.x + CR, cy = n.y + CR;
+                        if (isSel) { const d = mkEl('circle', { cx, cy, r: CR + 5, fill: 'none', stroke: cfg.stroke, 'stroke-width': 1, 'stroke-dasharray': '5 3' }); d.style.pointerEvents = 'none'; g.appendChild(d); }
+                        const out = mkEl('circle', { cx, cy, r: CR, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': isSel ? 2.5 : 1.5 });
+                        const inn = mkEl('circle', { cx, cy, r: 26, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': 1 });
+                        inn.style.pointerEvents = 'none';
+                        const t1 = this.mkTxt(cx, cy - 4, n.label || cfg.label, 12, cfg.tc, 600);
+                        const t2 = this.mkTxt(cx, cy + 11, cfg.badge, 9.5, cfg.stroke + '90', 400, 'monospace');
+                        g.appendChild(out); g.appendChild(inn); g.appendChild(t1); g.appendChild(t2);
+                    // 菱形节点：条件判断
+                    } else if (cfg.shape === 'diamond') {
+                        const cx = n.x + DW, cy = n.y + DH;
+                        const pts = `${cx},${cy - DH} ${cx + DW},${cy} ${cx},${cy + DH} ${cx - DW},${cy}`;
+                        if (isSel) { const dp = mkEl('polygon', { points: `${cx},${cy - DH - 5} ${cx + DW + 5},${cy} ${cx},${cy + DH + 5} ${cx - DW - 5},${cy}`, fill: 'none', stroke: cfg.stroke, 'stroke-width': 1, 'stroke-dasharray': '5 3' }); dp.style.pointerEvents = 'none'; g.appendChild(dp); }
+                        const poly = mkEl('polygon', { points: pts, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': isSel ? 2.5 : 1.5 });
+                        const t1 = this.mkTxt(cx, cy - 3, n.label || cfg.label, 12, cfg.tc, 600);
+                        const t2 = this.mkTxt(cx, cy + 11, cfg.badge, 9.5, cfg.stroke + '90', 400, 'monospace');
+                        g.appendChild(poly); g.appendChild(t1); g.appendChild(t2);
+                    // 矩形节点：审批/自动/通知（带顶栏装饰条）
+                    } else {
+                        if (isSel) { const dr = mkEl('rect', { x: n.x - 4, y: n.y - 4, width: NW + 8, height: NH + 8, rx: 13, fill: 'none', stroke: cfg.stroke, 'stroke-width': 1, 'stroke-dasharray': '5 3' }); dr.style.pointerEvents = 'none'; g.appendChild(dr); }
+                        const rect = mkEl('rect', { x: n.x, y: n.y, width: NW, height: NH, rx: 10, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': isSel ? 2.5 : 1.5 });
+                        const bar = mkEl('rect', { x: n.x, y: n.y, width: NW, height: 5, rx: 10, fill: cfg.stroke });
+                        bar.style.pointerEvents = 'none';
+                        const cx = n.x + NW / 2;
+                        const t1 = this.mkTxt(cx, n.y + 28, n.label || cfg.label, 13, cfg.tc, 600);
+                        const t2 = this.mkTxt(cx, n.y + 44, cfg.badge, 9.5, cfg.stroke + 'aa', 400, 'monospace');
+                        const t3 = n.sub ? this.mkTxt(cx, n.y + 56, n.sub, 9, cfg.stroke + '80', 400, 'monospace') : null;
+                        g.appendChild(rect); g.appendChild(bar); g.appendChild(t1); g.appendChild(t2);
+                        if (t3) g.appendChild(t3); // 子标题（如部署单元信息）
+                    }
+                    // 节点 mousedown：①连线模式下开始连线 ②选择模式下启用拖拽
+                    g.addEventListener('mousedown', ev => {
+                        if (!this.viewMode && this.tool === 'link') { this.startLink(n); ev.stopPropagation(); return; }
+                        if (ev.button === 2) return;
+                        ev.stopPropagation();
+                        this.selId = n.id; this.renderAll();
+                        const pt = this.svgPt(ev.clientX, ev.clientY);
+                        this.dragNode = n.id; this.dragMoved = false; this.dOx = pt.x - n.x; this.dOy = pt.y - n.y;
+                    });
+                    // 节点 mouseup：连线模式下如果拖到另一个节点则完成连线
+                    g.addEventListener('mouseup', ev => { if (!this.viewMode && this.tool === 'link' && this.linkSrc && this.linkSrc.id !== n.id) { this.finishLink(n); ev.stopPropagation(); } });
+                    // 鼠标进入节点时高亮（连线模式下提示可连接）
+                    g.addEventListener('mouseenter', () => { if (!this.viewMode && this.tool === 'link' && this.linkSrc && this.linkSrc.id !== n.id) g.style.filter = `drop-shadow(0 0 6px ${cfg.stroke}88)`; });
+                    g.addEventListener('mouseleave', () => { g.style.filter = ''; });
+                    // 右键打开上下文菜单
+                    g.addEventListener('contextmenu', ev => { if (this.viewMode) return; ev.preventDefault(); this.showCtx(n.id, ev.clientX, ev.clientY); });
+                    L.appendChild(g);
+                });
+            },
+            // 创建 SVG 文本元素
+            mkTxt(x, y, text, size, fill, weight, family) {
+                const t = mkEl('text', { x, y, 'text-anchor': 'middle', 'font-size': size, fill, 'font-weight': weight || 400, 'font-family': family || 'sans-serif' });
+                t.textContent = text; t.style.pointerEvents = 'none'; return t;
+            },
+            // 从节点面板开始拖拽
+            palDragStart(ev) {
+                this.dragType = ev.currentTarget.dataset.ntype;
+                ev.dataTransfer.effectAllowed = 'copy';
+                ev.dataTransfer.setData('text/plain', this.dragType);
+            },
+            // 画布接收拖放：在鼠标位置创建新节点
+            cvDrop(ev) {
+                ev.preventDefault(); this.isDragOver = false;
+                if (this.viewMode) return;
+                const type = ev.dataTransfer.getData('text/plain') || this.dragType; if (!type) return;
+                const pt = this.svgPt(ev.clientX, ev.clientY);
+                const cfg = NCfg[type] || NCfg.approval;
+                this.pushH();
+                const id = 'n' + (++this.seq);
+                const sh = cfg.shape;
+                const ox = sh === 'circle' ? CR : sh === 'diamond' ? DW : NW / 2;
+                const oy = sh === 'circle' ? CR : sh === 'diamond' ? DH : NH / 2;
+                const n = { id, type, label: cfg.label, x: pt.x - ox, y: pt.y - oy, shape: sh, ...this.nodeDefaults(type) };
+                this.nodes.push(n); this.renderAll(); this.selId = n.id; this.dragType = null;
+            },
+            // 画布空白区域 mousedown：平移或取消选中
+            canvasMousedown(ev) {
+                const cw = document.getElementById('cw');
+                const tgt = ev.target;
+                if (tgt === cw || tgt.id === 'fsvg' || tgt.tagName === 'rect' && tgt.getAttribute('fill') === 'url(#dots)') {
+                    if (this.tool === 'select') {
+                        this.isPanning = true;
+                        this.panSt = { x: ev.clientX, y: ev.clientY };
+                        this.panOr = { x: this.panX, y: this.panY };
+                    }
+                    this.selId = null; this.renderAll();
+                }
+                this.hideCtx();
+            },
+            // 全局 mousemove：处理平移、节点拖拽、连线预览
+            globalMousemove(ev) {
+                if (this.isPanning) {
+                    this.panX = this.panOr.x + (ev.clientX - this.panSt.x);
+                    this.panY = this.panOr.y + (ev.clientY - this.panSt.y);
+                    document.getElementById('el').setAttribute('transform', `translate(${this.panX},${this.panY}) scale(${this.zoom})`);
+                    return;
+                }
+                if (this.dragNode !== null) {
+                    this.dragMoved = true;
+                    const pt = this.svgPt(ev.clientX, ev.clientY);
+                    const n = this.nodes.find(x => x.id === this.dragNode);
+                    if (n) { n.x = pt.x - this.dOx; n.y = pt.y - this.dOy; this.renderAll(); }
+                    return;
+                }
+                if (this.linkSrc) {
+                    const pt = this.svgPt(ev.clientX, ev.clientY);
+                    const sc = this.nc(this.linkSrc);
+                    const ll = document.getElementById('llink');
+                    ll.setAttribute('x1', sc.x * this.zoom + this.panX);
+                    ll.setAttribute('y1', sc.y * this.zoom + this.panY);
+                    ll.setAttribute('x2', pt.x * this.zoom + this.panX);
+                    ll.setAttribute('y2', pt.y * this.zoom + this.panY);
+                }
+            },
+            // 全局 mouseup：结束平移/拖拽，仅在发生实际位移时记录历史
+            globalMouseup(ev) {
+                if (this.isPanning) this.isPanning = false;
+                if (this.dragNode !== null) { if (this.dragMoved) this.pushH(); this.dragNode = null; }
+                if (this.linkSrc) {
+                    const cw = document.getElementById('cw');
+                    if (ev.target === cw || ev.target.id === 'fsvg') this.cancelLink();
+                }
+            },
+            // 鼠标滚轮缩放
+            onWheel(ev) { this.changeZoom(ev.deltaY > 0 ? -0.08 : 0.08); },
+            // 开始连线（从节点出发）
+            startLink(n) {
+                this.linkSrc = n;
+                const ll = document.getElementById('llink'), sc = this.nc(n);
+                ll.setAttribute('x1', sc.x * this.zoom + this.panX);
+                ll.setAttribute('y1', sc.y * this.zoom + this.panY);
+                ll.setAttribute('x2', sc.x * this.zoom + this.panX);
+                ll.setAttribute('y2', sc.y * this.zoom + this.panY);
+                ll.setAttribute('display', 'block');
+            },
+            // 完成连线：在起始节点与目标节点之间创建新边
+            finishLink(tn) {
+                if (!this.linkSrc) return;
+                if (!this.edges.find(e => e.from === this.linkSrc.id && e.to === tn.id)) {
+                    this.pushH();
+                    this.edges.push({ id: 'e' + (++this.seq), from: this.linkSrc.id, to: tn.id, label: '', remark: '' });
+                    this.renderAll();
+                }
+                this.cancelLink();
+            },
+            // 取消连线
+            cancelLink() {
+                this.linkSrc = null;
+                const ll = document.getElementById('llink');
+                if (ll) ll.setAttribute('display', 'none');
+            },
+            // 切换工具模式
+            setTool(t) {
+                this.tool = t;
+                if (t !== 'link') this.cancelLink();
+            },
+            // 双击连线编辑标签（弹出输入框）
+            editEdgeLbl(eid) {
+                const e = this.edges.find(x => x.id === eid); if (!e) return;
+                this.$prompt('设置连线条件标签（如：通过、驳回）：', '编辑标签', {
+                    confirmButtonText: '确定', cancelButtonText: '取消', inputValue: e.label || ''
+                }).then(({ value }) => {
+                    this.pushH(); e.label = value || ''; this.renderAll();
+                }).catch(() => {});
+            },
+            // 显示节点右键菜单
+            showCtx(id, x, y) {
+                this.ctxNid = id; this.ctxX = x; this.ctxY = y; this.ctxVisible = true;
+            },
+            // 隐藏右键菜单（点击任意位置触发）
+            hideCtx() { this.ctxVisible = false; },
+            // 执行右键菜单操作：del=删除节点 dup=复制节点
+            ctxDo(act) {
+                this.hideCtx();
+                if (act === 'del') {
+                    if (!this.ctxNid) return; this.pushH();
+                    this.edges = this.edges.filter(e => e.from !== this.ctxNid && e.to !== this.ctxNid);
+                    this.nodes = this.nodes.filter(n => n.id !== this.ctxNid);
+                    if (this.selId === this.ctxNid) this.selId = null;
+                    this.renderAll();
+                } else if (act === 'dup') {
+                    const n = this.nodes.find(x => x.id === this.ctxNid); if (!n) return; this.pushH();
+                    const id = 'n' + (++this.seq);
+                    this.nodes.push({ ...JSON.parse(JSON.stringify(n)), id, x: n.x + 30, y: n.y + 30 });
+                    this.renderAll();
+                }
+            },
+            // 删除当前选中的节点及其关联连线
+            deleteNode() {
+                const id = this.selId; if (!id) return; this.pushH();
+                this.edges = this.edges.filter(e => e.from !== id && e.to !== id);
+                this.nodes = this.nodes.filter(n => n.id !== id);
+                this.selId = null; this.renderAll();
+            },
+            // 删除当前选中的连线
+            deleteEdge() {
+                const id = this.selId; if (!id) return; this.pushH();
+                this.edges = this.edges.filter(e => e.id !== id);
+                this.selId = null; this.renderAll();
+            },
+
+            // ─── 条件编辑器 ───
+            // 判断字段是否为布尔类型（使用"是/否"单选而非运算符+值）
+            isBoolField(field) {
+                return ['isDebtSimple','isWhitelist','isSimple','isRestricted','isLargeAmount'].includes(field);
+            },
+            // 根据字段类型返回可用运算符列表
+            getOps(field) {
+                const num  = ['applyAmount','creditRating'];
+                if (!field) return [{ label: '等于', value: 'eq' }];
+                if (this.isBoolField(field)) return [{ label: '是', value: 'eq' }]; // bool不走运算符UI
+                if (num.includes(field))  return [{ label: '等于', value: 'eq' },{ label: '大于', value: 'gt' },{ label: '小于', value: 'lt' },{ label: '≥', value: 'gte' },{ label: '≤', value: 'lte' }];
+                return [{ label: '等于', value: 'eq' }, { label: '不等于', value: 'neq' }];
+            },
+            // 根据字段类型返回可选值列表
+            getVals(field) {
+                const map = {
+                    auditStatus:  [{ label: '通过', value: '通过' }, { label: '驳回', value: '驳回' }, { label: '转交', value: '转交' }],
+                    auditComment: [{ label: '有意见', value: 'hasComment' }, { label: '无意见', value: 'noComment' }],
+                    isDebtSimple: [{ label: '是', value: '是' }, { label: '否', value: '否' }],
+                    isWhitelist:  [{ label: '是', value: '是' }, { label: '否', value: '否' }],
+                    isSimple:     [{ label: '是', value: '是' }, { label: '否', value: '否' }],
+                    isRestricted: [{ label: '是', value: '是' }, { label: '否', value: '否' }],
+                    isLargeAmount:[{ label: '是', value: '是' }, { label: '否', value: '否' }],
+                    applyAmount:  [{ label: '100万', value: '1000000' }, { label: '500万', value: '5000000' }, { label: '1000万', value: '10000000' }, { label: '1亿', value: '100000000' }],
+                    creditRating: [{ label: 'AAA', value: 'AAA' }, { label: 'AA+', value: 'AA+' }, { label: 'AA', value: 'AA' }, { label: 'AA-', value: 'AA-' }, { label: 'A+及以下', value: 'A+' }],
+                    investType:   [{ label: '主动管理', value: 'active' }, { label: '被动跟踪', value: 'passive' }, { label: '套利', value: 'arbitrage' }],
+                };
+                return map[field] || [];
+            },
+            // 字段变更时清空旧值，避免脏数据
+            onFieldChange(rule) {
+                const ops = this.getOps(rule.field);
+                rule.op = (ops[0] && ops[0].value) ? ops[0].value : 'eq';
+                // bool字段重置val，让用户重新点按钮选择
+                rule.val = '';
+                this.syncEdgeLabel();
+            },
+            // 添加一条空条件规则
+            addCondRule() {
+                this.pushH();
+                this.condRules.push({ field: '', op: 'eq', val: '' });
+                this.syncEdgeLabel();
+            },
+            // 移除指定位置的条件规则
+            removeCondRule(idx) {
+                this.pushH();
+                this.condRules.splice(idx, 1);
+                this.syncEdgeLabel();
+            },
+            // 为当前选中节点添加自动任务
+            addAutoTask() {
+                if (!this.selNode) return;
+                this.pushH();
+                if (!this.selNode.autoTasks) this.$set(this.selNode, 'autoTasks', []);
+                this.selNode.autoTasks.push({ id: ++this.autoSeq, task: '' });
+            },
+            // 将条件规则同步写入连线标签（用于保存和条件预览）
+            syncEdgeLabel() {
+                if (!this.selEdge) return;
+                // 深拷贝条件规则到连线对象上
+                this.selEdge.condRules = JSON.parse(JSON.stringify(this.condRules));
+                this.selEdge.condLogic = this.condLogic;
+                // 字段名映射表
+                const boolFields = ['isDebtSimple','isWhitelist','isSimple','isRestricted','isLargeAmount'];
+                const fieldMap = { auditStatus:'审核状态', auditComment:'审核意见', isDebtSimple:'简易流程', isWhitelist:'白名单', isSimple:'简易', isRestricted:'禁止库', isLargeAmount:'大额', applyAmount:'金额', creditRating:'评级', investType:'投资类型' };
+                this.condFieldGroupOptions.forEach(g => (g.fields || []).forEach(f => { if (!fieldMap[f.value]) fieldMap[f.value] = f.label; }));
+                const filled = this.condRules.filter(r => r.field && r.val);
+                if (filled.length > 0) {
+                    const parts = filled.map(r => {
+                        if (boolFields.includes(r.field)) return `${fieldMap[r.field]||r.field}=${r.val}`;
+                        return r.val;
+                    });
+                    this.selEdge.label = parts.join(this.condLogic === 'AND' ? ' 且 ' : ' 或 ');
+                    this.renderAll();
+                }
+            },
+            // 初始化/重置画布（empty=true 空白画布，否则创建演示流程）
+            initCanvas(empty) {
+                // 重置所有画布状态
+                this.nodes = []; this.edges = []; this.selId = null; this.seq = 100;
+                this.hist = []; this.histIdx = -1;
+                this.panX = 60; this.panY = 50; this.zoom = 1;
+                if (empty) { this.renderAll(); return; }
+                // 创建节点辅助函数
+                const a = (type, label, x, y, sub) => {
+                    const id = 'n' + (++this.seq);
+                    this.nodes.push({ id, type, label, x, y, shape: NCfg[type].shape, sub, ...this.nodeDefaults(type) });
+                    return id;
+                };
+                // 创建演示流程节点：开始 → HR审批 → 条件判断 → 上级审批(通过) / 驳回通知(驳回) → 自动执行 → 结束
+                const s   = a('start',    '开始',    30,  190);
+                const hr  = a('approval', 'HR 审批', 160, 170, 'HR_DEPT');
+                const cd  = a('condition','审批结果',370, 184);
+                const mg  = a('approval', '上级审批',540, 90,  '发起人上级');
+                const rj  = a('notify',   '驳回通知',540, 290);
+                const au  = a('auto',     '创建账号',730, 90,  'accountService');
+                const en  = a('end',      '结束',    880, 184);
+                // 创建连线辅助函数
+                const ae  = (f, t, l) => this.edges.push({ id: 'e' + (++this.seq), from: f, to: t, label: l || '', remark: '' });
+                ae(s, hr); ae(hr, cd); ae(cd, mg, '通过'); ae(cd, rj, '驳回'); ae(mg, au); ae(au, en); ae(rj, en);
+                this.pushH(); this.renderAll(); // 保存初始快照
+            },
+        }
+    });
+
+</script>
+</body>
+</html>

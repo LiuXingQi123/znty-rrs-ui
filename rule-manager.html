@@ -1,0 +1,2273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>规则管理中心</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/theme-chalk/index.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+    <style>
+        /* 主题变量 */
+        :root {
+            --bg-base: #0d1117;
+            --bg-card: #161b22;
+            --bg-card2: #1c2128;
+            --bg-hover: #21262d;
+            --border: #30363d;
+            --border-light: #21262d;
+            --accent: #58a6ff;
+            --accent-dim: #1f3a5f;
+            --accent-glow: rgba(88, 166, 255, 0.15);
+            --green: #3fb950;
+            --green-dim: #1a3a24;
+            --orange: #d29922;
+            --orange-dim: #3d2c0a;
+            --red: #f85149;
+            --red-dim: #3d1a1a;
+            --purple: #bc8cff;
+            --purple-dim: #2d1f5e;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #484f58;
+            --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+            --font-ui: 'Noto Sans SC', sans-serif;
+        }
+
+        /* 盒模型重置 */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* 页面基础 */
+        body {
+            background: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── 顶部导航栏 ── */
+        /* 顶部导航栏 */
+        .topbar {
+            height: 56px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        /* 顶部品牌区域 */
+        .topbar-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        /* 品牌图标 */
+        .logo-icon {
+            width: 28px; height: 28px;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+        }
+        /* 品牌文字 */
+        .logo-text {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 0.5px;
+        }
+        /* 顶部导航分隔线 */
+        .topbar-divider { width: 1px; height: 20px; background: var(--border); }
+        /* 顶部副标题 */
+        .topbar-subtitle { font-size: 13px; color: var(--text-secondary); }
+        /* 顶部右侧状态区 */
+        .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+        /* 运行状态绿点 */
+        /* 运行状态圆点 */
+        .status-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green);
+            animation: pulse 2s infinite;
+        }
+        /* 状态点呼吸动画 */
+        /* 状态圆点呼吸动画 */
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        /* 运行状态文字 */
+        .status-text { font-size: 12px; color: var(--text-secondary); }
+
+        /* ── 主布局 ── */
+        /* 主布局容器 */
+        .main-layout {
+            display: flex;
+            height: calc(100vh - 56px);
+        }
+
+        /* ── 左侧边栏 ── */
+        /* 左侧导航栏 */
+        .sidebar {
+            width: 220px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 16px 0;
+            flex-shrink: 0;
+        }
+        /* 导航分组标题 */
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 0 16px 8px;
+        }
+        /* 导航菜单项 */
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 16px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-left: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        /* 导航菜单项 */
+        .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+        /* 当前导航项 */
+        .nav-item.active {
+            background: var(--accent-glow);
+            color: var(--accent);
+            border-left-color: var(--accent);
+        }
+        /* 导航图标 */
+        .nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+        /* 导航数量徽标 */
+        .nav-badge {
+            margin-left: auto;
+            background: var(--accent-dim);
+            color: var(--accent);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-family: var(--font-mono);
+        }
+        /* 侧边栏统计面板 */
+        .sidebar-stats {
+            margin: 16px 12px 0;
+            padding: 12px;
+            background: var(--bg-card2);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+        }
+        /* 统计行布局 */
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        /* 统计行布局 */
+        .stat-row:last-child { margin-bottom: 0; }
+        /* 统计标签 */
+        .stat-label { font-size: 11px; color: var(--text-muted); }
+        /* 统计数值 */
+        .stat-val { font-size: 12px; font-family: var(--font-mono); font-weight: 600; }
+        /* 绿色统计数值 */
+        .stat-val.green { color: var(--green); }
+        /* 橙色统计数值 */
+        .stat-val.orange { color: var(--orange); }
+        /* 红色统计数值 */
+        .stat-val.red { color: var(--red); }
+        /* 强调统计数值 */
+        .stat-val.accent { color: var(--accent); }
+
+        /* ── 内容区 ── */
+        /* 主内容区域 */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        /* ── 页面标题 ── */
+        /* 页面标题栏 */
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        /* 页面标题 */
+        .page-title {
+            font-size: 18px; font-weight: 700;
+            color: var(--text-primary);
+        }
+        /* 页面标题强调符号 */
+        .page-title span { color: var(--accent); }
+        /* 页面说明文字 */
+        .page-desc { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+        /* ── 通用卡片 ── */
+        /* 通用卡片容器 */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        /* 卡片头部 */
+        .card-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex; align-items: center; gap: 10px;
+        }
+        /* 卡片标题 */
+        .card-header-title {
+            font-size: 14px; font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+        }
+        /* 卡片状态标签 */
+        .card-header-tag {
+            font-size: 10px; font-weight: 600;
+            padding: 2px 8px; border-radius: 4px;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        /* 蓝色标签 */
+        .tag-blue { background: var(--accent-dim); color: var(--accent); }
+        /* 绿色标签 */
+        .tag-green { background: var(--green-dim); color: var(--green); }
+        /* 橙色标签 */
+        .tag-orange { background: var(--orange-dim); color: var(--orange); }
+        /* 紫色标签 */
+        .tag-purple { background: var(--purple-dim); color: var(--purple); }
+        /* 红色标签 */
+        .tag-red { background: var(--red-dim); color: var(--red); }
+        /* 卡片内容区 */
+        .card-body { padding: 18px; }
+
+        /* ── 表单美化 ── */
+        /* 表单标签文字 */
+        .el-form-item__label { color: var(--text-secondary) !important; font-size: 13px !important; }
+        /* 输入框基础样式 */
+        .el-input__inner,
+        .el-textarea__inner,
+        .el-select .el-input__inner {
+            background: var(--bg-card2) !important;
+            border-color: var(--border) !important;
+            color: var(--text-primary) !important;
+            font-family: var(--font-ui) !important;
+            border-radius: 6px !important;
+        }
+        /* 输入框聚焦样式 */
+        .el-input__inner:focus,
+        .el-textarea__inner:focus {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 2px var(--accent-glow) !important;
+        }
+        /* 输入框占位文字 */
+        .el-input__inner::placeholder,
+        .el-textarea__inner::placeholder { color: var(--text-muted) !important; }
+        /* 下拉面板 */
+        .el-select-dropdown { background: var(--bg-card2) !important; border-color: var(--border) !important; }
+        /* 下拉选项 */
+        .el-select-dropdown__item { color: var(--text-secondary) !important; }
+        /* 下拉选项悬浮态 */
+        .el-select-dropdown__item.hover,
+        .el-select-dropdown__item:hover { background: var(--bg-hover) !important; color: var(--text-primary) !important; }
+        /* 下拉选中项 */
+        .el-select-dropdown__item.selected { color: var(--accent) !important; }
+        /* 下拉箭头颜色 */
+        .el-popper[x-placement^=bottom] .popper__arrow::after { border-bottom-color: var(--bg-card2) !important; }
+        /* 表单项间距 */
+        .el-form-item { margin-bottom: 16px !important; }
+
+        /* ── 代码编辑器区域 ── */
+        /* 代码编辑器容器 */
+        .code-editor-wrapper {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--bg-base);
+        }
+        /* 代码编辑器工具栏 */
+        .code-editor-toolbar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-card2);
+            border-bottom: 1px solid var(--border-light);
+        }
+        /* 编辑器窗口控制点 */
+        .editor-dot { width: 10px; height: 10px; border-radius: 50%; }
+        /* 关闭状态点 */
+        .dot-red { background: #ff5f57; }
+        /* 最小化状态点 */
+        .dot-yellow { background: #febc2e; }
+        /* 全屏状态点 */
+        .dot-green { background: #28c840; }
+        /* 编辑器语言标签 */
+        .editor-lang-tag {
+            margin-left: auto;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            background: var(--bg-hover);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        /* 代码输入区域 */
+        .code-textarea {
+            width: 100%;
+            background: var(--bg-base);
+            border: none;
+            color: #79c0ff;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.7;
+            padding: 14px 16px;
+            resize: vertical;
+            outline: none;
+            min-height: 160px;
+            display: block;
+        }
+        /* 代码输入区域 */
+        .code-textarea::placeholder { color: var(--text-muted); }
+
+        /* ── 参数标签输入 ── */
+        /* 参数标签列表 */
+        .param-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+        /* 参数标签 */
+        .param-tag {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--bg-card2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 4px 10px 4px 12px;
+            font-size: 12px;
+            font-family: var(--font-mono);
+            color: var(--purple);
+        }
+        /* 参数删除按钮 */
+        .param-tag-remove {
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1;
+            transition: color 0.15s;
+        }
+        /* 参数删除按钮 */
+        .param-tag-remove:hover { color: var(--red); }
+        /* 参数输入行 */
+        .param-input-row { display: flex; gap: 8px; margin-top: 8px; }
+        /* 参数输入框伸展 */
+        .param-input-row .el-input { flex: 1; }
+        /* 参数组合输入框 */
+        .param-combo-input { max-width: 560px; }
+
+        /* ── 主按钮 ── */
+        /* 主按钮 */
+        .btn-primary {
+            background: var(--accent) !important;
+            border-color: var(--accent) !important;
+            color: #fff !important;
+            font-weight: 600 !important;
+            border-radius: 6px !important;
+            font-family: var(--font-ui) !important;
+        }
+        /* 主按钮 */
+        .btn-primary:hover { opacity: 0.85; }
+        /* 次要按钮 */
+        .btn-ghost {
+            background: transparent !important;
+            border-color: var(--border) !important;
+            color: var(--text-secondary) !important;
+            border-radius: 6px !important;
+            font-family: var(--font-ui) !important;
+        }
+        /* 次要按钮 */
+        .btn-ghost:hover { border-color: var(--accent) !important; color: var(--accent) !important; }
+        /* 危险按钮 */
+        .btn-danger {
+            background: transparent !important;
+            border-color: var(--red-dim) !important;
+            color: var(--red) !important;
+            border-radius: 6px !important;
+        }
+        /* 危险按钮 */
+        .btn-danger:hover { background: var(--red-dim) !important; }
+        /* 成功按钮 */
+        .btn-green {
+            background: var(--green-dim) !important;
+            border-color: var(--green) !important;
+            color: var(--green) !important;
+            border-radius: 6px !important;
+        }
+        /* 成功按钮 */
+        .btn-green:hover { background: #244a2e !important; }
+
+        /* ── 搜索工具栏 ── */
+        /* 搜索工具栏 */
+        .toolbar {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 16px;
+        }
+        /* 工具栏搜索框 */
+        .toolbar .el-input { width: 280px; }
+        /* 工具栏右侧操作区 */
+        .toolbar-right { margin-left: auto; display: flex; gap: 8px; }
+
+        /* ── 规则列表 ── */
+        /* 规则列表容器 */
+        .rule-list { display: flex; flex-direction: column; gap: 12px; }
+        /* 规则卡片 */
+        .rule-card {
+            background: var(--bg-card2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        /* 规则卡片 */
+        .rule-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent-glow);
+        }
+        /* 规则卡片头部 */
+        .rule-card-header {
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 16px;
+            cursor: pointer;
+            background: var(--bg-card2);
+            user-select: none;
+        }
+        /* 规则序号 */
+        .rule-index {
+            width: 28px; height: 28px;
+            background: var(--bg-hover);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+        /* 规则名称区域 */
+        .rule-name-block { flex: 1; min-width: 0; }
+        /* 规则名称 */
+        .rule-name {
+            font-size: 14px; font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        /* 规则描述 */
+        .rule-desc {
+            font-size: 12px; color: var(--text-muted);
+            margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        /* 规则元信息 */
+        .rule-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        /* 规则状态徽标 */
+        .rule-status-badge {
+            font-size: 10px; font-weight: 600;
+            padding: 2px 8px; border-radius: 10px;
+            font-family: var(--font-mono);
+        }
+        /* 启用状态 */
+        .status-active { background: var(--green-dim); color: var(--green); }
+        /* 禁用状态 */
+        .status-disabled { background: var(--bg-hover); color: var(--text-muted); }
+        /* 错误状态 */
+        .status-error { background: var(--red-dim); color: var(--red); }
+        /* 规则展开按钮 */
+        .rule-expand-btn {
+            color: var(--text-muted); font-size: 12px;
+            transition: transform 0.2s;
+        }
+        /* 规则展开状态 */
+        .rule-expand-btn.expanded { transform: rotate(180deg); }
+
+        /* ── 规则展开内容 ── */
+        /* 规则详情区域 */
+        .rule-detail {
+            border-top: 1px solid var(--border-light);
+            padding: 16px;
+            display: none;
+            animation: slideDown 0.2s ease;
+        }
+        /* 规则详情展开态 */
+        .rule-detail.show { display: block; }
+        /* 详情展开动画 */
+        @keyframes slideDown { from { opacity:0; transform: translateY(-6px) } to { opacity:1; transform: translateY(0) } }
+
+        /* 规则详情网格 */
+        .rule-detail-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 12px; margin-bottom: 14px;
+        }
+        /* 详情标签 */
+        .detail-label {
+            font-size: 11px; font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.8px;
+            margin-bottom: 5px;
+        }
+        /* 详情值 */
+        .detail-value { font-size: 13px; color: var(--text-secondary); }
+
+        /* 参数胶囊列表 */
+        .params-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        /* 参数胶囊 */
+        .params-chip {
+            display: inline-flex;
+            align-items: center;
+            max-width: 100%;
+            background: var(--purple-dim);
+            color: var(--purple);
+            border: 1px solid rgba(188,140,255,0.2);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-family: var(--font-mono);
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        /* 参数显示名 */
+        .param-chip-label {
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            margin-right: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* 参数字段名 */
+        .param-chip-name {
+            color: var(--purple);
+            font-family: var(--font-mono);
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* 测试参数行 */
+        .test-param-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 10px;
+        }
+        /* 测试参数标签 */
+        .test-param-label {
+            flex-shrink: 0;
+            width: 200px;
+            min-width: 0;
+            overflow: hidden;
+        }
+        /* 测试参数胶囊 */
+        .test-param-label .params-chip {
+            width: 100%;
+            justify-content: flex-start;
+        }
+        /* 测试参数名称 */
+        .test-param-label .param-chip-label {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        /* 测试参数输入区 */
+        .test-param-input {
+            flex: 1;
+            min-width: 0;
+        }
+        /* 测试参数控件 */
+        .test-param-input .el-input,
+        .test-param-input .el-select {
+            width: 100% !important;
+        }
+        /* el-select 多选 tag 暗色 */
+        /* 多选已选标签 */
+        .el-select .el-tag { background: var(--accent-dim) !important; border-color: transparent !important; color: var(--accent) !important; }
+        /* 多选标签关闭按钮 */
+        .el-select .el-tag .el-tag__close { color: var(--accent) !important; }
+        /* 多选标签容器 */
+        .el-select__tags { background: transparent !important; }
+        /* 多选下拉选中项 */
+        .el-select-dropdown.is-multiple .el-select-dropdown__item.selected { color: var(--accent) !important; background: var(--accent-glow) !important; }
+        /* dark-popper：el-select 下拉面板追加到 body 的暗色覆盖 */
+        /* 深色下拉面板 */
+        .dark-popper { background: #1c2128 !important; border: 1px solid #30363d !important; }
+        /* 深色下拉选项 */
+        .dark-popper .el-select-dropdown__item { color: #8b949e !important; }
+        /* 深色下拉悬浮态 */
+        .dark-popper .el-select-dropdown__item:hover,
+        .dark-popper .el-select-dropdown__item.hover { background: #21262d !important; color: #e6edf3 !important; }
+        /* 深色下拉选中项 */
+        .dark-popper .el-select-dropdown__item.selected { color: #58a6ff !important; }
+        /* 深色下拉箭头 */
+        .dark-popper .popper__arrow::after { border-bottom-color: #1c2128 !important; }
+        /* 深色滚动条滑块 */
+        .dark-popper .el-scrollbar__bar.is-vertical > div { background: #30363d !important; }
+
+        /* 脚本预览框 */
+        .code-preview {
+            background: var(--bg-base);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: #79c0ff;
+            line-height: 1.7;
+            max-height: 160px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        /* 规则操作区 */
+        .rule-actions {
+            display: flex; gap: 8px; margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-light);
+            flex-wrap: wrap;
+        }
+        /* 图标操作按钮 */
+        .action-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px; font-weight: 500;
+            cursor: pointer; border: 1px solid;
+            transition: all 0.15s;
+            font-family: var(--font-ui);
+        }
+        /* 运行操作按钮 */
+        .action-run { background: var(--accent-glow); border-color: rgba(88,166,255,0.3); color: var(--accent); }
+        /* 运行操作按钮 */
+        .action-run:hover { background: var(--accent-dim); border-color: var(--accent); }
+        /* 保存用例按钮 */
+        .action-save-test { background: var(--green-dim); border-color: rgba(63,185,80,0.3); color: var(--green); }
+        /* 保存用例按钮 */
+        .action-save-test:hover { background: #1e4a28; border-color: var(--green); }
+        /* 编辑操作按钮 */
+        .action-edit { background: var(--orange-dim); border-color: rgba(210,153,34,0.3); color: var(--orange); }
+        /* 编辑操作按钮 */
+        .action-edit:hover { background: #4a3610; border-color: var(--orange); }
+        /* 删除操作按钮 */
+        .action-delete { background: var(--red-dim); border-color: rgba(248,81,73,0.3); color: var(--red); }
+        /* 删除操作按钮 */
+        .action-delete:hover { background: #4a1c1c; border-color: var(--red); }
+        /* 启停操作按钮 */
+        .action-toggle { background: var(--bg-hover); border-color: var(--border); color: var(--text-secondary); }
+        /* 启停操作按钮 */
+        .action-toggle:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+
+        /* ── 测试脚本列表 ── */
+        /* 测试用例行 */
+        .test-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px;
+            background: var(--bg-card2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: border-color 0.15s;
+        }
+        /* 测试用例行 */
+        .test-item:hover { border-color: var(--green); }
+        /* 测试卡片 */
+        .test-card {
+            background: var(--bg-card2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            overflow: hidden;
+            transition: border-color 0.15s;
+        }
+        /* 测试卡片 */
+        .test-card:hover { border-color: var(--green); }
+        /* 测试用例行分隔 */
+        .test-card .test-item {
+            border: none;
+            border-radius: 0;
+            margin-bottom: 0;
+            cursor: pointer;
+        }
+        /* 测试详情区域 */
+        .test-detail {
+            display: none;
+            border-top: 1px solid var(--border-light);
+            padding: 14px 16px;
+            animation: slideDown 0.2s ease;
+        }
+        /* 测试详情展开态 */
+        .test-detail.show { display: block; }
+        /* 测试名称列 */
+        .test-name-col { flex: 1; }
+        /* 测试用例名称 */
+        .test-name { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+        /* 测试用例名称编辑区 */
+        .test-name-edit {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 420px;
+        }
+        /* 测试用例名称展示区 */
+        .test-name-view {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 100%;
+        }
+        /* 测试用例名称文本 */
+        .test-name-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        /* 测试用例编辑入口 */
+        .test-name-edit-btn {
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 12px;
+            opacity: 0;
+            transition: color 0.15s, opacity 0.15s;
+        }
+        /* 测试用例编辑入口悬浮 */
+        .test-name-view:hover .test-name-edit-btn { opacity: 1; }
+        /* 测试用例编辑入口高亮 */
+        .test-name-edit-btn:hover { color: var(--accent); }
+        /* 关联规则名称 */
+        .test-rule-ref {
+            font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);
+        }
+        /* 测试状态列 */
+        .test-status-col { display: flex; align-items: center; gap: 6px; }
+        /* 测试结果徽标 */
+        .test-result-badge {
+            font-size: 10px; font-weight: 700;
+            padding: 2px 8px; border-radius: 4px;
+            font-family: var(--font-mono);
+        }
+        /* 测试通过状态 */
+        .result-pass { background: var(--green-dim); color: var(--green); }
+        /* 测试失败状态 */
+        .result-fail { background: var(--red-dim); color: var(--red); }
+        /* 测试待运行状态 */
+        .result-pending { background: var(--bg-hover); color: var(--text-muted); }
+        /* 测试运行中状态 */
+        .result-running {
+            background: var(--accent-dim); color: var(--accent);
+            animation: blink 1s infinite;
+        }
+        /* 运行中闪烁动画 */
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        /* 测试操作列 */
+        .test-actions-col { display: flex; gap: 6px; }
+
+        /* 运行全部按钮 */
+        .run-all-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px;
+            background: var(--green-dim);
+            border: 1px solid rgba(63,185,80,0.3);
+            color: var(--green);
+            border-radius: 6px;
+            font-size: 13px; font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: var(--font-ui);
+        }
+        /* 运行全部按钮 */
+        .run-all-btn:hover { background: #1e4a28; border-color: var(--green); }
+        /* 运行全部按钮 */
+        .run-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Dialog 美化 ── */
+        /* 弹窗主体 */
+        .el-dialog {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 12px !important;
+        }
+        /* 弹窗头部 */
+        .el-dialog__header { border-bottom: 1px solid var(--border-light) !important; padding: 16px 20px !important; }
+        /* 弹窗标题 */
+        .el-dialog__title { color: var(--text-primary) !important; font-size: 15px !important; font-weight: 700 !important; }
+        /* 弹窗关闭按钮 */
+        .el-dialog__headerbtn .el-dialog__close { color: var(--text-muted) !important; }
+        /* 弹窗关闭按钮 */
+        .el-dialog__headerbtn:hover .el-dialog__close { color: var(--text-primary) !important; }
+        /* 弹窗内容区 */
+        .el-dialog__body { padding: 20px !important; color: var(--text-primary) !important; }
+        /* 弹窗底部 */
+        .el-dialog__footer { padding: 14px 20px !important; border-top: 1px solid var(--border-light) !important; }
+        /* 覆盖层 */
+        .el-overlay { background: rgba(0,0,0,0.7) !important; }
+        /* 遮罩层 */
+        .v-modal { background: rgba(0,0,0,0.7) !important; }
+
+        /* ── 测试结果输出 ── */
+        /* 测试输出控制台 */
+        .result-console {
+            background: var(--bg-base);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            line-height: 1.8;
+            min-height: 80px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        /* 控制台日志行 */
+        .console-line { display: flex; gap: 10px; }
+        /* 控制台时间 */
+        .console-time { color: var(--text-muted); flex-shrink: 0; }
+        /* 控制台级别标签 */
+        .console-tag { flex-shrink: 0; font-weight: 700; }
+        /* 信息日志标签 */
+        .console-tag.info { color: var(--accent); }
+        /* 成功日志标签 */
+        .console-tag.success { color: var(--green); }
+        /* 错误日志标签 */
+        .console-tag.error { color: var(--red); }
+        /* 警告日志标签 */
+        .console-tag.warn { color: var(--orange); }
+        /* 控制台消息 */
+        .console-msg { color: var(--text-secondary); word-break: break-all; }
+
+        /* ── 分割线 ── */
+        /* 内容分隔线 */
+        .divider {
+            height: 1px; background: var(--border-light);
+            margin: 16px 0;
+        }
+
+        /* ── 空状态 ── */
+        /* 空状态容器 */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+        }
+        /* 空状态图标 */
+        .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+        /* 空状态文字 */
+        .empty-text { font-size: 14px; }
+
+        /* ── Scrollbar ── */
+        /* Style block */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        /* Style block */
+        ::-webkit-scrollbar-track { background: transparent; }
+        /* Style block */
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ── 通知美化 ── */
+        /* 通知弹窗 */
+        .el-notification {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 8px !important;
+        }
+        /* 通知标题 */
+        .el-notification__title { color: var(--text-primary) !important; }
+        /* 通知内容 */
+        .el-notification__content { color: var(--text-secondary) !important; }
+
+        /* ── Tab ── */
+        /* 标签页底部分隔线 */
+        .el-tabs__nav-wrap::after { background: var(--border) !important; }
+        /* 标签页文字 */
+        .el-tabs__item { color: var(--text-muted) !important; }
+        /* 当前标签页 */
+        .el-tabs__item.is-active { color: var(--accent) !important; }
+        /* 标签页激活线 */
+        .el-tabs__active-bar { background: var(--accent) !important; }
+
+        /* ── 输入框清除按钮 ── */
+        /* 输入框后缀图标 */
+        .el-input__suffix { color: var(--text-muted) !important; }
+
+        /* ── 运行进度条 ── */
+        /* 进度条容器 */
+        .progress-bar-wrap {
+            height: 3px;
+            background: var(--border-light);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        /* 进度条填充 */
+        .progress-bar-inner {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--purple));
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+
+        /* ── 页面切换动画 ── */
+        /* 页面进入动画 */
+        .page-enter { animation: pageIn 0.2s ease; }
+        /* 页面淡入动画 */
+        @keyframes pageIn { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform: translateY(0) } }
+
+        /* ── 参数类型 badge ── */
+        /* 参数类型徽标 */
+        .param-type-badge {
+            display: inline-flex; align-items: center;
+            font-size: 9px; font-weight: 700;
+            padding: 1px 5px; border-radius: 3px;
+            font-family: var(--font-mono);
+            letter-spacing: 0.3px;
+            flex-shrink: 0;
+        }
+        /* 字符串类型徽标 */
+        .ptype-string  { background: #1f3a5f; color: #58a6ff; }
+        /* 数值类型徽标 */
+        .ptype-number  { background: #3d2c0a; color: #d29922; }
+        /* 单选类型徽标 */
+        .ptype-select  { background: #1a3a24; color: #3fb950; }
+        /* 多选类型徽标 */
+        .ptype-multiselect { background: #2d1f5e; color: #bc8cff; }
+
+        /* ── 新增参数弹窗内部 ── */
+        /* 添加参数步骤条 */
+        .add-param-step { animation: pageIn 0.15s ease; }
+        /* 参数类型选项网格 */
+        .type-option-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        /* 参数类型选项卡 */
+        .type-option-card {
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: var(--bg-card2);
+        }
+        /* 参数类型选项卡 */
+        .type-option-card:hover { border-color: var(--accent); background: var(--accent-glow); }
+        /* 参数类型选中态 */
+        .type-option-card.selected { border-color: var(--accent); background: var(--accent-glow); }
+        /* 参数类型图标 */
+        .type-option-icon {
+            width: 26px;
+            height: 26px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 6px;
+            border-radius: 6px;
+            background: var(--accent-glow);
+            color: var(--accent);
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        /* 参数类型名称 */
+        .type-option-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        /* 参数类型说明 */
+        .type-option-desc  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+        /* 预设选项列表 */
+        .preset-set-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+        /* 预设选项项 */
+        .preset-set-item {
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 10px 12px;
+            cursor: pointer;
+            background: var(--bg-card2);
+            transition: all 0.15s;
+        }
+        /* 预设选项项 */
+        .preset-set-item:hover { border-color: var(--accent); }
+        /* 预设选中态 */
+        .preset-set-item.selected { border-color: var(--accent); background: var(--accent-glow); }
+        /* 预设名称 */
+        .preset-set-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        /* 预设选项预览 */
+        .preset-set-opts {
+            display: flex; flex-wrap: wrap; gap: 4px 5px; margin-top: 5px;
+        }
+        /* 预设选项标签 */
+        .preset-set-chip {
+            font-size: 10px; padding: 1px 5px; border-radius: 3px;
+            background: var(--bg-hover); color: var(--text-secondary);
+            font-family: var(--font-mono);
+        }
+        /* 自定义选项输入区 */
+        .preset-custom-input { margin-top: 10px; }
+        /* 候选项标签列表 */
+        .options-tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        /* 候选项标签 */
+        .options-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: var(--bg-hover); border: 1px solid var(--border);
+            border-radius: 4px; padding: 2px 8px;
+            font-size: 11px; color: var(--text-secondary);
+            font-family: var(--font-mono);
+        }
+        /* 候选项删除按钮 */
+        .options-tag-remove { cursor: pointer; color: var(--text-muted); }
+        /* 候选项删除按钮 */
+        .options-tag-remove:hover { color: var(--red); }
+
+        /* ── el-checkbox 暗色修正 ── */
+        /* 复选框文字 */
+        .el-checkbox__label { color: var(--text-secondary) !important; font-size: 13px !important; }
+        /* 复选框方块 */
+        .el-checkbox__inner { background: var(--bg-card2) !important; border-color: var(--border) !important; }
+        /* 复选框选中态 */
+        .el-checkbox__input.is-checked .el-checkbox__inner { background: var(--accent) !important; border-color: var(--accent) !important; }
+        /* 复选框组 */
+        .el-checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        /* 单选框文字 */
+        .el-radio__label { color: var(--text-secondary) !important; font-size: 13px !important; }
+        /* 单选框圆点 */
+        .el-radio__inner { background: var(--bg-card2) !important; border-color: var(--border) !important; }
+        /* 单选框选中态 */
+        .el-radio__input.is-checked .el-radio__inner { border-color: var(--accent) !important; }
+        /* 单选框选中内点 */
+        .el-radio__input.is-checked .el-radio__inner::after { background: var(--accent) !important; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- 顶部导航 -->
+    <div class="topbar">
+        <div class="topbar-logo">
+            <div class="logo-icon">⚡</div>
+            <div class="logo-text">RuleEngine</div>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-subtitle">QLExpress 规则管理中心</div>
+        <div class="topbar-right">
+            <div class="status-dot"></div>
+            <div class="status-text">引擎运行中</div>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <!-- 左侧导航 -->
+        <div class="sidebar">
+            <div class="nav-section-title">导航</div>
+            <div class="nav-item" :class="{active: currentPage==='rules'}" @click="currentPage='rules'">
+                <span class="icon">📋</span> 规则列表
+                <span class="nav-badge">{{ rules.length }}</span>
+            </div>
+            <div class="nav-item" :class="{active: currentPage==='create'}" @click="currentPage='create'">
+                <span class="icon">✚</span> 新建规则
+            </div>
+            <div class="nav-item" :class="{active: currentPage==='tests'}" @click="currentPage='tests'">
+                <span class="icon">🧪</span> 测试脚本
+                <span class="nav-badge">{{ testCases.length }}</span>
+            </div>
+
+            <div style="margin-top:16px">
+                <div class="nav-section-title">统计</div>
+                <div class="sidebar-stats">
+                    <div class="stat-row">
+                        <span class="stat-label">总规则数</span>
+                        <span class="stat-val accent">{{ rules.length }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">已启用</span>
+                        <span class="stat-val green">{{ rules.filter(r=>r.status==='active').length }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">已禁用</span>
+                        <span class="stat-val orange">{{ rules.filter(r=>r.status==='disabled').length }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">测试用例</span>
+                        <span class="stat-val accent">{{ testCases.length }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">通过率</span>
+                        <span class="stat-val green">{{ passRate }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 内容区 -->
+        <div class="content-area">
+
+            <!-- ===== 规则列表页 ===== -->
+            <div v-if="currentPage==='rules'" class="page-enter">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">规则列表 <span>#</span></div>
+                        <div class="page-desc">管理所有 QLExpress 规则，点击规则可展开详情、执行测试</div>
+                    </div>
+                    <el-button class="btn-primary" size="small" @click="currentPage='create'">
+                        ＋ 新建规则
+                    </el-button>
+                </div>
+
+                <div class="toolbar">
+                    <el-input
+                            v-model="searchKey"
+                            placeholder="搜索规则名称 / 描述 / 参数..."
+                            prefix-icon="el-icon-search"
+                            size="small"
+                            clearable
+                    ></el-input>
+                    <el-select v-model="filterStatus" size="small" placeholder="全部状态" clearable style="width:120px">
+                        <el-option label="全部" value=""></el-option>
+                        <el-option label="已启用" value="active"></el-option>
+                        <el-option label="已禁用" value="disabled"></el-option>
+                    </el-select>
+                    <div class="toolbar-right">
+                        <span style="font-size:12px;color:var(--text-muted)">共 {{ filteredRules.length }} 条</span>
+                    </div>
+                </div>
+
+                <div class="rule-list" v-if="filteredRules.length">
+                    <div
+                            class="rule-card"
+                            v-for="(rule, idx) in filteredRules"
+                            :key="rule.id"
+                    >
+                        <!-- 规则头 -->
+                        <div class="rule-card-header" @click="toggleRule(rule.id)">
+                            <div class="rule-index">{{ String(idx+1).padStart(2,'0') }}</div>
+                            <div class="rule-name-block">
+                                <div class="rule-name">{{ rule.name }}</div>
+                                <div class="rule-desc">{{ rule.description || '暂无描述' }}</div>
+                            </div>
+                            <div class="rule-meta">
+                <span v-if="rule.params && rule.params.length" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">
+                  {{ rule.params.length }}个参数
+                </span>
+                                <span class="rule-status-badge" :class="rule.status==='active'?'status-active':'status-disabled'">
+                  {{ rule.status==='active' ? 'ACTIVE' : 'DISABLED' }}
+                </span>
+                                <span class="rule-expand-btn" :class="{expanded: expandedRules.includes(rule.id)}">▼</span>
+                            </div>
+                        </div>
+
+                        <!-- 规则详情 -->
+                        <div class="rule-detail" :class="{show: expandedRules.includes(rule.id)}">
+                            <div class="rule-detail-grid">
+                                <div class="detail-item">
+                                    <div class="detail-label">规则 ID</div>
+                                    <div class="detail-value" style="font-family:var(--font-mono);color:var(--accent)">{{ rule.id }}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">创建时间</div>
+                                    <div class="detail-value">{{ rule.createdAt }}</div>
+                                </div>
+                                <div class="detail-item" style="grid-column:1/-1">
+                                    <div class="detail-label">规则参数</div>
+                                    <div class="params-chip-list" v-if="rule.params && rule.params.length">
+                    <span class="params-chip" v-for="p in rule.params" :key="paramKey(p)" style="align-items:center;gap:4px">
+                      <span class="param-type-badge" :class="'ptype-'+(p.type||'string')">{{ paramTypeLabel(p.type) }}</span>
+                      <span class="param-chip-label">{{ paramDisplay(p) }}</span>
+                    </span>
+                                    </div>
+                                    <div v-else style="font-size:12px;color:var(--text-muted)">无参数</div>
+                                </div>
+                                <div class="detail-item" style="grid-column:1/-1">
+                                    <div class="detail-label">规则脚本 (QLExpress)</div>
+                                    <div class="code-preview">{{ rule.script }}</div>
+                                </div>
+                            </div>
+
+                            <!-- 操作按钮 -->
+                            <div class="rule-actions">
+                <span class="action-btn action-run" @click="openTestDialog(rule)">
+                  ▶ 执行测试
+                </span>
+                                <span class="action-btn action-save-test" @click="quickAddTestCase(rule)">
+                  ＋ 添加为测试脚本
+                </span>
+                                <span class="action-btn action-edit" @click="editRule(rule)">
+                  ✎ 编辑规则
+                </span>
+                                <span class="action-btn action-toggle" @click="toggleStatus(rule)">
+                  {{ rule.status==='active' ? '⏸ 禁用' : '▶ 启用' }}
+                </span>
+                                <span class="action-btn action-delete" @click="deleteRule(rule.id)">
+                  ✕ 删除
+                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="empty-state" v-else>
+                    <div class="empty-icon">📭</div>
+                    <div class="empty-text">暂无匹配规则，<span style="color:var(--accent);cursor:pointer" @click="currentPage='create'">点击创建</span></div>
+                </div>
+            </div>
+
+            <!-- ===== 新建/编辑规则页 ===== -->
+            <div v-if="currentPage==='create'" class="page-enter">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">{{ editingRule ? '编辑规则' : '新建规则' }} <span>#</span></div>
+                        <div class="page-desc">填写规则信息并编写 QLExpress 脚本</div>
+                    </div>
+                    <el-button class="btn-ghost" size="small" @click="cancelEdit">← 返回列表</el-button>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-header-title">基本信息</span>
+                        <span class="card-header-tag tag-blue">RULE INFO</span>
+                    </div>
+                    <div class="card-body">
+                        <el-form :model="form" label-width="90px" ref="ruleForm">
+                            <el-form-item label="规则名称" prop="name">
+                                <el-input v-model="form.name" placeholder="例如：订单金额折扣规则" maxlength="50" show-word-limit></el-input>
+                            </el-form-item>
+                            <el-form-item label="规则描述">
+                                <el-input v-model="form.description" type="textarea" :rows="2" placeholder="简要描述规则的用途和适用场景..."></el-input>
+                            </el-form-item>
+                            <el-form-item label="规则分类">
+                                <el-select v-model="form.category" placeholder="选择分类" style="width:200px">
+                                    <el-option
+                                        v-for="cat in categories"
+                                        :key="cat.code"
+                                        :label="cat.name"
+                                        :value="cat.code">
+                                    </el-option>
+                                </el-select>
+                            </el-form-item>
+                            <el-form-item label="规则参数">
+                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">
+                                    声明脚本中使用到的外部参数，支持字符串、数值、单选、多选类型
+                                </div>
+                                <div class="param-tags" v-if="form.params.length">
+                                    <div class="param-tag" v-for="(p,i) in form.params" :key="i" style="align-items:center">
+                                        <span class="param-type-badge" :class="'ptype-'+(p.type||'string')">{{ paramTypeLabel(p.type) }}</span>
+                                        <span style="margin-left:4px">{{ paramDisplay(p) }}</span>
+                                        <span class="param-tag-remove" @click="removeParam(i)">×</span>
+                                    </div>
+                                </div>
+                                <div style="margin-top:8px">
+                                    <el-button size="small" class="btn-ghost" @click="openAddParamDialog">＋ 添加参数</el-button>
+                                </div>
+                            </el-form-item>
+                        </el-form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-header-title">规则脚本 (QLExpress)</span>
+                        <span class="card-header-tag tag-purple">QLExpress</span>
+                    </div>
+                    <div class="card-body">
+                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+                            编写 QLExpress 规则脚本，支持条件判断、数学运算、函数调用等语法
+                        </div>
+                        <div class="code-editor-wrapper">
+                            <div class="code-editor-toolbar">
+                                <div class="editor-dot dot-red"></div>
+                                <div class="editor-dot dot-yellow"></div>
+                                <div class="editor-dot dot-green"></div>
+                                <div class="editor-lang-tag">QLExpress</div>
+                            </div>
+                            <textarea
+                                    class="code-textarea"
+                                    v-model="form.script"
+                                    placeholder="// 在此编写 QLExpress 规则脚本&#10;// 示例：&#10;if (orderAmount > 1000) {&#10;    discount = 0.9;&#10;} else {&#10;    discount = 1.0;&#10;}"
+                                    rows="10"
+                                    spellcheck="false"
+                            ></textarea>
+                        </div>
+
+                        <!-- 快速模板 -->
+                        <div style="margin-top:12px">
+                            <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600">快速模板</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <span v-for="tpl in scriptTemplates" :key="tpl.name"
+                      @click="form.script=tpl.code"
+                      style="font-size:11px;cursor:pointer;padding:3px 10px;border-radius:4px;background:var(--bg-hover);border:1px solid var(--border);color:var(--text-secondary);transition:all .15s"
+                      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+                      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'"
+                >{{ tpl.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:10px;justify-content:flex-end;padding-bottom:24px">
+                    <el-button class="btn-ghost" @click="cancelEdit">取消</el-button>
+                    <el-button class="btn-primary" @click="saveRule">
+                        {{ editingRule ? '保存修改' : '创建规则' }}
+                    </el-button>
+                </div>
+            </div>
+
+            <!-- ===== 测试脚本页 ===== -->
+            <div v-if="currentPage==='tests'" class="page-enter">
+                <div class="page-header">
+                    <div>
+                        <div class="page-title">测试脚本 <span>#</span></div>
+                        <div class="page-desc">管理自动化测试用例，可批量运行进行回归测试</div>
+                    </div>
+                    <button class="run-all-btn" @click="runAllTests" :disabled="isRunningAll">
+                        <span v-if="!isRunningAll">▶▶ 运行全部</span>
+                        <span v-else>⟳ 运行中...</span>
+                    </button>
+                </div>
+
+                <!-- 测试统计 -->
+                <div style="display:flex;gap:12px;margin-bottom:20px">
+                    <div class="card" style="flex:1;margin-bottom:0">
+                        <div class="card-body" style="padding:12px 16px">
+                            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;font-weight:600">总用例</div>
+                            <div style="font-size:24px;font-weight:700;color:var(--accent);font-family:var(--font-mono);margin-top:4px">{{ testCases.length }}</div>
+                        </div>
+                    </div>
+                    <div class="card" style="flex:1;margin-bottom:0">
+                        <div class="card-body" style="padding:12px 16px">
+                            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;font-weight:600">通过</div>
+                            <div style="font-size:24px;font-weight:700;color:var(--green);font-family:var(--font-mono);margin-top:4px">{{ testCases.filter(t=>t.lastResult==='pass').length }}</div>
+                        </div>
+                    </div>
+                    <div class="card" style="flex:1;margin-bottom:0">
+                        <div class="card-body" style="padding:12px 16px">
+                            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;font-weight:600">失败</div>
+                            <div style="font-size:24px;font-weight:700;color:var(--red);font-family:var(--font-mono);margin-top:4px">{{ testCases.filter(t=>t.lastResult==='fail').length }}</div>
+                        </div>
+                    </div>
+                    <div class="card" style="flex:1;margin-bottom:0">
+                        <div class="card-body" style="padding:12px 16px">
+                            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;font-weight:600">待运行</div>
+                            <div style="font-size:24px;font-weight:700;color:var(--orange);font-family:var(--font-mono);margin-top:4px">{{ testCases.filter(t=>!t.lastResult).length }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 进度条（运行中显示） -->
+                <div v-if="isRunningAll" class="progress-bar-wrap">
+                    <div class="progress-bar-inner" :style="{width: runProgress+'%'}"></div>
+                </div>
+
+                <!-- 筛选工具栏 -->
+                <div class="toolbar">
+                    <el-input
+                        v-model="testSearchKey"
+                        placeholder="搜索用例名称 / 关联规则 / 参数名..."
+                        prefix-icon="el-icon-search"
+                        size="small"
+                        clearable
+                    ></el-input>
+                    <el-select v-model="testFilterResult" size="small" placeholder="全部结果" clearable style="width:120px">
+                        <el-option label="全部" value=""></el-option>
+                        <el-option label="通过" value="pass"></el-option>
+                        <el-option label="失败" value="fail"></el-option>
+                        <el-option label="待运行" value="pending"></el-option>
+                    </el-select>
+                    <div class="toolbar-right">
+                        <span style="font-size:12px;color:var(--text-muted)">共 {{ filteredTestCases.length }} 条</span>
+                    </div>
+                </div>
+
+                <!-- 测试用例列表 -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-header-title">测试用例列表</span>
+                        <span class="card-header-tag tag-green">{{ filteredTestCases.length }} CASES</span>
+                    </div>
+                    <div class="card-body">
+                        <div v-if="filteredTestCases.length">
+                            <div class="test-card" v-for="tc in filteredTestCases" :key="tc.id">
+                                <div class="test-item" @click="toggleTestCase(tc.id)">
+                                    <div class="test-name-col">
+                                        <div v-if="editingTestCaseId===tc.id" class="test-name-edit" @click.stop>
+                                            <el-input
+                                                    v-model="editingTestCaseName"
+                                                    size="mini"
+                                                    maxlength="50"
+                                                    @keyup.enter.native="saveTestCaseName(tc)"
+                                                    @keyup.esc.native="cancelEditTestCaseName"
+                                            ></el-input>
+                                            <span class="action-btn action-run" style="padding:3px 8px;font-size:11px" @click.stop="saveTestCaseName(tc)">保存</span>
+                                            <span class="action-btn action-delete" style="padding:3px 8px;font-size:11px" @click.stop="cancelEditTestCaseName">取消</span>
+                                        </div>
+                                        <div v-else class="test-name test-name-view">
+                                            <span class="test-name-text">{{ tc.name }}</span>
+                                            <span class="test-name-edit-btn" title="编辑用例名称" @click.stop="startEditTestCaseName(tc)">✎</span>
+                                        </div>
+                                        <div class="test-rule-ref">→ {{ tc.ruleName }}</div>
+                                    </div>
+                                    <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);flex-shrink:0;margin-right:8px">
+                                        {{ tc.params ? Object.entries(tc.params).map(([k,v])=>k+'='+v).join(', ') : '' }}
+                                    </div>
+                                    <div class="test-status-col">
+                    <span class="test-result-badge"
+                          :class="{
+                        'result-pass': tc.lastResult==='pass',
+                        'result-fail': tc.lastResult==='fail',
+                        'result-running': tc.lastResult==='running',
+                        'result-pending': !tc.lastResult
+                      }">
+                      {{ tc.lastResult ? tc.lastResult.toUpperCase() : 'PENDING' }}
+                    </span>
+                                        <span v-if="tc.lastOutput" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">
+                      → {{ tc.lastOutput }}
+                    </span>
+                                    </div>
+                                    <div class="test-actions-col">
+                                        <span class="action-btn action-run" style="padding:4px 10px;font-size:11px" @click.stop="runSingleTest(tc)">▶</span>
+                                        <span class="action-btn action-delete" style="padding:4px 10px;font-size:11px" @click.stop="deleteTestCase(tc.id)">✕</span>
+                                        <span class="rule-expand-btn" :class="{expanded: expandedTestCases.includes(tc.id)}">▼</span>
+                                    </div>
+                                </div>
+
+                                <div class="test-detail" :class="{show: expandedTestCases.includes(tc.id)}">
+                                    <div class="rule-detail-grid">
+                                        <div class="detail-item">
+                                            <div class="detail-label">用例名称</div>
+                                            <div class="detail-value">
+                                                <span>{{ tc.name }}</span>
+                                                <span class="test-name-edit-btn" style="opacity:1;margin-left:6px" title="编辑用例名称" @click.stop="startEditTestCaseName(tc)">✎</span>
+                                            </div>
+                                        </div>
+                                        <div class="detail-item">
+                                            <div class="detail-label">关联规则</div>
+                                            <div class="detail-value">{{ tc.ruleName }}</div>
+                                        </div>
+                                        <div class="detail-item">
+                                            <div class="detail-label">执行状态</div>
+                                            <div class="detail-value">{{ tc.lastResult ? tc.lastResult.toUpperCase() : 'PENDING' }}</div>
+                                        </div>
+                                        <div class="detail-item">
+                                            <div class="detail-label">最后输出</div>
+                                            <div class="detail-value" style="font-family:var(--font-mono);color:var(--accent)">{{ tc.lastOutput || '-' }}</div>
+                                        </div>
+                                        <div class="detail-item" style="grid-column:1/-1">
+                                            <div class="detail-label">参数取值</div>
+                                            <div class="params-chip-list" v-if="Object.keys(tc.params || {}).length">
+                        <span class="params-chip" v-for="(value, key) in tc.params" :key="key">
+                          <span class="param-chip-label">{{ paramDisplayName(tc, key) }}：{{ key }}={{ value }}</span>
+                        </span>
+                                            </div>
+                                            <div v-else style="font-size:12px;color:var(--text-muted)">无参数</div>
+                                        </div>
+                                        <div class="detail-item" style="grid-column:1/-1" v-if="getTestRule(tc)">
+                                            <div class="detail-label">规则脚本 (QLExpress)</div>
+                                            <div class="code-preview">{{ getTestRule(tc).script }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="empty-state" v-else>
+                            <div class="empty-icon">🧪</div>
+                            <div class="empty-text" v-if="testCases.length">没有匹配的测试用例，请调整筛选条件</div>
+                            <div class="empty-text" v-else>暂无测试用例，在规则列表中点击「添加为测试脚本」</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /content-area -->
+    </div><!-- /main-layout -->
+
+    <!-- ===== 执行测试 Dialog ===== -->
+    <el-dialog
+            :title="'执行测试 · ' + (testingRule ? testingRule.name : '')"
+            :visible.sync="testDialogVisible"
+            width="560px"
+            :close-on-click-modal="false"
+    >
+        <div v-if="testingRule">
+            <div style="margin-bottom:16px">
+                <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">
+                    测试用例名称
+                </div>
+                <el-input
+                        v-model="testCaseName"
+                        size="small"
+                        placeholder="例如：VIP 用户大额订单折扣"
+                ></el-input>
+            </div>
+
+            <!-- 参数填写 -->
+            <div style="margin-bottom:16px">
+                <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">
+                    输入参数
+                </div>
+                <div v-if="testingRule.params && testingRule.params.length">
+                    <div v-for="param in testingRule.params" :key="paramKey(param)" class="test-param-row">
+                        <div class="test-param-label">
+              <span class="params-chip" :title="paramDisplay(param)" style="align-items:center;gap:4px;display:inline-flex;max-width:100%">
+                <span class="param-type-badge" :class="'ptype-'+(param.type||'string')">{{ paramTypeLabel(param.type) }}</span>
+                <span class="param-chip-label">{{ paramDisplay(param) }}</span>
+              </span>
+                        </div>
+                        <div class="test-param-input">
+                            <!-- 字符串 -->
+                            <el-input
+                                    v-if="!param.type || param.type==='string'"
+                                    v-model="param._value"
+                                    size="small"
+                                    :placeholder="'输入 ' + paramLabel(param)"
+                            ></el-input>
+                            <!-- 数值 -->
+                            <el-input
+                                    v-else-if="param.type==='number'"
+                                    v-model="param._value"
+                                    size="small"
+                                    type="number"
+                                    placeholder="输入数值"
+                            ></el-input>
+                            <!-- 单选 -->
+                            <el-select
+                                    v-else-if="param.type==='select'"
+                                    v-model="param._value"
+                                    size="small"
+                                    placeholder="请选择"
+                                    style="width:100%"
+                                    popper-class="dark-popper"
+                            >
+                                <el-option v-for="opt in (param.options||[])" :key="opt" :label="opt" :value="opt"></el-option>
+                            </el-select>
+                            <!-- 多选 -->
+                            <el-select
+                                    v-else-if="param.type==='multiselect'"
+                                    v-model="param._multiValue"
+                                    size="small"
+                                    multiple
+                                    collapse-tags
+                                    placeholder="请选择（可多选）"
+                                    style="width:100%"
+                                    popper-class="dark-popper"
+                            >
+                                <el-option v-for="opt in (param.options||[])" :key="opt" :label="opt" :value="opt"></el-option>
+                            </el-select>
+                            <!-- 未知类型兜底 -->
+                            <el-input
+                                    v-else
+                                    v-model="param._value"
+                                    size="small"
+                                    :placeholder="'输入 ' + paramLabel(param)"
+                            ></el-input>
+                        </div>
+                    </div>
+                </div>
+                <div v-else style="font-size:13px;color:var(--text-muted);padding:10px 0">
+                    该规则无需输入参数
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- 脚本预览 -->
+            <div style="margin-bottom:14px">
+                <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">
+                    脚本预览
+                </div>
+                <div class="code-preview">{{ testingRule.script }}</div>
+            </div>
+
+            <!-- 输出结果 -->
+            <div v-if="testOutput.length">
+                <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">
+                    执行输出
+                </div>
+                <div class="result-console">
+                    <div class="console-line" v-for="(line, i) in testOutput" :key="i">
+                        <span class="console-time">{{ line.time }}</span>
+                        <span class="console-tag" :class="line.type">{{ '[' + line.type.toUpperCase() + ']' }}</span>
+                        <span class="console-msg">{{ line.msg }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <span slot="footer">
+      <el-button class="btn-ghost" size="small" @click="testDialogVisible=false">关闭</el-button>
+      <el-button class="btn-ghost" size="small" @click="addTestCaseFromDialog">＋ 保存为测试用例</el-button>
+      <el-button class="btn-primary" size="small" @click="runTest">▶ 执行</el-button>
+    </span>
+    </el-dialog>
+
+    <!-- ===== 新增参数 Dialog ===== -->
+    <el-dialog
+            title="添加参数"
+            :visible.sync="addParamDialogVisible"
+            width="640px"
+            :close-on-click-modal="false"
+            @closed="resetAddParamForm"
+    >
+        <div v-if="addParamStep===1" class="add-param-step">
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">第一步：选择参数类型</div>
+            <div class="type-option-grid">
+                <div class="type-option-card" :class="{selected: newParam.type==='string'}" @click="newParam.type='string'">
+                    <div class="type-option-icon">Aa</div>
+                    <div class="type-option-label">字符串</div>
+                    <div class="type-option-desc">任意文本输入，如名称、代码</div>
+                </div>
+                <div class="type-option-card" :class="{selected: newParam.type==='number'}" @click="newParam.type='number'">
+                    <div class="type-option-icon">12</div>
+                    <div class="type-option-label">数值</div>
+                    <div class="type-option-desc">整数或小数，如金额、分数</div>
+                </div>
+                <div class="type-option-card" :class="{selected: newParam.type==='select'}" @click="newParam.type='select'">
+                    <div class="type-option-icon">✓</div>
+                    <div class="type-option-label">单选</div>
+                    <div class="type-option-desc">从固定选项中选一个</div>
+                </div>
+                <div class="type-option-card" :class="{selected: newParam.type==='multiselect'}" @click="newParam.type='multiselect'">
+                    <div class="type-option-icon">☷</div>
+                    <div class="type-option-label">多选</div>
+                    <div class="type-option-desc">从固定选项中选多个</div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="addParamStep===2" class="add-param-step">
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">第二步：填写参数信息</div>
+            <el-form label-width="80px" size="small">
+                <el-form-item label="显示名称">
+                    <el-input v-model="newParam.label" placeholder="业务人员看到的名称，如：主体评级"></el-input>
+                </el-form-item>
+                <el-form-item label="字段名">
+                    <el-input v-model="newParam.name" placeholder="脚本中使用的变量名，如：subjectRating"></el-input>
+                </el-form-item>
+                <!-- 单选/多选：选项配置 -->
+                <el-form-item v-if="newParam.type==='select'||newParam.type==='multiselect'" label="选项来源">
+                    <div class="preset-set-list">
+                        <div
+                                v-for="ps in presetOptionSets"
+                                :key="ps.name"
+                                class="preset-set-item"
+                                :class="{selected: newParam.presetKey===ps.name}"
+                                @click="selectPreset(ps)"
+                        >
+                            <div class="preset-set-name">{{ ps.name }}</div>
+                            <div class="preset-set-opts">
+                                <span class="preset-set-chip" v-for="o in ps.options.slice(0,14)" :key="o">{{ o }}</span>
+                                <span v-if="ps.options.length>14" class="preset-set-chip">+{{ ps.options.length-14 }}…</span>
+                            </div>
+                        </div>
+                        <div
+                                class="preset-set-item"
+                                :class="{selected: newParam.presetKey==='__custom__'}"
+                                @click="selectPreset({name:'__custom__', options:[]})"
+                        >
+                            <div class="preset-set-name">自定义选项</div>
+                            <div style="font-size:11px;color:var(--text-muted);margin-top:3px">手动输入选项值</div>
+                        </div>
+                    </div>
+                    <!-- 自定义选项输入 -->
+                    <div v-if="newParam.presetKey==='__custom__'" class="preset-custom-input">
+                        <div class="options-tag-list">
+              <span class="options-tag" v-for="(opt,i) in newParam.options" :key="i">
+                {{ opt }}
+                <span class="options-tag-remove" @click="removeCustomOption(i)">×</span>
+              </span>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:8px">
+                            <el-input v-model="customOptionInput" size="small" placeholder="输入选项值后按回车" @keyup.enter.native="addCustomOption" style="flex:1"></el-input>
+                            <el-button size="small" class="btn-ghost" @click="addCustomOption">添加</el-button>
+                        </div>
+                    </div>
+                </el-form-item>
+            </el-form>
+        </div>
+
+        <span slot="footer">
+      <el-button class="btn-ghost" size="small" @click="addParamDialogVisible=false">取消</el-button>
+      <el-button v-if="addParamStep===2" class="btn-ghost" size="small" @click="addParamStep=1">← 上一步</el-button>
+      <el-button v-if="addParamStep===1" class="btn-primary" size="small" @click="addParamStepNext" :disabled="!newParam.type">下一步 →</el-button>
+      <el-button v-if="addParamStep===2" class="btn-primary" size="small" @click="confirmAddParam">确认添加</el-button>
+    </span>
+    </el-dialog>
+
+    <!-- ===== 删除确认 Dialog ===== -->
+    <el-dialog title="确认删除" :visible.sync="deleteDialogVisible" width="380px">
+        <div style="color:var(--text-secondary);font-size:14px;line-height:1.7">
+            确定要删除规则 <strong style="color:var(--red)">「{{ deletingRuleName }}」</strong> 吗？<br/>
+            <span style="color:var(--text-muted);font-size:12px">此操作不可撤销，相关测试用例也会受到影响。</span>
+        </div>
+        <span slot="footer">
+      <el-button class="btn-ghost" size="small" @click="deleteDialogVisible=false">取消</el-button>
+      <el-button class="btn-danger" size="small" @click="confirmDelete">确认删除</el-button>
+    </span>
+    </el-dialog>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.7.16/vue.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/locale/zh-cn.min.js"></script>
+<script>
+
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                // 后端接口基地址
+                apiBase: 'http://localhost:18090',
+
+                currentPage: 'rules',      // 当前页面
+                rules: [],                 // 规则列表（从后端加载）
+                testCases: [],             // 测试用例列表（从后端加载）
+                expandedRules: [],         // 已展开规则
+                expandedTestCases: [],     // 已展开用例
+                editingTestCaseId: null,   // 正在编辑的用例 ID
+                editingTestCaseName: '',   // 正在编辑的用例名称
+                searchKey: '',             // 搜索关键词
+                filterStatus: '',          // 状态筛选
+
+                // 测试用例筛选
+                testSearchKey: '',
+                testFilterResult: '',
+
+                // 选项字典（从后端加载）
+                categories: [],
+
+                // 新建/编辑
+                editingRule: null,         // 当前编辑规则
+                form: { name: '', description: '', category: 'business', params: [], script: '' }, // 规则表单
+                // 添加参数弹窗
+                addParamDialogVisible: false, // 参数弹窗显示
+                addParamStep: 1,              // 参数配置步骤
+                newParam: { label: '', name: '', type: '', options: [], presetKey: '' }, // 新参数表单
+                customOptionInput: '',        // 自定义选项输入
+
+                // 预设选项集（从后端加载）
+                presetOptionSets: [],
+
+                // 测试dialog
+                testDialogVisible: false, // 测试弹窗显示
+                testingRule: null,        // 当前测试规则
+                testCaseName: '',         // 测试用例名称
+                testOutput: [],           // 测试输出日志
+
+                // 删除dialog
+                deleteDialogVisible: false, // 删除弹窗显示
+                deletingRuleId: null,       // 待删除规则 ID
+                deletingRuleName: '',       // 待删除规则名
+
+                // 自动测试
+                isRunningAll: false, // 批量运行状态
+                runProgress: 0,      // 批量运行进度
+
+                scriptTemplates: [    // 脚本模板
+                    { name: '条件折扣', code: 'if (amount > 1000) {\n    return amount * 0.9;\n}\nreturn amount;' },
+                    { name: '分级评分', code: 'int score = 0;\nif (param1 > 100) { score += 30; }\nif (param2 < 50) { score += 20; }\nreturn score;' },
+                    { name: '开关控制', code: 'if (flag == true && value > threshold) {\n    return "通过";\n}\nreturn "拒绝";' },
+                    { name: '加权计算', code: 'double result = a * 0.4 + b * 0.3 + c * 0.3;\nreturn Math.round(result * 100) / 100.0;' },
+                ]
+            };
+        },
+        computed: {
+            // 根据搜索词和状态筛选规则列表
+            filteredRules() {
+                return this.rules.filter(r => {
+                    // 同时匹配规则名称、描述和参数名称
+                    const kw = this.searchKey.toLowerCase();
+                    const matchKw = !kw || r.name.toLowerCase().includes(kw)
+                        || (r.description||'').toLowerCase().includes(kw)
+                        || (r.params||[]).some(p => this.paramLabel(p).toLowerCase().includes(kw) || this.paramName(p).toLowerCase().includes(kw));
+                    // 状态为空时展示全部
+                    const matchStatus = !this.filterStatus || r.status === this.filterStatus;
+                    return matchKw && matchStatus;
+                });
+            },
+            // 计算已执行测试用例的通过率
+            passRate() {
+                // 只统计有明确通过/失败结果的用例
+                const total = this.testCases.filter(t => t.lastResult === 'pass' || t.lastResult === 'fail').length;
+                if (!total) return 'N/A';
+                const pass = this.testCases.filter(t => t.lastResult === 'pass').length;
+                return Math.round(pass / total * 100) + '%';
+            },
+            // 根据搜索词和结果状态筛选测试用例列表
+            filteredTestCases() {
+                return this.testCases.filter(tc => {
+                    const kw = this.testSearchKey.toLowerCase();
+                    const matchKw = !kw
+                        || tc.name.toLowerCase().includes(kw)
+                        || (tc.ruleName || '').toLowerCase().includes(kw)
+                        || Object.keys(tc.params || {}).some(k => k.toLowerCase().includes(kw));
+                    const matchResult = !this.testFilterResult
+                        || (this.testFilterResult === 'pending' && !tc.lastResult)
+                        || tc.lastResult === this.testFilterResult;
+                    return matchKw && matchResult;
+                });
+            }
+        },
+        // 初始化：加载选项字典、规则列表和测试用例
+        mounted() {
+            this.loadCategories();
+            this.loadPresetSets();
+            this.loadRules();
+            this.loadTestCases();
+        },
+        methods: {
+            // ==================== API 请求基础方法 ====================
+            // 调用后端 POST 接口，自动解析统一响应体 ApiResponse<T>
+            async apiPost(path, body) {
+                const resp = await axios.post(this.apiBase + path, body || {});
+                const json = resp.data;
+                if (json.code !== 0) {
+                    throw new Error(json.message || '接口异常');
+                }
+                return json.data;
+            },
+            // 加载规则分类列表
+            async loadCategories() {
+                try {
+                    this.categories = await this.apiPost('/api/v1/options/queryCategories');
+                } catch (e) {
+                    console.error('加载分类失败:', e);
+                }
+            },
+            // 加载预设选项集列表
+            async loadPresetSets() {
+                try {
+                    this.presetOptionSets = await this.apiPost('/api/v1/options/queryPresetSets');
+                } catch (e) {
+                    console.error('加载预设选项集失败:', e);
+                }
+            },
+            // 从后端加载规则列表
+            async loadRules() {
+                try {
+                    const data = await this.apiPost('/api/v1/rules/queryRulePage', {
+                        keyword: this.searchKey || undefined,
+                        status: this.filterStatus || undefined,
+                        pageIndex: 1,
+                        pageSize: 1000
+                    });
+                    this.rules = (data.records || []).map(r => this.normalizeRule(r));
+                } catch (e) {
+                    console.error('加载规则失败:', e);
+                }
+            },
+            // 从后端加载测试用例列表
+            async loadTestCases() {
+                try {
+                    const data = await this.apiPost('/api/v1/test-cases/queryTestCasePage', { pageIndex: 1, pageSize: 1000 });
+                    this.testCases = data.records || [];
+                } catch (e) {
+                    console.error('加载测试用例失败:', e);
+                }
+            },
+
+            // ==================== 参数与规则工具方法 ====================
+            // 获取参数字段名
+            paramName(param) {
+                return typeof param === 'string' ? param : (param.name || '');
+            },
+            // 获取参数显示名
+            paramLabel(param) {
+                return typeof param === 'string' ? param : (param.label || param.name || '');
+            },
+            // 拼接参数展示文案
+            paramDisplay(param) {
+                const label = this.paramLabel(param);
+                const name = this.paramName(param);
+                // 显示名和字段名一致时只展示一份
+                return label === name ? name : `${label}：${name}`;
+            },
+            // 生成参数列表渲染 key
+            paramKey(param) {
+                return this.paramName(param) || this.paramLabel(param);
+            },
+            // 标准化参数列表结构
+            normalizeParams(params) {
+                return (params || []).map(p => {
+                    // 兼容旧数据中的字符串参数
+                    if (typeof p === 'string') return this.createParamModel({ label: p, name: p });
+                    return this.createParamModel(p);
+                });
+            },
+            // 创建统一的参数模型
+            createParamModel(param) {
+                const label = param.label || param.name || '';
+                const name = param.name || param.label || '';
+                // 缺少类型或选项时根据字段名兜底推断
+                const type = param.type || this.inferParamType(name, label);
+                const options = param.options || this.inferParamOptions(name, label, type);
+                return {
+                    label,
+                    name,
+                    type,
+                    options,
+                    _value: param._value || '',
+                    _multiValue: param._multiValue || []
+                };
+            },
+            // 根据字段名和显示名推断参数类型
+            inferParamType(name, label) {
+                const text = `${name} ${label}`.toLowerCase();
+                // 常见数值类字段使用数字输入
+                if (/amount|score|income|ratio|times|price|count|num|金额|评分|收入|负债率|次数|分数|数量/.test(text)) return 'number';
+                // 常见枚举类字段使用下拉选择
+                if (/level|status|type|rating|等级|状态|类型|评级|会员/.test(text)) return 'select';
+                return 'string';
+            },
+            // 根据参数语义补充默认选项
+            inferParamOptions(name, label, type) {
+                // 非选择类参数不需要选项
+                if (type !== 'select' && type !== 'multiselect') return [];
+                const text = `${name} ${label}`.toLowerCase();
+                if (/userlevel|memberlevel|会员|用户等级/.test(text)) return ['普通', 'VIP', 'GOLD'];
+                if (/rating|评级/.test(text)) return ['AAA+', 'AAA', 'AA+', 'AA', 'AA-', 'A+', 'A', 'A-', 'BBB+', 'BBB', 'BBB-'];
+                if (/status|状态/.test(text)) return ['待审批', '审批中', '已通过', '已拒绝', '已撤回'];
+                if (/type|类型/.test(text)) return ['国债', '地方政府债', '金融债', '企业债', '公司债'];
+                if (/level|等级/.test(text)) return ['低', '中', '高'];
+                return [];
+            },
+            // 收集测试弹窗中的参数值
+            collectTestingParams() {
+                const params = {};
+                (this.testingRule.params || []).forEach(p => {
+                    const key = this.paramName(p);
+                    // 多选参数保存为逗号分隔字符串
+                    if (p.type === 'multiselect') {
+                        params[key] = (p._multiValue || []).join(',');
+                    } else {
+                        params[key] = p._value || '';
+                    }
+                });
+                return params;
+            },
+            // 标准化单条规则数据
+            normalizeRule(rule) {
+                return {
+                    ...rule,
+                    params: this.normalizeParams(rule.params)
+                };
+            },
+            // 获取测试用例参数显示名
+            paramDisplayName(testCase, key) {
+                const rule = this.getTestRule(testCase);
+                const param = rule && (rule.params || []).find(p => this.paramName(p) === key);
+                return param ? this.paramLabel(param) : key;
+            },
+            // 获取测试用例关联规则
+            getTestRule(testCase) {
+                return testCase ? this.rules.find(r => r.id === testCase.ruleId) : null;
+            },
+            // 展开或收起规则详情
+            toggleRule(id) {
+                const idx = this.expandedRules.indexOf(id);
+                if (idx > -1) this.expandedRules.splice(idx, 1);
+                else this.expandedRules.push(id);
+            },
+            // 展开或收起测试用例详情
+            toggleTestCase(id) {
+                const idx = this.expandedTestCases.indexOf(id);
+                if (idx > -1) this.expandedTestCases.splice(idx, 1);
+                else this.expandedTestCases.push(id);
+            },
+            // 开始编辑测试用例名称
+            startEditTestCaseName(tc) {
+                this.editingTestCaseId = tc.id;
+                this.editingTestCaseName = tc.name;
+            },
+            // 保存测试用例名称
+            async saveTestCaseName(tc) {
+                const name = this.editingTestCaseName.trim();
+                if (!name) { this.$message.warning('请输入测试用例名称'); return; }
+                try {
+                    await this.apiPost('/api/v1/test-cases/renameTestCase', { id: tc.id, name });
+                    tc.name = name;
+                    this.cancelEditTestCaseName();
+                    this.$message.success('测试用例名称已更新');
+                } catch (e) {
+                    this.$message.error('重命名失败: ' + e.message);
+                }
+            },
+            // 取消编辑测试用例名称
+            cancelEditTestCaseName() {
+                this.editingTestCaseId = null;
+                this.editingTestCaseName = '';
+            },
+            // 切换规则启用状态
+            async toggleStatus(rule) {
+                const newStatus = rule.status === 'active' ? 'disabled' : 'active';
+                try {
+                    await this.apiPost('/api/v1/rules/updateRuleStatus', { id: rule.id, status: newStatus });
+                    rule.status = newStatus;
+                    this.$notify({ title: '状态已更新', message: `规则「${rule.name}」已${newStatus==='active'?'启用':'禁用'}`, type: 'success', duration: 2000 });
+                } catch (e) {
+                    this.$message.error('状态更新失败: ' + e.message);
+                }
+            },
+            // 进入规则编辑页
+            editRule(rule) {
+                this.editingRule = rule;
+                // 深拷贝表单，避免编辑时直接改动列表数据
+                this.form = JSON.parse(JSON.stringify({ ...rule, params: this.normalizeParams(rule.params) }));
+                this.currentPage = 'create';
+            },
+            // 取消编辑并回到规则列表
+            cancelEdit() {
+                // 重置编辑态和表单数据
+                this.editingRule = null;
+                this.form = { name: '', description: '', category: 'business', params: [], script: '' };
+                this.addParamDialogVisible = false;
+                this.currentPage = 'rules';
+            },
+            // 获取参数类型标签
+            paramTypeLabel(type) {
+                const map = { string: 'STR', number: 'NUM', select: '单选', multiselect: '多选' };
+                return map[type] || 'STR';
+            },
+            // 打开添加参数弹窗
+            openAddParamDialog() {
+                this.addParamDialogVisible = true;
+                this.addParamStep = 1;
+                // 每次打开都使用空白参数表单
+                this.newParam = { label: '', name: '', type: '', options: [], presetKey: '' };
+                this.customOptionInput = '';
+            },
+            // 重置添加参数表单
+            resetAddParamForm() {
+                this.addParamStep = 1;
+                this.newParam = { label: '', name: '', type: '', options: [], presetKey: '' };
+                this.customOptionInput = '';
+            },
+            // 进入添加参数第二步
+            addParamStepNext() {
+                // 必须先选择参数类型
+                if (!this.newParam.type) { this.$message.warning('请选择参数类型'); return; }
+                this.addParamStep = 2;
+            },
+            // 选择预设选项集
+            selectPreset(ps) {
+                this.newParam.presetKey = ps.name;
+                if (ps.name !== '__custom__') {
+                    // 复制预设选项，避免直接修改原始配置
+                    this.newParam.options = [...ps.options];
+                } else {
+                    this.newParam.options = [];
+                }
+            },
+            // 添加自定义选项
+            addCustomOption() {
+                const v = this.customOptionInput.trim();
+                if (!v) return;
+                // 避免重复添加相同选项
+                if (!this.newParam.options.includes(v)) this.newParam.options.push(v);
+                this.customOptionInput = '';
+            },
+            // 删除自定义选项
+            removeCustomOption(i) {
+                this.newParam.options.splice(i, 1);
+            },
+            // 确认添加参数
+            confirmAddParam() {
+                const label = this.newParam.label.trim();
+                const name = this.newParam.name.trim();
+                // 基础字段校验
+                if (!label) { this.$message.warning('请填写显示名称'); return; }
+                if (!name)  { this.$message.warning('请填写字段名'); return; }
+                // 选择类参数必须有候选项
+                if ((this.newParam.type === 'select' || this.newParam.type === 'multiselect') && !this.newParam.options.length) {
+                    this.$message.warning('请至少选择一个选项'); return;
+                }
+                // 字段名用于脚本变量，不能重复
+                if (this.form.params.some(p => this.paramName(p) === name)) {
+                    this.$message.warning('字段名已存在'); return;
+                }
+                this.form.params.push({
+                    label,
+                    name,
+                    type: this.newParam.type,
+                    options: [...this.newParam.options]
+                });
+                this.addParamDialogVisible = false;
+            },
+            // 移除规则参数
+            removeParam(i) { this.form.params.splice(i, 1); },
+            // 保存规则表单（调用后端接口）
+            async saveRule() {
+                if (!this.form.name.trim()) { this.$message.error('请输入规则名称'); return; }
+                if (!this.form.script.trim()) { this.$message.error('请输入规则脚本'); return; }
+                const body = {
+                    id: this.editingRule ? this.editingRule.id : null,
+                    name: this.form.name.trim(),
+                    description: this.form.description.trim(),
+                    category: this.form.category,
+                    params: this.normalizeParams(this.form.params).map(p => ({
+                        label: p.label, name: p.name, type: p.type, options: p.options
+                    })),
+                    script: this.form.script.trim()
+                };
+                try {
+                    await this.apiPost('/api/v1/rules/saveRule', body);
+                    this.$notify({ title: this.editingRule ? '修改成功' : '创建成功',
+                        message: `规则「${this.form.name}」已${this.editingRule ? '更新' : '创建'}`,
+                        type: 'success', duration: 2000 });
+                    this.cancelEdit();
+                    await this.loadRules();
+                } catch (e) {
+                    this.$message.error('保存规则失败: ' + e.message);
+                }
+            },
+            // 打开删除确认弹窗
+            deleteRule(id) {
+                const rule = this.rules.find(r => r.id === id);
+                this.deletingRuleId = id;
+                this.deletingRuleName = rule ? rule.name : '';
+                this.deleteDialogVisible = true;
+            },
+            // 确认删除规则
+            async confirmDelete() {
+                try {
+                    await this.apiPost('/api/v1/rules/deleteRule', { id: this.deletingRuleId });
+                    this.deleteDialogVisible = false;
+                    this.$notify({ title: '已删除', type: 'warning', duration: 2000 });
+                    await this.loadRules();
+                } catch (e) {
+                    this.$message.error('删除失败: ' + e.message);
+                }
+            },
+
+            // ── 测试相关 ──
+            // 打开规则测试弹窗
+            openTestDialog(rule) {
+                // 为弹窗参数补充临时输入值字段
+                const params = this.normalizeParams(rule.params).map(p => ({
+                    ...p,
+                    _value: '',
+                    _multiValue: []
+                }));
+                this.testingRule = { ...this.normalizeRule(rule), params };
+                // 自动生成默认测试用例名
+                this.testCaseName = `${rule.name} 测试 #${moment().format('ssSS')}`;
+                this.testOutput = [];
+                this.testDialogVisible = true;
+            },
+            // 执行当前弹窗中的测试
+            async runTest() {
+                this.testOutput = [];
+                try {
+                    const result = await this.apiPost('/api/v1/rule-runs/executeRule', {
+                        id: this.testingRule.id,
+                        params: this.collectTestingParams()
+                    });
+                    this.testOutput = result.logs || [];
+                    this.$forceUpdate();
+                } catch (e) {
+                    this.testOutput.push({ time: moment().format('HH:mm:ss'), type: 'error', msg: '执行异常: ' + e.message });
+                }
+            },
+            // 快速打开保存测试用例流程
+            quickAddTestCase(rule) {
+                this.openTestDialog(rule);
+                this.$message.info('请填写用例名称和参数后，点击「保存为测试用例」');
+            },
+            // 从测试弹窗保存为测试用例
+            async addTestCaseFromDialog() {
+                if (!this.testingRule) return;
+                const name = this.testCaseName.trim();
+                if (!name) { this.$message.warning('请输入测试用例名称'); return; }
+                try {
+                    await this.apiPost('/api/v1/test-cases/saveTestCase', {
+                        id: null,
+                        name,
+                        ruleId: this.testingRule.id,
+                        params: this.collectTestingParams()
+                    });
+                    this.testDialogVisible = false;
+                    this.$notify({ title: '已添加测试用例', message: `「${name}」已加入测试脚本列表`, type: 'success', duration: 2500 });
+                    await this.loadTestCases();
+                } catch (e) {
+                    this.$message.error('保存测试用例失败: ' + e.message);
+                }
+            },
+            // 执行单条测试用例
+            async runSingleTest(tc) {
+                if (!tc) return;
+                tc.lastResult = 'running';
+                tc.lastOutput = null;
+                this.$forceUpdate();
+                try {
+                    const updated = await this.apiPost('/api/v1/test-cases/runTestCase', { id: tc.id });
+                    tc.lastResult = updated.lastResult;
+                    tc.lastOutput = updated.lastOutput;
+                } catch (e) {
+                    tc.lastResult = 'fail';
+                    tc.lastOutput = e.message;
+                }
+                this.$forceUpdate();
+            },
+            // 批量执行全部测试用例
+            async runAllTests() {
+                if (!this.testCases.length) return;
+                this.isRunningAll = true;
+                this.runProgress = 0;
+                const total = this.testCases.length;
+                const prevState = this.testCases.map(tc => ({ id: tc.id, lastResult: tc.lastResult, lastOutput: tc.lastOutput }));
+                this.testCases.forEach(tc => { tc.lastResult = 'running'; tc.lastOutput = null; });
+                this.$forceUpdate();
+                try {
+                    const results = await this.apiPost('/api/v1/test-cases/runAllTestCases');
+                    results.forEach(r => {
+                        const tc = this.testCases.find(t => t.id === r.id);
+                        if (tc) {
+                            tc.lastResult = r.lastResult;
+                            tc.lastOutput = r.lastOutput;
+                        }
+                    });
+                    this.runProgress = 100;
+                } catch (e) {
+                    // API 调用失败时恢复原始状态，避免卡在 "running" 状态
+                    this.testCases.forEach(tc => {
+                        const prev = prevState.find(p => p.id === tc.id);
+                        if (prev) {
+                            tc.lastResult = prev.lastResult;
+                            tc.lastOutput = prev.lastOutput;
+                        }
+                    });
+                    this.$message.error('批量执行失败: ' + e.message);
+                }
+                this.isRunningAll = false;
+                const pass = this.testCases.filter(t => t.lastResult === 'pass').length;
+                this.$notify({
+                    title: '全量测试完成',
+                    message: `共 ${total} 条用例，通过 ${pass}，失败 ${total - pass}`,
+                    type: pass === total ? 'success' : 'warning',
+                    duration: 3000
+                });
+            },
+            // 删除测试用例
+            async deleteTestCase(id) {
+                try {
+                    await this.apiPost('/api/v1/test-cases/deleteTestCase', { id: id });
+                    this.testCases = this.testCases.filter(t => t.id !== id);
+                    this.$message.success('测试用例已删除');
+                } catch (e) {
+                    this.$message.error('删除失败: ' + e.message);
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>
