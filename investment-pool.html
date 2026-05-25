@@ -1300,20 +1300,68 @@
                             </div>
 
                             <div class="section-header" style="margin-top: 20px;">
-                                <span class="section-title">自动规则备注</span>
+                                <span class="section-title">自动规则</span>
                                 <div class="section-line"></div>
                             </div>
 
-                            <el-row :gutter="20">
-                                <el-col :span="12">
-                                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">自动调入规则</div>
-                                    <el-input v-model="relationForm.autoInRuleDesc" type="textarea" :rows="4" maxlength="512" show-word-limit placeholder="描述自动调入规则..."></el-input>
-                                </el-col>
-                                <el-col :span="12">
-                                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">自动调出规则</div>
-                                    <el-input v-model="relationForm.autoOutRuleDesc" type="textarea" :rows="4" maxlength="512" show-word-limit placeholder="描述自动调出规则..."></el-input>
-                                </el-col>
-                            </el-row>
+                            <div class="relation-grid">
+                                <!-- 自动调入规则 -->
+                                <div class="relation-card">
+                                    <div class="relation-card-header">
+                                        <div class="relation-card-label">
+                                            <span>自动调入规则</span>
+                                            <span class="relation-card-count" :class="{ empty: !relationForm.autoInRuleIds.length }">
+                                                {{ relationForm.autoInRuleIds.length }}
+                                            </span>
+                                        </div>
+                                        <button class="relation-select-btn" @click="openRulePicker('autoIn')">
+                                            <i class="el-icon-plus"></i> 选择
+                                        </button>
+                                    </div>
+                                    <div class="relation-card-body">
+                                        <template v-if="relationForm.autoInRuleIds.length">
+                                            <div
+                                                v-for="(ruleId, idx) in relationForm.autoInRuleIds"
+                                                :key="ruleId"
+                                                class="relation-pool-chip">
+                                                <span class="chip-name">{{ getSelectedRuleName(ruleId) }}</span>
+                                                <button class="chip-remove" @click="removeSelectedRule('autoIn', idx)" title="移除">✕</button>
+                                            </div>
+                                        </template>
+                                        <div v-else class="relation-card-empty" @click="openRulePicker('autoIn')">
+                                            <i class="el-icon-plus" style="margin-right:5px;"></i> 点击选择规则
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 自动调出规则 -->
+                                <div class="relation-card">
+                                    <div class="relation-card-header">
+                                        <div class="relation-card-label">
+                                            <span>自动调出规则</span>
+                                            <span class="relation-card-count" :class="{ empty: !relationForm.autoOutRuleIds.length }">
+                                                {{ relationForm.autoOutRuleIds.length }}
+                                            </span>
+                                        </div>
+                                        <button class="relation-select-btn" @click="openRulePicker('autoOut')">
+                                            <i class="el-icon-plus"></i> 选择
+                                        </button>
+                                    </div>
+                                    <div class="relation-card-body">
+                                        <template v-if="relationForm.autoOutRuleIds.length">
+                                            <div
+                                                v-for="(ruleId, idx) in relationForm.autoOutRuleIds"
+                                                :key="ruleId"
+                                                class="relation-pool-chip">
+                                                <span class="chip-name">{{ getSelectedRuleName(ruleId) }}</span>
+                                                <button class="chip-remove" @click="removeSelectedRule('autoOut', idx)" title="移除">✕</button>
+                                            </div>
+                                        </template>
+                                        <div v-else class="relation-card-empty" @click="openRulePicker('autoOut')">
+                                            <i class="el-icon-plus" style="margin-right:5px;"></i> 点击选择规则
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             <div class="form-actions">
                                 <button class="btn btn-ghost" @click="loadPoolDetail(currentPool.id)">
@@ -1557,6 +1605,91 @@
     </span>
     </el-dialog>
 
+    <!-- ── Rule Picker Dialog ── -->
+    <el-dialog
+            :title="rulePickerType === 'autoIn' ? '选择自动调入规则' : '选择自动调出规则'"
+            :visible.sync="rulePickerVisible"
+            width="900px"
+            @closed="handleRulePickerClosed">
+        <div class="pool-tree-dialog-body">
+            <!-- Left: search + category filter + table -->
+            <div class="ptd-left" style="width: 540px;">
+                <div style="display:flex;gap:8px;margin-bottom:10px;">
+                    <el-input
+                        v-model="rulePickerSearch"
+                        placeholder="搜索规则名称..."
+                        clearable size="small"
+                        prefix-icon="el-icon-search"
+                        style="flex:1;"
+                        @input="handleRulePickerSearch">
+                    </el-input>
+                    <el-select
+                        v-model="rulePickerCategoryFilter"
+                        placeholder="规则分类"
+                        clearable size="small"
+                        style="width: 140px;"
+                        @change="handleRulePickerCategoryChange">
+                        <el-option
+                            v-for="cat in ruleCategoryOptions"
+                            :key="cat.code"
+                            :label="cat.name"
+                            :value="cat.code">
+                        </el-option>
+                    </el-select>
+                </div>
+                <div style="flex:1;overflow:auto;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-md);">
+                    <el-table
+                        ref="rulePickerTableRef"
+                        :data="rulePickerFilteredList"
+                        height="360"
+                        @selection-change="handleRulePickerSelect">
+                        <el-table-column type="selection" width="46"></el-table-column>
+                        <el-table-column prop="name" label="规则名称" width="160"></el-table-column>
+                        <el-table-column prop="description" label="规则描述" min-width="160" show-overflow-tooltip></el-table-column>
+                        <el-table-column label="规则分类" width="110">
+                            <template slot-scope="{ row }">
+                                <el-tag size="mini">{{ getCategoryLabel(row.category) }}</el-tag>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </div>
+            <!-- Right: selected list -->
+            <div class="ptd-right">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="ptd-right-label">已选规则</div>
+                    <span class="ptd-count-badge">{{ rulePickerSelected.length }}</span>
+                    <button v-if="rulePickerSelected.length" class="btn btn-ghost" style="height:24px;padding:0 8px;font-size:11px;margin-left:auto;" @click="rulePickerSelected = []">
+                        清空
+                    </button>
+                </div>
+                <div class="ptd-selected-list">
+                    <div v-if="!rulePickerSelected.length" class="ptd-selected-empty">
+                        <span>勾选左侧表格中的规则</span>
+                    </div>
+                    <div
+                        v-for="item in rulePickerSelected"
+                        :key="item.id"
+                        class="ptd-selected-item">
+                        <div class="ptd-item-info">
+                            <div class="ptd-item-name">{{ item.name }}</div>
+                            <div class="ptd-item-path">{{ getCategoryLabel(item.category) }}</div>
+                        </div>
+                        <button class="ptd-item-remove" @click="removeFromRulePickerSelected(item.id)" title="移除">
+                            <i class="el-icon-close"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <span slot="footer">
+            <button class="btn btn-ghost" @click="rulePickerVisible = false">取消</button>
+            <button class="btn btn-primary" @click="confirmRulePicker">
+                <i class="el-icon-check"></i> 确认（{{ rulePickerSelected.length }} 项）
+            </button>
+        </span>
+    </el-dialog>
+
     <!-- ── Template Pool Picker Dialog ── -->
     <el-dialog
             title="选择配置模板"
@@ -1694,7 +1827,7 @@
                     inFlowId: '', outFlowId: '', simpleInFlowId: '', simpleOutFlowId: '', batchInFlowId: '', batchOutFlowId: '',
                     maxCapacity: null, outerSort: 0, innerSort: 0, description: ''
                 },
-                relationForm: { id: null, relationPoolIds: {}, autoInRuleDesc: '', autoOutRuleDesc: '' },
+                relationForm: { id: null, relationPoolIds: {}, autoInRuleIds: [], autoInRuleDescs: [], autoOutRuleIds: [], autoOutRuleDescs: [] },
                 childForm: { parentId: null, parentName: '', parentTypeName: '', poolName: '', innerSort: null, templatePoolId: null },
                 rootForm: { poolName: '', poolType: '', outerSort: null, templatePoolId: null },
                 poolTypeOptions: [
@@ -1734,6 +1867,16 @@
                 poolPickerTreeData: [],
                 poolParentMap: {},         // id -> { parentPath, poolName }
 
+                // Rule picker
+                rulePickerVisible: false,
+                rulePickerType: 'autoIn',
+                rulePickerSearch: '',
+                rulePickerCategoryFilter: '',
+                rulePickerList: [],
+                rulePickerFilteredList: [],
+                rulePickerSelected: [],
+                ruleCategoryOptions: [],
+
                 permissionSubmitLoading: false,
                 permissionDialogVisible: false,
                 permissionDialogTitle: '',
@@ -1760,6 +1903,8 @@
             this.initRelationForm()
             this.loadFlowOptions()
             this.loadPoolTree()
+            this.loadRuleCategories()
+            this.loadRules()
         },
         methods: {
             getPoolLabel(id) {
@@ -2051,8 +2196,10 @@
                 const rel = data.relationPoolIds || {}
                 this.relationFields.forEach(item => { this.relationForm.relationPoolIds[item.key] = rel[item.key] || [] })
                 this.relationForm.id = data.id
-                this.relationForm.autoInRuleDesc = data.autoInRuleDesc || ''
-                this.relationForm.autoOutRuleDesc = data.autoOutRuleDesc || ''
+                this.relationForm.autoInRuleIds = data.autoInRuleIds || []
+                this.relationForm.autoInRuleDescs = data.autoInRuleDescs || []
+                this.relationForm.autoOutRuleIds = data.autoOutRuleIds || []
+                this.relationForm.autoOutRuleDescs = data.autoOutRuleDescs || []
             },
             getFlowValue(flow) { return flow && flow.flowId ? String(flow.flowId) : '' },
             getFlowOption(optionKey) {
@@ -2088,7 +2235,8 @@
                 try {
                     const data = await this.apiPost('/api/v1/investmentPool/editPoolRelation', {
                         id: this.currentPool.id, relationPoolIds: this.relationForm.relationPoolIds,
-                        autoInRuleDesc: this.relationForm.autoInRuleDesc, autoOutRuleDesc: this.relationForm.autoOutRuleDesc, operatorId: 'system'
+                        autoInRuleIds: this.relationForm.autoInRuleIds, autoInRuleDescs: this.relationForm.autoInRuleDescs,
+                        autoOutRuleIds: this.relationForm.autoOutRuleIds, autoOutRuleDescs: this.relationForm.autoOutRuleDescs, operatorId: 'system'
                     })
                     this.$message.success('关系配置已保存')
                     this.currentPool = data; this.fillRelationForm(data)
@@ -2223,6 +2371,177 @@
                     this.currentPool = data; this.fillPermissionForm(data)
                 } catch (e) { this.$message.error('保存权限配置失败') }
                 this.permissionSubmitLoading = false
+            },
+
+            // 加载规则分类选项
+            async loadRuleCategories() {
+                try {
+                    const data = await this.apiPost('/api/v1/options/queryCategories', {})
+                    this.ruleCategoryOptions = (data || []).map(function(item) {
+                        return { code: item.code, name: item.name }
+                    })
+                } catch (e) {
+                    this.ruleCategoryOptions = []
+                }
+            },
+
+            // 加载规则列表（仅启用的规则）
+            async loadRules() {
+                try {
+                    const data = await this.apiPost('/api/v1/rules/queryRulePage', { pageIndex: 1, pageSize: 9999, status: 'active' })
+                    this.rulePickerList = (data && data.records) ? data.records : []
+                    this.applyRulePickerFilters()
+                } catch (e) {
+                    this.rulePickerList = []
+                    this.rulePickerFilteredList = []
+                }
+            },
+
+            // 应用规则筛选条件
+            applyRulePickerFilters() {
+                let list = this.rulePickerList
+                const kw = this.rulePickerSearch
+                if (kw) {
+                    const lowerKw = kw.toLowerCase()
+                    list = list.filter(function(r) {
+                        return (r.name && r.name.toLowerCase().indexOf(lowerKw) !== -1) ||
+                               (r.description && r.description.toLowerCase().indexOf(lowerKw) !== -1)
+                    })
+                }
+                const cat = this.rulePickerCategoryFilter
+                if (cat) {
+                    list = list.filter(function(r) { return r.category === cat })
+                }
+                this.rulePickerFilteredList = list
+            },
+
+            // 打开规则选择弹窗
+            openRulePicker(type) {
+                this.rulePickerType = type
+                this.rulePickerSearch = ''
+                this.rulePickerCategoryFilter = ''
+                const ids = type === 'autoIn' ? this.relationForm.autoInRuleIds : this.relationForm.autoOutRuleIds
+                const descs = type === 'autoIn' ? this.relationForm.autoInRuleDescs : this.relationForm.autoOutRuleDescs
+                this.rulePickerSelected = (ids || []).map(function(id, i) {
+                    return { id: id, name: (descs && descs[i]) ? descs[i] : String(id), category: '' }
+                })
+                this.applyRulePickerFilters()
+                this.rulePickerVisible = true
+                this.$nextTick(function() {
+                    this.restoreRulePickerTableSelection()
+                }.bind(this))
+            },
+
+            // 恢复表格勾选状态
+            restoreRulePickerTableSelection() {
+                if (!this.$refs.rulePickerTableRef) return
+                const selectedIds = this.rulePickerSelected.map(function(s) { return s.id })
+                this.$refs.rulePickerTableRef.clearSelection()
+                this.rulePickerFilteredList.forEach(function(row) {
+                    if (selectedIds.indexOf(row.id) !== -1) {
+                        this.$refs.rulePickerTableRef.toggleRowSelection(row, true)
+                    }
+                }.bind(this))
+            },
+
+            // 关闭规则选择弹窗
+            handleRulePickerClosed() {
+                this.rulePickerType = 'autoIn'
+                this.rulePickerSearch = ''
+                this.rulePickerCategoryFilter = ''
+                this.rulePickerSelected = []
+            },
+
+            // 规则搜索过滤
+            handleRulePickerSearch(val) {
+                this.applyRulePickerFilters()
+                this.$nextTick(function() {
+                    this.restoreRulePickerTableSelection()
+                }.bind(this))
+            },
+
+            // 规则分类筛选
+            handleRulePickerCategoryChange() {
+                this.applyRulePickerFilters()
+                this.$nextTick(function() {
+                    this.restoreRulePickerTableSelection()
+                }.bind(this))
+            },
+
+            // 多选规则行
+            handleRulePickerSelect(rows) {
+                const visibleIds = this.rulePickerFilteredList.map(function(r) { return r.id })
+                const keepMap = {}
+                this.rulePickerSelected.forEach(function(s) {
+                    if (visibleIds.indexOf(s.id) === -1) keepMap[s.id] = s
+                })
+                rows.forEach(function(row) {
+                    keepMap[row.id] = { id: row.id, name: row.name, category: row.category }
+                })
+                const allIds = Object.keys(keepMap).map(function(k) { return parseInt(k) })
+                this.rulePickerSelected = allIds.map(function(id) { return keepMap[id] })
+            },
+
+            // 从已选列表中移除单条规则
+            removeFromRulePickerSelected(id) {
+                const idx = this.rulePickerSelected.findIndex(function(s) { return s.id === id })
+                if (idx !== -1) this.rulePickerSelected.splice(idx, 1)
+                this.$nextTick(function() {
+                    this.restoreRulePickerTableSelection()
+                }.bind(this))
+            },
+
+            // 确认选择规则
+            confirmRulePicker() {
+                const ids = this.rulePickerSelected.map(function(s) { return s.id })
+                const descs = this.rulePickerSelected.map(function(s) { return s.name })
+                if (this.rulePickerType === 'autoIn') {
+                    this.relationForm.autoInRuleIds = ids
+                    this.relationForm.autoInRuleDescs = descs
+                } else {
+                    this.relationForm.autoOutRuleIds = ids
+                    this.relationForm.autoOutRuleDescs = descs
+                }
+                this.rulePickerVisible = false
+            },
+
+            // 移除已选规则（从卡片上）
+            removeSelectedRule(type, idx) {
+                if (type === 'autoIn') {
+                    this.relationForm.autoInRuleIds.splice(idx, 1)
+                    this.relationForm.autoInRuleDescs.splice(idx, 1)
+                } else {
+                    this.relationForm.autoOutRuleIds.splice(idx, 1)
+                    this.relationForm.autoOutRuleDescs.splice(idx, 1)
+                }
+            },
+
+            // 获取已选规则名称（从本地规则列表查找，兜底用描述）
+            getSelectedRuleName(ruleId) {
+                const rule = this.rulePickerList.find(function(r) { return r.id === ruleId })
+                if (rule) return rule.name
+                const inIdx = (this.relationForm.autoInRuleIds || []).indexOf(ruleId)
+                if (inIdx !== -1 && this.relationForm.autoInRuleDescs[inIdx]) return this.relationForm.autoInRuleDescs[inIdx]
+                const outIdx = (this.relationForm.autoOutRuleIds || []).indexOf(ruleId)
+                if (outIdx !== -1 && this.relationForm.autoOutRuleDescs[outIdx]) return this.relationForm.autoOutRuleDescs[outIdx]
+                return String(ruleId)
+            },
+
+            // 规则分类编码映射为中文
+            getCategoryLabel(code) {
+                const cat = this.ruleCategoryOptions.find(function(c) { return c.code === code })
+                if (cat) return cat.name
+                const map = {
+                    'position_limit': '持仓限额',
+                    'issuer_limit': '发行人限额',
+                    'rating_limit': '评级限制',
+                    'maturity_limit': '期限限制',
+                    'industry_limit': '行业限制',
+                    'liquidity': '流动性',
+                    'custom': '自定义',
+                    'risk': '风险控制'
+                }
+                return map[code] || code || ''
             }
         }
     })
