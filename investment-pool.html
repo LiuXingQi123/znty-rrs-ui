@@ -535,6 +535,8 @@
 
         .el-select-dropdown__item.selected { color: var(--accent-blue-bright) !important; }
 
+        .el-select-dropdown__item::after { content: ''; display: table; clear: both; }
+
         .el-tag { border-radius: 4px !important; font-size: 11px !important; }
         .el-tag--primary { background: rgba(59,130,246,0.15) !important; border-color: rgba(59,130,246,0.3) !important; color: var(--accent-blue-bright) !important; }
         .el-tag--warning { background: rgba(245,158,11,0.12) !important; border-color: rgba(245,158,11,0.3) !important; color: var(--accent-amber) !important; }
@@ -1237,8 +1239,11 @@
                                 <el-row :gutter="20">
                                     <el-col v-for="item in flowFields" :key="item.key" :span="12">
                                         <el-form-item :label="item.label">
-                                            <el-select v-model="baseForm[item.key]" filterable class="full-width" placeholder="不需要审批">
-                                                <el-option v-for="flow in flowOptions" :key="flow.optionKey" :label="flow.flowName" :value="flow.optionKey"></el-option>
+                                            <el-select v-model="baseForm[item.key]" filterable class="full-width" placeholder="不需要审批" popper-class="flow-select-dropdown">
+                                                <el-option v-for="flow in flowOptions" :key="flow.optionKey" :label="flow.flowName" :value="flow.optionKey">
+                                                    <span style="float: left;">{{ flow.flowName }}</span>
+                                                    <span style="float: right; color: var(--text-muted); font-size: 12px; margin-left: 20px;">{{ flow.description }}</span>
+                                                </el-option>
                                             </el-select>
                                         </el-form-item>
                                     </el-col>
@@ -2080,13 +2085,16 @@
             },
             async loadFlowOptions() {
                 try {
-                    const data = await this.apiPost('/api/v1/investmentPool/queryFlowOptionList', {})
-                    this.flowOptions = (data || []).map(item => ({
-                        flowId: item.flowId, flowKey: item.flowKey, flowName: item.flowName || '不需要审批',
-                        optionKey: item.flowId === null || item.flowId === undefined ? '' : String(item.flowId)
-                    }))
+                    const data = await this.apiPost('/api/v1/flows/queryFlowList', { status: 'active' })
+                    this.flowOptions = [{ flowId: null, flowKey: '', flowName: '不需要审批', description: '', optionKey: '' }]
+                    ;(data || []).forEach(function(item) {
+                        this.flowOptions.push({
+                            flowId: item.flowId, flowKey: item.flowKey, flowName: item.flowName,
+                            description: item.description || '', optionKey: String(item.flowId)
+                        })
+                    }.bind(this))
                 } catch (e) {
-                    this.flowOptions = [{ flowId: null, flowKey: '', flowName: '不需要审批', optionKey: '' }]
+                    this.flowOptions = [{ flowId: null, flowKey: '', flowName: '不需要审批', description: '', optionKey: '' }]
                 }
             },
             async loadPoolTree(selectId) {
@@ -2205,7 +2213,7 @@
             getFlowOption(optionKey) {
                 const item = this.flowOptions.find(f => f.optionKey === optionKey)
                 if (!item || !item.flowId) return null
-                return { flowId: item.flowId, flowKey: item.flowKey, flowName: item.flowName }
+                return { flowId: item.flowId, flowKey: item.flowKey, flowName: item.flowName, description: item.description || '' }
             },
             getPoolTypeName(poolType) {
                 const item = this.poolTypeOptions.find(o => o.value === poolType)
