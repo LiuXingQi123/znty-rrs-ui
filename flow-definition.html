@@ -217,7 +217,7 @@
             </div>
             <div class="topbar-stat">
                 <div class="topbar-stat-dot" style="background:var(--amber)"></div>
-                草稿 <span class="topbar-stat-num" style="color:var(--amber)">{{ tableData.filter(r=>r.status==='draft').length }}</span>
+                未发布 <span class="topbar-stat-num" style="color:var(--amber)">{{ tableData.filter(r=>r.status==='draft').length }}</span>
             </div>
             <div class="topbar-stat">
                 <div class="topbar-stat-dot" style="background:#cbd5e1"></div>
@@ -233,7 +233,7 @@
                 <el-input v-model="searchText" placeholder="搜索名称 / Key…" prefix-icon="el-icon-search" size="small" style="width:220px" clearable></el-input>
                 <el-select v-model="statusFilter" placeholder="全部状态" size="small" style="width:110px" clearable>
                     <el-option label="已发布" value="active"></el-option>
-                    <el-option label="草稿" value="draft"></el-option>
+                    <el-option label="未发布" value="draft"></el-option>
                     <el-option label="已停用" value="disabled"></el-option>
                 </el-select>
                 <el-select v-model="categoryFilter" placeholder="全部分类" size="small" style="width:110px" clearable>
@@ -263,8 +263,16 @@
                 <el-table-column label="版本" width="65">
                     <template slot-scope="scope"><span class="cell-ver">{{ scope.row.ver }}</span></template>
                 </el-table-column>
-                <el-table-column label="状态" width="80">
-                    <template slot-scope="scope"><el-tag :type="statusTagType(scope.row.status)" size="small">{{ statusLabel(scope.row.status) }}</el-tag></template>
+                <el-table-column label="状态" width="95">
+                    <template slot-scope="scope">
+                        <el-tooltip v-if="scope.row.status === 'draft' && scope.row.hasPublishedVersion" content="已有已发布版本，当前正在更新中" placement="top">
+                            <span style="cursor:help;">
+                                <el-tag :type="statusTagType(scope.row.status)" size="small">{{ statusLabel(scope.row.status) }}</el-tag>
+                                <span style="font-size:10px;color:var(--amber);margin-left:2px;">&#9679;</span>
+                            </span>
+                        </el-tooltip>
+                        <el-tag v-else :type="statusTagType(scope.row.status)" size="small">{{ statusLabel(scope.row.status) }}</el-tag>
+                    </template>
                 </el-table-column>
                 <el-table-column label="更新时间" width="180">
                     <template slot-scope="scope"><div class="cell-time">{{ scope.row.updateTime }}</div></template>
@@ -278,9 +286,7 @@
                         <el-button size="mini" icon="el-icon-time" @click="openHistory(scope.row)">历史</el-button>
                         <!-- 仅已发布 → 停用 -->
                         <el-button v-if="scope.row.status === 'active'" size="mini" type="warning" plain @click="disableFlow(scope.row)">停用</el-button>
-                        <!-- 仅已停用 → 恢复（固定恢复为草稿） -->
-                        <el-button v-if="scope.row.status === 'disabled'" size="mini" type="success" plain @click="restoreFlow(scope.row)">恢复</el-button>
-                        <!-- 草稿 → 发布 -->
+                        <!-- 未发布 → 发布 -->
                         <el-button v-if="scope.row.status === 'draft'" size="mini" type="success" plain @click="pubRow(scope.row.id)">发布</el-button>
                         <el-button size="mini" type="danger" plain @click="openDel(scope.row.id)">删除</el-button>
                     </template>
@@ -299,7 +305,7 @@
     <!-- 流程设计器页面 -->
     <div class="page" :class="{ active: currentPage === 'designer' }">
         <div class="designer-topbar">
-            <el-button size="mini" icon="el-icon-arrow-left" @click="currentPage = 'list'">返回列表</el-button>
+            <el-button size="mini" icon="el-icon-arrow-left" @click="backToList">返回列表</el-button>
             <div style="margin-left:6px">
                 <div class="proc-info-name">{{ designerInfo.name }}</div>
                 <div class="proc-info-key">{{ designerInfo.keyVer }}</div>
@@ -311,7 +317,7 @@
                 <el-button size="mini" @click="undo" :disabled="histIdx <= 0">↺ 撤销</el-button>
                 <el-button size="mini" @click="redo" :disabled="histIdx >= hist.length - 1">↻ 重做</el-button>
                 <div class="tool-sep"></div>
-                <el-button size="mini" @click="saveDraft">保存草稿</el-button>
+                <el-button size="mini" @click="saveDraft">保存</el-button>
                 <el-button type="primary" size="mini" icon="el-icon-upload2" @click="publishVisible = true">发布</el-button>
             </template>
         </div>
@@ -1116,6 +1122,7 @@
                     ver: 'v' + (r.currentVer || 0),
                     currentVer: r.currentVer || 0,
                     status: r.status || 'draft',
+                    hasPublishedVersion: r.hasPublishedVersion || false,
                     time: r.crteTime || '',
                     updateTime: r.updtTime || '',
                 };
@@ -1181,7 +1188,7 @@
             },
             // 返回状态中文标签
             statusLabel(s) {
-                return { active: '已发布', draft: '草稿', disabled: '已停用', archived: '已归档' }[s] || '草稿';
+                return { active: '已发布', draft: '未发布', disabled: '已停用', archived: '已归档' }[s] || '未发布';
             },
             // 返回业务分类的 el-tag type
             catTagType(c) {
@@ -1399,6 +1406,11 @@
                     this.$message.error(e.message || '请求异常');
                 }
             },
+            // 返回列表并刷新数据
+            backToList() {
+                this.currentPage = 'list';
+                this.loadList();
+            },
             // 打开流程设计器（empty=true 初始化空白画布；readOnly=true 只读模式）
             async openDesigner(id, empty, readOnly) {
                 const row = this.tableData.find(x => x.id === id);
@@ -1444,11 +1456,11 @@
                     });
                 } catch (e) {
                     this.$message.error(e.message || '请求异常');
-                    this.currentPage = 'list';
                     this.designerFlowId = null;
                     this.viewMode = false;
                     this.nodes = []; this.edges = []; this.selId = null;
                     this.hist = []; this.histIdx = -1;
+                    this.backToList();
                 }
             },
             // 保存草稿：调用 API 保存当前画布
@@ -1465,7 +1477,7 @@
                         if (res.verNum != null) row.ver = 'v' + res.verNum;
                         row.updateTime = this.nowStr();
                     }
-                    this.$message.success('草稿已保存');
+                    this.$message.success('已保存');
                 } catch (e) {
                     this.$message.error(e.message || '请求异常');
                 }
@@ -1495,15 +1507,35 @@
                     this.$message.error(e.message || '请求异常');
                 }
             },
-            // 更新流程：直接进入设计器编辑（后端自动管理草稿版本）
-            forkFlow(id) {
-                this.$message.info('进入编辑模式');
-                this.openDesigner(id, false, false);
+            // 更新流程：先检查是否有未发布版本，无则进入设计器编辑
+            async forkFlow(id) {
+                try {
+                    const versions = await this.apiPost('/api/v1/flows/queryFlowVersionList', { id: id });
+                    const hasDraft = (versions || []).some(v => v.status === 'draft');
+                    if (hasDraft) {
+                        const draftVer = versions.find(v => v.status === 'draft');
+                        const verLabel = draftVer ? ' v' + draftVer.verNum : '';
+                        try {
+                            await this.$confirm('该流程已存在未发布版本' + verLabel + '，请先编辑现有版本。', '已有未发布版本', {
+                                confirmButtonText: '前往编辑',
+                                cancelButtonText: '取消',
+                                type: 'warning',
+                            });
+                            this.openDesigner(id, false, false);
+                        } catch (e) {
+                            // 用户取消
+                        }
+                        return;
+                    }
+                    this.openDesigner(id, false, false);
+                } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                }
             },
-            // 停用流程：active → disabled（在版本历史中记录停用事件）
+            // 停用流程：active → disabled
             async disableFlow(row) {
                 try {
-                    await this.$confirm('停用后该流程将不可使用，历史版本中会记录本次停用操作。', '停用流程', {
+                    await this.$confirm('停用后该流程将不可使用。', '停用流程', {
                         confirmButtonText: '确认停用',
                         cancelButtonText: '取消',
                         type: 'warning',
@@ -1512,23 +1544,6 @@
                     await this.apiPost('/api/v1/flows/disableFlow', { id: row.id });
                     row.status = 'disabled';
                     this.$message.success('已停用');
-                } catch (e) {
-                    if (e === 'cancel') return;
-                    this.$message.error(e.message || '请求异常');
-                }
-            },
-            // 恢复流程：disabled → draft（生成新草稿版本，可从历史中追溯）
-            async restoreFlow(row) {
-                try {
-                    await this.$confirm('恢复后将生成新的草稿版本，可编辑后重新发布。', '恢复流程', {
-                        confirmButtonText: '确认恢复',
-                        cancelButtonText: '取消',
-                        type: 'info',
-                    });
-                    console.log('restoreFlow params:', { id: row.id });
-                    await this.apiPost('/api/v1/flows/restoreFlow', { id: row.id });
-                    row.status = 'draft';
-                    this.$message.success('已恢复为草稿');
                 } catch (e) {
                     if (e === 'cancel') return;
                     this.$message.error(e.message || '请求异常');
