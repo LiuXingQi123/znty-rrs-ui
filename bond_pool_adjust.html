@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>债券池调库</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.7.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        #bond_pool_adjust {
+            --c-bg:       #F0F4FA;
+            --c-surface:  #FFFFFF;
+            --c-border:   #E3E9F4;
+            --c-border-l: #EEF2FA;
+
+            --c-text:     #0D1A36;
+            --c-text-2:   #4A5577;
+            --c-text-3:   #8A93B2;
+
+            --c-primary:  #1A50E8;
+            --c-primary-h:#0E3DC4;
+            --c-primary-l:#EBF0FD;
+            --c-primary-s:rgba(26,80,232,.12);
+
+            --c-green:    #0F9462;
+            --c-green-l:  #ECFAF4;
+            --c-amber:    #B76E00;
+            --c-amber-l:  #FFF8EC;
+            --c-red:      #D92B2B;
+            --c-red-l:    #FFF0F0;
+
+            --r-sm: 6px;
+            --r:    10px;
+            --r-lg: 14px;
+            --r-xl: 18px;
+
+            --sh-xs: 0 1px 3px rgba(13,26,54,.06);
+            --sh-sm: 0 2px 8px rgba(13,26,54,.08), 0 0 0 1px rgba(13,26,54,.04);
+
+            --topbar-h: 58px;
+
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--c-bg);
+            color: var(--c-text);
+            font-size: 14px;
+        }
+
+        /* ── 页面切换 ── */
+        #bond_pool_adjust .page { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+        #bond_pool_adjust .page.active { display: flex; }
+
+        /* ── TOP BAR ── */
+        #bond_pool_adjust .topbar {
+            display: flex; align-items: center;
+            padding: 0 24px; height: var(--topbar-h);
+            background: var(--c-surface);
+            border-bottom: 1px solid var(--c-border);
+            flex-shrink: 0; gap: 12px;
+        }
+        #bond_pool_adjust .topbar-brand { display: flex; align-items: center; gap: 10px; }
+        #bond_pool_adjust .topbar-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: var(--c-primary);
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        #bond_pool_adjust .topbar-icon svg { fill: #fff; }
+        #bond_pool_adjust .topbar h2 { font-size: 15px; font-weight: 700; color: var(--c-text); }
+        #bond_pool_adjust .topbar-meta { margin-left: auto; font-size: 12px; color: var(--c-text-3); }
+
+        /* ── 返回按钮 ── */
+        #bond_pool_adjust .back-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px 6px 10px;
+            border-radius: var(--r-sm);
+            border: 1px solid var(--c-border);
+            background: var(--c-surface);
+            color: var(--c-text-2);
+            font-size: 13px; font-weight: 500;
+            cursor: pointer;
+            transition: all .18s ease;
+            outline: none; font-family: inherit;
+        }
+        #bond_pool_adjust .back-btn:hover {
+            border-color: var(--c-primary); color: var(--c-primary); background: var(--c-primary-l);
+        }
+
+        /* ── 列表页 body ── */
+        #bond_pool_adjust .list-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+        #bond_pool_adjust .search-panel {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-lg);
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            box-shadow: var(--sh-xs);
+        }
+        #bond_pool_adjust .search-panel .label {
+            font-size: 13px; font-weight: 600; color: var(--c-text-2); margin-right: 2px;
+        }
+        #bond_pool_adjust .total-badge {
+            margin-left: auto;
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: 20px;
+            background: var(--c-primary-l); color: var(--c-primary);
+            font-size: 12px; font-weight: 600;
+        }
+        #bond_pool_adjust .table-card {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+            box-shadow: var(--sh-xs);
+        }
+        #bond_pool_adjust .pagination-wrap {
+            display: flex; justify-content: flex-end;
+            padding: 12px 16px;
+            border-top: 1px solid var(--c-border-l);
+        }
+
+        /* ── 详情页 ── */
+        #bond_pool_adjust .detail-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+        #bond_pool_adjust .section-card {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-xl);
+            box-shadow: var(--sh-xs);
+            margin-bottom: 18px; overflow: hidden;
+        }
+        #bond_pool_adjust .section-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--c-border-l);
+            background: linear-gradient(135deg, #fafbff 0%, #f5f7fe 100%);
+        }
+        #bond_pool_adjust .section-dot {
+            width: 4px; height: 18px; background: var(--c-primary); border-radius: 4px; flex-shrink: 0;
+        }
+        #bond_pool_adjust .section-title { font-size: 14px; font-weight: 700; color: var(--c-text); }
+        #bond_pool_adjust .section-body { padding: 18px 20px; }
+
+        /* 信息网格 */
+        #bond_pool_adjust .info-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+        }
+        #bond_pool_adjust .info-cell {
+            display: flex; flex-direction: column;
+            padding: 12px 16px;
+            border-right: 1px solid var(--c-border-l);
+            border-bottom: 1px solid var(--c-border-l);
+        }
+        #bond_pool_adjust .info-cell:nth-child(3n) { border-right: none; }
+        #bond_pool_adjust .info-cell.full-width { grid-column: 1 / -1; border-right: none; }
+        #bond_pool_adjust .info-label {
+            font-size: 11px; font-weight: 500; color: var(--c-text-3);
+            text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px;
+        }
+        #bond_pool_adjust .info-value {
+            font-size: 13px; font-weight: 500; color: var(--c-text); word-break: break-all; line-height: 1.5;
+        }
+        #bond_pool_adjust .info-value.highlight { color: var(--c-primary); font-weight: 700; }
+        #bond_pool_adjust .textarea-hint { font-size: 11px; color: var(--c-text-3); margin-top: 5px; text-align: right; }
+
+        /* 子标题 */
+        #bond_pool_adjust .sub-heading {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: 600; color: var(--c-text);
+            margin-bottom: 10px;
+        }
+        #bond_pool_adjust .count-chip {
+            display: inline-flex; align-items: center;
+            padding: 2px 10px; border-radius: 20px;
+            background: var(--c-primary-l); color: var(--c-primary);
+            font-size: 12px; font-weight: 600;
+        }
+        #bond_pool_adjust .sub-section + .sub-section {
+            margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--c-border-l);
+        }
+
+        /* 池名标签收起态 */
+        #bond_pool_adjust .pool-chip-row {
+            display: flex; flex-wrap: wrap; gap: 6px;
+            max-height: 30px; overflow: hidden;
+            position: relative;
+        }
+        #bond_pool_adjust .pool-chip-row::after {
+            content: '...';
+            position: absolute; right: 0; bottom: 0;
+            padding: 2px 6px 2px 16px;
+            background: linear-gradient(90deg, transparent, var(--c-surface) 40%);
+            font-size: 12px; color: var(--c-text-3); font-weight: 600;
+            pointer-events: none;
+        }
+        #bond_pool_adjust .pool-chip {
+            display: inline-flex; align-items: center;
+            padding: 3px 10px;
+            border-radius: 4px;
+            background: var(--c-primary-l);
+            color: var(--c-primary);
+            font-size: 12px; font-weight: 500;
+            white-space: nowrap;
+            border: 1px solid rgba(26,80,232,.12);
+        }
+
+        /* ── Element UI 精调 ── */
+        #bond_pool_adjust .el-input--small .el-input__inner {
+            border-radius: var(--r-sm); border-color: var(--c-border);
+            color: var(--c-text); font-size: 13px;
+            transition: border-color .18s, box-shadow .18s;
+        }
+        #bond_pool_adjust .el-input--small .el-input__inner:hover { border-color: #b0bce8; }
+        #bond_pool_adjust .el-input--small .el-input__inner:focus {
+            border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-s);
+        }
+        #bond_pool_adjust .el-button--primary {
+            background: var(--c-primary); border-color: var(--c-primary);
+            border-radius: var(--r-sm); font-weight: 600; letter-spacing: .3px;
+            transition: background .18s, transform .1s, box-shadow .18s;
+        }
+        #bond_pool_adjust .el-button--primary:hover {
+            background: var(--c-primary-h); border-color: var(--c-primary-h);
+            box-shadow: 0 3px 10px rgba(26,80,232,.3);
+        }
+        #bond_pool_adjust .el-button--primary:active { transform: scale(.97); }
+        #bond_pool_adjust .el-button--default {
+            border-radius: var(--r-sm); color: var(--c-text-2);
+            border-color: var(--c-border); font-weight: 500;
+        }
+        #bond_pool_adjust .el-button--default:hover {
+            color: var(--c-primary); border-color: var(--c-primary); background: var(--c-primary-l);
+        }
+        #bond_pool_adjust .el-tag--mini {
+            border-radius: 20px; font-weight: 600; font-size: 11px; letter-spacing: .3px;
+        }
+        #bond_pool_adjust .el-tag--success { background: var(--c-green-l); border-color: transparent; color: var(--c-green); }
+        #bond_pool_adjust .el-tag--info { background: #F0F2FA; border-color: transparent; color: var(--c-text-3); }
+        #bond_pool_adjust .el-table { font-size: 13px; }
+        #bond_pool_adjust .el-table th.el-table__cell {
+            background: #F5F8FF; color: var(--c-text-2); font-weight: 600;
+            font-size: 12px; letter-spacing: .3px; border-bottom: 2px solid var(--c-border);
+        }
+        #bond_pool_adjust .el-table td.el-table__cell { color: var(--c-text); border-bottom-color: var(--c-border-l); }
+        #bond_pool_adjust .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background: #FAFBFF; }
+        #bond_pool_adjust .el-button--text {
+            color: var(--c-primary); font-weight: 600; font-size: 12px;
+            border-radius: var(--r-sm); padding: 4px 10px;
+            background: transparent; border: 1px solid transparent;
+            transition: background .15s, border-color .15s;
+        }
+        #bond_pool_adjust .el-button--text:hover { background: var(--c-primary-l); border-color: var(--c-primary-s); }
+        #bond_pool_adjust .el-tabs__item { font-size: 13px; font-weight: 500; color: var(--c-text-2); }
+        #bond_pool_adjust .el-tabs__item.is-active { color: var(--c-primary); font-weight: 700; }
+        #bond_pool_adjust .el-tabs__active-bar { background: var(--c-primary); height: 3px; border-radius: 3px; }
+        #bond_pool_adjust .el-tabs__nav-wrap::after { background: var(--c-border-l); }
+        #bond_pool_adjust .el-tabs__header { margin-bottom: 14px; }
+        #bond_pool_adjust .el-pager li.active { background: var(--c-primary); color: #fff; }
+        #bond_pool_adjust .el-pagination .btn-next,
+        #bond_pool_adjust .el-pagination .btn-prev,
+        #bond_pool_adjust .el-pagination .el-pager li { border-radius: var(--r-sm); font-weight: 500; }
+        #bond_pool_adjust ::-webkit-scrollbar { width: 6px; height: 6px; }
+        #bond_pool_adjust ::-webkit-scrollbar-track { background: transparent; }
+        #bond_pool_adjust ::-webkit-scrollbar-thumb { background: #CBD3E8; border-radius: 6px; }
+        #bond_pool_adjust ::-webkit-scrollbar-thumb:hover { background: #9DADD0; }
+        #bond_pool_adjust .file-link {
+            display: inline-flex; align-items: center; gap: 4px;
+            color: var(--c-primary); font-size: 12px; cursor: pointer; font-weight: 500;
+        }
+        #bond_pool_adjust .file-link:hover { text-decoration: underline; }
+        #bond_pool_adjust .divider {
+            width: 1px; height: 22px; background: var(--c-border); flex-shrink: 0;
+        }
+
+        /* 调库双栏布局 */
+        #bond_pool_adjust .adjust-dual-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        #bond_pool_adjust .adjust-panel {
+            min-width: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body style="margin:0;padding:0;">
+
+<div id="bond_pool_adjust">
+
+    <!-- ==================== 列表页 ==================== -->
+    <div class="page" :class="{ active: currentPage === 'list' }">
+        <div class="topbar">
+            <div class="topbar-brand">
+                <div class="topbar-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M4 4h16v3H4V4zm0 5h16v3H4V9zm0 5h10v3H4v-3z"/></svg>
+                </div>
+                <h2>债券池调库</h2>
+            </div>
+            <div class="topbar-meta">债券投资管理系统</div>
+        </div>
+
+        <div class="list-body">
+            <div class="search-panel">
+                <span class="label">筛选</span>
+                <el-input v-model="searchForm.bondCode" placeholder="债券代码" clearable
+                          size="small" style="width:150px;" @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                </el-input>
+                <el-input v-model="searchForm.bondShortName" placeholder="债券简称" clearable
+                          size="small" style="width:150px;" @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-search"></i>
+                </el-input>
+                <el-input v-model="searchForm.issuer" placeholder="发行人" clearable
+                          size="small" style="width:180px;" @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
+                </el-input>
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <div class="total-badge">
+                    <i class="el-icon-data-line"></i>
+                    共 {{ pagination.total }} 条记录
+                </div>
+            </div>
+
+            <div class="table-card">
+                <el-table :data="tableData" v-loading="loading" stripe size="small"
+                          style="width:100%;" :empty-text="'暂无数据'">
+                    <el-table-column prop="bondCode" label="债券代码" min-width="130"></el-table-column>
+                    <el-table-column prop="bondShortName" label="债券简称" min-width="130"></el-table-column>
+                    <el-table-column prop="fullName" label="债券全称" min-width="240" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="issuer" label="发行人" min-width="160" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="bondType" label="债券类型" min-width="110"></el-table-column>
+                    <el-table-column prop="issueAmount" label="发行总额(亿)" min-width="110" align="right">
+                        <template slot-scope="{ row }">{{ row.issueAmount != null ? row.issueAmount : '-' }}</template>
+                    </el-table-column>
+                    <el-table-column prop="currentRate" label="当期利率(%)" min-width="110" align="right">
+                        <template slot-scope="{ row }">{{ row.currentRate != null ? row.currentRate : '-' }}</template>
+                    </el-table-column>
+                    <el-table-column prop="carryDate" label="起息日期" min-width="110"></el-table-column>
+                    <el-table-column prop="maturityDate" label="到期日" min-width="110"></el-table-column>
+                    <el-table-column prop="termStr" label="债券期限" min-width="110"></el-table-column>
+                    <el-table-column prop="bondRating" label="债券评级" min-width="90"></el-table-column>
+                    <el-table-column prop="issuerRating" label="主体评级" min-width="90"></el-table-column>
+                    <el-table-column label="操作" width="90" fixed="right">
+                        <template slot-scope="{ row }">
+                            <el-button type="text" size="small" @click="handleAdjust(row)">调库</el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+                <div class="pagination-wrap">
+                    <el-pagination
+                            :total="pagination.total"
+                            :current-page="pagination.pageIndex"
+                            :page-size="pagination.pageSize"
+                            :page-sizes="[10, 20, 50, 100]"
+                            layout="total, sizes, prev, pager, next, jumper"
+                            small
+                            @current-change="handlePageChange"
+                            @size-change="handleSizeChange">
+                    </el-pagination>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 调库详情页 ==================== -->
+    <div class="page" :class="{ active: currentPage === 'detail' }">
+        <div class="topbar">
+            <button class="back-btn" @click="backToList">
+                <i class="el-icon-arrow-left"></i>返回列表
+            </button>
+            <div class="divider"></div>
+            <h2 style="font-size:14px;">
+                调库操作
+                <span v-if="bondDetail.bondCode" style="color:var(--c-primary);margin-left:6px;">{{ bondDetail.bondCode }}</span>
+                <span v-if="bondDetail.bondShortName || bondDetail.fullName" style="color:var(--c-text-2);font-weight:500;font-size:13px;margin-left:4px;">{{ bondDetail.bondShortName || bondDetail.fullName }}</span>
+            </h2>
+        </div>
+
+        <div class="detail-body" v-loading="detailLoading">
+
+            <!-- 债券基本信息 -->
+            <div class="section-card">
+                <div class="section-header">
+                    <div class="section-dot"></div>
+                    <div class="section-title">债券基本信息</div>
+                </div>
+                <el-descriptions :column="3" border size="small" class="bond-info-descriptions">
+                    <el-descriptions-item label="债券全称">
+                        <el-input v-model="bondDetail.fullName" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="债券代码">
+                        <el-input v-model="bondDetail.bondCode" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="发行人名称">
+                        <el-input v-model="bondDetail.issuerName" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="银行间代码">
+                        <el-input v-model="bondDetail.nibCode" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="交易所代码">
+                        <el-input v-model="bondDetail.exchangeCode" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="发行总额(亿元)">
+                        <el-input v-model="bondDetail.issueAmount" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="当期利率(%)">
+                        <el-input v-model="bondDetail.currentRate" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="行权剩余期限">
+                        <el-input v-model="bondDetail.remExeTerm" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="起息日期">
+                        <el-input v-model="bondDetail.carryDate" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="到期日">
+                        <el-input v-model="bondDetail.maturityDate" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="质押比率(%)">
+                        <el-input v-model="bondDetail.pledgeRatio" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="评级机构">
+                        <el-input v-model="bondDetail.ratingAgency" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="债券评级">
+                        <el-input v-model="bondDetail.bondRating" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="主体评级">
+                        <el-input v-model="bondDetail.issuerRating" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="展望评级">
+                        <el-input v-model="bondDetail.ratingOutlook" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="担保情况">
+                        <el-input v-model="bondDetail.guaranteeStatus" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="主承销商">
+                        <el-input v-model="bondDetail.leadUnderwriter" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="主体内评分档">
+                        <el-input v-model="bondDetail.innerIssuerRating" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="债券类型">
+                        <el-input v-model="bondDetail.bondType" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="回售行权期限">
+                        <el-input v-model="bondDetail.putExeTerm" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="赎回行权剩余期限">
+                        <el-input v-model="bondDetail.callRemTerm" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="担保人主体内评分">
+                        <el-input v-model="bondDetail.innerGuarantorRating" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="含权债剩余期限">
+                        <el-input v-model="bondDetail.optRemTerm" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="债券期限">
+                        <el-input v-model="bondDetail.termStr" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="募集资金用途" :span="3">
+                        <el-input type="textarea" :rows="3" v-model="bondDetail.fundUsage" size="small" placeholder="请输入"></el-input>
+                        <div class="textarea-hint">最多还可输入 968 个字符</div>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="提示原因" :span="3">
+                        <el-input type="textarea" :rows="3" v-model="bondDetail.promptReason" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="债券分析" :span="3">
+                        <el-input type="textarea" :rows="3" v-model="bondDetail.analysis" size="small" placeholder="请输入"></el-input>
+                    </el-descriptions-item>
+                </el-descriptions>
+            </div>
+
+            <!-- 当前所在池 -->
+            <div class="section-card">
+                <div class="section-header">
+                    <div class="section-dot"></div>
+                    <div class="section-title">当前所在池</div>
+                </div>
+                <div class="section-body">
+                    <div class="sub-section">
+                        <div class="sub-heading" @click="bondPoolExpanded = !bondPoolExpanded" style="cursor:pointer;">
+                            <i :class="bondPoolExpanded ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" style="font-size:12px;color:var(--c-text-3);"></i>
+                            当前债券所在池
+                            <span class="count-chip">共 {{ bondCurrentPools.length }} 个</span>
+                            <span v-if="!bondPoolExpanded" style="font-size:11px;color:var(--c-text-3);margin-left:auto;">点击展开</span>
+                            <span v-else style="font-size:11px;color:var(--c-text-3);margin-left:auto;">点击收起</span>
+                        </div>
+                        <!-- 收起：池名标签 -->
+                        <div v-if="!bondPoolExpanded" class="pool-chip-row">
+                            <template v-if="bondCurrentPools.length > 0">
+                                <span v-for="(p, idx) in bondCurrentPools" :key="p.poolName" class="pool-chip">{{ p.poolName }}</span>
+                            </template>
+                            <span v-else style="color:var(--c-text-3);font-size:13px;">暂无</span>
+                        </div>
+                        <!-- 展开：完整表格 -->
+                        <el-table v-else :data="bondCurrentPools" size="small" border style="width:100%;" :empty-text="'暂无'">
+                            <el-table-column prop="poolName" label="投资池名称" min-width="200"></el-table-column>
+                            <el-table-column prop="poolType" label="池类型" min-width="120"></el-table-column>
+                            <el-table-column prop="entryDate" label="入池日期" min-width="130"></el-table-column>
+                        </el-table>
+                    </div>
+                    <div class="sub-section">
+                        <div class="sub-heading" @click="issuerPoolExpanded = !issuerPoolExpanded" style="cursor:pointer;">
+                            <i :class="issuerPoolExpanded ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" style="font-size:12px;color:var(--c-text-3);"></i>
+                            当前债券主体所在池
+                            <span class="count-chip">共 {{ issuerCurrentPools.length }} 个</span>
+                            <span v-if="!issuerPoolExpanded" style="font-size:11px;color:var(--c-text-3);margin-left:auto;">点击展开</span>
+                            <span v-else style="font-size:11px;color:var(--c-text-3);margin-left:auto;">点击收起</span>
+                        </div>
+                        <!-- 收起：池名标签 -->
+                        <div v-if="!issuerPoolExpanded" class="pool-chip-row">
+                            <template v-if="issuerCurrentPools.length > 0">
+                                <span v-for="(p, idx) in issuerCurrentPools" :key="p.poolName" class="pool-chip">{{ p.poolName }}</span>
+                            </template>
+                            <span v-else style="color:var(--c-text-3);font-size:13px;">暂无</span>
+                        </div>
+                        <!-- 展开：完整表格 -->
+                        <el-table v-else :data="issuerCurrentPools" size="small" border style="width:100%;" max-height="300" :empty-text="'暂无'">
+                            <el-table-column prop="poolName" label="投资池名称" min-width="200"></el-table-column>
+                            <el-table-column prop="poolType" label="池类型" min-width="120"></el-table-column>
+                            <el-table-column prop="bondCount" label="主体在该池债券数" min-width="140" align="center"></el-table-column>
+                            <el-table-column prop="entryDate" label="最早入池日期" min-width="130"></el-table-column>
+                        </el-table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 调库操作 -->
+            <div class="section-card">
+                <div class="section-header">
+                    <div class="section-dot"></div>
+                    <div class="section-title">调库操作</div>
+                </div>
+                <div class="section-body">
+                    <div class="adjust-dual-panels">
+                        <!-- 可调入库 -->
+                        <div class="adjust-panel">
+                            <div class="sub-heading" style="margin-bottom:10px;">
+                                <span style="color:var(--c-green);">●</span> 可调入库
+                                <span class="count-chip" style="background:var(--c-green-l);color:var(--c-green);">
+                                    已选 {{ selectedInPools.length }}
+                                </span>
+                            </div>
+                            <el-table :data="adjustInTree" size="small" border style="width:100%;"
+                                      row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+                                      default-expand-all :empty-text="'暂无'"
+                                      @selection-change="(val) => selectedInPools = val">
+                                <el-table-column type="selection" width="40"
+                                    :selectable="(row) => !row.children || row.children.length === 0">
+                                </el-table-column>
+                                <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                                <el-table-column prop="maxCapacity" label="上限数量" min-width="90" align="center">
+                                    <template slot-scope="{ row }">{{ row.maxCapacity != null ? row.maxCapacity : '-' }}</template>
+                                </el-table-column>
+                                <el-table-column prop="currentCount" label="现有数量" min-width="90" align="center">
+                                    <template slot-scope="{ row }">{{ row.currentCount != null ? row.currentCount : '-' }}</template>
+                                </el-table-column>
+                                <el-table-column label="附件报告" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <span v-if="row.attachmentReport" class="file-link"><i class="el-icon-paperclip"></i>{{ row.attachmentReport }}</span>
+                                        <span v-else style="color:var(--c-text-3);">-</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="其他材料" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <span v-if="row.otherMaterials" class="file-link"><i class="el-icon-document"></i>{{ row.otherMaterials }}</span>
+                                        <span v-else style="color:var(--c-text-3);">-</span>
+                                    </template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                        <!-- 可调出库 -->
+                        <div class="adjust-panel">
+                            <div class="sub-heading" style="margin-bottom:10px;">
+                                <span style="color:var(--c-red);">●</span> 可调出库
+                                <span class="count-chip" style="background:var(--c-red-l);color:var(--c-red);">
+                                    已选 {{ selectedOutPools.length }}
+                                </span>
+                            </div>
+                            <el-table :data="adjustOutTree" size="small" border style="width:100%;"
+                                      row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+                                      default-expand-all :empty-text="'暂无'"
+                                      @selection-change="(val) => selectedOutPools = val">
+                                <el-table-column type="selection" width="40"
+                                    :selectable="(row) => !row.children || row.children.length === 0">
+                                </el-table-column>
+                                <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                                <el-table-column prop="maxCapacity" label="上限数量" min-width="90" align="center">
+                                    <template slot-scope="{ row }">{{ row.maxCapacity != null ? row.maxCapacity : '-' }}</template>
+                                </el-table-column>
+                                <el-table-column prop="currentCount" label="现有数量" min-width="90" align="center">
+                                    <template slot-scope="{ row }">{{ row.currentCount != null ? row.currentCount : '-' }}</template>
+                                </el-table-column>
+                                <el-table-column label="附件报告" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <span v-if="row.attachmentReport" class="file-link"><i class="el-icon-paperclip"></i>{{ row.attachmentReport }}</span>
+                                        <span v-else style="color:var(--c-text-3);">-</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="其他材料" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <span v-if="row.otherMaterials" class="file-link"><i class="el-icon-document"></i>{{ row.otherMaterials }}</span>
+                                        <span v-else style="color:var(--c-text-3);">-</span>
+                                    </template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    new Vue({
+        el: '#bond_pool_adjust',
+        data() {
+            return {
+                currentPage: 'list',
+                searchForm: { bondCode: '', bondShortName: '', issuer: '' },
+                tableData: [],
+                loading: false,
+                pagination: { pageIndex: 1, pageSize: 10, total: 0 },
+                selectedBondId: null,
+                bondDetail: {},
+                detailLoading: false,
+                bondCurrentPools: [],
+                issuerCurrentPools: [],
+                bondPoolExpanded: false,
+                issuerPoolExpanded: false,
+                adjustInTree: [],
+                adjustOutTree: [],
+                selectedInPools: [],
+                selectedOutPools: [],
+            };
+        },
+        created() {
+            axios.defaults.baseURL = 'http://localhost:18090';
+            this.loadList();
+        },
+        methods: {
+            async apiPost(path, body) {
+                const resp = await axios.post(path, body || {});
+                const json = resp.data;
+                if (json.code !== 0) {
+                    this.$message.error(json.message || '接口异常');
+                    throw new Error(json.message || '接口异常');
+                }
+                return json.data;
+            },
+            async loadList() {
+                this.loading = true;
+                try {
+                    const data = await this.apiPost('/api/v1/bondPoolAdjust/queryBondPage', {
+                        bondCode: this.searchForm.bondCode,
+                        bondShortName: this.searchForm.bondShortName,
+                        issuer: this.searchForm.issuer,
+                        pageIndex: this.pagination.pageIndex,
+                        pageSize: this.pagination.pageSize
+                    });
+                    this.tableData = data.records || [];
+                    this.pagination.total = data.total || 0;
+                } catch (e) {}
+                this.loading = false;
+            },
+            handleSearch() { this.pagination.pageIndex = 1; this.loadList(); },
+            handleReset() {
+                this.searchForm = { bondCode: '', bondShortName: '', issuer: '' };
+                this.pagination.pageIndex = 1; this.loadList();
+            },
+            handlePageChange(page) { this.pagination.pageIndex = page; this.loadList(); },
+            handleSizeChange(size) { this.pagination.pageSize = size; this.pagination.pageIndex = 1; this.loadList(); },
+            async handleAdjust(row) {
+                this.selectedBondId = row.id;
+                this.currentPage = 'detail';
+                this.initHardcodedPools();
+                await this.loadDetailData();
+            },
+            initHardcodedPools() {
+                this.bondCurrentPools = [
+                    { poolName: '信用债大库', poolType: '信用债', entryDate: '2024-06-15', status: '在池' },
+                    { poolName: '一级库',    poolType: '信用债', entryDate: '2024-06-15', status: '在池' },
+                    { poolName: '专户产品',  poolType: '专户',   entryDate: '2024-08-20', status: '在池' }
+                ];
+                this.issuerCurrentPools = [
+                    { poolName: '信用债大库', poolType: '信用债', bondCount: 23, entryDate: '2023-01-10', status: '在池' },
+                    { poolName: '一级库',    poolType: '信用债', bondCount: 15, entryDate: '2023-03-05', status: '在池' },
+                    { poolName: '二级库',    poolType: '信用债', bondCount:  8, entryDate: '2023-06-20', status: '在池' },
+                    { poolName: '三级库',    poolType: '信用债', bondCount:  3, entryDate: '2024-01-15', status: '在池' },
+                    { poolName: '专户产品',  poolType: '专户',   bondCount: 12, entryDate: '2023-02-18', status: '在池' },
+                    { poolName: '一级库',    poolType: '专户',   bondCount:  7, entryDate: '2023-05-22', status: '在池' },
+                    { poolName: '二级库',    poolType: '专户',   bondCount:  5, entryDate: '2023-09-08', status: '在池' },
+                    { poolName: '境外债大库',poolType: '境外债', bondCount:  6, entryDate: '2023-11-30', status: '在池' },
+                    { poolName: '一级库',    poolType: '境外债', bondCount:  4, entryDate: '2024-02-14', status: '在池' },
+                    { poolName: '转债大库',  poolType: '转债',   bondCount:  9, entryDate: '2023-07-01', status: '在池' },
+                    { poolName: '一级库',    poolType: '转债',   bondCount:  6, entryDate: '2023-10-12', status: '在池' },
+                    { poolName: '二级库',    poolType: '转债',   bondCount:  3, entryDate: '2024-04-25', status: '在池' }
+                ];
+            },
+            async loadDetailData() {
+                this.detailLoading = true;
+                try {
+                    const [detail, inTree, outTree] = await Promise.all([
+                        this.apiPost('/api/v1/bondPoolAdjust/queryBondDetail',    { bondId: this.selectedBondId }),
+                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolTree',{ adjustDirection: 'in'  }),
+                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolTree',{ adjustDirection: 'out' })
+                    ]);
+                    this.bondDetail    = detail  || {};
+                    this.adjustInTree  = inTree  || [];
+                    this.adjustOutTree = outTree || [];
+                } catch (e) {}
+                this.detailLoading = false;
+            },
+            backToList() {
+                this.currentPage = 'list';
+                this.selectedBondId = null;
+                this.bondDetail = {};
+            }
+        }
+    });
+</script>
+</body>
+</html>
