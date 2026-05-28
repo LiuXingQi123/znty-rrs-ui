@@ -270,6 +270,125 @@
             border-color: var(--c-primary);
         }
 
+        /* ── 当前所在池 单行布局 ── */
+        #bond_pool_adjust .pool-sub-label {
+            font-size: 12.5px; font-weight: 700; color: var(--c-text);
+            white-space: nowrap;
+        }
+        #bond_pool_adjust .pool-sub-count {
+            display: inline-flex; align-items: center;
+            padding: 1px 8px; border-radius: 20px;
+            font-size: 11px; font-weight: 600;
+        }
+        #bond_pool_adjust .pool-sub-count.type-bond {
+            background: var(--c-primary-l);
+            border: 1px solid rgba(23,70,212,.14);
+            color: var(--c-primary);
+        }
+        #bond_pool_adjust .pool-sub-count.type-issuer {
+            background: var(--c-green-l);
+            border: 1px solid rgba(10,138,90,.15);
+            color: var(--c-green);
+        }
+        #bond_pool_adjust .pool-toggle-btn {
+            flex-shrink: 0;
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 20px;
+            border: 1px solid var(--c-border);
+            background: var(--c-surface);
+            color: var(--c-text-3); font-size: 11px; font-weight: 500;
+            cursor: pointer; transition: all .18s;
+            outline: none; font-family: inherit;
+        }
+        #bond_pool_adjust .pool-toggle-btn:hover {
+            border-color: var(--c-primary); color: var(--c-primary);
+            background: var(--c-primary-l);
+        }
+        #bond_pool_adjust .pool-inline-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 22px;
+            min-height: 44px;
+        }
+        #bond_pool_adjust .pool-inline-label {
+            display: flex; align-items: center; gap: 7px;
+            flex-shrink: 0;
+            width: 200px;
+        }
+        #bond_pool_adjust .pool-inline-content {
+            flex: 1;
+            display: flex; align-items: center;
+            gap: 5px;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        #bond_pool_adjust .pool-name-chip {
+            display: inline-flex; align-items: center;
+            padding: 2px 10px; border-radius: var(--r-sm);
+            background: var(--c-primary-l);
+            color: var(--c-primary);
+            font-size: 12px; font-weight: 500;
+            border: 1px solid rgba(23,70,212,.12);
+            white-space: nowrap; flex-shrink: 0;
+            transition: all .15s;
+        }
+        #bond_pool_adjust .pool-name-chip:hover {
+            background: var(--c-primary); color: #fff;
+        }
+        #bond_pool_adjust .pool-name-chip--green {
+            background: var(--c-green-l);
+            color: var(--c-green);
+            border-color: rgba(10,138,90,.15);
+        }
+        #bond_pool_adjust .pool-name-chip--green:hover {
+            background: var(--c-green); color: #fff;
+        }
+        #bond_pool_adjust .pool-overflow-hint {
+            font-size: 12px; color: var(--c-text-3); font-weight: 700;
+            flex-shrink: 0; letter-spacing: 1px;
+        }
+        #bond_pool_adjust .pool-expand-table {
+            margin: 0 16px 16px;
+            border: 1px solid var(--c-border-l);
+            border-radius: var(--r);
+            overflow: hidden;
+        }
+        /* 债券池 / 主体池 两个子区块的包裹层 */
+        #bond_pool_adjust .pool-sub-block {
+            margin: 14px 16px;
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+            background: var(--c-surface);
+        }
+        #bond_pool_adjust .pool-sub-block + .pool-sub-block {
+            margin-top: 10px;
+        }
+        /* 子区块 header 行带背景 */
+        #bond_pool_adjust .pool-sub-block .pool-inline-row {
+            background: var(--c-surface-2);
+            border-bottom: 1px solid transparent;
+            border-radius: var(--r-lg) var(--r-lg) 0 0;
+        }
+        #bond_pool_adjust .pool-sub-block .pool-inline-row.is-expanded {
+            border-bottom-color: var(--c-border-l);
+            border-radius: var(--r-lg) var(--r-lg) 0 0;
+        }
+        /* 子区块内的展开表格无需外层边框/圆角（已由 block 包裹） */
+        #bond_pool_adjust .pool-sub-block .pool-expand-table {
+            margin: 0;
+            border: none;
+            border-radius: 0;
+        }
+        /* 债券子块左侧accent条 */
+        #bond_pool_adjust .pool-sub-block.block-bond {
+            border-left: 3px solid var(--c-primary);
+        }
+        #bond_pool_adjust .pool-sub-block.block-issuer {
+            border-left: 3px solid var(--c-green);
+        }
+
         /* ── Element UI 精调 ── */
         #bond_pool_adjust .el-input--small .el-input__inner {
             border-radius: var(--r-sm); border-color: var(--c-border);
@@ -624,93 +743,94 @@
 
             <!-- 债券基本信息 -->
             <div class="section-card">
-                <div class="section-header">
+                <div class="section-header" @click="toggleSection('bondInfo')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">债券基本信息</div>
+                    <i :class="sectionExpanded.bondInfo ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
-                <div style="padding:0;">
+                <div v-show="sectionExpanded.bondInfo" style="padding:0;">
                     <el-descriptions :column="3" border size="small" class="bond-info-descriptions">
                         <el-descriptions-item label="债券全称">
-                            <el-input v-model="bondDetail.fullName" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.fullName" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="债券代码">
-                            <el-input v-model="bondDetail.bondCode" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.bondCode" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="发行人名称">
-                            <el-input v-model="bondDetail.issuerName" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.issuerName" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="银行间代码">
-                            <el-input v-model="bondDetail.nibCode" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.nibCode" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="交易所代码">
-                            <el-input v-model="bondDetail.exchangeCode" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.exchangeCode" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="发行总额(亿元)">
-                            <el-input v-model="bondDetail.issueAmount" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.issueAmount" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="当期利率(%)">
-                            <el-input v-model="bondDetail.currentRate" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.currentRate" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="行权剩余期限">
-                            <el-input v-model="bondDetail.remExeTerm" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.remExeTerm" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="起息日期">
-                            <el-input v-model="bondDetail.carryDate" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.carryDate" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="到期日">
-                            <el-input v-model="bondDetail.maturityDate" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.maturityDate" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="质押比率(%)">
-                            <el-input v-model="bondDetail.pledgeRatio" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.pledgeRatio" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="评级机构">
-                            <el-input v-model="bondDetail.ratingAgency" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.ratingAgency" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="债券评级">
-                            <el-input v-model="bondDetail.bondRating" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.bondRating" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主体评级">
-                            <el-input v-model="bondDetail.issuerRating" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.issuerRating" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="展望评级">
-                            <el-input v-model="bondDetail.ratingOutlook" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.ratingOutlook" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="担保情况">
-                            <el-input v-model="bondDetail.guaranteeStatus" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.guaranteeStatus" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主承销商">
-                            <el-input v-model="bondDetail.leadUnderwriter" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.leadUnderwriter" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主体内评分档">
-                            <el-input v-model="bondDetail.innerIssuerRating" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.innerIssuerRating" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="债券类型">
-                            <el-input v-model="bondDetail.bondType" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.bondType" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="回售行权期限">
-                            <el-input v-model="bondDetail.putExeTerm" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.putExeTerm" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="赎回行权剩余期限">
-                            <el-input v-model="bondDetail.callRemTerm" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.callRemTerm" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="担保人主体内评分">
-                            <el-input v-model="bondDetail.innerGuarantorRating" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.innerGuarantorRating" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="含权债剩余期限">
-                            <el-input v-model="bondDetail.optRemTerm" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.optRemTerm" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="债券期限">
-                            <el-input v-model="bondDetail.termStr" size="small" placeholder="请输入"></el-input>
+                            <el-input v-model="bondDetail.termStr" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="募集资金用途" :span="3">
-                            <el-input type="textarea" :rows="3" v-model="bondDetail.fundUsage" size="small" placeholder="请输入"></el-input>
+                            <el-input type="textarea" :rows="3" v-model="bondDetail.fundUsage" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                             <div class="textarea-hint">最多还可输入 968 个字符</div>
                         </el-descriptions-item>
                         <el-descriptions-item label="提示原因" :span="3">
-                            <el-input type="textarea" :rows="3" v-model="bondDetail.promptReason" size="small" placeholder="请输入"></el-input>
+                            <el-input type="textarea" :rows="3" v-model="bondDetail.promptReason" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="债券分析" :span="3">
-                            <el-input type="textarea" :rows="3" v-model="bondDetail.analysis" size="small" placeholder="请输入"></el-input>
+                            <el-input type="textarea" :rows="3" v-model="bondDetail.analysis" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                     </el-descriptions>
                 </div>
@@ -718,233 +838,350 @@
 
             <!-- 当前所在池 -->
             <div class="section-card">
-                <div class="section-header">
+                <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">当前所在池</div>
+                    <i :class="sectionExpanded.currentPools ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
-                <div class="section-body">
-                    <div class="sub-section">
-                        <div class="sub-heading" @click="bondPoolExpanded = !bondPoolExpanded" style="cursor:pointer;user-select:none;">
-                            <i :class="bondPoolExpanded ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" style="font-size:12px;color:var(--c-text-3);transition:transform .2s;"></i>
-                            当前债券所在池
-                            <span class="count-chip">共 {{ bondCurrentPools.length }} 个</span>
-                            <span style="font-size:11px;color:var(--c-text-3);margin-left:auto;display:flex;align-items:center;gap:4px;">
+                <div v-show="sectionExpanded.currentPools" style="padding:0 0 4px;">
+
+                    <!-- ① 当前债券所在池 -->
+                    <div class="pool-sub-block block-bond">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': bondPoolExpanded }">
+                            <div class="pool-inline-label">
+                                <span class="pool-sub-label">当前债券所在池</span>
+                                <span class="pool-sub-count type-bond">{{ bondCurrentPools.length }}</span>
+                            </div>
+                            <div class="pool-inline-content">
+                                <template v-if="!bondPoolExpanded">
+                                    <span v-if="bondCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
+                                    <span v-for="(p, idx) in bondCurrentPools" :key="p.poolName" class="pool-name-chip">{{ p.poolName }}</span>
+                                    <span v-if="bondCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                </template>
+                            </div>
+                            <button class="pool-toggle-btn" @click.stop="bondPoolExpanded = !bondPoolExpanded">
                                 <i :class="bondPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="font-size:10px;"></i>
                                 {{ bondPoolExpanded ? '收起' : '展开' }}
-                            </span>
+                            </button>
                         </div>
-                        <div v-if="!bondPoolExpanded" class="pool-chip-row">
-                            <template v-if="bondCurrentPools.length > 0">
-                                <span v-for="(p, idx) in bondCurrentPools" :key="p.poolName" class="pool-chip">{{ p.poolName }}</span>
-                            </template>
-                            <span v-else style="color:var(--c-text-3);font-size:13px;">暂无</span>
+                        <div v-if="bondPoolExpanded" class="pool-expand-table">
+                            <el-table :data="bondCurrentPools" size="small" style="width:100%;" :empty-text="'暂无'">
+                                <el-table-column prop="poolName" label="投资池名称" min-width="200">
+                                    <template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template>
+                                </el-table-column>
+                                <el-table-column prop="poolType" label="池类型" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ row.poolType }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="entryDate" label="入池日期" min-width="130">
+                                    <template slot-scope="{ row }"><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
+                                </el-table-column>
+                            </el-table>
                         </div>
-                        <el-table v-else :data="bondCurrentPools" size="small" border style="width:100%;border-radius:var(--r-sm);overflow:hidden;" :empty-text="'暂无'">
-                            <el-table-column prop="poolName" label="投资池名称" min-width="200"></el-table-column>
-                            <el-table-column prop="poolType" label="池类型" min-width="120">
-                                <template slot-scope="{ row }"><el-tag size="mini" type="info">{{ row.poolType }}</el-tag></template>
-                            </el-table-column>
-                            <el-table-column prop="entryDate" label="入池日期" min-width="130"></el-table-column>
-                            <el-table-column prop="status" label="状态" min-width="90" align="center">
-                                <template slot-scope="{ row }">
-                                    <span style="display:inline-flex;align-items:center;gap:5px;">
-                                        <span class="status-dot green"></span>
-                                        <span style="font-size:12px;color:var(--c-green);font-weight:600;">{{ row.status }}</span>
-                                    </span>
-                                </template>
-                            </el-table-column>
-                        </el-table>
                     </div>
-                    <div class="sub-section">
-                        <div class="sub-heading" @click="issuerPoolExpanded = !issuerPoolExpanded" style="cursor:pointer;user-select:none;">
-                            <i :class="issuerPoolExpanded ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" style="font-size:12px;color:var(--c-text-3);"></i>
-                            当前债券主体所在池
-                            <span class="count-chip">共 {{ issuerCurrentPools.length }} 个</span>
-                            <span style="font-size:11px;color:var(--c-text-3);margin-left:auto;display:flex;align-items:center;gap:4px;">
+
+                    <!-- ② 当前债券主体所在池 -->
+                    <div class="pool-sub-block block-issuer">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': issuerPoolExpanded }">
+                            <div class="pool-inline-label">
+                                <span class="pool-sub-label">当前债券主体所在池</span>
+                                <span class="pool-sub-count type-issuer">{{ issuerCurrentPools.length }}</span>
+                            </div>
+                            <div class="pool-inline-content">
+                                <template v-if="!issuerPoolExpanded">
+                                    <span v-if="issuerCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
+                                    <span v-for="(p, idx) in issuerCurrentPools" :key="p.poolName+idx" class="pool-name-chip pool-name-chip--green">{{ p.poolName }}</span>
+                                    <span v-if="issuerCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                </template>
+                            </div>
+                            <button class="pool-toggle-btn" @click.stop="issuerPoolExpanded = !issuerPoolExpanded">
                                 <i :class="issuerPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="font-size:10px;"></i>
                                 {{ issuerPoolExpanded ? '收起' : '展开' }}
-                            </span>
+                            </button>
                         </div>
-                        <div v-if="!issuerPoolExpanded" class="pool-chip-row">
-                            <template v-if="issuerCurrentPools.length > 0">
-                                <span v-for="(p, idx) in issuerCurrentPools" :key="p.poolName+idx" class="pool-chip">{{ p.poolName }}</span>
-                            </template>
-                            <span v-else style="color:var(--c-text-3);font-size:13px;">暂无</span>
+                        <div v-if="issuerPoolExpanded" class="pool-expand-table">
+                            <el-table :data="issuerCurrentPools" size="small" style="width:100%;" max-height="280" :empty-text="'暂无'">
+                                <el-table-column prop="poolName" label="投资池名称" min-width="200">
+                                    <template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template>
+                                </el-table-column>
+                                <el-table-column prop="poolType" label="池类型" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ row.poolType }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="bondCount" label="主体在该池债券数" min-width="140" align="center">
+                                    <template slot-scope="{ row }">
+                                        <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--c-primary);font-size:13px;">{{ row.bondCount }}<span style="font-size:10px;font-weight:400;color:var(--c-text-3);margin-left:2px;">只</span></span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="entryDate" label="最早入池日期" min-width="130">
+                                    <template slot-scope="{ row }"><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
+                                </el-table-column>
+                            </el-table>
                         </div>
-                        <el-table v-else :data="issuerCurrentPools" size="small" border style="width:100%;border-radius:var(--r-sm);overflow:hidden;" max-height="300" :empty-text="'暂无'">
-                            <el-table-column prop="poolName" label="投资池名称" min-width="200"></el-table-column>
-                            <el-table-column prop="poolType" label="池类型" min-width="120">
-                                <template slot-scope="{ row }"><el-tag size="mini" type="info">{{ row.poolType }}</el-tag></template>
-                            </el-table-column>
-                            <el-table-column prop="bondCount" label="主体在该池债券数" min-width="140" align="center">
-                                <template slot-scope="{ row }">
-                                    <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--c-primary);">{{ row.bondCount }}</span>
-                                </template>
-                            </el-table-column>
-                            <el-table-column prop="entryDate" label="最早入池日期" min-width="130"></el-table-column>
-                            <el-table-column prop="status" label="状态" min-width="90" align="center">
-                                <template slot-scope="{ row }">
-                                    <span style="display:inline-flex;align-items:center;gap:5px;">
-                                        <span class="status-dot green"></span>
-                                        <span style="font-size:12px;color:var(--c-green);font-weight:600;">{{ row.status }}</span>
-                                    </span>
-                                </template>
-                            </el-table-column>
-                        </el-table>
                     </div>
+
                 </div>
             </div>
 
             <!-- 调库操作 -->
-            <div class="section-card">
-                <div class="section-header">
+            <div class="section-card" v-show="adjustStep === 1">
+                <div class="section-header" @click="toggleSection('adjustOp')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">调库操作</div>
+                    <i :class="sectionExpanded.adjustOp ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
-                <div class="section-body">
-                    <div class="adjust-dual-panels">
-                        <!-- 可调入库 -->
-                        <div class="adjust-panel panel-in">
-                            <div class="sub-heading" style="margin-bottom:12px;">
-                                <span class="status-dot green" style="width:8px;height:8px;"></span>
-                                <span>可调入库</span>
-                                <span class="count-chip" style="background:var(--c-green-l);color:var(--c-green);border-color:rgba(10,138,90,.15);">
+                <div v-show="sectionExpanded.adjustOp" class="section-body">
+                    <!-- 步骤1：选择调库池 -->
+                    <div v-show="adjustStep === 1">
+                        <div class="adjust-dual-panels">
+                            <!-- 可调入库 -->
+                            <div class="adjust-panel panel-in">
+                                <div class="sub-heading" style="margin-bottom:12px;">
+                                    <span class="status-dot green" style="width:8px;height:8px;"></span>
+                                    <span>可调入库</span>
+                                    <span class="count-chip" style="background:var(--c-green-l);color:var(--c-green);border-color:rgba(10,138,90,.15);">
                                     已选 {{ selectedInPools.length }}
                                 </span>
+                                </div>
+                                <el-table :data="adjustInTree" size="small" border style="width:100%;border-radius:var(--r-sm);overflow:hidden;"
+                                          row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+                                          default-expand-all :empty-text="'暂无可调入的投资池'"
+                                          @selection-change="(val) => selectedInPools = val">
+                                    <el-table-column type="selection" width="40"
+                                                     :selectable="(row) => !row.children || row.children.length === 0">
+                                    </el-table-column>
+                                    <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                                    <el-table-column prop="maxCapacity" label="上限数量" min-width="90" align="center">
+                                        <template slot-scope="{ row }">
+                                            <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.maxCapacity != null ? row.maxCapacity : '' }}</span>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column prop="currentCount" label="现有数量" min-width="90" align="center">
+                                        <template slot-scope="{ row }">
+                                            <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.currentCount != null ? row.currentCount : '' }}</span>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="附件报告" min-width="200">
+                                        <template slot-scope="{ row }">
+                                            <div class="upload-cell">
+                                                <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                           :on-change="(f, fl) => handleAttachmentChange(row.id, f, fl)"
+                                                           multiple :show-file-list="false">
+                                                    <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                </el-upload>
+                                                <div v-if="getAttachmentFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in getAttachmentFiles(row.id)" :key="i" class="upload-file-tag">
+                                                        <span :title="f.name">{{ f.name }}</span>
+                                                        <i class="el-icon-close" @click="removeAttachmentFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="其他材料" min-width="200">
+                                        <template slot-scope="{ row }">
+                                            <div class="upload-cell">
+                                                <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                           :on-change="(f, fl) => handleMaterialChange(row.id, f, fl)"
+                                                           multiple :show-file-list="false">
+                                                    <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                </el-upload>
+                                                <div v-if="getMaterialFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in getMaterialFiles(row.id)" :key="i" class="upload-file-tag">
+                                                        <span :title="f.name">{{ f.name }}</span>
+                                                        <i class="el-icon-close" @click="removeMaterialFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
                             </div>
-                            <el-table :data="adjustInTree" size="small" border style="width:100%;border-radius:var(--r-sm);overflow:hidden;"
-                                      row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
-                                      default-expand-all :empty-text="'暂无可调入的投资池'"
-                                      @selection-change="(val) => selectedInPools = val">
-                                <el-table-column type="selection" width="40"
-                                                 :selectable="(row) => !row.children || row.children.length === 0">
-                                </el-table-column>
-                                <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
-                                <el-table-column prop="maxCapacity" label="上限数量" min-width="90" align="center">
-                                    <template slot-scope="{ row }">
-                                        <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.maxCapacity != null ? row.maxCapacity : '' }}</span>
-                                    </template>
-                                </el-table-column>
-                                <el-table-column prop="currentCount" label="现有数量" min-width="90" align="center">
-                                    <template slot-scope="{ row }">
-                                        <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.currentCount != null ? row.currentCount : '' }}</span>
-                                    </template>
-                                </el-table-column>
-                                <el-table-column label="附件报告" min-width="200">
-                                    <template slot-scope="{ row }">
-                                        <div class="upload-cell">
-                                            <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
-                                                       :on-change="(f, fl) => handleAttachmentChange(row.id, f, fl)"
-                                                       multiple :show-file-list="false">
-                                                <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
-                                            </el-upload>
-                                            <div v-if="getAttachmentFiles(row.id).length > 0" class="upload-file-list">
-                                                <div v-for="(f, i) in getAttachmentFiles(row.id)" :key="i" class="upload-file-tag">
-                                                    <span :title="f.name">{{ f.name }}</span>
-                                                    <i class="el-icon-close" @click="removeAttachmentFile(row.id, i)"></i>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </el-table-column>
-                                <el-table-column label="其他材料" min-width="200">
-                                    <template slot-scope="{ row }">
-                                        <div class="upload-cell">
-                                            <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
-                                                       :on-change="(f, fl) => handleMaterialChange(row.id, f, fl)"
-                                                       multiple :show-file-list="false">
-                                                <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
-                                            </el-upload>
-                                            <div v-if="getMaterialFiles(row.id).length > 0" class="upload-file-list">
-                                                <div v-for="(f, i) in getMaterialFiles(row.id)" :key="i" class="upload-file-tag">
-                                                    <span :title="f.name">{{ f.name }}</span>
-                                                    <i class="el-icon-close" @click="removeMaterialFile(row.id, i)"></i>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </el-table-column>
-                            </el-table>
-                        </div>
-                        <!-- 可调出库 -->
-                        <div class="adjust-panel panel-out">
-                            <div class="sub-heading" style="margin-bottom:12px;">
-                                <span class="status-dot red" style="width:8px;height:8px;"></span>
-                                <span>可调出库</span>
-                                <span class="count-chip" style="background:var(--c-red-l);color:var(--c-red);border-color:rgba(208,32,32,.12);">
+                            <!-- 可调出库 -->
+                            <div class="adjust-panel panel-out">
+                                <div class="sub-heading" style="margin-bottom:12px;">
+                                    <span class="status-dot red" style="width:8px;height:8px;"></span>
+                                    <span>可调出库</span>
+                                    <span class="count-chip" style="background:var(--c-red-l);color:var(--c-red);border-color:rgba(208,32,32,.12);">
                                     已选 {{ selectedOutPools.length }}
                                 </span>
+                                </div>
+                                <el-table :data="adjustOutTree" size="small" border style="width:100%;border-radius:var(--r-sm);overflow:hidden;"
+                                          row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+                                          default-expand-all :empty-text="'暂无可调出的投资池'"
+                                          @selection-change="(val) => selectedOutPools = val">
+                                    <el-table-column type="selection" width="40"
+                                                     :selectable="(row) => !row.children || row.children.length === 0">
+                                    </el-table-column>
+                                    <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                                    <el-table-column prop="maxCapacity" label="上限数量" min-width="90" align="center">
+                                        <template slot-scope="{ row }">
+                                            <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.maxCapacity != null ? row.maxCapacity : '' }}</span>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column prop="currentCount" label="现有数量" min-width="90" align="center">
+                                        <template slot-scope="{ row }">
+                                            <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.currentCount != null ? row.currentCount : '' }}</span>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="附件报告" min-width="200">
+                                        <template slot-scope="{ row }">
+                                            <div class="upload-cell">
+                                                <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                           :on-change="(f, fl) => handleAttachmentChange(row.id, f, fl)"
+                                                           multiple :show-file-list="false">
+                                                    <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                </el-upload>
+                                                <div v-if="getAttachmentFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in getAttachmentFiles(row.id)" :key="i" class="upload-file-tag">
+                                                        <span :title="f.name">{{ f.name }}</span>
+                                                        <i class="el-icon-close" @click="removeAttachmentFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="其他材料" min-width="200">
+                                        <template slot-scope="{ row }">
+                                            <div class="upload-cell">
+                                                <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                           :on-change="(f, fl) => handleMaterialChange(row.id, f, fl)"
+                                                           multiple :show-file-list="false">
+                                                    <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                </el-upload>
+                                                <div v-if="getMaterialFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in getMaterialFiles(row.id)" :key="i" class="upload-file-tag">
+                                                        <span :title="f.name">{{ f.name }}</span>
+                                                        <i class="el-icon-close" @click="removeMaterialFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
                             </div>
-                            <el-table :data="adjustOutTree" size="small" border style="width:100%;border-radius:var(--r-sm);overflow:hidden;"
-                                      row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
-                                      default-expand-all :empty-text="'暂无可调出的投资池'"
-                                      @selection-change="(val) => selectedOutPools = val">
-                                <el-table-column type="selection" width="40"
-                                                 :selectable="(row) => !row.children || row.children.length === 0">
-                                </el-table-column>
-                                <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
-                                <el-table-column prop="maxCapacity" label="上限数量" min-width="90" align="center">
-                                    <template slot-scope="{ row }">
-                                        <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.maxCapacity != null ? row.maxCapacity : '' }}</span>
-                                    </template>
-                                </el-table-column>
-                                <el-table-column prop="currentCount" label="现有数量" min-width="90" align="center">
-                                    <template slot-scope="{ row }">
-                                        <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.currentCount != null ? row.currentCount : '' }}</span>
-                                    </template>
-                                </el-table-column>
-                                <el-table-column label="附件报告" min-width="200">
-                                    <template slot-scope="{ row }">
-                                        <div class="upload-cell">
-                                            <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
-                                                       :on-change="(f, fl) => handleAttachmentChange(row.id, f, fl)"
-                                                       multiple :show-file-list="false">
-                                                <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
-                                            </el-upload>
-                                            <div v-if="getAttachmentFiles(row.id).length > 0" class="upload-file-list">
-                                                <div v-for="(f, i) in getAttachmentFiles(row.id)" :key="i" class="upload-file-tag">
-                                                    <span :title="f.name">{{ f.name }}</span>
-                                                    <i class="el-icon-close" @click="removeAttachmentFile(row.id, i)"></i>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </el-table-column>
-                                <el-table-column label="其他材料" min-width="200">
-                                    <template slot-scope="{ row }">
-                                        <div class="upload-cell">
-                                            <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
-                                                       :on-change="(f, fl) => handleMaterialChange(row.id, f, fl)"
-                                                       multiple :show-file-list="false">
-                                                <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
-                                            </el-upload>
-                                            <div v-if="getMaterialFiles(row.id).length > 0" class="upload-file-list">
-                                                <div v-for="(f, i) in getMaterialFiles(row.id)" :key="i" class="upload-file-tag">
-                                                    <span :title="f.name">{{ f.name }}</span>
-                                                    <i class="el-icon-close" @click="removeMaterialFile(row.id, i)"></i>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </el-table-column>
-                            </el-table>
                         </div>
-                    </div>
 
-                    <!-- 提交区 -->
-                    <div class="submit-area">
-                        <el-button size="small" @click="backToList" icon="el-icon-close">取消</el-button>
-                        <el-button type="primary" size="small" icon="el-icon-check"
-                                   :disabled="selectedInPools.length === 0 && selectedOutPools.length === 0">
-                            提交调库申请
-                            <span v-if="selectedInPools.length + selectedOutPools.length > 0"
-                                  style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">
+                        <!-- 提交区 -->
+                        <div class="submit-area">
+                            <el-button size="small" @click="backToList" icon="el-icon-close">取消</el-button>
+                            <el-button type="primary" size="small" icon="el-icon-arrow-right"
+                                       :disabled="selectedInPools.length === 0 && selectedOutPools.length === 0"
+                                       @click="goToStep2">
+                                下一步
+                                <span v-if="selectedInPools.length + selectedOutPools.length > 0"
+                                      style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">
                                 {{ selectedInPools.length + selectedOutPools.length }}
                             </span>
-                        </el-button>
+                            </el-button>
+                        </div>
+                    </div>
+                    <!-- /步骤1 -->
+                </div>
+            </div>
+            <!-- /调库操作 -->
+
+            <!-- 步骤2：调库校验结果 -->
+            <div class="section-card" v-show="adjustStep === 2" style="animation-delay:.03s;">
+                <div class="section-header" @click="toggleSection('adjustReview')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">调库校验结果</div>
+                    <span class="count-chip" style="margin-left:10px;">共 {{ adjustReviewList.length }} 条</span>
+                    <i :class="sectionExpanded.adjustReview ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.adjustReview" class="section-body" style="padding:0;">
+                    <el-table :data="adjustReviewList" size="small" border style="width:100%;"
+                              :empty-text="'暂无数据'">
+                        <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                        <el-table-column prop="direction" label="调库方向" min-width="90" align="center">
+                            <template slot-scope="{ row }">
+                                <el-tag size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="附件报告" min-width="160">
+                            <template slot-scope="{ row }">
+                                <template v-if="getAttachmentFiles(row.poolId).length > 0">
+                                    <div class="upload-file-list">
+                                        <div v-for="(f, i) in getAttachmentFiles(row.poolId)" :key="i" class="upload-file-tag">
+                                            <span :title="f.name">{{ f.name }}</span>
+                                        </div>
+                                    </div>
+                                </template>
+                                <span v-else style="color:var(--c-text-3);font-size:12px;"></span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="其他材料" min-width="160">
+                            <template slot-scope="{ row }">
+                                <template v-if="getMaterialFiles(row.poolId).length > 0">
+                                    <div class="upload-file-list">
+                                        <div v-for="(f, i) in getMaterialFiles(row.poolId)" :key="i" class="upload-file-tag">
+                                            <span :title="f.name">{{ f.name }}</span>
+                                        </div>
+                                    </div>
+                                </template>
+                                <span v-else style="color:var(--c-text-3);font-size:12px;"></span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="adjustNote" label="调整说明" min-width="200" show-overflow-tooltip></el-table-column>
+                        <el-table-column label="校验结果" min-width="160" align="center">
+                            <template slot-scope="{ row }">
+                                <span style="display:inline-flex;align-items:center;gap:5px;">
+                                    <span class="status-dot" :class="{ green: row.valid, red: !row.valid }"></span>
+                                    <span :style="{fontSize:'12px',fontWeight:600,color:row.valid?'var(--c-green)':'var(--c-red)'}">
+                                        {{ row.valid ? '可调整' : '不可调整' }}
+                                    </span>
+                                </span>
+                                <div v-if="!row.valid && row.failReason" style="font-size:11px;color:var(--c-red);margin-top:2px;">
+                                    {{ row.failReason }}
+                                </div>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+
+                <!-- 步骤2操作按钮 -->
+                <div class="action-footer">
+                    <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
+                    <el-button type="primary" size="small" icon="el-icon-check"
+                               :disabled="validCount === 0"
+                               @click="handleSubmit">
+                        提交
+                        <span v-if="validCount > 0"
+                              style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">
+                            {{ validCount }}
+                        </span>
+                    </el-button>
+                </div>
+            </div>
+            <!-- /调库校验结果 -->
+
+            <!-- 原因和建议 -->
+            <div class="section-card" v-show="adjustStep === 2" style="animation-delay:.06s;">
+                <div class="section-header" @click="toggleSection('reasonAdvice')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">原因和建议</div>
+                    <i :class="sectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.reasonAdvice" style="padding:20px 22px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div>
+                            <el-input type="textarea" :rows="4" v-model="adjustReason"
+                                      size="small" placeholder="请输入调整原因" maxlength="500" show-word-limit></el-input>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div>
+                            <el-input type="textarea" :rows="4" v-model="adjustAdvice"
+                                      size="small" placeholder="请输入调整建议" maxlength="500" show-word-limit></el-input>
+                        </div>
                     </div>
                 </div>
             </div>
+            <!-- /原因和建议 -->
+
+            <!-- /步骤2 -->
 
         </div>
     </div>
@@ -973,7 +1210,41 @@
                 selectedOutPools: [],
                 attachmentFiles: {},
                 materialFiles: {},
+                adjustStep: 1,           // 调库步骤：1=选择池, 2=校验确认
+                adjustReviewList: [],    // 步骤2校验结果列表
+                adjustReason: '',       // 调整原因（步骤2）
+                adjustAdvice: '',       // 调整建议（步骤2）
+                sectionExpanded: {      // 详情页各区块折叠状态
+                    bondInfo: true,
+                    currentPools: true,
+                    adjustOp: true,
+                    adjustReview: true,
+                    reasonAdvice: true
+                },
             };
+        },
+        computed: {
+            // 通过校验的数量
+            validCount() {
+                return this.adjustReviewList.filter(r => r.valid).length;
+            },
+            // 未通过校验的数量
+            invalidCount() {
+                return this.adjustReviewList.filter(r => !r.valid).length;
+            },
+            // 未通过校验的原因列表
+            invalidReasons() {
+                return this.adjustReviewList.filter(r => !r.valid).map(r => ({
+                    poolName: r.poolName,
+                    direction: r.direction,
+                    reason: r.failReason
+                }));
+            },
+            // 调整建议
+            adjustSuggestion() {
+                if (this.invalidCount === 0) return '';
+                return '请根据上述提示原因，调整所选投资池或补充相关材料后重新提交校验。如确认无法调整，可剔除不可调整的库后单独提交可调整的部分。';
+            }
         },
         created() {
             axios.defaults.baseURL = 'http://localhost:18090';
@@ -1078,10 +1349,82 @@
                 files.splice(index, 1);
                 this.$set(this.materialFiles, poolId, files);
             },
+            // 折叠/展开区块
+            toggleSection(key) {
+                this.$set(this.sectionExpanded, key, !this.sectionExpanded[key]);
+            },
+
+            // 进入步骤2（校验确认）
+            goToStep2() {
+                const list = [];
+                // 调入池
+                this.selectedInPools.forEach(p => {
+                    list.push({
+                        poolId: p.id,
+                        poolName: p.poolName,
+                        direction: '调入',
+                        adjustNote: '调入' + p.poolName,
+                        attachmentFiles: this.getAttachmentFiles(p.id),
+                        materialFiles: this.getMaterialFiles(p.id),
+                        valid: true,
+                        failReason: ''
+                    });
+                });
+                // 调出池
+                this.selectedOutPools.forEach(p => {
+                    list.push({
+                        poolId: p.id,
+                        poolName: p.poolName,
+                        direction: '调出',
+                        adjustNote: '从' + p.poolName + '调出',
+                        attachmentFiles: this.getAttachmentFiles(p.id),
+                        materialFiles: this.getMaterialFiles(p.id),
+                        valid: true,
+                        failReason: ''
+                    });
+                });
+                // 模拟部分校验不通过（前端写死数据）
+                if (list.length > 0) {
+                    list[0].valid = false;
+                    list[0].failReason = '该池已达持仓上限，无法继续调入';
+                    list[0].adjustNote = '调入申请超过池容量限制';
+                }
+                if (list.length > 2) {
+                    list[2].valid = false;
+                    list[2].failReason = '缺少必要的附件报告材料';
+                    list[2].adjustNote = '附件材料不完整，需补充后重新提交';
+                }
+                this.adjustReviewList = list;
+                this.adjustStep = 2;
+            },
+
+            // 返回步骤1
+            goToStep1() {
+                this.adjustStep = 1;
+            },
+
+            // 提交调库申请
+            handleSubmit() {
+                if (this.validCount === 0) {
+                    this.$message.warning('没有可提交的调库申请，请检查校验结果');
+                    return;
+                }
+                this.$message.success('调库申请已成功提交');
+                this.backToList();
+            },
+
             backToList() {
                 this.currentPage = 'list';
                 this.selectedBondId = null;
                 this.bondDetail = {};
+                this.adjustStep = 1;
+                this.adjustReviewList = [];
+                this.selectedInPools = [];
+                this.selectedOutPools = [];
+                this.attachmentFiles = {};
+                this.materialFiles = {};
+                this.adjustReason = '';
+                this.adjustAdvice = '';
             }
         }
     });
