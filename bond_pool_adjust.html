@@ -1362,6 +1362,7 @@
                     list.push({
                         poolId: p.id,
                         poolName: p.poolName,
+                        poolType: p.poolType || '',
                         direction: '调入',
                         adjustNote: '调入' + p.poolName,
                         attachmentFiles: this.getAttachmentFiles(p.id),
@@ -1375,6 +1376,7 @@
                     list.push({
                         poolId: p.id,
                         poolName: p.poolName,
+                        poolType: p.poolType || '',
                         direction: '调出',
                         adjustNote: '从' + p.poolName + '调出',
                         attachmentFiles: this.getAttachmentFiles(p.id),
@@ -1404,13 +1406,39 @@
             },
 
             // 提交调库申请
-            handleSubmit() {
+            async handleSubmit() {
                 if (this.validCount === 0) {
                     this.$message.warning('没有可提交的调库申请，请检查校验结果');
                     return;
                 }
-                this.$message.success('调库申请已成功提交');
-                this.backToList();
+                const validItems = this.adjustReviewList.filter(r => r.valid);
+                const payload = {
+                    bondId: this.selectedBondId,
+                    bondCode: this.bondDetail.bondCode || '',
+                    bondShortName: this.bondDetail.bondShortName || '',
+                    bondType: this.bondDetail.bondType || '',
+                    adjustType: '手工调整',
+                    adjustReason: this.adjustReason,
+                    adjustAdvice: this.adjustAdvice,
+                    adjusterId: '1001',
+                    adjusterName: '管理员',
+                    items: validItems.map(r => ({
+                        targetPoolId: r.poolId,
+                        targetPoolName: r.poolName,
+                        poolType: r.poolType || '',
+                        adjustMode: r.direction,
+                        adjustmentNote: r.adjustNote,
+                        attachmentFiles: JSON.stringify(r.attachmentFiles || []),
+                        materialFiles: JSON.stringify(r.materialFiles || [])
+                    }))
+                };
+                try {
+                    await this.apiPost('/api/v1/bondPoolAdjust/submitAdjust', payload);
+                    this.$message.success('调库申请已成功提交');
+                    this.backToList();
+                } catch (e) {
+                    // apiPost 已弹出错误提示
+                }
             },
 
             backToList() {
