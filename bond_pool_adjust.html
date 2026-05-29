@@ -836,6 +836,43 @@
                 </div>
             </div>
 
+            <!-- 调库记录 -->
+            <div class="section-card">
+                <div class="section-header" @click="toggleSection('adjustLog')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">调库记录</div>
+                    <i :class="sectionExpanded.adjustLog ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.adjustLog" class="section-body">
+                    <el-table :data="adjustLogList" size="small" border style="width:100%;border-radius:var(--r-sm);overflow:hidden;" :empty-text="'暂无调库记录'">
+                        <el-table-column prop="poolPath" label="投资池名称" min-width="180">
+                            <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.poolPath }}</span></template>
+                        </el-table-column>
+                        <el-table-column prop="adjustType" label="调整类型" min-width="100"></el-table-column>
+                        <el-table-column prop="adjustMode" label="调整方向" min-width="90"></el-table-column>
+                        <el-table-column label="附件报告" min-width="120">
+                            <template slot-scope="{ row }">
+                                <template v-if="getFileNames(row.attachmentFiles).length">
+                                    <span v-for="(name, i) in getFileNames(row.attachmentFiles)" :key="i" class="upload-file-tag" style="margin:2px 4px 2px 0;">{{ name }}</span>
+                                </template>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="其他材料" min-width="120">
+                            <template slot-scope="{ row }">
+                                <template v-if="getFileNames(row.materialFiles).length">
+                                    <span v-for="(name, i) in getFileNames(row.materialFiles)" :key="i" class="upload-file-tag" style="margin:2px 4px 2px 0;">{{ name }}</span>
+                                </template>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="auditStatusLabel" label="审核状态" min-width="100">
+                            <template slot-scope="{ row }">
+                                <span :style="{ display:'inline-flex',alignItems:'center',padding:'2px 9px',borderRadius:'12px',fontSize:'11px',fontWeight:500,background:getStatusStyle(row.auditStatus).bg,color:getStatusStyle(row.auditStatus).color }">{{ row.auditStatusLabel }}</span>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </div>
+
             <!-- 当前所在池 -->
             <div class="section-card">
                 <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
@@ -1214,8 +1251,10 @@
                 adjustReviewList: [],    // 步骤2校验结果列表
                 adjustReason: '',       // 调整原因（步骤2）
                 adjustAdvice: '',       // 调整建议（步骤2）
+                adjustLogList: [],       // 调库记录列表
                 sectionExpanded: {      // 详情页各区块折叠状态
                     bondInfo: true,
+                    adjustLog: true,
                     currentPools: true,
                     adjustOp: true,
                     adjustReview: true,
@@ -1312,14 +1351,16 @@
             async loadDetailData() {
                 this.detailLoading = true;
                 try {
-                    const [detail, inTree, outTree] = await Promise.all([
+                    const [detail, inTree, outTree, logList] = await Promise.all([
                         this.apiPost('/api/v1/bondPoolAdjust/queryBondDetail',    { bondId: this.selectedBondId }),
                         this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolTree',{ adjustDirection: 'in'  }),
-                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolTree',{ adjustDirection: 'out' })
+                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolTree',{ adjustDirection: 'out' }),
+                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustLogList', { bondId: this.selectedBondId })
                     ]);
                     this.bondDetail    = detail  || {};
                     this.adjustInTree  = inTree  || [];
                     this.adjustOutTree = outTree || [];
+                    this.adjustLogList = logList || [];
                     this.attachmentFiles = {};
                     this.materialFiles = {};
                 } catch (e) {}
@@ -1352,6 +1393,29 @@
             // 折叠/展开区块
             toggleSection(key) {
                 this.$set(this.sectionExpanded, key, !this.sectionExpanded[key]);
+            },
+
+            // 审核状态样式
+            getStatusStyle(code) {
+                const map = {
+                    '-1': { bg: '#F0F2FA', color: '#8895B8' },
+                    '00': { bg: '#EEF2FD', color: '#1746D4' },
+                    '10': { bg: '#E8FBF3', color: '#0A8A5A' },
+                    '11': { bg: '#FFF6E8', color: '#B05E00' },
+                    '20': { bg: '#E8FBF3', color: '#0A8A5A' },
+                    '21': { bg: '#FFF0F0', color: '#D02020' },
+                    '99': { bg: '#F0F2FA', color: '#8895B8' }
+                };
+                return map[code] || { bg: '#F0F2FA', color: '#8895B8' };
+            },
+
+            // 解析附件/材料JSON，返回文件名数组
+            getFileNames(jsonStr) {
+                if (!jsonStr) return [];
+                let arr = [];
+                try { arr = JSON.parse(jsonStr); } catch (e) { return []; }
+                if (!Array.isArray(arr) || arr.length === 0) return [];
+                return arr.map(f => f.name || f.fileName || '').filter(Boolean);
             },
 
             // 进入步骤2（校验确认）
