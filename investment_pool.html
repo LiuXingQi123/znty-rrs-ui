@@ -2100,8 +2100,8 @@
             async loadPoolTree(selectId) {
                 this.treeLoading = true
                 try {
-                    const data = await this.apiPost('/api/v1/investmentPool/queryPoolTree', {})
-                    this.poolTree = data || []
+                    const list = await this.apiPost('/api/v1/investmentPool/queryPoolList', {})
+                    this.poolTree = this.buildPoolTree(list || [])
                     this.flatPoolOptions = this.flattenPools(this.poolTree)
                     this.poolParentMap = {}
                     this.buildPoolParentMap(this.poolTree, '')
@@ -2116,6 +2116,24 @@
                     } else { this.currentPool = {} }
                 } catch (e) { this.poolTree = []; this.flatPoolOptions = [] }
                 this.treeLoading = false
+            },
+            // 由扁平投资池列表组装树结构
+            buildPoolTree(list) {
+                if (!list || list.length === 0) return []
+                const map = {}
+                const roots = []
+                list.forEach(item => {
+                    map[item.id] = Object.assign({}, item, { children: [] })
+                })
+                list.forEach(item => {
+                    const node = map[item.id]
+                    if (item.parentId != null && map[item.parentId]) {
+                        map[item.parentId].children.push(node)
+                    } else {
+                        roots.push(node)
+                    }
+                })
+                return roots
             },
             flattenPools(nodes, parentName) {
                 let result = []
@@ -2384,7 +2402,7 @@
             // 加载规则分类选项
             async loadRuleCategories() {
                 try {
-                    const data = await this.apiPost('/api/v1/options/queryCategories', {})
+                    const data = await this.apiPost('/api/v1/options/queryCategoryList', {})
                     this.ruleCategoryOptions = (data || []).map(function(item) {
                         return { code: item.code, name: item.name }
                     })
