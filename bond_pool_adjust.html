@@ -2071,15 +2071,15 @@
             async loadDetailData() {
                 this.detailLoading = true;
                 try {
-                    const [detail, inTree, outTree, logList] = await Promise.all([
-                        this.apiPost('/api/v1/bondPoolAdjust/queryBondDetail',    { bondId: this.selectedBondId }),
-                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolTree',{ adjustDirection: 'in'  }),
-                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolTree',{ adjustDirection: 'out' }),
-                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustLogList', { bondId: this.selectedBondId })
+                    const [detail, inPools, outPools, logList] = await Promise.all([
+                        this.apiPost('/api/v1/bondPoolAdjust/queryBondDetail',     { bondId: this.selectedBondId }),
+                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolList', { bondId: this.selectedBondId, adjustDirection: 'in'  }),
+                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolList', { bondId: this.selectedBondId, adjustDirection: 'out' }),
+                        this.apiPost('/api/v1/bondPoolAdjust/queryAdjustLogList',  { bondId: this.selectedBondId })
                     ]);
                     this.bondDetail    = detail  || {};
-                    this.adjustInTree  = inTree  || [];
-                    this.adjustOutTree = outTree || [];
+                    this.adjustInTree  = this.buildPoolTree(inPools  || []);
+                    this.adjustOutTree = this.buildPoolTree(outPools || []);
                     this.adjustLogList = logList || [];
                     this.attachmentFiles = {};
                     this.materialFiles = {};
@@ -2088,6 +2088,24 @@
                     this.initMockReportData();
                 } catch (e) {}
                 this.detailLoading = false;
+            },
+            // 由扁平的投资池列表组装树结构
+            buildPoolTree(list) {
+                if (!list || list.length === 0) return [];
+                const map = {};
+                const roots = [];
+                list.forEach(item => {
+                    map[item.id] = Object.assign({}, item, { children: [] });
+                });
+                list.forEach(item => {
+                    const node = map[item.id];
+                    if (item.parentId != null && map[item.parentId]) {
+                        map[item.parentId].children.push(node);
+                    } else {
+                        roots.push(node);
+                    }
+                });
+                return roots;
             },
             getAttachmentFiles(poolId) { return this.attachmentFiles[poolId] || []; },
             getMaterialFiles(poolId) { return this.materialFiles[poolId] || []; },
