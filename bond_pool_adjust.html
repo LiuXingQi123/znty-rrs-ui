@@ -1292,7 +1292,8 @@
                                 <el-table :data="adjustInTree" size="small" border style="width:100%;border-radius:var(--r-sm);overflow:hidden;"
                                           row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
                                           default-expand-all :empty-text="'暂无可调入的投资池'"
-                                          @selection-change="(val) => selectedInPools = val">
+                                          ref="inTableRef"
+                                          @select="handleInPoolSelect">
                                     <el-table-column type="selection" width="40"
                                                      :selectable="(row) => !row.children || row.children.length === 0">
                                     </el-table-column>
@@ -1383,7 +1384,8 @@
                                 <el-table :data="adjustOutTree" size="small" border style="width:100%;border-radius:var(--r-sm);overflow:hidden;"
                                           row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
                                           default-expand-all :empty-text="'暂无可调出的投资池'"
-                                          @selection-change="(val) => selectedOutPools = val">
+                                          ref="outTableRef"
+                                          @select="handleOutPoolSelect">
                                     <el-table-column type="selection" width="40"
                                                      :selectable="(row) => !row.children || row.children.length === 0">
                                     </el-table-column>
@@ -1914,6 +1916,8 @@
                 restoringReportSelection: false,   // 恢复选中状态时的防抖标志
                 creditReportSelections: {},        // { poolId: [{ id, title, reportType, source }] }
                 otherMaterialSelections: {},       // { poolId: [{ id, title, reportType, source }] }
+                inMutexMap: {},                    // 调入互斥映射 { poolId: [mutexPoolId, ...] }
+                outMutexMap: {},                   // 调出互斥映射 { poolId: [mutexPoolId, ...] }
             };
         },
         computed: {
@@ -2078,8 +2082,24 @@
                         this.apiPost('/api/v1/bondPoolAdjust/queryAdjustLogList',  { bondId: this.selectedBondId })
                     ]);
                     this.bondDetail    = detail  || {};
-                    this.adjustInTree  = this.buildPoolTree(inPools  || []);
-                    this.adjustOutTree = this.buildPoolTree(outPools || []);
+                    const inPoolsData  = inPools  || [];
+                    const outPoolsData = outPools || [];
+                    this.adjustInTree  = this.buildPoolTree(inPoolsData);
+                    this.adjustOutTree = this.buildPoolTree(outPoolsData);
+                    // 构建互斥映射（合并调入/调出两边的数据，两边互斥关系一致）
+                    const allPools = [...inPoolsData, ...outPoolsData];
+                    const inMap = {};
+                    const outMap = {};
+                    allPools.forEach(p => {
+                        if (p.inMutexPoolIds && p.inMutexPoolIds.length > 0) {
+                            inMap[p.id] = p.inMutexPoolIds;
+                        }
+                        if (p.outMutexPoolIds && p.outMutexPoolIds.length > 0) {
+                            outMap[p.id] = p.outMutexPoolIds;
+                        }
+                    });
+                    this.inMutexMap = inMap;
+                    this.outMutexMap = outMap;
                     this.adjustLogList = logList || [];
                     this.attachmentFiles = {};
                     this.materialFiles = {};
@@ -2106,6 +2126,40 @@
                     }
                 });
                 return roots;
+            },
+            // 调入池选择互斥校验
+            handleInPoolSelect(selection, row) {
+                const id = row.id;
+                const wasSelected = this.selectedInPools.some(p => p.id === id);
+                const isNowSelected = selection.some(p => p.id === id);
+                if (!wasSelected && isNowSelected) {
+                    const mutexIds = this.inMutexMap[id] || [];
+                    const conflictPools = this.selectedInPools.filter(p => mutexIds.includes(p.id));
+                    if (conflictPools.length > 0) {
+                        const names = conflictPools.map(p => p.poolName).join('、');
+                        this.$message.warning('「' + row.poolName + '」与已选的「' + names + '」存在调入互斥关系，不能同时勾选');
+                        this.$refs.inTableRef.toggleRowSelection(row, false);
+                        return;
+                    }
+                }
+                this.selectedInPools = selection;
+            },
+            // 调出池选择互斥校验
+            handleOutPoolSelect(selection, row) {
+                const id = row.id;
+                const wasSelected = this.selectedOutPools.some(p => p.id === id);
+                const isNowSelected = selection.some(p => p.id === id);
+                if (!wasSelected && isNowSelected) {
+                    const mutexIds = this.outMutexMap[id] || [];
+                    const conflictPools = this.selectedOutPools.filter(p => mutexIds.includes(p.id));
+                    if (conflictPools.length > 0) {
+                        const names = conflictPools.map(p => p.poolName).join('、');
+                        this.$message.warning('「' + row.poolName + '」与已选的「' + names + '」存在调出互斥关系，不能同时勾选');
+                        this.$refs.outTableRef.toggleRowSelection(row, false);
+                        return;
+                    }
+                }
+                this.selectedOutPools = selection;
             },
             getAttachmentFiles(poolId) { return this.attachmentFiles[poolId] || []; },
             getMaterialFiles(poolId) { return this.materialFiles[poolId] || []; },
@@ -2549,6 +2603,8 @@
                 this.materialFiles = {};
                 this.creditReportSelections = {};
                 this.otherMaterialSelections = {};
+                this.inMutexMap = {};
+                this.outMutexMap = {};
                 this.adjustReason = '';
                 this.adjustAdvice = '';
             }
