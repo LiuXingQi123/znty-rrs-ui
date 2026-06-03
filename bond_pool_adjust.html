@@ -1471,6 +1471,7 @@
                             <el-button size="small" @click="backToList" icon="el-icon-close">取消</el-button>
                             <el-button type="primary" size="small" icon="el-icon-arrow-right"
                                        :disabled="selectedInPools.length === 0 && selectedOutPools.length === 0"
+                                       :loading="adjustCheckLoading"
                                        @click="goToStep2">
                                 下一步
                                 <span v-if="selectedInPools.length + selectedOutPools.length > 0"
@@ -1565,9 +1566,6 @@
                                         {{ row.valid ? '可调整' : '不可调整' }}
                                     </span>
                                 </span>
-                                <div v-if="!row.valid && row.failReason" style="font-size:11px;color:var(--c-red);margin-top:2px;">
-                                    {{ row.failReason }}
-                                </div>
                             </template>
                         </el-table-column>
                     </el-table>
@@ -1868,6 +1866,7 @@
                 attachmentFiles: {},
                 materialFiles: {},
                 adjustStep: 1,           // 调库步骤：1=选择池, 2=校验确认
+                adjustCheckLoading: false, // 下一步校验接口加载状态
                 adjustReviewList: [],    // 步骤2校验结果列表
                 adjustReason: '',       // 调整原因（步骤2）
                 adjustAdvice: '',       // 调整建议（步骤2）
@@ -2232,53 +2231,39 @@
                 return arr.map(f => f.name || f.fileName || '').filter(Boolean);
             },
 
-            // 进入步骤2（校验确认）
-            goToStep2() {
-                const list = [];
-                // 调入池
+            // 进入步骤2（调用后端校验接口）
+            async goToStep2() {
+                const items = [];
                 this.selectedInPools.forEach(p => {
-                    list.push({
-                        poolId: p.id,
-                        poolName: p.poolName,
-                        poolType: p.poolType || '',
-                        direction: '调入',
-                        adjustNote: '调入' + p.poolName,
-                        attachmentFiles: this.getAttachmentFiles(p.id),
-                        materialFiles: this.getMaterialFiles(p.id),
-                        creditReports: this.getCreditReportSelections(p.id),
-                        otherMaterials: this.getOtherMaterialSelections(p.id),
-                        valid: true,
-                        failReason: ''
-                    });
+                    items.push({ targetPoolId: p.id, targetPoolName: p.poolName, poolType: p.poolType || '', adjustMode: '调入' });
                 });
-                // 调出池
                 this.selectedOutPools.forEach(p => {
-                    list.push({
-                        poolId: p.id,
-                        poolName: p.poolName,
-                        poolType: p.poolType || '',
-                        direction: '调出',
-                        adjustNote: '从' + p.poolName + '调出',
-                        attachmentFiles: this.getAttachmentFiles(p.id),
-                        materialFiles: this.getMaterialFiles(p.id),
-                        creditReports: this.getCreditReportSelections(p.id),
-                        otherMaterials: this.getOtherMaterialSelections(p.id),
-                        valid: true,
-                        failReason: ''
-                    });
+                    items.push({ targetPoolId: p.id, targetPoolName: p.poolName, poolType: p.poolType || '', adjustMode: '调出' });
                 });
-                // 模拟部分校验不通过（前端写死数据）
-                if (list.length > 0) {
-                    list[0].valid = false;
-                    list[0].failReason = '该池已达持仓上限，无法继续调入';
-                    list[0].adjustNote = '调入申请超过池容量限制';
-                }
-                if (list.length > 2) {
-                    list[2].valid = false;
-                    list[2].failReason = '缺少必要的信评报告材料';
-                    list[2].adjustNote = '附件材料不完整，需补充后重新提交';
-                }
-                this.adjustReviewList = list;
+
+                this.adjustCheckLoading = true;
+                const result = await this.apiPost('/api/v1/bondPoolAdjust/checkAdjust', {
+                    bondId: this.selectedBondId,
+                    bondCode: this.bondDetail.bondCode || '',
+                    bondShortName: this.bondDetail.bondShortName || '',
+                    bondType: this.bondDetail.bondType || '',
+                    items
+                });
+                this.adjustCheckLoading = false;
+
+                this.adjustReviewList = result.items.map(item => ({
+                    poolId: item.targetPoolId,
+                    poolName: item.poolName,
+                    poolType: item.poolType,
+                    direction: item.adjustMode,
+                    valid: item.canAdjust,
+                    failReason: (item.failReasons || []).join('；'),
+                    adjustNote: item.canAdjust ? (item.adjustMode + item.poolName) : (item.failReasons || []).join('；'),
+                    attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
+                    materialFiles: this.getMaterialFiles(item.targetPoolId),
+                    creditReports: this.getCreditReportSelections(item.targetPoolId),
+                    otherMaterials: this.getOtherMaterialSelections(item.targetPoolId)
+                }));
                 this.adjustStep = 2;
             },
 
