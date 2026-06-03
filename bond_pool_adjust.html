@@ -922,7 +922,7 @@
                     <el-table-column prop="issuer" label="发行人" min-width="160" show-overflow-tooltip></el-table-column>
                     <el-table-column prop="bondType" label="债券类型" min-width="110">
                         <template slot-scope="{ row }">
-                            <el-tag v-if="row.bondType" size="mini" type="info">{{ row.bondType }}</el-tag>
+                            <el-tag v-if="row.bondType" size="mini" type="info">{{ bondTypeName(row.bondType) }}</el-tag>
                             <span v-else style="color:var(--c-text-3);">—</span>
                         </template>
                     </el-table-column>
@@ -2064,6 +2064,15 @@
                     this.issuerCurrentPools = [];
                 }
             },
+            // 债券类型整数码 → 中文名
+            bondTypeName(code) {
+                const map = {
+                    '1': '中期票据', '2': '公司债', '3': '可交换债',
+                    '4': '商业银行债', '5': '短期融资券', '6': '资产支持证券',
+                    '7': '超短期融资券'
+                };
+                return map[String(code)] || code || '';
+            },
             // 池类型码 → 中文名
             poolTypeLabel(poolType) {
                 const map = {
@@ -2084,6 +2093,9 @@
                         this.apiPost('/api/v1/bondPoolAdjust/queryAdjustLogList',  { bondCode: bondCode })
                     ]);
                     this.bondDetail    = detail  || {};
+                    if (this.bondDetail.bondType) {
+                        this.bondDetail.bondType = this.bondTypeName(this.bondDetail.bondType);
+                    }
                     const inPoolsData  = inPools  || [];
                     const outPoolsData = outPools || [];
                     this.adjustInTree  = this.buildPoolTree(inPoolsData);
