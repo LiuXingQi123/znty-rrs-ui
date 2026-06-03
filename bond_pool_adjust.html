@@ -1215,7 +1215,7 @@
                                 </el-table-column>
                                 <el-table-column prop="poolType" label="池类型" min-width="110">
                                     <template slot-scope="{ row }">
-                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ row.poolType }}</span>
+                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ poolTypeLabel(row.poolType) }}</span>
                                     </template>
                                 </el-table-column>
                                 <el-table-column prop="entryDate" label="入池日期" min-width="130">
@@ -1251,7 +1251,7 @@
                                 </el-table-column>
                                 <el-table-column prop="poolType" label="池类型" min-width="110">
                                     <template slot-scope="{ row }">
-                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ row.poolType }}</span>
+                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ poolTypeLabel(row.poolType) }}</span>
                                     </template>
                                 </el-table-column>
                                 <el-table-column prop="bondCount" label="主体在该池债券数" min-width="140" align="center">
@@ -2048,29 +2048,31 @@
             async handleAdjust(row) {
                 this.selectedBondId = row.id;
                 this.currentPage = 'detail';
-                this.initHardcodedPools();
+                this.loadBondPoolStatus(row.bondCode);
                 await this.loadDetailData(row.bondCode);
             },
-            initHardcodedPools() {
-                this.bondCurrentPools = [
-                    { poolName: '信用债大库', poolType: '信用债', entryDate: '2024-06-15', status: '在池' },
-                    { poolName: '一级库',    poolType: '信用债', entryDate: '2024-06-15', status: '在池' },
-                    { poolName: '专户产品',  poolType: '专户',   entryDate: '2024-08-20', status: '在池' }
-                ];
-                this.issuerCurrentPools = [
-                    { poolName: '信用债大库', poolType: '信用债', bondCount: 23, entryDate: '2023-01-10', status: '在池' },
-                    { poolName: '一级库',    poolType: '信用债', bondCount: 15, entryDate: '2023-03-05', status: '在池' },
-                    { poolName: '二级库',    poolType: '信用债', bondCount:  8, entryDate: '2023-06-20', status: '在池' },
-                    { poolName: '三级库',    poolType: '信用债', bondCount:  3, entryDate: '2024-01-15', status: '在池' },
-                    { poolName: '专户产品',  poolType: '专户',   bondCount: 12, entryDate: '2023-02-18', status: '在池' },
-                    { poolName: '一级库',    poolType: '专户',   bondCount:  7, entryDate: '2023-05-22', status: '在池' },
-                    { poolName: '二级库',    poolType: '专户',   bondCount:  5, entryDate: '2023-09-08', status: '在池' },
-                    { poolName: '境外债大库',poolType: '境外债', bondCount:  6, entryDate: '2023-11-30', status: '在池' },
-                    { poolName: '一级库',    poolType: '境外债', bondCount:  4, entryDate: '2024-02-14', status: '在池' },
-                    { poolName: '转债大库',  poolType: '转债',   bondCount:  9, entryDate: '2023-07-01', status: '在池' },
-                    { poolName: '一级库',    poolType: '转债',   bondCount:  6, entryDate: '2023-10-12', status: '在池' },
-                    { poolName: '二级库',    poolType: '转债',   bondCount:  3, entryDate: '2024-04-25', status: '在池' }
-                ];
+            // 查询当前债券所在池及主体所在池
+            async loadBondPoolStatus(bondCode) {
+                try {
+                    const data = await this.apiPost('/api/v1/bondPoolAdjust/queryBondPoolStatus', {
+                        bondCode: bondCode
+                    });
+                    this.bondCurrentPools = data.bondCurrentPools || [];
+                    this.issuerCurrentPools = data.issuerCurrentPools || [];
+                } catch (e) {
+                    this.bondCurrentPools = [];
+                    this.issuerCurrentPools = [];
+                }
+            },
+            // 池类型码 → 中文名
+            poolTypeLabel(poolType) {
+                const map = {
+                    credit_bond: '信用债', offshore_bond: '境外债', convertible_bond: '转债',
+                    special_account: '专户产品', research: '研究池', fund: '基金池',
+                    restricted: '限制池', industry: '行业池', whitelist: '白名单',
+                    blacklist: '黑名单', private_placement: '私募池', other: '其他'
+                };
+                return map[poolType] || poolType || '';
             },
             async loadDetailData(bondCode) {
                 this.detailLoading = true;
