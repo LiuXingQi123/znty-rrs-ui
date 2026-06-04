@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>禁投池查询</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        #forbidden_pool_query {
+            --c-bg:         #F8F2F2;
+            --c-surface:    #FFFFFF;
+            --c-surface-2:  #FDF8F8;
+            --c-border:     #F0E0E0;
+            --c-border-l:   #F7ECEC;
+
+            --c-text:       #1E0A0A;
+            --c-text-2:     #5A2020;
+            --c-text-3:     #B07878;
+            --c-text-inv:   #FFFFFF;
+
+            --c-primary:    #C92020;
+            --c-primary-h:  #A81818;
+            --c-primary-l:  #FEF0F0;
+            --c-primary-s:  rgba(201,32,32,.12);
+            --c-primary-glow: rgba(201,32,32,.18);
+
+            --c-green:      #0A8A5A;
+            --c-green-l:    #E8FBF3;
+            --c-amber:      #B05E00;
+            --c-amber-l:    #FFF6E8;
+            --c-red:        #C92020;
+            --c-red-l:      #FEF0F0;
+            --c-red-s:      rgba(201,32,32,.12);
+
+            --r-xs: 4px;
+            --r-sm: 7px;
+            --r:    10px;
+            --r-lg: 14px;
+            --r-xl: 18px;
+
+            --sh-xs: 0 1px 3px rgba(50,10,10,.06);
+            --sh-sm: 0 2px 8px rgba(50,10,10,.09), 0 0 0 1px rgba(50,10,10,.04);
+            --sh-md: 0 4px 20px rgba(50,10,10,.10), 0 0 0 1px rgba(50,10,10,.04);
+
+            --topbar-h: 60px;
+
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--c-bg);
+            color: var(--c-text);
+            font-size: 14px;
+            letter-spacing: 0.01em;
+        }
+
+        /* ── TOP BAR ── */
+        #forbidden_pool_query .topbar {
+            display: flex; align-items: center;
+            padding: 0 28px; height: var(--topbar-h);
+            background: var(--c-surface);
+            border-bottom: 1px solid var(--c-border);
+            flex-shrink: 0; gap: 14px;
+            box-shadow: 0 1px 0 var(--c-border), 0 2px 8px rgba(50,10,10,.04);
+        }
+        #forbidden_pool_query .topbar-brand { display: flex; align-items: center; gap: 12px; }
+        #forbidden_pool_query .topbar-icon {
+            width: 34px; height: 34px; border-radius: 9px;
+            background: linear-gradient(135deg, var(--c-primary) 0%, #E84040 100%);
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            box-shadow: 0 2px 8px var(--c-primary-glow);
+        }
+        #forbidden_pool_query .topbar-icon svg { fill: #fff; }
+        #forbidden_pool_query .topbar h2 { font-size: 15px; font-weight: 700; color: var(--c-text); letter-spacing: 0.02em; }
+        #forbidden_pool_query .topbar-sep { width: 1px; height: 18px; background: var(--c-border); }
+        #forbidden_pool_query .topbar-sys {
+            font-size: 12px; color: var(--c-text-3); font-weight: 400; letter-spacing: 0.03em;
+        }
+        #forbidden_pool_query .topbar-meta {
+            margin-left: auto;
+            display: flex; align-items: center; gap: 8px;
+            font-size: 12px; color: var(--c-text-3);
+        }
+        #forbidden_pool_query .topbar-date-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 20px;
+            background: var(--c-surface-2);
+            border: 1px solid var(--c-border);
+            font-size: 11px; color: var(--c-text-3); font-weight: 500;
+        }
+
+        /* ── 列表页 body ── */
+        #forbidden_pool_query .list-body { flex: 1; overflow-y: auto; padding: 22px 28px; }
+
+        /* 搜索面板 */
+        #forbidden_pool_query .search-panel {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-xl);
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--sh-xs);
+        }
+        #forbidden_pool_query .search-row {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+        }
+        #forbidden_pool_query .search-row + .search-row { margin-top: 10px; }
+        #forbidden_pool_query .search-label {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 12px; font-weight: 600; color: var(--c-text-3);
+            text-transform: uppercase; letter-spacing: 0.06em;
+            margin-right: 4px;
+        }
+        #forbidden_pool_query .total-badge {
+            margin-left: auto;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 14px; border-radius: 20px;
+            background: var(--c-primary-l);
+            border: 1px solid rgba(201,32,32,.15);
+            color: var(--c-primary);
+            font-size: 12px; font-weight: 600;
+        }
+
+        /* 池树触发按钮 */
+        #forbidden_pool_query .pool-trigger {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; border-radius: var(--r);
+            border: 1px solid var(--c-border);
+            background: var(--c-surface);
+            color: var(--c-text-2);
+            font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all .18s ease;
+            outline: none; font-family: inherit;
+            white-space: nowrap;
+        }
+        #forbidden_pool_query .pool-trigger:hover {
+            border-color: var(--c-primary); color: var(--c-primary);
+            background: var(--c-primary-l);
+        }
+        #forbidden_pool_query .pool-trigger.has-selection {
+            border-color: var(--c-primary); color: var(--c-primary);
+            background: var(--c-primary-l);
+            box-shadow: 0 1px 4px var(--c-primary-s);
+        }
+
+        /* 已选池标签 */
+        #forbidden_pool_query .pool-tag-row {
+            display: flex; flex-wrap: wrap; gap: 6px;
+            max-width: calc(100vw - 400px);
+        }
+        #forbidden_pool_query .pool-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; border-radius: 14px;
+            background: var(--c-primary-l);
+            border: 1px solid rgba(201,32,32,.15);
+            color: var(--c-primary);
+            font-size: 11.5px; font-weight: 500;
+            white-space: nowrap;
+        }
+        #forbidden_pool_query .pool-tag .el-icon-close {
+            cursor: pointer; font-size: 11px;
+            color: var(--c-primary);
+            transition: color .15s;
+        }
+        #forbidden_pool_query .pool-tag .el-icon-close:hover { color: #7A0000; }
+
+        /* 表格卡片 */
+        #forbidden_pool_query .table-card {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-xl);
+            overflow: hidden;
+            box-shadow: var(--sh-sm);
+        }
+        #forbidden_pool_query .pagination-wrap {
+            display: flex; justify-content: flex-end;
+            padding: 12px 20px;
+            border-top: 1px solid var(--c-border-l);
+            background: var(--c-surface-2);
+        }
+
+        /* 池树弹窗 */
+        #forbidden_pool_query .pool-popover-content {
+            width: 320px; max-height: 400px; overflow-y: auto;
+        }
+
+        /* 债券状态标签 */
+        #forbidden_pool_query .status-tag-active {
+            display: inline-flex; align-items: center;
+            padding: 2px 9px; border-radius: var(--r-xs);
+            font-size: 11px; font-weight: 500;
+            background: var(--c-green-l); color: var(--c-green);
+            border: 1px solid rgba(10,138,90,.15);
+        }
+        #forbidden_pool_query .status-tag-matured {
+            display: inline-flex; align-items: center;
+            padding: 2px 9px; border-radius: var(--r-xs);
+            font-size: 11px; font-weight: 500;
+            background: var(--c-amber-l); color: var(--c-amber);
+            border: 1px solid rgba(176,94,0,.15);
+        }
+
+        /* 审核状态标签 */
+        #forbidden_pool_query .audit-tag {
+            display: inline-flex; align-items: center;
+            padding: 2px 9px; border-radius: var(--r-xs);
+            font-size: 11px; font-weight: 500;
+        }
+        #forbidden_pool_query .audit-tag-pending {
+            background: #FFF8E8; color: #B07000;
+            border: 1px solid rgba(176,112,0,.15);
+        }
+        #forbidden_pool_query .audit-tag-active {
+            background: var(--c-green-l); color: var(--c-green);
+            border: 1px solid rgba(10,138,90,.15);
+        }
+        #forbidden_pool_query .audit-tag-rejected {
+            background: var(--c-red-l); color: var(--c-red);
+            border: 1px solid rgba(201,32,32,.15);
+        }
+        #forbidden_pool_query .audit-tag-review {
+            background: #EEF2FD; color: #1746D4;
+            border: 1px solid rgba(23,70,212,.15);
+        }
+
+        /* ── Element UI 覆盖 ── */
+        #forbidden_pool_query .el-table th {
+            background: #FDF8F8 !important;
+            color: var(--c-text-2);
+            font-size: 12px; font-weight: 600;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--c-border) !important;
+        }
+        #forbidden_pool_query .el-table--striped .el-table__body tr.el-table__row--striped td {
+            background: #FDF9F9;
+        }
+        #forbidden_pool_query .el-table__body tr:hover > td {
+            background: var(--c-primary-l) !important;
+        }
+        #forbidden_pool_query .el-button--primary {
+            background-color: var(--c-primary) !important;
+            border-color: var(--c-primary) !important;
+        }
+        #forbidden_pool_query .el-button--primary:hover {
+            background-color: var(--c-primary-h) !important;
+            border-color: var(--c-primary-h) !important;
+        }
+        #forbidden_pool_query .el-pagination { font-weight: 500; }
+        #forbidden_pool_query .el-tree {
+            font-family: inherit;
+            background: transparent;
+        }
+        #forbidden_pool_query .el-tree-node__content {
+            height: 32px; border-radius: var(--r-xs);
+        }
+        #forbidden_pool_query .el-tree-node__content:hover {
+            background: var(--c-primary-l);
+        }
+        #forbidden_pool_query .el-checkbox__input.is-checked .el-checkbox__inner {
+            background-color: var(--c-primary) !important;
+            border-color: var(--c-primary) !important;
+        }
+        #forbidden_pool_query .el-checkbox__input.is-indeterminate .el-checkbox__inner {
+            background-color: var(--c-primary) !important;
+            border-color: var(--c-primary) !important;
+        }
+
+        /* 滚动条 */
+        #forbidden_pool_query ::-webkit-scrollbar { width: 5px; height: 5px; }
+        #forbidden_pool_query ::-webkit-scrollbar-track { background: transparent; }
+        #forbidden_pool_query ::-webkit-scrollbar-thumb { background: #E0C0C0; border-radius: 10px; }
+        #forbidden_pool_query ::-webkit-scrollbar-thumb:hover { background: #C09090; }
+    </style>
+</head>
+<body>
+<div id="forbidden_pool_query">
+    <!-- ── 顶栏 ── -->
+    <div class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H7l5-8v4h4l-5 8z"/>
+                </svg>
+            </div>
+            <h2>禁投池查询</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">债券投资管理系统</span>
+        <div class="topbar-meta">
+            <span class="topbar-date-badge">{{ today }}</span>
+        </div>
+    </div>
+
+    <!-- ── 列表页 ── -->
+    <div class="list-body">
+        <!-- 搜索面板 -->
+        <div class="search-panel">
+            <!-- 第一行 -->
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+
+                <el-input v-model="searchForm.bondCode" placeholder="证券代码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                </el-input>
+
+                <el-select v-model="searchForm.bondType" placeholder="证券类型" clearable size="small" style="width:140px;">
+                    <el-option v-for="t in bondTypeOptions" :key="t" :label="t" :value="t"></el-option>
+                </el-select>
+
+                <el-select v-model="searchForm.bondStatus" placeholder="证券状态" clearable size="small" style="width:110px;">
+                    <el-option v-for="s in bondStatusOptions" :key="s.value" :label="s.label" :value="s.value"></el-option>
+                </el-select>
+
+                <el-date-picker
+                    v-model="searchForm.adjustTimeRange"
+                    type="daterange"
+                    range-separator="至"
+                    start-placeholder="调整日期起"
+                    end-placeholder="调整日期止"
+                    size="small"
+                    style="width:250px;"
+                    value-format="yyyy-MM-dd">
+                </el-date-picker>
+            </div>
+
+            <!-- 第二行 -->
+            <div class="search-row">
+                <span class="search-label" style="visibility:hidden;"><i class="el-icon-search"></i>筛选</span>
+
+                <el-input v-model="searchForm.adjusterName" placeholder="调整人" clearable size="small" style="width:140px;">
+                    <i slot="prefix" class="el-input__icon el-icon-user"></i>
+                </el-input>
+
+                <el-input v-model="searchForm.issuer" placeholder="发行主体名称" clearable size="small" style="width:180px;">
+                    <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
+                </el-input>
+
+                <el-select v-model="searchForm.auditStatus" placeholder="调整状态" clearable size="small" style="width:130px;">
+                    <el-option v-for="s in auditStatusOptions" :key="s.value" :label="s.label" :value="s.value"></el-option>
+                </el-select>
+
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+
+                <div class="total-badge">
+                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 表格卡片 -->
+        <div class="table-card">
+            <el-table :data="tableData" v-loading="loading" stripe size="small" style="width:100%;">
+                <el-table-column prop="bondShortName" label="证券名称" min-width="140" show-overflow-tooltip fixed="left"></el-table-column>
+                <el-table-column prop="bondCode" label="证券代码" min-width="130"></el-table-column>
+                <el-table-column prop="issuer" label="发行主体" min-width="180" show-overflow-tooltip>
+                    <template slot-scope="{ row }">{{ row.issuer || '—' }}</template>
+                </el-table-column>
+                <el-table-column prop="adjusterName" label="调整人" min-width="100"></el-table-column>
+                <el-table-column prop="bondType" label="证券类型" min-width="110"></el-table-column>
+                <el-table-column prop="targetPoolName" label="投资池名称" min-width="160" show-overflow-tooltip></el-table-column>
+                <el-table-column label="入池时间" min-width="150">
+                    <template slot-scope="{ row }">
+                        {{ row.entryTime ? moment(row.entryTime).format('YYYY-MM-DD HH:mm') : '—' }}
+                    </template>
+                </el-table-column>
+                <el-table-column label="证券状态" min-width="100">
+                    <template slot-scope="{ row }">
+                        <span v-if="getBondStatus(row) === '存续'" class="status-tag-active">存续</span>
+                        <span v-else-if="getBondStatus(row) === '到期'" class="status-tag-matured">到期</span>
+                        <span v-else style="color:var(--c-text-3);">—</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="delistDate" label="退市日期" min-width="110">
+                    <template slot-scope="{ row }">{{ row.delistDate || '—' }}</template>
+                </el-table-column>
+                <el-table-column prop="repurchaseDate" label="行权日期（回售）" min-width="140">
+                    <template slot-scope="{ row }">{{ row.repurchaseDate || '—' }}</template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+                <el-pagination
+                    :total="pagination.total"
+                    :current-page="pagination.pageIndex"
+                    :page-size="pagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    small
+                    @current-change="handlePageChange"
+                    @size-change="handleSizeChange">
+                </el-pagination>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+new Vue({
+    el: '#forbidden_pool_query',
+    data() {
+        return {
+            today: moment().format('YYYY年MM月DD日'),
+            // 搜索表单
+            searchForm: {
+                bondCode: '',
+                bondType: '',
+                bondStatus: '',
+                adjustTimeRange: null,   // [startDate, endDate]
+                adjusterName: '',
+                issuer: '',
+                auditStatus: '',
+            },
+            // 下拉选项
+            bondTypeOptions: [],
+            bondStatusOptions: [
+                { value: '存续', label: '存续' },
+                { value: '到期', label: '到期' },
+            ],
+            auditStatusOptions: [
+                { value: '00', label: '待审核' },
+                { value: '10', label: '审核中' },
+                { value: '11', label: '已驳回' },
+                { value: '20', label: '已生效' },
+                { value: '21', label: '待复核' },
+                { value: '99', label: '已完成' },
+            ],
+            // 表格
+            tableData: [],
+            loading: false,
+            pagination: { pageIndex: 1, pageSize: 20, total: 0 },
+        };
+    },
+    mounted() {
+        axios.defaults.baseURL = 'http://localhost:18090';
+        this.loadBondTypeOptions();
+        this.loadList();
+    },
+    methods: {
+        // 统一请求封装
+        async apiPost(path, body) {
+            const resp = await axios.post(path, body || {});
+            const json = resp.data;
+            if (json.code !== 0) {
+                this.$message.error(json.message || '接口异常');
+                throw new Error(json.message || '接口异常');
+            }
+            return json.data;
+        },
+
+        // 加载证券类型下拉选项
+        async loadBondTypeOptions() {
+            try {
+                this.bondTypeOptions = await this.apiPost('/api/v1/forbiddenPoolQuery/queryBondTypeList', {});
+            } catch (e) {}
+        },
+
+        // 加载列表
+        async loadList() {
+            this.loading = true;
+            try {
+                const params = {
+                    bondCode: this.searchForm.bondCode || null,
+                    bondType: this.searchForm.bondType || null,
+                    bondStatus: this.searchForm.bondStatus || null,
+                    adjustTimeStart: this.searchForm.adjustTimeRange && this.searchForm.adjustTimeRange[0]
+                        ? this.searchForm.adjustTimeRange[0] : null,
+                    adjustTimeEnd: this.searchForm.adjustTimeRange && this.searchForm.adjustTimeRange[1]
+                        ? this.searchForm.adjustTimeRange[1] : null,
+                    adjusterName: this.searchForm.adjusterName || null,
+                    issuer: this.searchForm.issuer || null,
+                    auditStatus: this.searchForm.auditStatus || null,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                };
+                const data = await this.apiPost('/api/v1/forbiddenPoolQuery/queryForbiddenPoolPage', params);
+                this.tableData = data.records || [];
+                this.pagination.total = data.total || 0;
+            } catch (e) {}
+            this.loading = false;
+        },
+
+        // 根据到期日计算债券状态
+        getBondStatus(row) {
+            if (!row.maturityDate) return '';
+            return moment(row.maturityDate).isBefore(moment(), 'day') ? '到期' : '存续';
+        },
+
+        // 查询
+        handleSearch() {
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 重置
+        handleReset() {
+            this.searchForm = {
+                bondCode: '',
+                bondType: '',
+                bondStatus: '',
+                adjustTimeRange: null,
+                adjusterName: '',
+                issuer: '',
+                auditStatus: '',
+            };
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 分页
+        handlePageChange(page) {
+            this.pagination.pageIndex = page;
+            this.loadList();
+        },
+        handleSizeChange(size) {
+            this.pagination.pageSize = size;
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+    }
+});
+</script>
+</body>
+</html>
