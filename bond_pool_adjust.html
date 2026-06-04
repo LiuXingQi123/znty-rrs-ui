@@ -2047,7 +2047,6 @@
             async handleAdjust(row) {
                 this.selectedBondId = row.id;
                 this.currentPage = 'detail';
-                this.loadBondPoolStatus(row.bondCode);
                 await this.loadDetailData(row.bondCode);
             },
             // 查询当前债券所在池及主体所在池
@@ -2085,20 +2084,45 @@
             async loadDetailData(bondCode) {
                 this.detailLoading = true;
                 try {
-                    const [detail, inPools, outPools, logList] = await Promise.all([
+                    const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/bondPoolAdjust/queryBondDetail',     { bondId: this.selectedBondId }),
                         this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolList', { bondId: this.selectedBondId, adjustDirection: 'in'  }),
                         this.apiPost('/api/v1/bondPoolAdjust/queryAdjustPoolList', { bondId: this.selectedBondId, adjustDirection: 'out' }),
+                        this.apiPost('/api/v1/bondPoolAdjust/queryBondPoolStatus', { bondCode: bondCode }),
                         this.apiPost('/api/v1/bondPoolAdjust/queryAdjustLogList',  { bondCode: bondCode })
                     ]);
                     this.bondDetail    = detail  || {};
                     if (this.bondDetail.bondType) {
                         this.bondDetail.bondType = this.bondTypeName(this.bondDetail.bondType);
                     }
+                    // 当前所在池
+                    this.bondCurrentPools   = (poolStatus && poolStatus.bondCurrentPools)   || [];
+                    this.issuerCurrentPools = (poolStatus && poolStatus.issuerCurrentPools) || [];
+
                     const inPoolsData  = inPools  || [];
                     const outPoolsData = outPools || [];
-                    this.adjustInTree  = this.buildPoolTree(inPoolsData);
-                    this.adjustOutTree = this.buildPoolTree(outPoolsData);
+
+                    // 债券当前已在库的池 ID 集合
+                    const currentBondPoolIds = new Set(
+                        this.bondCurrentPools.map(p => p.targetPoolId).filter(id => id != null)
+                    );
+
+                    // 调出池：只保留债券当前已在其中的池及其父节点
+                    const outPoolsFiltered = outPoolsData.filter(p =>
+                        currentBondPoolIds.has(p.id) ||
+                        outPoolsData.some(c => c.parentId === p.id && currentBondPoolIds.has(c.id))
+                    );
+                    this.adjustOutTree = this.buildPoolTree(outPoolsFiltered);
+
+                    // 调入池：排除债券已在其中的叶子节点，父节点若所有子节点均被排除则一并移除
+                    const inPoolsFiltered = inPoolsData.filter(p => {
+                        if (currentBondPoolIds.has(p.id)) return false;
+                        const isLeaf = !inPoolsData.some(c => c.parentId === p.id);
+                        if (isLeaf) return true;
+                        return inPoolsData.some(c => c.parentId === p.id && !currentBondPoolIds.has(c.id));
+                    });
+                    this.adjustInTree = this.buildPoolTree(inPoolsFiltered);
+
                     // 构建互斥映射（合并调入/调出两边的数据，两边互斥关系一致）
                     const allPools = [...inPoolsData, ...outPoolsData];
                     const inMap = {};
@@ -2147,10 +2171,19 @@
                 const isNowSelected = selection.some(p => p.id === id);
                 if (!wasSelected && isNowSelected) {
                     const mutexIds = this.inMutexMap[id] || [];
-                    const conflictPools = this.selectedInPools.filter(p => mutexIds.includes(p.id));
-                    if (conflictPools.length > 0) {
-                        const names = conflictPools.map(p => p.poolName).join('、');
-                        this.$message.warning('「' + row.poolName + '」与已选的「' + names + '」存在调入互斥关系，不能同时勾选');
+                    // 同面板：调入 vs 调入
+                    const conflictIn = this.selectedInPools.filter(p => mutexIds.includes(p.id));
+                    if (conflictIn.length > 0) {
+                        const names = conflictIn.map(p => p.poolName).join('、');
+                        this.$message.warning('「' + row.poolName + '」与已选调入的「' + names + '」存在互斥关系，不能同时勾选');
+                        this.$refs.inTableRef.toggleRowSelection(row, false);
+                        return;
+                    }
+                    // 跨面板：调入 vs 已选调出
+                    const conflictOut = this.selectedOutPools.filter(p => mutexIds.includes(p.id));
+                    if (conflictOut.length > 0) {
+                        const names = conflictOut.map(p => p.poolName).join('、');
+                        this.$message.warning('「' + row.poolName + '」与已选调出的「' + names + '」存在互斥关系，不能同时勾选');
                         this.$refs.inTableRef.toggleRowSelection(row, false);
                         return;
                     }
@@ -2164,10 +2197,22 @@
                 const isNowSelected = selection.some(p => p.id === id);
                 if (!wasSelected && isNowSelected) {
                     const mutexIds = this.outMutexMap[id] || [];
-                    const conflictPools = this.selectedOutPools.filter(p => mutexIds.includes(p.id));
-                    if (conflictPools.length > 0) {
-                        const names = conflictPools.map(p => p.poolName).join('、');
-                        this.$message.warning('「' + row.poolName + '」与已选的「' + names + '」存在调出互斥关系，不能同时勾选');
+                    // 同面板：调出 vs 调出
+                    const conflictOut = this.selectedOutPools.filter(p => mutexIds.includes(p.id));
+                    if (conflictOut.length > 0) {
+                        const names = conflictOut.map(p => p.poolName).join('、');
+                        this.$message.warning('「' + row.poolName + '」与已选调出的「' + names + '」存在互斥关系，不能同时勾选');
+                        this.$refs.outTableRef.toggleRowSelection(row, false);
+                        return;
+                    }
+                    // 跨面板：调出 vs 已选调入
+                    const conflictIn = this.selectedInPools.filter(p => {
+                        const inMutexOfP = this.inMutexMap[p.id] || [];
+                        return inMutexOfP.includes(id);
+                    });
+                    if (conflictIn.length > 0) {
+                        const names = conflictIn.map(p => p.poolName).join('、');
+                        this.$message.warning('「' + row.poolName + '」与已选调入的「' + names + '」存在互斥关系，不能同时勾选');
                         this.$refs.outTableRef.toggleRowSelection(row, false);
                         return;
                     }
@@ -2251,19 +2296,24 @@
                 });
                 this.adjustCheckLoading = false;
 
-                this.adjustReviewList = result.items.map(item => ({
-                    poolId: item.targetPoolId,
-                    poolName: item.poolName,
-                    poolType: item.poolType,
-                    direction: item.adjustMode,
-                    valid: item.canAdjust,
-                    failReason: (item.failReasons || []).join('；'),
-                    adjustNote: item.canAdjust ? (item.adjustMode + item.poolName) : (item.failReasons || []).join('；'),
-                    attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
-                    materialFiles: this.getMaterialFiles(item.targetPoolId),
-                    creditReports: this.getCreditReportSelections(item.targetPoolId),
-                    otherMaterials: this.getOtherMaterialSelections(item.targetPoolId)
-                }));
+                const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' }
+                this.adjustReviewList = result.items.map(item => {
+                    const typePrefix = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode
+                    const failReasonStr = (item.failReasons || []).join('；')
+                    return {
+                        poolId: item.targetPoolId,
+                        poolName: item.poolName,
+                        poolType: item.poolType,
+                        direction: item.adjustMode,
+                        valid: item.canAdjust,
+                        failReason: failReasonStr,
+                        adjustNote: failReasonStr ? typePrefix + '；' + failReasonStr : typePrefix,
+                        attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
+                        materialFiles: this.getMaterialFiles(item.targetPoolId),
+                        creditReports: this.getCreditReportSelections(item.targetPoolId),
+                        otherMaterials: this.getOtherMaterialSelections(item.targetPoolId)
+                    }
+                });
                 this.adjustStep = 2;
             },
 
