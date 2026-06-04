@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -193,7 +193,7 @@
             width: 320px; max-height: 400px; overflow-y: auto;
         }
 
-        /* 债券状态标签 */
+        /* 证券状态标签 */
         #forbidden_pool_query .status-tag-active {
             display: inline-flex; align-items: center;
             padding: 2px 9px; border-radius: var(--r-xs);
@@ -295,7 +295,7 @@
             <h2>禁投池查询</h2>
         </div>
         <div class="topbar-sep"></div>
-        <span class="topbar-sys">债券投资管理系统</span>
+        <span class="topbar-sys">证券投资管理系统</span>
         <div class="topbar-meta">
             <span class="topbar-date-badge">{{ today }}</span>
         </div>
@@ -309,12 +309,12 @@
             <div class="search-row">
                 <span class="search-label"><i class="el-icon-search"></i>筛选</span>
 
-                <el-input v-model="searchForm.bondCode" placeholder="证券代码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                <el-input v-model="searchForm.securityCode" placeholder="证券代码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-document"></i>
                 </el-input>
 
-                <el-select v-model="searchForm.bondType" placeholder="证券类型" clearable size="small" style="width:140px;">
-                    <el-option v-for="t in bondTypeOptions" :key="t" :label="t" :value="t"></el-option>
+                <el-select v-model="searchForm.securityType" placeholder="证券类型" clearable size="small" style="width:140px;">
+                    <el-option v-for="t in securityTypeOptions" :key="t" :label="t" :value="t"></el-option>
                 </el-select>
 
                 <el-select v-model="searchForm.bondStatus" placeholder="证券状态" clearable size="small" style="width:110px;">
@@ -362,13 +362,13 @@
         <!-- 表格卡片 -->
         <div class="table-card">
             <el-table :data="tableData" v-loading="loading" stripe size="small" style="width:100%;">
-                <el-table-column prop="bondShortName" label="证券名称" min-width="140" show-overflow-tooltip fixed="left"></el-table-column>
-                <el-table-column prop="bondCode" label="证券代码" min-width="130"></el-table-column>
+                <el-table-column prop="securityShortName" label="证券名称" min-width="140" show-overflow-tooltip fixed="left"></el-table-column>
+                <el-table-column prop="securityCode" label="证券代码" min-width="130"></el-table-column>
                 <el-table-column prop="issuer" label="发行主体" min-width="180" show-overflow-tooltip>
                     <template slot-scope="{ row }">{{ row.issuer || '—' }}</template>
                 </el-table-column>
                 <el-table-column prop="adjusterName" label="调整人" min-width="100"></el-table-column>
-                <el-table-column prop="bondType" label="证券类型" min-width="110"></el-table-column>
+                <el-table-column prop="securityType" label="证券类型" min-width="110"></el-table-column>
                 <el-table-column prop="targetPoolName" label="投资池名称" min-width="160" show-overflow-tooltip></el-table-column>
                 <el-table-column label="入池时间" min-width="150">
                     <template slot-scope="{ row }">
@@ -413,8 +413,8 @@ new Vue({
             today: moment().format('YYYY年MM月DD日'),
             // 搜索表单
             searchForm: {
-                bondCode: '',
-                bondType: '',
+                securityCode: '',
+                securityType: '',
                 bondStatus: '',
                 adjustTimeRange: null,   // [startDate, endDate]
                 adjusterName: '',
@@ -422,7 +422,7 @@ new Vue({
                 auditStatus: '',
             },
             // 下拉选项
-            bondTypeOptions: [],
+            securityTypeOptions: [],
             bondStatusOptions: [
                 { value: '存续', label: '存续' },
                 { value: '到期', label: '到期' },
@@ -461,7 +461,7 @@ new Vue({
         // 加载证券类型下拉选项
         async loadBondTypeOptions() {
             try {
-                this.bondTypeOptions = await this.apiPost('/api/v1/forbiddenPoolQuery/queryBondTypeList', {});
+                this.securityTypeOptions = await this.apiPost('/api/v1/forbiddenPoolQuery/queryBondTypeList', {});
             } catch (e) {}
         },
 
@@ -470,8 +470,8 @@ new Vue({
             this.loading = true;
             try {
                 const params = {
-                    bondCode: this.searchForm.bondCode || null,
-                    bondType: this.searchForm.bondType || null,
+                    securityCode: this.searchForm.securityCode || null,
+                    securityType: this.searchForm.securityType || null,
                     bondStatus: this.searchForm.bondStatus || null,
                     adjustTimeStart: this.searchForm.adjustTimeRange && this.searchForm.adjustTimeRange[0]
                         ? this.searchForm.adjustTimeRange[0] : null,
@@ -490,7 +490,7 @@ new Vue({
             this.loading = false;
         },
 
-        // 根据到期日计算债券状态
+        // 根据到期日计算证券状态
         getBondStatus(row) {
             if (!row.maturityDate) return '';
             return moment(row.maturityDate).isBefore(moment(), 'day') ? '到期' : '存续';
@@ -505,8 +505,8 @@ new Vue({
         // 重置
         handleReset() {
             this.searchForm = {
-                bondCode: '',
-                bondType: '',
+                securityCode: '',
+                securityType: '',
                 bondStatus: '',
                 adjustTimeRange: null,
                 adjusterName: '',
