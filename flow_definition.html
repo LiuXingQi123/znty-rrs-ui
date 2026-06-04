@@ -204,11 +204,10 @@
             box-shadow: var(--sh-sm);
         }
         #flow_definition .pagination-wrap {
-            display: flex; align-items: center; justify-content: space-between;
+            display: flex; justify-content: flex-end;
             padding: 12px 20px;
             border-top: 1px solid var(--c-border-l);
             background: var(--c-surface-2);
-            font-size: 12.5px; color: var(--c-text-3);
         }
 
         /* ─── 表格 Element UI 精调（列表页）─── */
@@ -957,7 +956,7 @@
                 </el-select>
                 <div class="topbar-stat" style="margin-left:auto">
                     <div class="topbar-stat-dot" style="background:#94a3b8"></div>
-                    总计 <span class="topbar-stat-num">{{ listTotal }}</span>
+                    总计 <span class="topbar-stat-num">{{ pagination.total }}</span>
                 </div>
                 <div class="topbar-stat">
                     <div class="topbar-stat-dot" style="background:var(--green)"></div>
@@ -1025,8 +1024,16 @@
                 </template>
             </el-table>
             <div class="pagination-wrap">
-                <span>共 {{ listTotal }} 条</span>
-                <el-pagination layout="prev, pager, next" :total="listTotal" :page-size="pageSize" :current-page.sync="currentPageNum" small></el-pagination>
+                <el-pagination
+                        :total="pagination.total"
+                        :current-page="pagination.pageIndex"
+                        :page-size="pagination.pageSize"
+                        :page-sizes="[10, 20, 50, 100]"
+                        layout="total, sizes, prev, pager, next, jumper"
+                        small
+                        @current-change="handlePageChange"
+                        @size-change="handleSizeChange">
+                </el-pagination>
             </div>
             </div><!-- /table-card -->
         </div>
@@ -1667,7 +1674,6 @@
 
                 // ── 列表数据 ──
                 tableData: [],                  // 流程定义列表（从 API 加载）
-                listTotal: 0,                   // 列表总数（服务端分页）
                 loading: false,                  // 列表加载状态
                 // 字典缓存
                 roleOptions: [],                // 角色选项 [{value, label}]
@@ -1678,8 +1684,7 @@
                 searchText: '',                 // 搜索关键字
                 statusFilter: '',               // 状态筛选：'' | 'active' | 'draft' | 'disabled'
                 categoryFilter: '',             // 分类筛选：'' | 'bond' | 'fund' | 'credit' | 'other'
-                currentPageNum: 1,              // 当前页码
-                pageSize: 10,                   // 每页条数
+                pagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 分页
 
                 // ── 弹窗状态 ──
                 createVisible: false,           // 新建流程弹窗
@@ -1807,10 +1812,9 @@
         },
         watch: {
             // 筛选条件变化时重新加载列表（300ms 防抖）
-            searchText() { clearTimeout(this._searchTimer); this._searchTimer = setTimeout(() => { this.currentPageNum = 1; this.loadList(); }, 300); },
-            statusFilter() { this.currentPageNum = 1; this.loadList(); },
-            categoryFilter() { this.currentPageNum = 1; this.loadList(); },
-            currentPageNum() { this.loadList(); },
+            searchText() { clearTimeout(this._searchTimer); this._searchTimer = setTimeout(() => { this.pagination.pageIndex = 1; this.loadList(); }, 300); },
+            statusFilter() { this.pagination.pageIndex = 1; this.loadList(); },
+            categoryFilter() { this.pagination.pageIndex = 1; this.loadList(); },
             // 选中 ID 变化时，更新属性面板标题和状态栏
             selId(val, oldVal) {
                 // 从已编辑节点/连线切换走时，保存当前快照以便撤销
@@ -1875,17 +1879,21 @@
             // 加载流程列表（服务端分页+搜索）
             async loadList() {
                 this.loading = true;
-                const params = { pageIndex: this.currentPageNum, pageSize: this.pageSize, keyword: this.searchText || '', status: this.statusFilter || '', category: this.categoryFilter || '' };
+                const params = { pageIndex: this.pagination.pageIndex, pageSize: this.pagination.pageSize, keyword: this.searchText || '', status: this.statusFilter || '', category: this.categoryFilter || '' };
                 console.log('loadList params:', params);
                 try {
                     const res = await this.apiPost('/api/v1/flows/queryFlowPage', params);
                     this.tableData = (res.records || []).map(r => this.mapFlowItem(r));
-                    this.listTotal = res.total || 0;
+                    this.pagination.total = res.total || 0;
                 } catch (e) {
                     this.$message.error(e.message || '请求异常');
                 }
                 this.loading = false;
             },
+            // 翻页
+            handlePageChange(page) { this.pagination.pageIndex = page; this.loadList(); },
+            // 每页条数变化
+            handleSizeChange(size) { this.pagination.pageSize = size; this.pagination.pageIndex = 1; this.loadList(); },
             // 加载所有字典
             async loadDicts() {
                 const errors = [];
@@ -2126,7 +2134,7 @@
                             time: now,
                             updateTime: now,
                         });
-                        this.listTotal++;
+                        this.pagination.total++;
                         this.openDesigner(newId, true);
                     } else {
                         this.loadList();
