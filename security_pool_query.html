@@ -12,26 +12,32 @@
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <style>
+        /* 全局盒模型重置 */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+        /* ── 页面根容器：CSS 变量定义 + 整体布局 ── */
         #security_pool_query {
+            /* 背景与表面色 */
             --c-bg:         #F2F4F8;
             --c-surface:    #FFFFFF;
             --c-surface-2:  #F8FAFD;
             --c-border:     #E2E8F4;
             --c-border-l:   #ECF0F9;
 
+            /* 文字色阶 */
             --c-text:       #0D1829;
             --c-text-2:     #3A4769;
             --c-text-3:     #8895B8;
             --c-text-inv:   #FFFFFF;
 
+            /* 主色及衍生色 */
             --c-primary:    #1746D4;
             --c-primary-h:  #0F35B0;
             --c-primary-l:  #EEF2FD;
             --c-primary-s:  rgba(23,70,212,.12);
             --c-primary-glow: rgba(23,70,212,.18);
 
+            /* 状态色：绿/琥珀/红 */
             --c-green:      #0A8A5A;
             --c-green-l:    #E8FBF3;
             --c-amber:      #B05E00;
@@ -40,18 +46,22 @@
             --c-red-l:      #FFF0F0;
             --c-red-s:      rgba(208,32,32,.12);
 
+            /* 圆角尺寸 */
             --r-xs: 4px;
             --r-sm: 7px;
             --r:    10px;
             --r-lg: 14px;
             --r-xl: 18px;
 
+            /* 阴影等级 */
             --sh-xs: 0 1px 3px rgba(13,24,54,.05);
             --sh-sm: 0 2px 8px rgba(13,24,54,.08), 0 0 0 1px rgba(13,24,54,.04);
             --sh-md: 0 4px 20px rgba(13,24,54,.10), 0 0 0 1px rgba(13,24,54,.04);
 
+            /* 顶栏高度常量 */
             --topbar-h: 60px;
 
+            /* 整页纵向弹性布局，高度撑满视口，超出不滚动（由内部区域独立滚动） */
             display: flex;
             flex-direction: column;
             height: 100vh;
@@ -63,7 +73,7 @@
             letter-spacing: 0.01em;
         }
 
-        /* ── TOP BAR ── */
+        /* ── 顶部导航栏整体布局 ── */
         #security_pool_query .topbar {
             display: flex; align-items: center;
             padding: 0 28px; height: var(--topbar-h);
@@ -72,24 +82,32 @@
             flex-shrink: 0; gap: 14px;
             box-shadow: 0 1px 0 var(--c-border), 0 2px 8px rgba(13,24,54,.04);
         }
+        /* 顶栏左侧品牌区（图标 + 标题） */
         #security_pool_query .topbar-brand { display: flex; align-items: center; gap: 12px; }
+        /* 顶栏品牌图标（蓝色渐变圆角方块） */
         #security_pool_query .topbar-icon {
             width: 34px; height: 34px; border-radius: 9px;
             background: linear-gradient(135deg, var(--c-primary) 0%, #3B6AEA 100%);
             display: flex; align-items: center; justify-content: center; flex-shrink: 0;
             box-shadow: 0 2px 8px var(--c-primary-glow);
         }
+        /* 顶栏图标内部 SVG 填充为白色 */
         #security_pool_query .topbar-icon svg { fill: #fff; }
+        /* 顶栏页面标题文字样式 */
         #security_pool_query .topbar h2 { font-size: 15px; font-weight: 700; color: var(--c-text); letter-spacing: 0.02em; }
+        /* 顶栏分隔竖线 */
         #security_pool_query .topbar-sep { width: 1px; height: 18px; background: var(--c-border); }
+        /* 顶栏系统名称副标题 */
         #security_pool_query .topbar-sys {
             font-size: 12px; color: var(--c-text-3); font-weight: 400; letter-spacing: 0.03em;
         }
+        /* 顶栏右侧元信息区（推到最右侧） */
         #security_pool_query .topbar-meta {
             margin-left: auto;
             display: flex; align-items: center; gap: 8px;
             font-size: 12px; color: var(--c-text-3);
         }
+        /* 顶栏日期胶囊徽章 */
         #security_pool_query .topbar-date-badge {
             display: inline-flex; align-items: center; gap: 5px;
             padding: 4px 10px; border-radius: 20px;
@@ -98,10 +116,10 @@
             font-size: 11px; color: var(--c-text-3); font-weight: 500;
         }
 
-        /* ── 列表页 body ── */
+        /* ── 列表页主体区域：占满剩余高度，纵向滚动 ── */
         #security_pool_query .list-body { flex: 1; overflow-y: auto; padding: 22px 28px; }
 
-        /* 搜索面板 */
+        /* 搜索面板：白色卡片，包含所有筛选项 */
         #security_pool_query .search-panel {
             background: var(--c-surface);
             border: 1px solid var(--c-border);
@@ -110,16 +128,20 @@
             margin-bottom: 16px;
             box-shadow: var(--sh-xs);
         }
+        /* 搜索行：每行筛选控件水平排列，允许换行 */
         #security_pool_query .search-row {
             display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
         }
+        /* 相邻搜索行之间增加间距 */
         #security_pool_query .search-row + .search-row { margin-top: 10px; }
+        /* 搜索行标签文字（小号大写加粗） */
         #security_pool_query .search-label {
             display: inline-flex; align-items: center; gap: 6px;
             font-size: 12px; font-weight: 600; color: var(--c-text-3);
             text-transform: uppercase; letter-spacing: 0.06em;
             margin-right: 4px;
         }
+        /* 总条数统计徽章（右对齐显示在搜索行末尾） */
         #security_pool_query .total-badge {
             margin-left: auto;
             display: inline-flex; align-items: center; gap: 6px;
@@ -130,7 +152,7 @@
             font-size: 12px; font-weight: 600;
         }
 
-        /* 池树触发按钮 */
+        /* 池树触发按钮：点击后展开投资池树弹出层 */
         #security_pool_query .pool-trigger {
             display: inline-flex; align-items: center; gap: 6px;
             padding: 7px 14px; border-radius: var(--r);
@@ -142,21 +164,24 @@
             outline: none; font-family: inherit;
             white-space: nowrap;
         }
+        /* 池触发按钮悬停态 */
         #security_pool_query .pool-trigger:hover {
             border-color: var(--c-primary); color: var(--c-primary);
             background: var(--c-primary-l);
         }
+        /* 池触发按钮已有选中项时高亮显示 */
         #security_pool_query .pool-trigger.has-selection {
             border-color: var(--c-primary); color: var(--c-primary);
             background: var(--c-primary-l);
             box-shadow: 0 1px 4px var(--c-primary-s);
         }
 
-        /* 已选池标签 */
+        /* 已选池标签容器：横向排列，超出宽度自动换行 */
         #security_pool_query .pool-tag-row {
             display: flex; flex-wrap: wrap; gap: 6px;
             max-width: calc(100vw - 400px);
         }
+        /* 单个已选池标签样式（蓝色胶囊，含关闭图标） */
         #security_pool_query .pool-tag {
             display: inline-flex; align-items: center; gap: 4px;
             padding: 3px 8px; border-radius: 14px;
@@ -166,14 +191,16 @@
             font-size: 11.5px; font-weight: 500;
             white-space: nowrap;
         }
+        /* 标签内关闭图标 */
         #security_pool_query .pool-tag .el-icon-close {
             cursor: pointer; font-size: 11px;
             color: var(--c-primary);
             transition: color .15s;
         }
+        /* 标签关闭图标悬停变红提示危险操作 */
         #security_pool_query .pool-tag .el-icon-close:hover { color: var(--c-red); }
 
-        /* 表格卡片 */
+        /* 表格卡片：白色圆角卡片，内部包含表格与分页 */
         #security_pool_query .table-card {
             background: var(--c-surface);
             border: 1px solid var(--c-border);
@@ -181,6 +208,7 @@
             overflow: hidden;
             box-shadow: var(--sh-sm);
         }
+        /* 分页区：底部浅色背景条，内容右对齐 */
         #security_pool_query .pagination-wrap {
             display: flex; justify-content: flex-end;
             padding: 12px 20px;
@@ -188,12 +216,12 @@
             background: var(--c-surface-2);
         }
 
-        /* 池树弹窗 */
+        /* 池树弹出层内容容器：限制宽高并允许内部滚动 */
         #security_pool_query .pool-popover-content {
             width: 320px; max-height: 400px; overflow-y: auto;
         }
 
-        /* 证券状态标签 */
+        /* 证券状态标签 —— 存续（绿色） */
         #security_pool_query .status-tag-active {
             display: inline-flex; align-items: center;
             padding: 2px 9px; border-radius: var(--r-xs);
@@ -201,6 +229,7 @@
             background: var(--c-green-l); color: var(--c-green);
             border: 1px solid rgba(10,138,90,.15);
         }
+        /* 证券状态标签 —— 到期（琥珀色） */
         #security_pool_query .status-tag-matured {
             display: inline-flex; align-items: center;
             padding: 2px 9px; border-radius: var(--r-xs);
@@ -209,7 +238,8 @@
             border: 1px solid rgba(176,94,0,.15);
         }
 
-        /* ── Element UI 覆盖 ── */
+        /* ── Element UI 组件样式覆盖 ── */
+        /* 表头单元格：浅蓝背景 + 加粗小字 */
         #security_pool_query .el-table th.el-table__cell {
             background: #F4F7FE;
             color: var(--c-text-2); font-weight: 700;
@@ -217,98 +247,124 @@
             border-bottom: 1px solid var(--c-border);
             padding: 11px 0;
         }
+        /* 数据单元格：正文色 + 浅分割线 */
         #security_pool_query .el-table td.el-table__cell {
             color: var(--c-text); border-bottom-color: var(--c-border-l);
             padding: 10px 0;
         }
+        /* 斑马纹奇数行背景 */
         #security_pool_query .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
             background: #FAFBFF;
         }
+        /* 表格行悬停高亮 */
         #security_pool_query .el-table__body tr:hover > td {
             background: var(--c-primary-l) !important;
         }
+        /* 小尺寸输入框内边框与字体覆盖 */
         #security_pool_query .el-input--small .el-input__inner {
             border-radius: var(--r-sm); border-color: var(--c-border);
             color: var(--c-text); font-size: 13px;
             transition: border-color .18s, box-shadow .18s;
         }
+        /* 输入框悬停描边加深 */
         #security_pool_query .el-input--small .el-input__inner:hover { border-color: #B0BCE8; }
+        /* 输入框聚焦态：主色描边 + 光晕 */
         #security_pool_query .el-input--small .el-input__inner:focus {
             border-color: var(--c-primary);
             box-shadow: 0 0 0 3px var(--c-primary-s);
         }
+        /* 日期范围选择器分隔符宽度固定，防止布局抖动 */
         #security_pool_query .el-date-editor.el-range-editor .el-range-separator {
             min-width: 24px;
             width: 24px;
             padding: 0;
             text-align: center;
         }
+        /* 主要按钮：蓝色渐变背景 */
         #security_pool_query .el-button--primary {
             background: linear-gradient(135deg, var(--c-primary) 0%, #2D5CE8 100%);
             border-color: var(--c-primary);
             border-radius: var(--r-sm); font-weight: 600; letter-spacing: 0.03em;
             transition: all .18s; box-shadow: 0 2px 6px var(--c-primary-s);
         }
+        /* 主要按钮悬停：加深渐变 + 上浮阴影 */
         #security_pool_query .el-button--primary:hover {
             background: linear-gradient(135deg, var(--c-primary-h) 0%, var(--c-primary) 100%);
             border-color: var(--c-primary-h);
             box-shadow: 0 4px 12px var(--c-primary-glow);
             transform: translateY(-1px);
         }
+        /* 主要按钮点击态：轻微缩放反馈 */
         #security_pool_query .el-button--primary:active { transform: scale(.97) translateY(0); }
+        /* 默认按钮：白底细边，次要操作使用 */
         #security_pool_query .el-button--default {
             border-radius: var(--r-sm); color: var(--c-text-2);
             border-color: var(--c-border); font-weight: 500;
             background: var(--c-surface); transition: all .18s;
         }
+        /* 默认按钮悬停：主色高亮 */
         #security_pool_query .el-button--default:hover {
             color: var(--c-primary); border-color: rgba(23,70,212,.2); background: var(--c-primary-l);
             box-shadow: 0 2px 8px var(--c-primary-s);
         }
+        /* 迷你标签：胶囊形加粗小字 */
         #security_pool_query .el-tag--mini {
             border-radius: 20px; font-weight: 600; font-size: 11px; letter-spacing: 0.03em;
         }
+        /* 状态标签颜色：成功/警告/危险/默认 */
         #security_pool_query .el-tag--success { background: var(--c-green-l); border-color: transparent; color: var(--c-green); }
         #security_pool_query .el-tag--warning { background: var(--c-amber-l); border-color: transparent; color: var(--c-amber); }
         #security_pool_query .el-tag--danger  { background: var(--c-red-l);   border-color: transparent; color: var(--c-red); }
         #security_pool_query .el-tag--info    { background: #F0F2FA; border-color: transparent; color: var(--c-text-3); }
+        /* 分页当前页码高亮 */
         #security_pool_query .el-pager li.active {
             background: var(--c-primary); color: #fff;
             border-radius: var(--r-sm);
             box-shadow: 0 2px 6px var(--c-primary-s);
         }
+        /* 分页按钮与页码统一圆角字重 */
         #security_pool_query .el-pagination .btn-next,
         #security_pool_query .el-pagination .btn-prev,
         #security_pool_query .el-pagination .el-pager li { border-radius: var(--r-sm); font-weight: 500; }
+        /* 分页整体字重 */
         #security_pool_query .el-pagination { font-weight: 500; }
+        /* 分页每页条数下拉宽度固定，防止下拉过窄 */
         #security_pool_query .el-pagination.is-small .el-select .el-input { width: 100px !important; }
+        /* 树组件字体继承页面字体 */
         #security_pool_query .el-tree {
             font-family: inherit;
             background: transparent;
         }
+        /* 树节点行高与圆角 */
         #security_pool_query .el-tree-node__content {
             height: 32px; border-radius: var(--r-xs);
         }
+        /* 树节点悬停高亮 */
         #security_pool_query .el-tree-node__content:hover {
             background: var(--c-primary-l);
         }
+        /* 禁用状态复选框样式覆盖（父节点不可勾选） */
         #security_pool_query .el-checkbox__input.is-disabled .el-checkbox__inner {
             background-color: #F0F2FA; border-color: #DDE3F0;
         }
 
-        /* 爱心图标 */
+        /* 收藏爱心按钮：点击切换收藏状态 */
         #security_pool_query .heart-btn {
             cursor: pointer; font-size: 17px; line-height: 1;
             transition: transform .18s;
             display: inline-flex; align-items: center;
             user-select: none;
         }
+        /* 爱心按钮悬停放大反馈 */
         #security_pool_query .heart-btn:hover { transform: scale(1.25); }
+        /* 已收藏状态：红色实心爱心 */
         #security_pool_query .heart-btn.fav { color: #E83030; }
+        /* 未收藏状态：灰色空心爱心 */
         #security_pool_query .heart-btn.nofav { color: #C5CFE5; }
+        /* 未收藏悬停：淡红色预览 */
         #security_pool_query .heart-btn.nofav:hover { color: #F08888; }
 
-        /* 滚动条 */
+        /* 滚动条美化：细滑条，透明轨道 */
         #security_pool_query ::-webkit-scrollbar { width: 5px; height: 5px; }
         #security_pool_query ::-webkit-scrollbar-track { background: transparent; }
         #security_pool_query ::-webkit-scrollbar-thumb { background: #CCD5E8; border-radius: 10px; }
@@ -506,43 +562,49 @@ new Vue({
     el: '#security_pool_query',
     data() {
         return {
-            today: moment().format('YYYY年MM月DD日'),
+            today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
             // 搜索表单
             searchForm: {
-                poolIds: [],           // 选中的池ID列表
-                securityCode: '',
-                securityType: '',
-                bondStatus: 'active',  // 默认存续状态
-                entryTimeRange: null,  // [startDate, endDate]
-                adjusterName: '',
-                issuer: '',
-                myBonds: false,
+                poolIds: [],           // 选中的池ID列表（多选）
+                securityCode: '',      // 证券代码关键词
+                securityType: '',      // 证券类型（下拉选中值）
+                bondStatus: 'active',  // 证券状态，默认存续
+                entryTimeRange: null,  // 入池时间范围 [startDate, endDate]
+                adjusterName: '',      // 调整人姓名关键词
+                issuer: '',            // 发行主体名称关键词
+                myBonds: false,        // 是否只看我的证券
                 currentUserId: '1001', // 当前用户ID（TODO: 对接实际登录用户）
             },
-            // 下拉选项
+            // 证券类型下拉（动态加载，格式：[{securityType, securityTypeName}]）
             securityTypeOptions: [],
+            // 证券状态下拉
             bondStatusOptions: [
                 { value: 'active', label: '存续' },
                 { value: 'matured', label: '到期' },
             ],
-            // 投资池树
-            poolTreeData: [],
-            poolTreeVisible: false,
-            selectedPoolTags: [],      // [{id, poolName}] 用于标签展示
+            // 投资池树相关
+            poolTreeData: [],          // 树形结构数据（由扁平列表构建）
+            poolTreeVisible: false,    // 投资池选择弹出层显隐状态
+            selectedPoolTags: [],      // 已选池标签列表 [{id, poolName}]，用于标签行展示
             treeProps: {
-                children: 'children',
-                label: 'poolName',
+                children: 'children',  // 子节点字段名
+                label: 'poolName',     // 节点显示文字字段名
                 disabled: function(data) {
-                    // 仅叶子节点可选
+                    // 仅叶子节点可选，父节点禁止勾选
                     return data.children && data.children.length > 0;
                 }
             },
-            // 表格
-            tableData: [],
-            loading: false,
-            pagination: { pageIndex: 1, pageSize: 20, total: 0 },
+            // 表格与分页
+            tableData: [],             // 当前页表格数据
+            loading: false,            // 表格加载状态
+            pagination: {
+                pageIndex: 1,          // 当前页码
+                pageSize: 20,          // 每页条数
+                total: 0,              // 总记录数
+            },
         };
     },
+    // 组件挂载后初始化：设置后端接口地址，依次加载投资池树、证券类型下拉和列表数据
     mounted() {
         axios.defaults.baseURL = 'http://localhost:18090';
         this.loadPoolTree();
@@ -675,13 +737,13 @@ new Vue({
             this.loading = false;
         },
 
-        // 查询
+        // 触发查询：重置到第一页后重新加载列表
         handleSearch() {
             this.pagination.pageIndex = 1;
             this.loadList();
         },
 
-        // 重置
+        // 重置所有搜索条件：清空表单、已选标签、树勾选，并重新查询
         handleReset() {
             this.searchForm = {
                 poolIds: [],
@@ -697,16 +759,19 @@ new Vue({
             this.selectedPoolTags = [];
             this.pagination.pageIndex = 1;
             if (this.$refs.poolTreeRef) {
+                // 同步清空树的勾选状态
                 this.$refs.poolTreeRef.setCheckedKeys([]);
             }
             this.loadList();
         },
 
-        // 分页
+        // 翻页：更新当前页码并重新加载
         handlePageChange(page) {
             this.pagination.pageIndex = page;
             this.loadList();
         },
+
+        // 切换每页条数：重置到第一页并重新加载
         handleSizeChange(size) {
             this.pagination.pageSize = size;
             this.pagination.pageIndex = 1;
@@ -718,11 +783,11 @@ new Vue({
             return row.mySecurityPoolId != null;
         },
 
-        // 切换收藏状态
+        // 切换收藏状态：已收藏则弹框确认后移除，未收藏则直接添加
         async toggleFavorite(row) {
             const userId = this.searchForm.currentUserId;
             if (this.isFavorited(row)) {
-                // 取消收藏：二次确认
+                // 取消收藏：弹出二次确认，防止误操作
                 try {
                     await this.$confirm(
                         '该证券已在我的证券池列表中，确认移除？',
@@ -733,11 +798,12 @@ new Vue({
                         securityCode: row.securityCode,
                         userId: userId,
                     });
+                    // 前端乐观更新：清空收藏 ID，使图标立即变为未收藏状态
                     row.mySecurityPoolId = null;
                     this.$message.success('已从我的证券池移除');
                 } catch (e) {}
             } else {
-                // 添加收藏
+                // 添加收藏：调用接口并前端乐观更新收藏 ID
                 try {
                     await this.apiPost('/api/v1/securityPoolQuery/addToMyPool', {
                         securityCode: row.securityCode,
@@ -745,6 +811,7 @@ new Vue({
                         market: '',
                         userId: userId,
                     });
+                    // 前端乐观更新：设置非空值，使图标立即变为已收藏状态
                     row.mySecurityPoolId = 1;
                     this.$message.success('已添加到我的证券池');
                 } catch (e) {}
