@@ -10,6 +10,7 @@
     <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <style>
         /* 全局盒模型重置 */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1272,6 +1273,43 @@
                 </div>
             </div>
 
+            <!-- 当前流程状态 -->
+            <div class="section-card">
+                <div class="section-header" @click="toggleSection('flowStatus')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">当前流程状态</div>
+                    <i :class="sectionExpanded.flowStatus ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.flowStatus" class="section-body">
+                    <div v-if="!flowStepList || flowStepList.length === 0" style="color:var(--c-text-3);font-size:13px;padding:8px 0;">暂无流程步骤</div>
+                    <el-table v-else :data="flowStepList" size="small" stripe border style="width:100%;border-radius:var(--r-sm);overflow:hidden;">
+                        <el-table-column prop="nodeLabel" label="步骤名称" min-width="140">
+                            <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.nodeLabel }}</span></template>
+                        </el-table-column>
+                        <el-table-column label="步骤结果" min-width="110">
+                            <template slot-scope="{ row }">
+                                <span :style="{ display:'inline-flex',alignItems:'center',padding:'2px 9px',borderRadius:'12px',fontSize:'11px',fontWeight:500,background:getStepStatusStyle(row.stepStatus).bg,color:getStepStatusStyle(row.stepStatus).color }">{{ stepStatusLabel(row.stepStatus) }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="开始时间" min-width="160">
+                            <template slot-scope="{ row }"><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-text-2);">{{ row.startTime ? moment(row.startTime).format('YYYY-MM-DD HH:mm:ss') : '-' }}</span></template>
+                        </el-table-column>
+                        <el-table-column prop="handlerName" label="处理人" min-width="100">
+                            <template slot-scope="{ row }"><span v-if="row.handlerName" style="color:var(--c-text);">{{ row.handlerName }}</span><span v-else style="color:var(--c-text-3);">-</span></template>
+                        </el-table-column>
+                        <el-table-column label="处理结果" min-width="100">
+                            <template slot-scope="{ row }"><span style="color:var(--c-text-2);">{{ processActionLabel(row.processAction) }}</span></template>
+                        </el-table-column>
+                        <el-table-column label="处理时间" min-width="160">
+                            <template slot-scope="{ row }"><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-text-2);">{{ row.processTime ? moment(row.processTime).format('YYYY-MM-DD HH:mm:ss') : '-' }}</span></template>
+                        </el-table-column>
+                        <el-table-column prop="processComment" label="处理意见" min-width="180">
+                            <template slot-scope="{ row }"><span v-if="row.processComment" style="color:var(--c-text-2);">{{ row.processComment }}</span><span v-else style="color:var(--c-text-3);">-</span></template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </div>
+
             <!-- 当前所在池 -->
             <div class="section-card">
                 <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
@@ -2008,9 +2046,11 @@
                 adjustReason: '',       // 调整原因（步骤2）
                 adjustAdvice: '',       // 调整建议（步骤2）
                 adjustLogList: [],       // 调库记录列表
+                flowStepList: [],        // 当前流程步骤列表
                 sectionExpanded: {      // 详情页各区块折叠状态
                     bondInfo: true,
                     adjustLog: true,
+                    flowStatus: true,
                     currentPools: true,
                     adjustOp: true,
                     adjustReview: true,
@@ -2293,6 +2333,8 @@
                     this.inMutexMap = inMap;
                     this.outMutexMap = outMap;
                     this.adjustLogList = logList || [];
+                    // 查找当前活跃的调库记录并加载流程步骤
+                    this.loadFlowSteps(this.adjustLogList);
                     this.attachmentFiles = {};
                     this.materialFiles = {};
                     this.creditReportSelections = {};
@@ -2426,6 +2468,56 @@
                     '99': { bg: '#F0F2FA', color: '#8895B8' }
                 };
                 return map[code] || { bg: '#F0F2FA', color: '#8895B8' };
+            },
+
+            // 加载当前活跃调库记录的流程步骤
+            async loadFlowSteps(adjustLogList) {
+                this.flowStepList = [];
+                if (!adjustLogList || adjustLogList.length === 0) return;
+                // 优先查找进行中的记录（00/10/11），其次最近一条审批通过的（20）
+                const activeLog = adjustLogList.find(l => ['00','10','11'].includes(l.auditStatus))
+                               || adjustLogList.find(l => l.auditStatus === '20');
+                if (!activeLog || !activeLog.id) return;
+                try {
+                    this.flowStepList = await this.apiPost('/api/v1/securityPoolAdjust/queryAdjustStepList', { adjustLogId: activeLog.id }) || [];
+                } catch (e) { this.flowStepList = []; }
+            },
+
+            // 步骤状态映射
+            stepStatusLabel(code) {
+                const map = {
+                    pending: '待处理',
+                    approved: '已通过',
+                    rejected: '已驳回',
+                    auto_completed: '自动完成',
+                    skipped: '已跳过',
+                    canceled: '已撤回'
+                };
+                return map[code] || code || '-';
+            },
+
+            // 步骤状态样式
+            getStepStatusStyle(code) {
+                const map = {
+                    pending:        { bg: '#EEF2FD', color: '#1746D4' },
+                    approved:       { bg: '#E8FBF3', color: '#0A8A5A' },
+                    rejected:       { bg: '#FFF0F0', color: '#D02020' },
+                    auto_completed: { bg: '#E8FBF3', color: '#0A8A5A' },
+                    skipped:        { bg: '#F0F2FA', color: '#8895B8' },
+                    canceled:       { bg: '#F0F2FA', color: '#8895B8' }
+                };
+                return map[code] || { bg: '#F0F2FA', color: '#8895B8' };
+            },
+
+            // 处理动作映射
+            processActionLabel(code) {
+                const map = {
+                    submit: '提交',
+                    approve: '通过',
+                    reject: '驳回',
+                    auto_process: '自动处理'
+                };
+                return map[code] || code || '-';
             },
 
             // 解析附件/材料JSON，返回文件名数组
