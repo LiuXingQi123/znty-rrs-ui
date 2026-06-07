@@ -1375,8 +1375,8 @@
                                     <span style="display:flex;align-items:center;gap:5px"><span style="width:3px;height:10px;border-radius:2px;background:#7c3aed;flex-shrink:0;display:inline-block"></span>执行任务</span>
                                     <el-button v-if="!viewMode" size="mini" type="text" icon="el-icon-plus" @click="addAutoTask" style="padding:0;color:#7c3aed">添加任务</el-button>
                                 </div>
-                                <div v-if="!selNode.autoTasks.length" style="font-size:12px;color:var(--text3);text-align:center;padding:12px 0;background:var(--white);border-radius:7px;margin-bottom:8px;border:1px dashed var(--border2)">暂无任务，点击添加</div>
-                                <div v-for="(task, idx) in selNode.autoTasks" :key="task.id" style="display:flex;gap:5px;align-items:center;margin-bottom:6px">
+                                <div v-if="!selNode.autoTasks || !selNode.autoTasks.length" style="font-size:12px;color:var(--text3);text-align:center;padding:12px 0;background:var(--white);border-radius:7px;margin-bottom:8px;border:1px dashed var(--border2)">暂无任务，点击添加</div>
+                                <div v-for="(task, idx) in (selNode.autoTasks || [])" :key="task.id" style="display:flex;gap:5px;align-items:center;margin-bottom:6px">
                                     <span style="font-size:11.5px;color:var(--text3);flex-shrink:0;min-width:38px">任务{{ idx+1 }}</span>
                                     <el-select size="small" style="flex:1" v-model="task.task" placeholder="选择任务" :disabled="viewMode">
                                         <el-option v-for="t in autoTaskOptions" :key="t.value" :label="t.label" :value="t.value"></el-option>
@@ -1819,7 +1819,7 @@
                 this.condFieldGroupOptions.forEach(g => (g.fields || []).forEach(f => { if (!fieldMap[f.value]) fieldMap[f.value] = f.label; }));
                 const opMap = { eq:'==', neq:'≠', gt:'>', lt:'<', gte:'≥', lte:'≤' };
                 const boolFields = ['isDebtSimple','isWhitelist','isSimple','isRestricted','isLargeAmount'];
-                const parts = this.condRules.filter(r => r.field && r.val).map(r => {
+                const parts = this.condRules.filter(r => r.field && r.val && r.field !== 'undefined' && r.field !== 'null').map(r => {
                     const fname = fieldMap[r.field] || r.field;
                     if (boolFields.includes(r.field)) return `${fname} 为${r.val}`;
                     return `${fname} ${opMap[r.op]||r.op} "${r.val}"`;
@@ -1870,8 +1870,10 @@
                     this.propsTitle = '连线属性';
                     this.propsSub = this.viewMode ? '只读预览' : '配置触发条件';
                     this.statusbarSel = '连线已选中';
-                    // 从连线对象加载已保存的条件规则
-                    this.condRules = this.selEdge.condRules ? JSON.parse(JSON.stringify(this.selEdge.condRules)) : [];
+                    // 从连线对象加载已保存的条件规则，过滤掉字段缺失的无效规则
+                    this.condRules = this.selEdge.condRules
+                        ? JSON.parse(JSON.stringify(this.selEdge.condRules)).filter(r => r.field && r.field !== 'undefined' && r.field !== 'null')
+                        : [];
                     this.condLogic = this.selEdge.condLogic || 'AND';
                 }
             },
@@ -1946,12 +1948,15 @@
                     const tasks = await this.apiPost('/api/v1/flows/dict/queryAutoTaskList', {});
                     this.autoTaskOptions = tasks.map(t => ({ value: t.taskCode, label: t.taskName }));
                 } catch (e) { console.error('loadDicts tasks:', e); errors.push('自动任务'); }
-                // 条件字段选项（三级分组）
+                // 条件字段选项（后端只返回 code，前端维护 code → 中文映射）
                 try {
                     const groups = await this.apiPost('/api/v1/flows/dict/queryCondFieldList', {});
+                    // group/filed code → 中文名称映射字典
+                    const groupNameMap = { approvalResult: '审批结果', businessFlag: '业务标志', flowVariable: '流程变量' };
+                    const fieldNameMap = { auditStatus: '审核状态', auditComment: '审核意见', isDebtSimple: '债大库简易流程', isWhitelist: '白名单流程', isSimple: '简易流程', isRestricted: '禁止库标的', isLargeAmount: '大额交易', applyAmount: '申请金额', creditRating: '标的评级', investType: '投资类型' };
                     this.condFieldGroupOptions = groups.map(g => ({
-                        groupName: g.groupName,
-                        fields: (g.fields || []).map(f => ({ value: f.fieldCode, label: f.fieldName })),
+                        groupName: groupNameMap[g.groupCode] || g.groupCode,
+                        fields: (g.fields || []).map(f => ({ value: f.fieldCode, label: fieldNameMap[f.fieldCode] || f.fieldCode })),
                     }));
                 } catch (e) { console.error('loadDicts cond-fields:', e); errors.push('条件字段'); }
                 if (errors.length) {
@@ -2081,7 +2086,7 @@
                         keyVer: '历史版本 · 只读',
                     };
                     this.$nextTick(() => {
-                        this.nodes = JSON.parse(JSON.stringify(ver.nodes || []));
+                        this.nodes = JSON.parse(JSON.stringify(ver.nodes || [])).map(n => ({ ...this.nodeDefaults(n.type), ...n }));
                         this.edges = JSON.parse(JSON.stringify(ver.edges || []));
                         this.panX = ver.panX != null ? ver.panX : 60;
                         this.panY = ver.panY != null ? ver.panY : 50;
@@ -2216,7 +2221,7 @@
                     this.$nextTick(() => {
                         if (flow.draft && flow.draft.nodes) {
                             // 恢复画布存档
-                            this.nodes = JSON.parse(JSON.stringify(flow.draft.nodes));
+                            this.nodes = JSON.parse(JSON.stringify(flow.draft.nodes)).map(n => ({ ...this.nodeDefaults(n.type), ...n }));
                             this.edges = JSON.parse(JSON.stringify(flow.draft.edges || []));
                             this.panX = flow.draft.panX != null ? flow.draft.panX : 60;
                             this.panY = flow.draft.panY != null ? flow.draft.panY : 50;
@@ -2724,7 +2729,7 @@
                 const boolFields = ['isDebtSimple','isWhitelist','isSimple','isRestricted','isLargeAmount'];
                 const fieldMap = { auditStatus:'审核状态', auditComment:'审核意见', isDebtSimple:'简易流程', isWhitelist:'白名单', isSimple:'简易', isRestricted:'禁止库', isLargeAmount:'大额', applyAmount:'金额', creditRating:'评级', investType:'投资类型' };
                 this.condFieldGroupOptions.forEach(g => (g.fields || []).forEach(f => { if (!fieldMap[f.value]) fieldMap[f.value] = f.label; }));
-                const filled = this.condRules.filter(r => r.field && r.val);
+                const filled = this.condRules.filter(r => r.field && r.val && r.field !== 'undefined' && r.field !== 'null');
                 if (filled.length > 0) {
                     const parts = filled.map(r => {
                         if (boolFields.includes(r.field)) return `${fieldMap[r.field]||r.field}=${r.val}`;
