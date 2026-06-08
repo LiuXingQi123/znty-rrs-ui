@@ -901,24 +901,32 @@
         }
         #flow_definition .handler-empty { font-size: 12px; color: var(--text3); }
         #flow_definition .handler-tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
-        #flow_definition .handler-dialog-body { display: flex; gap: 14px; height: 390px; }
+        #flow_definition .handler-dialog-body { display: flex; gap: 16px; }
         #flow_definition .handler-dialog-left {
-            width: 260px;
+            width: 330px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
             min-width: 0;
         }
         #flow_definition .handler-dialog-right {
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 10px;
             min-width: 0;
         }
-        #flow_definition .handler-dialog-title { font-size: 13px; font-weight: 700; color: var(--text); }
+        #flow_definition .handler-dialog-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+        #flow_definition .handler-show-all-btn {
+            margin-bottom: 10px;
+            width: 100%;
+            justify-content: center;
+        }
         #flow_definition .handler-role-tree {
-            flex: 1;
+            max-height: 320px;
             overflow: auto;
             border: 1px solid var(--border);
             border-radius: var(--r-sm);
@@ -926,8 +934,30 @@
             background: var(--white);
         }
         #flow_definition .handler-tree-node { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-        #flow_definition .handler-dialog-toolbar { display: flex; align-items: center; gap: 10px; }
-        #flow_definition .handler-selected-count { font-size: 12px; color: var(--text3); white-space: nowrap; }
+        #flow_definition .handler-user-search { margin-bottom: 10px; }
+        #flow_definition .handler-selected-summary {
+            margin-top: 14px;
+            padding: 12px 14px;
+            background: var(--white);
+            border-radius: var(--r-sm);
+            border: 1px solid var(--border);
+        }
+        #flow_definition .handler-selected-summary-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        #flow_definition .handler-selected-summary-row + .handler-selected-summary-row { margin-top: 8px; }
+        #flow_definition .handler-selected-label {
+            font-size: 11px;
+            color: var(--text3);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-right: 4px;
+        }
+        #flow_definition .handler-selected-empty { font-size: 11px; color: var(--text3); }
         /* ─── 删除确认信息框 ─── */
         #flow_definition .delete-confirm-box {
             background: var(--red-l);
@@ -1652,12 +1682,18 @@
     <el-dialog
             title="选择处理人"
             :visible.sync="approvalPersonDialogVisible"
-            width="820px"
+            width="880px"
             @closed="handleApprovalPersonDialogClosed">
         <div class="handler-dialog-body">
             <div class="handler-dialog-left">
-                <div class="handler-dialog-title">角色</div>
-                <el-button size="mini" type="text" icon="el-icon-user" @click="showAllApprovalUsers">全部人员</el-button>
+                <div class="handler-dialog-title">角色选择</div>
+                <el-button
+                        class="handler-show-all-btn"
+                        size="small"
+                        plain
+                        icon="el-icon-user"
+                        :style="currentApprovalRoleId === '__all__' ? 'border-color: var(--blue); color: var(--blue);' : ''"
+                        @click="showAllApprovalUsers">显示全部人员</el-button>
                 <div class="handler-role-tree">
                     <el-tree
                             ref="approvalRoleTreeRef"
@@ -1665,6 +1701,7 @@
                             :data="approvalRoleTreeData"
                             :props="approvalRoleTreeProps"
                             show-checkbox
+                            check-strictly
                             default-expand-all
                             highlight-current
                             @check="handleApprovalRoleCheck"
@@ -1677,21 +1714,20 @@
                 </div>
             </div>
             <div class="handler-dialog-right">
-                <div class="handler-dialog-toolbar">
-                    <el-input
-                            v-model="approvalUserKeyword"
-                            size="small"
-                            clearable
-                            prefix-icon="el-icon-search"
-                            placeholder="搜索人员"
-                            @input="handleApprovalUserSearch">
-                    </el-input>
-                    <span class="handler-selected-count">已选 {{ selectedApprovalRoles.length + selectedApprovalUsers.length }}</span>
-                </div>
+                <div class="handler-dialog-title">人员选择</div>
+                <el-input
+                        class="handler-user-search"
+                        v-model="approvalUserKeyword"
+                        size="small"
+                        clearable
+                        prefix-icon="el-icon-search"
+                        placeholder="搜索姓名..."
+                        @input="handleApprovalUserSearch">
+                </el-input>
                 <el-table
                         ref="approvalUserTableRef"
                         :data="filteredApprovalUserTableData"
-                        height="330"
+                        max-height="320"
                         size="small"
                         stripe
                         border
@@ -1703,9 +1739,33 @@
                 </el-table>
             </div>
         </div>
+        <div class="handler-selected-summary">
+            <div class="handler-selected-summary-row">
+                <span class="handler-selected-label">已选角色</span>
+                <template v-if="selectedApprovalRoles.length">
+                    <el-tag
+                            v-for="role in selectedApprovalRoles"
+                            :key="'approval_role_' + role.id"
+                            size="small"
+                            type="warning">{{ role.roleName || role.name || role.label }}</el-tag>
+                </template>
+                <span v-else class="handler-selected-empty">暂无</span>
+            </div>
+            <div class="handler-selected-summary-row">
+                <span class="handler-selected-label">已选人员</span>
+                <template v-if="selectedApprovalUsers.length">
+                    <el-tag
+                            v-for="user in selectedApprovalUsers"
+                            :key="'approval_user_' + user.id"
+                            size="small"
+                            type="primary">{{ user.userName }}</el-tag>
+                </template>
+                <span v-else class="handler-selected-empty">暂无</span>
+            </div>
+        </div>
         <span slot="footer">
             <el-button size="small" @click="approvalPersonDialogVisible = false">取消</el-button>
-            <el-button size="small" type="primary" @click="confirmApprovalPersonDialog">确认</el-button>
+            <el-button size="small" type="primary" icon="el-icon-check" @click="confirmApprovalPersonDialog">确认添加</el-button>
         </span>
     </el-dialog>
 
