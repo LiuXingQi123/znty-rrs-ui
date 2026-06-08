@@ -223,7 +223,7 @@ const DICT_SECURITY_CATEGORY = {
     'company': '公司主体',
 };
 
-// ── 16. 利率类型（b_info_interesttype）───────────────────
+// ── 16. 利率类型（info_interesttype）───────────────────
 // 表：sirm_securityinfo
 const DICT_INTEREST_TYPE = {
     '固定利率': '固定利率',
@@ -232,7 +232,7 @@ const DICT_INTEREST_TYPE = {
     '零息债':   '零息债',   // 不付息，折价发行
 };
 
-// ── 17. 付息频率（b_info_interestfrequency）──────────────
+// ── 17. 付息频率（info_interestfrequency）──────────────
 // 表：sirm_securityinfo
 const DICT_INTEREST_FREQUENCY = {
     '按年付息':         '按年付息',
@@ -242,7 +242,7 @@ const DICT_INTEREST_FREQUENCY = {
     '到期一次还本付息': '到期一次还本付息', // 短融/超短融/零息债
 };
 
-// ── 18. 发行方式（b_info_issuetype）──────────────────────
+// ── 18. 发行方式（info_issuetype）──────────────────────
 // 表：sirm_securityinfo
 const DICT_ISSUE_TYPE = {
     '公开发行':   '公开发行',
@@ -250,7 +250,7 @@ const DICT_ISSUE_TYPE = {
     '簿记建档':   '簿记建档',   // ABS 等结构化产品常用
 };
 
-// ── 19. 主体类型/公司性质（s_info_comptype）──────────────
+// ── 19. 主体类型/公司性质（info_comptype）──────────────
 // 表：sirm_securityinfo
 const DICT_COMPANY_TYPE = {
     '央企':     '央企',
@@ -316,7 +316,7 @@ const DICT_INNER_RATING = {
     '10级':'10级（对应外评 CCC 及以下）',
 };
 
-// ── 24. 证券内部分类（s_info_innerclass）─────────────────
+// ── 24. 证券内部分类（info_innerclass）─────────────────
 // 表：sirm_securityinfo
 const DICT_INNER_CLASS = {
     '央企债': '央企债',
@@ -329,7 +329,7 @@ const DICT_INNER_CLASS = {
     '可交换债':'可交换债',
 };
 
-// ── 25. 行业分类（s_info_industryname）───────────────────
+// ── 25. 行业分类（info_industryname）───────────────────
 // 表：sirm_securityinfo（一级行业）
 const DICT_INDUSTRY = {
     '金融':     '金融',
