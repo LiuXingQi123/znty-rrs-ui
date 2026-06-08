@@ -890,6 +890,44 @@
         #flow_definition .check-ok   { color: var(--green); }
         #flow_definition .check-warn { color: var(--amber); }
         #flow_definition .check-err  { color: var(--red); }
+        #flow_definition .handler-picker-box {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            padding: 8px;
+            background: var(--white);
+        }
+        #flow_definition .handler-empty { font-size: 12px; color: var(--text3); }
+        #flow_definition .handler-tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        #flow_definition .handler-dialog-body { display: flex; gap: 14px; height: 390px; }
+        #flow_definition .handler-dialog-left {
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+        }
+        #flow_definition .handler-dialog-right {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 0;
+        }
+        #flow_definition .handler-dialog-title { font-size: 13px; font-weight: 700; color: var(--text); }
+        #flow_definition .handler-role-tree {
+            flex: 1;
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            padding: 8px;
+            background: var(--white);
+        }
+        #flow_definition .handler-tree-node { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+        #flow_definition .handler-dialog-toolbar { display: flex; align-items: center; gap: 10px; }
+        #flow_definition .handler-selected-count { font-size: 12px; color: var(--text3); white-space: nowrap; }
         /* ─── 删除确认信息框 ─── */
         #flow_definition .delete-confirm-box {
             background: var(--red-l);
@@ -1342,15 +1380,21 @@
                                     </el-select>
                                 </el-form-item>
                                 <el-form-item v-if="selNode.approvalStrategy !== 'initiator'" label="处理人">
-                                    <el-select
-                                            size="small" style="width:100%"
-                                            v-model="selNode.approvalPersons"
-                                            multiple collapse-tags
-                                            placeholder="请选择处理人"
-                                            :disabled="viewMode"
-                                    >
-                                        <el-option v-for="r in roleOptions" :key="r.value" :label="r.label" :value="r.value"></el-option>
-                                    </el-select>
+                                    <div class="handler-picker-box">
+                                        <div v-if="!selNode.approvalPersons || !selNode.approvalPersons.length" class="handler-empty">暂未选择处理人</div>
+                                        <div v-else class="handler-tag-list">
+                                            <el-tag
+                                                    v-for="item in selNode.approvalPersons"
+                                                    :key="item.subjectType + '_' + item.subjectId"
+                                                    size="mini"
+                                                    :type="item.subjectType === 'role' ? 'warning' : 'success'"
+                                                    :closable="!viewMode"
+                                                    @close="removeApprovalPerson(item)">
+                                                {{ item.subjectType === 'role' ? '角色' : '人员' }} · {{ item.subjectName }}
+                                            </el-tag>
+                                        </div>
+                                        <el-button v-if="!viewMode" size="mini" type="primary" plain icon="el-icon-user" @click="openApprovalPersonDialog">选择处理人</el-button>
+                                    </div>
                                 </el-form-item>
                                 <el-form-item label="备注">
                                     <el-input type="textarea" :rows="2" v-model="selNode.approvalRemark" placeholder="节点说明…" :disabled="viewMode"></el-input>
@@ -1604,6 +1648,67 @@
     </el-dialog>
 
     <!-- 删除确认弹窗：二次确认后软删除流程定义 -->
+    <!-- 审批处理人选择弹窗 -->
+    <el-dialog
+            title="选择处理人"
+            :visible.sync="approvalPersonDialogVisible"
+            width="820px"
+            @closed="handleApprovalPersonDialogClosed">
+        <div class="handler-dialog-body">
+            <div class="handler-dialog-left">
+                <div class="handler-dialog-title">角色</div>
+                <el-button size="mini" type="text" icon="el-icon-user" @click="showAllApprovalUsers">全部人员</el-button>
+                <div class="handler-role-tree">
+                    <el-tree
+                            ref="approvalRoleTreeRef"
+                            node-key="id"
+                            :data="approvalRoleTreeData"
+                            :props="approvalRoleTreeProps"
+                            show-checkbox
+                            default-expand-all
+                            highlight-current
+                            @check="handleApprovalRoleCheck"
+                            @node-click="handleApprovalRoleNodeClick">
+                        <span slot-scope="{ node }" class="handler-tree-node">
+                            <i class="el-icon-folder-opened"></i>
+                            <span>{{ node.label }}</span>
+                        </span>
+                    </el-tree>
+                </div>
+            </div>
+            <div class="handler-dialog-right">
+                <div class="handler-dialog-toolbar">
+                    <el-input
+                            v-model="approvalUserKeyword"
+                            size="small"
+                            clearable
+                            prefix-icon="el-icon-search"
+                            placeholder="搜索人员"
+                            @input="handleApprovalUserSearch">
+                    </el-input>
+                    <span class="handler-selected-count">已选 {{ selectedApprovalRoles.length + selectedApprovalUsers.length }}</span>
+                </div>
+                <el-table
+                        ref="approvalUserTableRef"
+                        :data="filteredApprovalUserTableData"
+                        height="330"
+                        size="small"
+                        stripe
+                        border
+                        v-loading="approvalUserTableLoading"
+                        @selection-change="handleApprovalUserSelectionChange">
+                    <el-table-column type="selection" width="46"></el-table-column>
+                    <el-table-column prop="userName" label="人员" width="130"></el-table-column>
+                    <el-table-column prop="roleName" label="所属角色" min-width="180" show-overflow-tooltip></el-table-column>
+                </el-table>
+            </div>
+        </div>
+        <span slot="footer">
+            <el-button size="small" @click="approvalPersonDialogVisible = false">取消</el-button>
+            <el-button size="small" type="primary" @click="confirmApprovalPersonDialog">确认</el-button>
+        </span>
+    </el-dialog>
+
     <el-dialog title="删除流程定义" :visible.sync="deleteVisible" width="380px">
         <div style="font-size:13px;color:var(--text3);margin-bottom:14px">此操作不可撤销，已发布版本同时停用</div>
         <div class="delete-confirm-box">确认删除「{{ deleteTarget ? deleteTarget.name : '' }}」？</div>
@@ -1696,6 +1801,17 @@
                 roleOptions: [],                // 角色选项 [{value, label}]
                 autoTaskOptions: [],            // 自动任务选项 [{value, label}]
                 condFieldGroupOptions: [],      // 条件字段分组 [{groupName, fields: [{value, label}]}]
+                approvalPersonDialogVisible: false,
+                approvalRoleTreeData: [],
+                approvalRoleTreeProps: { children: 'children', label: 'roleName' },
+                approvalUserTableData: [],
+                filteredApprovalUserTableData: [],
+                approvalUserKeyword: '',
+                approvalUserTableLoading: false,
+                currentApprovalRoleId: null,
+                selectedApprovalRoles: [],
+                selectedApprovalUsers: [],
+                restoringApprovalSelection: false,
                 // 列表搜索与筛选
                 _searchTimer: null,             // 搜索防抖定时器
                 searchText: '',                 // 搜索关键字
@@ -1941,7 +2057,8 @@
                 // 角色字典
                 try {
                     const roles = await this.apiPost('/api/v1/flows/dict/queryRoleList', {});
-                    this.roleOptions = roles.map(r => ({ value: r.roleCode, label: r.roleName }));
+                    this.roleOptions = roles.map(r => ({ value: String(r.id), label: r.roleName || r.name || r.label || '' }));
+                    this.approvalRoleTreeData = this.buildApprovalRoleTree(roles);
                 } catch (e) { console.error('loadDicts roles:', e); errors.push('角色'); }
                 // 自动任务选项
                 try {
@@ -1989,6 +2106,202 @@
                     case 'notify':    return { notifyTarget: 'initiator', notifyTpl: '您的申请【#{procName}】已完成', notifyChannels: ['system'], notifyPersons: [], notifyRemark: '' };
                     default:          return {};
                 }
+            },
+
+            // 规范化节点配置，兼容旧版字符串处理人数组
+            normalizeNode(node) {
+                const normalized = { ...this.nodeDefaults(node.type), ...node }
+                if (normalized.type === 'approval') {
+                    normalized.approvalPersons = this.normalizeApprovalPersons(normalized.approvalPersons)
+                }
+                return normalized
+            },
+
+            // 将处理人配置统一为 { subjectType, subjectId, subjectName } 结构
+            normalizeApprovalPersons(list) {
+                if (!list || !list.length) return []
+                return list.map(item => {
+                    if (typeof item === 'string') {
+                        const role = this.roleOptions.find(r => String(r.value) === item)
+                        return { subjectType: 'role', subjectId: item, subjectName: role ? role.label : item }
+                    }
+                    return {
+                        subjectType: item.subjectType,
+                        subjectId: item.subjectId,
+                        subjectName: item.subjectName
+                    }
+                }).filter(item => item.subjectType && item.subjectId != null)
+            },
+
+            // 将扁平角色列表组装为角色树
+            buildApprovalRoleTree(flatList) {
+                if (!flatList || !flatList.length) return []
+                const map = {}
+                const roots = []
+                flatList.forEach(item => {
+                    const roleName = item.roleName || item.name || item.label || ''
+                    map[item.id] = { id: item.id, roleName, label: roleName, parentId: item.parentId, children: [] }
+                })
+                flatList.forEach(item => {
+                    const node = map[item.id]
+                    if (item.parentId && map[item.parentId]) map[item.parentId].children.push(node)
+                    else roots.push(node)
+                })
+                return roots
+            },
+
+            // 递归查找角色
+            findApprovalRoleById(tree, id) {
+                for (let i = 0; i < tree.length; i++) {
+                    const node = tree[i]
+                    if (String(node.id) === String(id)) return node
+                    if (node.children && node.children.length) {
+                        const found = this.findApprovalRoleById(node.children, id)
+                        if (found) return found
+                    }
+                }
+                return null
+            },
+
+            // 打开审批处理人选择弹窗
+            async openApprovalPersonDialog() {
+                if (!this.selNode) return
+                this.selNode.approvalPersons = this.normalizeApprovalPersons(this.selNode.approvalPersons)
+                this.selectedApprovalRoles = this.selNode.approvalPersons
+                    .filter(item => item.subjectType === 'role')
+                    .map(item => ({ id: item.subjectId, roleName: item.subjectName }))
+                this.selectedApprovalUsers = this.selNode.approvalPersons
+                    .filter(item => item.subjectType === 'user')
+                    .map(item => ({ id: item.subjectId, userName: item.subjectName, roleName: item.roleName || '' }))
+                this.approvalUserKeyword = ''
+                this.currentApprovalRoleId = '__all__'
+                this.approvalPersonDialogVisible = true
+                if (!this.approvalRoleTreeData.length) {
+                    const roles = await this.apiPost('/api/v1/flows/dict/queryRoleList', {})
+                    this.roleOptions = roles.map(r => ({ value: String(r.id), label: r.roleName || r.name || r.label || '' }))
+                    this.approvalRoleTreeData = this.buildApprovalRoleTree(roles)
+                }
+                await this.showAllApprovalUsers()
+                this.$nextTick(() => { this.restoreApprovalRoleSelection() })
+            },
+
+            // 关闭审批处理人弹窗后清理临时状态
+            handleApprovalPersonDialogClosed() {
+                this.selectedApprovalRoles = []
+                this.selectedApprovalUsers = []
+                this.approvalUserKeyword = ''
+                this.currentApprovalRoleId = null
+                this.approvalUserTableData = []
+                this.filteredApprovalUserTableData = []
+                this.restoringApprovalSelection = false
+            },
+
+            // 恢复角色树勾选状态
+            restoreApprovalRoleSelection() {
+                if (!this.$refs.approvalRoleTreeRef) return
+                this.$refs.approvalRoleTreeRef.setCheckedKeys(this.selectedApprovalRoles.map(r => r.id))
+            },
+
+            // 角色树勾选变化
+            handleApprovalRoleCheck(checkedNode, checkedState) {
+                this.selectedApprovalRoles = []
+                checkedState.checkedKeys.forEach(key => {
+                    const role = this.findApprovalRoleById(this.approvalRoleTreeData, key)
+                    if (role) this.selectedApprovalRoles.push(role)
+                })
+            },
+
+            // 显示全部人员
+            async showAllApprovalUsers() {
+                this.currentApprovalRoleId = '__all__'
+                this.approvalUserTableLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/flows/dict/queryUserList', {})
+                    this.setApprovalUserTableData(data || [])
+                } catch (e) {
+                    this.setApprovalUserTableData([])
+                }
+                this.approvalUserTableLoading = false
+            },
+
+            // 点击角色节点时按角色筛选人员
+            async handleApprovalRoleNodeClick(data) {
+                this.currentApprovalRoleId = data.id
+                this.approvalUserTableLoading = true
+                try {
+                    const users = await this.apiPost('/api/v1/flows/dict/queryUserList', { roleId: data.id })
+                    this.setApprovalUserTableData(users || [])
+                    this.approvalUserKeyword = ''
+                } catch (e) {
+                    this.setApprovalUserTableData([])
+                }
+                this.approvalUserTableLoading = false
+            },
+
+            // 设置人员表格数据并恢复勾选
+            setApprovalUserTableData(data) {
+                this.restoringApprovalSelection = true
+                this.approvalUserTableData = data || []
+                this.filteredApprovalUserTableData = this.approvalUserTableData
+                this.$nextTick(() => { this.restoreApprovalUserSelection() })
+            },
+
+            // 恢复人员表格勾选状态
+            restoreApprovalUserSelection() {
+                if (!this.$refs.approvalUserTableRef) {
+                    this.restoringApprovalSelection = false
+                    return
+                }
+                this.$refs.approvalUserTableRef.clearSelection()
+                this.filteredApprovalUserTableData.forEach(row => {
+                    const selected = this.selectedApprovalUsers.some(u => String(u.id) === String(row.id))
+                    this.$refs.approvalUserTableRef.toggleRowSelection(row, selected)
+                })
+                this.$nextTick(() => { this.restoringApprovalSelection = false })
+            },
+
+            // 搜索人员
+            handleApprovalUserSearch() {
+                const kw = this.approvalUserKeyword.trim().toLowerCase()
+                this.restoringApprovalSelection = true
+                this.filteredApprovalUserTableData = kw
+                    ? this.approvalUserTableData.filter(u => (u.userName || '').toLowerCase().indexOf(kw) !== -1)
+                    : this.approvalUserTableData
+                this.$nextTick(() => { this.restoreApprovalUserSelection() })
+            },
+
+            // 人员勾选变化，保留当前筛选外已选人员
+            handleApprovalUserSelectionChange(rows) {
+                if (this.restoringApprovalSelection) return
+                const visibleIds = this.filteredApprovalUserTableData.map(u => String(u.id))
+                const userMap = {}
+                this.selectedApprovalUsers.forEach(u => { if (visibleIds.indexOf(String(u.id)) === -1) userMap[u.id] = u })
+                rows.forEach(row => { userMap[row.id] = { id: row.id, userName: row.userName, roleName: row.roleName } })
+                this.selectedApprovalUsers = Object.keys(userMap).map(key => userMap[key])
+            },
+
+            // 确认处理人选择
+            confirmApprovalPersonDialog() {
+                if (!this.selNode) return
+                this.pushH()
+                const list = []
+                this.selectedApprovalRoles.forEach(role => {
+                    list.push({ subjectType: 'role', subjectId: role.id, subjectName: role.roleName || role.name || role.label || '' })
+                })
+                this.selectedApprovalUsers.forEach(user => {
+                    list.push({ subjectType: 'user', subjectId: user.id, subjectName: user.userName })
+                })
+                this.selNode.approvalPersons = list
+                this.approvalPersonDialogVisible = false
+                this.renderAll()
+            },
+
+            // 移除单个处理人
+            removeApprovalPerson(item) {
+                if (!this.selNode || !this.selNode.approvalPersons) return
+                this.pushH()
+                this.selNode.approvalPersons = this.selNode.approvalPersons
+                    .filter(p => !(p.subjectType === item.subjectType && String(p.subjectId) === String(item.subjectId)))
             },
 
             // ─── 列表操作 ───
@@ -2086,7 +2399,7 @@
                         keyVer: '历史版本 · 只读',
                     };
                     this.$nextTick(() => {
-                        this.nodes = JSON.parse(JSON.stringify(ver.nodes || [])).map(n => ({ ...this.nodeDefaults(n.type), ...n }));
+                        this.nodes = JSON.parse(JSON.stringify(ver.nodes || [])).map(n => this.normalizeNode(n));
                         this.edges = JSON.parse(JSON.stringify(ver.edges || []));
                         this.panX = ver.panX != null ? ver.panX : 60;
                         this.panY = ver.panY != null ? ver.panY : 50;
@@ -2221,7 +2534,7 @@
                     this.$nextTick(() => {
                         if (flow.draft && flow.draft.nodes) {
                             // 恢复画布存档
-                            this.nodes = JSON.parse(JSON.stringify(flow.draft.nodes)).map(n => ({ ...this.nodeDefaults(n.type), ...n }));
+                            this.nodes = JSON.parse(JSON.stringify(flow.draft.nodes)).map(n => this.normalizeNode(n));
                             this.edges = JSON.parse(JSON.stringify(flow.draft.edges || []));
                             this.panX = flow.draft.panX != null ? flow.draft.panX : 60;
                             this.panY = flow.draft.panY != null ? flow.draft.panY : 50;
@@ -2250,7 +2563,7 @@
                 const id = this.designerFlowId;
                 if (!id) { this.$message.warning('请先创建流程'); return; }
                 const row = this.tableData.find(x => x.id === id);
-                const params = { id: id, name: row ? row.name : undefined, flowKey: row ? row.key : undefined, nodes: JSON.parse(JSON.stringify(this.nodes)), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
+                const params = { id: id, name: row ? row.name : undefined, flowKey: row ? row.key : undefined, nodes: JSON.parse(JSON.stringify(this.nodes.map(n => this.normalizeNode(n)))), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
                 console.log('saveDraft params:', params);
                 try {
                     const res = await this.apiPost('/api/v1/flows/editFlowDraft', params);
@@ -2269,7 +2582,7 @@
                 const id = this.designerFlowId;
                 if (!id) { this.$message.warning('请先创建流程'); return; }
                 const row = this.tableData.find(x => x.id === id);
-                const pubParams = { id: id, publishNote: this.publishNote || '', nodes: JSON.parse(JSON.stringify(this.nodes)), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
+                const pubParams = { id: id, publishNote: this.publishNote || '', nodes: JSON.parse(JSON.stringify(this.nodes.map(n => this.normalizeNode(n)))), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
                 console.log('confirmPublish params:', pubParams);
                 try {
                     const res = await this.apiPost('/api/v1/flows/editFlowToPublished', pubParams);
