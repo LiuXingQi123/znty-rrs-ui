@@ -462,6 +462,59 @@
             background: #FAFBFF;
         }
         #security_pool_adjust .el-table__body tr:hover > td { background: var(--c-primary-l) !important; }
+        #security_pool_adjust .flow-step-table .el-table__body tr > td:first-child {
+            border-left: 3px solid transparent;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-auto > td {
+            background: #F4FCF8 !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-auto > td:first-child {
+            border-left-color: var(--c-green);
+        }
+        #security_pool_adjust .flow-step-table .flow-row-approved > td {
+            background: #F7FBF8 !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-approved > td:first-child {
+            border-left-color: rgba(10,138,90,.55);
+        }
+        #security_pool_adjust .flow-step-table .flow-row-pending-current > td {
+            background: #E7EEFF !important;
+            box-shadow: inset 0 0 0 9999px rgba(23,70,212,.035);
+            font-weight: 600;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-pending-current > td:first-child {
+            border-left-width: 5px;
+            border-left-color: var(--c-primary);
+        }
+        #security_pool_adjust .flow-step-table .flow-row-pending-other > td {
+            background: #FAFCFF !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-pending-other > td:first-child {
+            border-left-color: #9AA8D3;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-rejected > td {
+            background: var(--c-red-l) !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-rejected > td:first-child {
+            border-left-color: var(--c-red);
+        }
+        #security_pool_adjust .flow-step-table .flow-row-ended > td {
+            background: var(--c-surface-2) !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-ended > td:first-child {
+            border-left-color: var(--c-border);
+        }
+        #security_pool_adjust .flow-current-handler {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--c-primary);
+            color: var(--c-text-inv);
+            font-size: 12px;
+            font-weight: 700;
+            box-shadow: 0 2px 8px var(--c-primary-s);
+        }
         #security_pool_adjust .el-button--text {
             color: var(--c-primary); font-weight: 600; font-size: 12px;
             border-radius: var(--r-sm); padding: 4px 10px;
@@ -1282,7 +1335,15 @@
                 </div>
                 <div v-show="sectionExpanded.flowStatus" class="section-body">
                     <div v-if="!flowStepList || flowStepList.length === 0" style="color:var(--c-text-3);font-size:13px;padding:8px 0;">暂无流程步骤</div>
-                    <el-table v-else :data="flowStepList" size="small" stripe border style="width:100%;border-radius:var(--r-sm);overflow:hidden;">
+                    <el-table
+                            v-else
+                            class="flow-step-table"
+                            :data="flowStepList"
+                            size="small"
+                            stripe
+                            border
+                            :row-class-name="getFlowStepRowClass"
+                            style="width:100%;border-radius:var(--r-sm);overflow:hidden;">
                         <el-table-column prop="nodeLabel" label="步骤名称" min-width="140">
                             <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.nodeLabel }}</span></template>
                         </el-table-column>
@@ -1295,7 +1356,9 @@
                             <template slot-scope="{ row }"><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-text-2);">{{ row.startTime ? moment(row.startTime).format('YYYY-MM-DD HH:mm:ss') : '' }}</span></template>
                         </el-table-column>
                         <el-table-column prop="handlerName" label="处理人" min-width="100">
-                            <template slot-scope="{ row }"><span style="color:var(--c-text);">{{ row.handlerName || '' }}</span></template>
+                            <template slot-scope="{ row }">
+                                <span :class="isCurrentHandler(row) ? 'flow-current-handler' : ''">{{ row.handlerName || '' }}</span>
+                            </template>
                         </el-table-column>
                         <el-table-column label="处理结果" min-width="100">
                             <template slot-scope="{ row }"><span style="color:var(--c-text-2);">{{ processActionLabel(row.processAction) }}</span></template>
@@ -2038,6 +2101,7 @@
                 materialFiles: {},            // 各池其他材料文件映射 { poolId: [File, ...] }
                 adjustStep: 1,           // 调库步骤：1=选择池, 2=校验确认
                 adjustCheckLoading: false, // 下一步校验接口加载状态
+                currentLoginUserId: '2', // 当前默认登录用户 ID
                 adjustReviewList: [],    // 步骤2校验结果列表
                 pendingAdjustReviewList: [], // 等待流程选择确认的校验结果
                 flowDialogVisible: false, // 流程选择弹窗显示状态
@@ -2281,7 +2345,7 @@
                 try {
                     const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail',     { securityId: this.selectedSecurityId }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityId: this.selectedSecurityId, adjustDirection: 'in'  }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityId: this.selectedSecurityId, adjustDirection: 'in' }),
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityId: this.selectedSecurityId, adjustDirection: 'out' }),
                         this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode }),
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode })
@@ -2507,6 +2571,26 @@
                     canceled:       { bg: '#F0F2FA', color: '#8895B8' }
                 };
                 return map[code] || { bg: '#F0F2FA', color: '#8895B8' };
+            },
+
+            // 流程步骤行样式：按状态和当前登录人区分显示
+            getFlowStepRowClass({ row }) {
+                if (!row) return '';
+                if (row.stepStatus === 'auto_completed') return 'flow-row-auto';
+                if (row.stepStatus === 'rejected') return 'flow-row-rejected';
+                if (row.stepStatus === 'approved') return 'flow-row-approved';
+                if (row.stepStatus === 'pending') {
+                    return this.isCurrentHandler(row)
+                        ? 'flow-row-pending-current'
+                        : 'flow-row-pending-other';
+                }
+                if (row.stepStatus === 'skipped' || row.stepStatus === 'canceled') return 'flow-row-ended';
+                return '';
+            },
+
+            // 判断流程步骤处理人是否为当前登录人
+            isCurrentHandler(row) {
+                return row && String(row.handlerId || '') === String(this.currentLoginUserId);
             },
 
             // 处理动作映射
