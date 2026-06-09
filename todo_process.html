@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办处理</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        #todo_process {
+            --c-bg:         #F2F4F8;
+            --c-surface:    #FFFFFF;
+            --c-surface-2:  #F8FAFD;
+            --c-border:     #E2E8F4;
+            --c-border-l:   #ECF0F9;
+            --c-text:       #0D1829;
+            --c-text-2:     #3A4769;
+            --c-text-3:     #8895B8;
+            --c-primary:    #1746D4;
+            --c-primary-h:  #0F35B0;
+            --c-primary-l:  #EEF2FD;
+            --c-primary-s:  rgba(23,70,212,.12);
+            --c-primary-glow: rgba(23,70,212,.18);
+            --r-xs: 4px;
+            --r-sm: 7px;
+            --r-xl: 18px;
+            --sh-xs: 0 1px 3px rgba(13,24,54,.05);
+            --sh-sm: 0 2px 8px rgba(13,24,54,.08), 0 0 0 1px rgba(13,24,54,.04);
+            --topbar-h: 60px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--c-bg);
+            color: var(--c-text);
+            font-size: 14px;
+        }
+
+        #todo_process .topbar {
+            display: flex;
+            align-items: center;
+            padding: 0 28px;
+            height: var(--topbar-h);
+            background: var(--c-surface);
+            border-bottom: 1px solid var(--c-border);
+            flex-shrink: 0;
+            gap: 14px;
+            box-shadow: 0 1px 0 var(--c-border), 0 2px 8px rgba(13,24,54,.04);
+        }
+        #todo_process .topbar-brand { display: flex; align-items: center; gap: 12px; }
+        #todo_process .topbar-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            background: linear-gradient(135deg, var(--c-primary) 0%, #3B6AEA 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px var(--c-primary-glow);
+        }
+        #todo_process .topbar-icon svg { fill: #fff; }
+        #todo_process .topbar h2 { font-size: 15px; font-weight: 700; color: var(--c-text); letter-spacing: 0.02em; }
+        #todo_process .topbar-sep { width: 1px; height: 18px; background: var(--c-border); }
+        #todo_process .topbar-sys { font-size: 12px; color: var(--c-text-3); font-weight: 400; letter-spacing: 0.03em; }
+        #todo_process .topbar-meta {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--c-text-3);
+        }
+        #todo_process .topbar-date-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: var(--c-surface-2);
+            border: 1px solid var(--c-border);
+            font-size: 11px;
+            color: var(--c-text-3);
+            font-weight: 500;
+        }
+
+        #todo_process .list-body { flex: 1; overflow-y: auto; padding: 22px 28px; }
+        #todo_process .search-panel {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-xl);
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--sh-xs);
+        }
+        #todo_process .search-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        #todo_process .search-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--c-text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-right: 4px;
+        }
+        #todo_process .total-badge {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 20px;
+            background: var(--c-primary-l);
+            border: 1px solid rgba(23,70,212,.15);
+            color: var(--c-primary);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        #todo_process .table-card {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-xl);
+            overflow: hidden;
+            box-shadow: var(--sh-sm);
+        }
+        #todo_process .pagination-wrap {
+            display: flex;
+            justify-content: flex-end;
+            padding: 12px 20px;
+            border-top: 1px solid var(--c-border-l);
+            background: var(--c-surface-2);
+        }
+        #todo_process .desc-cell {
+            color: var(--c-text-2);
+            line-height: 1.6;
+        }
+
+        #todo_process .el-table th.el-table__cell {
+            background: #F4F7FE;
+            color: var(--c-text-2);
+            font-weight: 700;
+            font-size: 11.5px;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--c-border);
+            padding: 11px 0;
+        }
+        #todo_process .el-table td.el-table__cell {
+            color: var(--c-text);
+            border-bottom-color: var(--c-border-l);
+            padding: 10px 0;
+        }
+        #todo_process .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+            background: #FAFBFF;
+        }
+        #todo_process .el-table__body tr:hover > td {
+            background: var(--c-primary-l) !important;
+        }
+        #todo_process .el-input--small .el-input__inner {
+            border-radius: var(--r-sm);
+            border-color: var(--c-border);
+            color: var(--c-text);
+            font-size: 13px;
+            transition: border-color .18s, box-shadow .18s;
+        }
+        #todo_process .el-input--small .el-input__inner:hover { border-color: #B0BCE8; }
+        #todo_process .el-input--small .el-input__inner:focus {
+            border-color: var(--c-primary);
+            box-shadow: 0 0 0 3px var(--c-primary-s);
+        }
+        #todo_process .el-select .el-input__inner {
+            border-radius: var(--r-sm);
+            border-color: var(--c-border);
+        }
+        #todo_process .el-date-editor.el-range-editor .el-range-separator {
+            min-width: 24px;
+            width: 24px;
+            padding: 0;
+            text-align: center;
+        }
+        #todo_process .el-button--primary {
+            background: linear-gradient(135deg, var(--c-primary) 0%, #2D5CE8 100%);
+            border-color: var(--c-primary);
+            border-radius: var(--r-sm);
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            transition: all .18s;
+            box-shadow: 0 2px 6px var(--c-primary-s);
+        }
+        #todo_process .el-button--primary:hover {
+            background: linear-gradient(135deg, var(--c-primary-h) 0%, var(--c-primary) 100%);
+            border-color: var(--c-primary-h);
+            box-shadow: 0 4px 12px var(--c-primary-glow);
+            transform: translateY(-1px);
+        }
+        #todo_process .el-button--primary:active { transform: scale(.97) translateY(0); }
+        #todo_process .el-button--default {
+            border-radius: var(--r-sm);
+            color: var(--c-text-2);
+            border-color: var(--c-border);
+            font-weight: 500;
+            background: var(--c-surface);
+            transition: all .18s;
+        }
+        #todo_process .el-button--default:hover {
+            color: var(--c-primary);
+            border-color: rgba(23,70,212,.2);
+            background: var(--c-primary-l);
+            box-shadow: 0 2px 8px var(--c-primary-s);
+        }
+        #todo_process .el-pager li.active {
+            background: var(--c-primary);
+            color: #fff;
+            border-radius: var(--r-sm);
+            box-shadow: 0 2px 6px var(--c-primary-s);
+        }
+        #todo_process .el-pagination .btn-next,
+        #todo_process .el-pagination .btn-prev,
+        #todo_process .el-pagination .el-pager li { border-radius: var(--r-sm); font-weight: 500; }
+        #todo_process .el-pagination { font-weight: 500; }
+        #todo_process .el-pagination.is-small .el-select .el-input { width: 100px !important; }
+        #todo_process ::-webkit-scrollbar { width: 5px; height: 5px; }
+        #todo_process ::-webkit-scrollbar-track { background: transparent; }
+        #todo_process ::-webkit-scrollbar-thumb { background: #CCD5E8; border-radius: 10px; }
+        #todo_process ::-webkit-scrollbar-thumb:hover { background: #ADB9D4; }
+    </style>
+</head>
+<body>
+<div id="todo_process">
+    <div class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            </div>
+            <h2>待办处理</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta">
+            <span class="topbar-date-badge">{{ today }}</span>
+        </div>
+    </div>
+
+    <div class="list-body">
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+
+                <el-select
+                    v-model="searchForm.flowIds"
+                    placeholder="流程名称"
+                    clearable
+                    multiple
+                    collapse-tags
+                    size="small"
+                    style="width:220px;">
+                    <el-option
+                        v-for="f in flowOptions"
+                        :key="f.flowId"
+                        :label="f.flowName"
+                        :value="f.flowId">
+                    </el-option>
+                </el-select>
+
+                <el-date-picker
+                    v-model="searchForm.startDateRange"
+                    type="daterange"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    size="small"
+                    style="width:240px;"
+                    value-format="yyyy-MM-dd">
+                </el-date-picker>
+
+                <el-input
+                    v-model="searchForm.processDescription"
+                    placeholder="流程描述"
+                    clearable
+                    size="small"
+                    style="width:220px;"
+                    @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                </el-input>
+
+                <el-input
+                    v-model="searchForm.initiatorName"
+                    placeholder="发起人"
+                    clearable
+                    size="small"
+                    style="width:140px;"
+                    @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-user"></i>
+                </el-input>
+
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+
+                <div class="total-badge">
+                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条待办
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <el-table :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无待办">
+                <el-table-column prop="flowName" label="流程名称" min-width="160" show-overflow-tooltip fixed="left"></el-table-column>
+                <el-table-column prop="stepName" label="步骤名称" min-width="140" show-overflow-tooltip></el-table-column>
+                <el-table-column label="流程描述" min-width="320" show-overflow-tooltip>
+                    <template slot-scope="{ row }">
+                        <span class="desc-cell">{{ row.processDescription || '' }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="initiatorName" label="发起人" min-width="110">
+                    <template slot-scope="{ row }">{{ row.initiatorName || '' }}</template>
+                </el-table-column>
+                <el-table-column label="开始时间" min-width="150">
+                    <template slot-scope="{ row }">
+                        {{ row.startTime ? moment(row.startTime).format('YYYY-MM-DD HH:mm') : '' }}
+                    </template>
+                </el-table-column>
+                <el-table-column label="操作" width="100" fixed="right" align="center">
+                    <template slot-scope="{ row }">
+                        <el-button type="primary" size="mini" @click="handleProcess(row)">处理</el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+                <el-pagination
+                    :total="pagination.total"
+                    :current-page="pagination.pageIndex"
+                    :page-size="pagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    small
+                    @current-change="handlePageChange"
+                    @size-change="handleSizeChange">
+                </el-pagination>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+new Vue({
+    el: '#todo_process',
+    data() {
+        return {
+            today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
+            searchForm: {
+                flowIds: [],              // 流程 ID 多选
+                startDateRange: null,     // 开始日期范围
+                processDescription: '',   // 流程描述关键词
+                initiatorName: '',        // 发起人姓名关键词
+                currentUserId: '1001',    // 当前用户ID（TODO: 对接实际登录用户）
+            },
+            flowOptions: [],              // 流程名称下拉选项
+            tableData: [],                // 当前页待办数据
+            loading: false,               // 表格加载状态
+            pagination: {
+                pageIndex: 1,             // 当前页码
+                pageSize: 20,             // 每页条数
+                total: 0,                 // 总记录数
+            },
+        };
+    },
+    mounted() {
+        axios.defaults.baseURL = 'http://localhost:18090';
+        this.loadFlowOptions();
+        this.loadList();
+    },
+    methods: {
+        // API 请求封装
+        async apiPost(path, body) {
+            const resp = await axios.post(path, body || {});
+            const json = resp.data;
+            if (json.code !== 0) {
+                this.$message.error(json.message || '接口异常');
+                throw new Error(json.message || '接口异常');
+            }
+            return json.data;
+        },
+
+        // 加载流程名称下拉选项
+        async loadFlowOptions() {
+            try {
+                this.flowOptions = await this.apiPost('/api/v1/todoProcess/queryFlowOptionList', {
+                    currentUserId: this.searchForm.currentUserId,
+                });
+            } catch (e) {}
+        },
+
+        // 加载待办处理列表
+        async loadList() {
+            this.loading = true;
+            try {
+                const params = {
+                    flowIds: this.searchForm.flowIds.length > 0 ? this.searchForm.flowIds : null,
+                    startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
+                    startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
+                    processDescription: this.searchForm.processDescription || null,
+                    initiatorName: this.searchForm.initiatorName || null,
+                    currentUserId: this.searchForm.currentUserId,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                };
+                const data = await this.apiPost('/api/v1/todoProcess/queryTodoProcessPage', params);
+                this.tableData = data.records || [];
+                this.pagination.total = data.total || 0;
+            } catch (e) {}
+            this.loading = false;
+        },
+
+        // 触发查询
+        handleSearch() {
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 重置查询条件
+        handleReset() {
+            this.searchForm = {
+                flowIds: [],
+                startDateRange: null,
+                processDescription: '',
+                initiatorName: '',
+                currentUserId: '1001',
+            };
+            this.pagination.pageIndex = 1;
+            this.loadFlowOptions();
+            this.loadList();
+        },
+
+        // 翻页
+        handlePageChange(page) {
+            this.pagination.pageIndex = page;
+            this.loadList();
+        },
+
+        // 切换每页条数
+        handleSizeChange(size) {
+            this.pagination.pageSize = size;
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 处理按钮占位
+        handleProcess(row) {
+            this.$message.info('处理功能待接入');
+        },
+    }
+});
+</script>
+</body>
+</html>
