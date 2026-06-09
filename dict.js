@@ -223,7 +223,7 @@ const DICT_SECURITY_CATEGORY = {
     'company': '公司主体',
 };
 
-// ── 16. 利率类型（info_interesttype）───────────────────
+// ── 16. 利率类型（interest_type）───────────────────
 // 表：sirm_securityinfo
 const DICT_INTEREST_TYPE = {
     '固定利率': '固定利率',
@@ -232,7 +232,7 @@ const DICT_INTEREST_TYPE = {
     '零息债':   '零息债',   // 不付息，折价发行
 };
 
-// ── 17. 付息频率（info_interestfrequency）──────────────
+// ── 17. 付息频率（interest_frequency）──────────────
 // 表：sirm_securityinfo
 const DICT_INTEREST_FREQUENCY = {
     '按年付息':         '按年付息',
@@ -242,7 +242,7 @@ const DICT_INTEREST_FREQUENCY = {
     '到期一次还本付息': '到期一次还本付息', // 短融/超短融/零息债
 };
 
-// ── 18. 发行方式（info_issuetype）──────────────────────
+// ── 18. 发行方式（issue_type）──────────────────────
 // 表：sirm_securityinfo
 const DICT_ISSUE_TYPE = {
     '公开发行':   '公开发行',
@@ -250,7 +250,7 @@ const DICT_ISSUE_TYPE = {
     '簿记建档':   '簿记建档',   // ABS 等结构化产品常用
 };
 
-// ── 19. 主体类型/公司性质（info_comptype）──────────────
+// ── 19. 主体类型/公司性质（comp_type）──────────────
 // 表：sirm_securityinfo
 const DICT_COMPANY_TYPE = {
     '央企':     '央企',
@@ -265,7 +265,7 @@ const DICT_COMPANY_TYPE = {
     '其他':     '其他',
 };
 
-// ── 20. 外部评级（rating_security / rating_securityissuer）
+// ── 20. 外部评级（rating_bond / rating_bondissuer）
 // 表：sirm_securityinfo
 // 长期评级：AAA+ > AAA > AA+ > ... > D
 // 短期评级：A-1（短融/超短融专用）
@@ -287,7 +287,7 @@ const DICT_RATING_OUTLOOK = {
     '发展中': '发展中',
 };
 
-// ── 22. 外部评级机构（rating_security_agency）────────────
+// ── 22. 外部评级机构（rating_bond_agency）────────────
 // 表：sirm_securityinfo
 const DICT_RATING_AGENCY = {
     '中诚信国际': '中诚信国际',
@@ -316,7 +316,7 @@ const DICT_INNER_RATING = {
     '10级':'10级（对应外评 CCC 及以下）',
 };
 
-// ── 24. 证券内部分类（info_innerclass）─────────────────
+// ── 24. 证券内部分类（inner_class）─────────────────
 // 表：sirm_securityinfo
 const DICT_INNER_CLASS = {
     '央企债': '央企债',
@@ -329,7 +329,7 @@ const DICT_INNER_CLASS = {
     '可交换债':'可交换债',
 };
 
-// ── 25. 行业分类（info_industryname）───────────────────
+// ── 25. 行业分类（industry_name）───────────────────
 // 表：sirm_securityinfo（一级行业）
 const DICT_INDUSTRY = {
     '金融':     '金融',
