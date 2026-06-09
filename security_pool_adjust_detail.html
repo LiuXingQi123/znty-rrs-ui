@@ -1,0 +1,3153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>证券池调库详情</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <style>
+        /* 全局盒模型重置 */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* 页面根容器：CSS 变量定义 + 整体布局 */
+        #security_pool_adjust {
+            --c-bg:         #F2F4F8;
+            --c-surface:    #FFFFFF;
+            --c-surface-2:  #F8FAFD;
+            --c-border:     #E2E8F4;
+            --c-border-l:   #ECF0F9;
+
+            --c-text:       #0D1829;
+            --c-text-2:     #3A4769;
+            --c-text-3:     #8895B8;
+            --c-text-inv:   #FFFFFF;
+
+            --c-primary:    #1746D4;
+            --c-primary-h:  #0F35B0;
+            --c-primary-l:  #EEF2FD;
+            --c-primary-s:  rgba(23,70,212,.12);
+            --c-primary-glow: rgba(23,70,212,.18);
+
+            --c-green:      #0A8A5A;
+            --c-green-l:    #E8FBF3;
+            --c-amber:      #B05E00;
+            --c-amber-l:    #FFF6E8;
+            --c-red:        #D02020;
+            --c-red-l:      #FFF0F0;
+            --c-red-s:      rgba(208,32,32,.12);
+
+            --r-xs: 4px;
+            --r-sm: 7px;
+            --r:    10px;
+            --r-lg: 14px;
+            --r-xl: 18px;
+
+            --sh-xs: 0 1px 3px rgba(13,24,54,.05);
+            --sh-sm: 0 2px 8px rgba(13,24,54,.08), 0 0 0 1px rgba(13,24,54,.04);
+            --sh-md: 0 4px 20px rgba(13,24,54,.10), 0 0 0 1px rgba(13,24,54,.04);
+
+            --topbar-h: 60px;
+
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--c-bg);
+            color: var(--c-text);
+            font-size: 14px;
+            letter-spacing: 0.01em;
+        }
+
+        /* ── 页面切换 ── */
+        #security_pool_adjust .page { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+        #security_pool_adjust .page.active { display: flex; }
+
+        /* ── TOP BAR ── */
+        #security_pool_adjust .topbar {
+            display: flex; align-items: center;
+            padding: 0 28px; height: var(--topbar-h);
+            background: var(--c-surface);
+            border-bottom: 1px solid var(--c-border);
+            flex-shrink: 0; gap: 14px;
+            box-shadow: 0 1px 0 var(--c-border), 0 2px 8px rgba(13,24,54,.04);
+        }
+        #security_pool_adjust .topbar-brand { display: flex; align-items: center; gap: 12px; }
+        #security_pool_adjust .topbar-icon {
+            width: 34px; height: 34px; border-radius: 9px;
+            background: linear-gradient(135deg, var(--c-primary) 0%, #3B6AEA 100%);
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            box-shadow: 0 2px 8px var(--c-primary-glow);
+        }
+        #security_pool_adjust .topbar-icon svg { fill: #fff; }
+        #security_pool_adjust .topbar h2 { font-size: 15px; font-weight: 700; color: var(--c-text); letter-spacing: 0.02em; }
+        #security_pool_adjust .topbar-sep { width: 1px; height: 18px; background: var(--c-border); }
+        #security_pool_adjust .topbar-sys {
+            font-size: 12px; color: var(--c-text-3); font-weight: 400; letter-spacing: 0.03em;
+        }
+        #security_pool_adjust .topbar-meta {
+            margin-left: auto;
+            display: flex; align-items: center; gap: 8px;
+            font-size: 12px; color: var(--c-text-3);
+        }
+        #security_pool_adjust .topbar-date-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 20px;
+            background: var(--c-surface-2);
+            border: 1px solid var(--c-border);
+            font-size: 11px; color: var(--c-text-3); font-weight: 500;
+        }
+
+        /* ── 返回按钮：悬停时向左位移 ── */
+        #security_pool_adjust .back-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px 7px 10px;
+            border-radius: var(--r);
+            border: 1px solid var(--c-border);
+            background: var(--c-surface);
+            color: var(--c-text-2);
+            font-size: 13px; font-weight: 500;
+            cursor: pointer;
+            transition: all .18s ease;
+            outline: none; font-family: inherit;
+            box-shadow: var(--sh-xs);
+        }
+        #security_pool_adjust .back-btn:hover {
+            border-color: var(--c-primary); color: var(--c-primary);
+            background: var(--c-primary-l);
+            box-shadow: 0 2px 8px var(--c-primary-s);
+            transform: translateX(-1px);
+        }
+
+        /* ── 列表页主体：可滚动区域 ── */
+        #security_pool_adjust .list-body { flex: 1; overflow-y: auto; padding: 22px 28px; }
+
+        #security_pool_adjust .search-panel {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-xl);
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--sh-xs);
+        }
+        #security_pool_adjust .search-label {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 12px; font-weight: 600; color: var(--c-text-3);
+            text-transform: uppercase; letter-spacing: 0.06em;
+            margin-right: 4px;
+        }
+        #security_pool_adjust .total-badge {
+            margin-left: auto;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 14px; border-radius: 20px;
+            background: var(--c-primary-l);
+            border: 1px solid rgba(23,70,212,.15);
+            color: var(--c-primary);
+            font-size: 12px; font-weight: 600;
+        }
+        #security_pool_adjust .table-card {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-xl);
+            overflow: hidden;
+            box-shadow: var(--sh-sm);
+        }
+        #security_pool_adjust .pagination-wrap {
+            display: flex; justify-content: flex-end;
+            padding: 12px 20px;
+            border-top: 1px solid var(--c-border-l);
+            background: var(--c-surface-2);
+        }
+
+        /* ── 详情页主体：可滚动区域 ── */
+        #security_pool_adjust .detail-body { flex: 1; overflow-y: auto; padding: 22px 28px; }
+
+        #security_pool_adjust .section-card {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-xl);
+            box-shadow: var(--sh-sm);
+            margin-bottom: 18px; overflow: hidden;
+            transition: box-shadow .2s;
+        }
+        #security_pool_adjust .section-card:hover { box-shadow: var(--sh-md); }
+
+        #security_pool_adjust .section-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 14px 22px;
+            border-bottom: 1px solid var(--c-border-l);
+            background: linear-gradient(to right, #FAFCFF 0%, var(--c-surface) 100%);
+        }
+        #security_pool_adjust .section-dot {
+            width: 3px; height: 16px;
+            background: linear-gradient(180deg, var(--c-primary) 0%, #5C82EF 100%);
+            border-radius: 4px; flex-shrink: 0;
+        }
+        #security_pool_adjust .section-title {
+            font-size: 13px; font-weight: 700; color: var(--c-text);
+            letter-spacing: 0.03em;
+        }
+        #security_pool_adjust .section-body { padding: 20px 22px; }
+
+        /* 详情信息网格：3列均分布局 */
+        #security_pool_adjust .info-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+        }
+        #security_pool_adjust .info-cell {
+            display: flex; flex-direction: column;
+            padding: 13px 18px;
+            border-right: 1px solid var(--c-border-l);
+            border-bottom: 1px solid var(--c-border-l);
+            transition: background .15s;
+        }
+        #security_pool_adjust .info-cell:hover { background: var(--c-surface-2); }
+        #security_pool_adjust .info-cell:nth-child(3n) { border-right: none; }
+        #security_pool_adjust .info-cell.full-width { grid-column: 1 / -1; border-right: none; }
+        #security_pool_adjust .info-label {
+            font-size: 10.5px; font-weight: 600; color: var(--c-text-3);
+            text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px;
+        }
+        #security_pool_adjust .info-value {
+            font-size: 13px; font-weight: 500; color: var(--c-text);
+            word-break: break-all; line-height: 1.5;
+        }
+        #security_pool_adjust .info-value.mono {
+            font-family: 'DM Mono', 'Courier New', monospace;
+            font-size: 13px; font-weight: 500;
+            color: var(--c-primary);
+        }
+        #security_pool_adjust .textarea-hint { font-size: 11px; color: var(--c-text-3); margin-top: 5px; text-align: right; }
+
+        /* 区块子标题行：左侧小标题 + 数量徽章 */
+        #security_pool_adjust .sub-heading {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: 600; color: var(--c-text);
+            margin-bottom: 12px;
+        }
+        #security_pool_adjust .count-chip {
+            display: inline-flex; align-items: center;
+            padding: 2px 10px; border-radius: 20px;
+            background: var(--c-primary-l);
+            border: 1px solid rgba(23,70,212,.12);
+            color: var(--c-primary);
+            font-size: 11px; font-weight: 600;
+        }
+        #security_pool_adjust .sub-section + .sub-section {
+            margin-top: 22px; padding-top: 22px; border-top: 1px dashed var(--c-border);
+        }
+
+        /* 池名标签行：收起时限高并显示省略提示 */
+        #security_pool_adjust .pool-chip-row {
+            display: flex; flex-wrap: wrap; gap: 6px;
+            max-height: 30px; overflow: hidden;
+            position: relative;
+        }
+        #security_pool_adjust .pool-chip-row::after {
+            content: '···';
+            position: absolute; right: 0; bottom: 0;
+            padding: 2px 8px 2px 20px;
+            background: linear-gradient(90deg, transparent, var(--c-surface) 40%);
+            font-size: 12px; color: var(--c-text-3); font-weight: 700;
+            pointer-events: none;
+        }
+        #security_pool_adjust .pool-chip {
+            display: inline-flex; align-items: center;
+            padding: 3px 10px;
+            border-radius: var(--r-sm);
+            background: var(--c-primary-l);
+            color: var(--c-primary);
+            font-size: 11.5px; font-weight: 500;
+            white-space: nowrap;
+            border: 1px solid rgba(23,70,212,.12);
+            transition: all .15s;
+        }
+        #security_pool_adjust .pool-chip:hover {
+            background: var(--c-primary); color: #fff;
+            border-color: var(--c-primary);
+        }
+
+        /* ── 当前所在池 单行布局 ── */
+        #security_pool_adjust .pool-sub-label {
+            font-size: 12.5px; font-weight: 700; color: var(--c-text);
+            white-space: nowrap;
+        }
+        #security_pool_adjust .pool-sub-count {
+            display: inline-flex; align-items: center;
+            padding: 1px 8px; border-radius: 20px;
+            font-size: 11px; font-weight: 600;
+        }
+        #security_pool_adjust .pool-sub-count.type-bond {
+            background: var(--c-primary-l);
+            border: 1px solid rgba(23,70,212,.14);
+            color: var(--c-primary);
+        }
+        #security_pool_adjust .pool-sub-count.type-issuer {
+            background: var(--c-green-l);
+            border: 1px solid rgba(10,138,90,.15);
+            color: var(--c-green);
+        }
+        #security_pool_adjust .pool-toggle-btn {
+            flex-shrink: 0;
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 20px;
+            border: 1px solid var(--c-border);
+            background: var(--c-surface);
+            color: var(--c-text-3); font-size: 11px; font-weight: 500;
+            cursor: pointer; transition: all .18s;
+            outline: none; font-family: inherit;
+        }
+        #security_pool_adjust .pool-toggle-btn:hover {
+            border-color: var(--c-primary); color: var(--c-primary);
+            background: var(--c-primary-l);
+        }
+        #security_pool_adjust .pool-inline-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 22px;
+            min-height: 44px;
+        }
+        #security_pool_adjust .pool-inline-label {
+            display: flex; align-items: center; gap: 7px;
+            flex-shrink: 0;
+            width: 200px;
+        }
+        #security_pool_adjust .pool-inline-content {
+            flex: 1;
+            display: flex; align-items: center;
+            gap: 5px;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        #security_pool_adjust .pool-name-chip {
+            display: inline-flex; align-items: center;
+            padding: 2px 10px; border-radius: var(--r-sm);
+            background: var(--c-primary-l);
+            color: var(--c-primary);
+            font-size: 12px; font-weight: 500;
+            border: 1px solid rgba(23,70,212,.12);
+            white-space: nowrap; flex-shrink: 0;
+            transition: all .15s;
+        }
+        #security_pool_adjust .pool-name-chip:hover {
+            background: var(--c-primary); color: #fff;
+        }
+        #security_pool_adjust .pool-name-chip--green {
+            background: var(--c-green-l);
+            color: var(--c-green);
+            border-color: rgba(10,138,90,.15);
+        }
+        #security_pool_adjust .pool-name-chip--green:hover {
+            background: var(--c-green); color: #fff;
+        }
+        #security_pool_adjust .pool-overflow-hint {
+            font-size: 12px; color: var(--c-text-3); font-weight: 700;
+            flex-shrink: 0; letter-spacing: 1px;
+        }
+        #security_pool_adjust .pool-expand-table {
+            margin: 0 16px 16px;
+            border: 1px solid var(--c-border-l);
+            border-radius: var(--r);
+            overflow: hidden;
+        }
+        /* 证券池 / 主体池 两个子区块的包裹层 */
+        #security_pool_adjust .pool-sub-block {
+            margin: 14px 16px;
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+            background: var(--c-surface);
+        }
+        #security_pool_adjust .pool-sub-block + .pool-sub-block {
+            margin-top: 10px;
+        }
+        /* 子区块 header 行带背景 */
+        #security_pool_adjust .pool-sub-block .pool-inline-row {
+            background: var(--c-surface-2);
+            border-bottom: 1px solid transparent;
+            border-radius: var(--r-lg) var(--r-lg) 0 0;
+        }
+        #security_pool_adjust .pool-sub-block .pool-inline-row.is-expanded {
+            border-bottom-color: var(--c-border-l);
+            border-radius: var(--r-lg) var(--r-lg) 0 0;
+        }
+        /* 子区块内的展开表格无需外层边框/圆角（已由 block 包裹） */
+        #security_pool_adjust .pool-sub-block .pool-expand-table {
+            margin: 0;
+            border: none;
+            border-radius: 0;
+        }
+        /* 证券子块左侧accent条 */
+        #security_pool_adjust .pool-sub-block.block-bond {
+            border-left: 3px solid var(--c-primary);
+        }
+        #security_pool_adjust .pool-sub-block.block-issuer {
+            border-left: 3px solid var(--c-green);
+        }
+
+        /* ── Element UI 组件样式覆写精调 ── */
+        #security_pool_adjust .el-input--small .el-input__inner {
+            border-radius: var(--r-sm); border-color: var(--c-border);
+            color: var(--c-text); font-size: 13px;
+            background: var(--c-surface);
+            transition: border-color .18s, box-shadow .18s;
+            height: 32px; line-height: 32px;
+        }
+        #security_pool_adjust .detail-date-picker { width: 100%; }
+        #security_pool_adjust .el-input--small .el-input__inner:hover { border-color: #B0BCE8; }
+        #security_pool_adjust .el-input--small .el-input__inner:focus {
+            border-color: var(--c-primary);
+            box-shadow: 0 0 0 3px var(--c-primary-s);
+        }
+        #security_pool_adjust .el-textarea__inner {
+            border-radius: var(--r-sm); border-color: var(--c-border);
+            font-size: 13px; font-family: inherit;
+            transition: border-color .18s, box-shadow .18s;
+            resize: vertical;
+        }
+        #security_pool_adjust .el-textarea__inner:focus {
+            border-color: var(--c-primary);
+            box-shadow: 0 0 0 3px var(--c-primary-s);
+        }
+        #security_pool_adjust .el-button--primary {
+            background: linear-gradient(135deg, var(--c-primary) 0%, #2D5CE8 100%);
+            border-color: var(--c-primary);
+            border-radius: var(--r-sm); font-weight: 600; letter-spacing: 0.03em;
+            transition: all .18s; box-shadow: 0 2px 6px var(--c-primary-s);
+        }
+        #security_pool_adjust .el-button--primary:hover {
+            background: linear-gradient(135deg, var(--c-primary-h) 0%, var(--c-primary) 100%);
+            border-color: var(--c-primary-h);
+            box-shadow: 0 4px 12px var(--c-primary-glow);
+            transform: translateY(-1px);
+        }
+        #security_pool_adjust .el-button--primary:active { transform: scale(.97) translateY(0); }
+        #security_pool_adjust .el-button--default {
+            border-radius: var(--r-sm); color: var(--c-text-2);
+            border-color: var(--c-border); font-weight: 500;
+            background: var(--c-surface);
+            transition: all .18s;
+        }
+        #security_pool_adjust .el-button--default:hover {
+            color: var(--c-primary); border-color: var(--c-primary-s); background: var(--c-primary-l);
+            box-shadow: 0 2px 8px var(--c-primary-s);
+        }
+        #security_pool_adjust .el-tag--mini {
+            border-radius: 20px; font-weight: 600; font-size: 11px; letter-spacing: 0.03em;
+        }
+        #security_pool_adjust .el-tag--success { background: var(--c-green-l); border-color: transparent; color: var(--c-green); }
+        #security_pool_adjust .el-tag--info { background: #F0F2FA; border-color: transparent; color: var(--c-text-3); }
+
+        /* 表格整体：字号、分割线、悬停色覆写 */
+        #security_pool_adjust .el-table { font-size: 13px; }
+        #security_pool_adjust .el-table::before { background: transparent; }
+        #security_pool_adjust .el-table th.el-table__cell {
+            background: #F4F7FE;
+            color: var(--c-text-2); font-weight: 700;
+            font-size: 11.5px; letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--c-border);
+            padding: 11px 0;
+        }
+        #security_pool_adjust .el-table td.el-table__cell {
+            color: var(--c-text); border-bottom-color: var(--c-border-l);
+            padding: 10px 0;
+        }
+        #security_pool_adjust .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+            background: #FAFBFF;
+        }
+        #security_pool_adjust .el-table__body tr:hover > td { background: var(--c-primary-l) !important; }
+        #security_pool_adjust .flow-step-table .el-table__body tr > td:first-child {
+            border-left: 3px solid transparent;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-auto > td {
+            background: #F4FCF8 !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-auto > td:first-child {
+            border-left-color: var(--c-green);
+        }
+        #security_pool_adjust .flow-step-table .flow-row-approved > td {
+            background: #F7FBF8 !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-approved > td:first-child {
+            border-left-color: rgba(10,138,90,.55);
+        }
+        #security_pool_adjust .flow-step-table .flow-row-pending-current > td {
+            background: #E7EEFF !important;
+            box-shadow: inset 0 0 0 9999px rgba(23,70,212,.035);
+            font-weight: 600;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-pending-current > td:first-child {
+            border-left-width: 5px;
+            border-left-color: var(--c-primary);
+        }
+        #security_pool_adjust .flow-step-table .flow-row-pending-other > td {
+            background: #FAFCFF !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-pending-other > td:first-child {
+            border-left-color: #9AA8D3;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-rejected > td {
+            background: var(--c-red-l) !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-rejected > td:first-child {
+            border-left-color: var(--c-red);
+        }
+        #security_pool_adjust .flow-step-table .flow-row-ended > td {
+            background: var(--c-surface-2) !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-row-ended > td:first-child {
+            border-left-color: var(--c-border);
+        }
+        #security_pool_adjust .flow-current-handler {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--c-primary);
+            color: var(--c-text-inv);
+            font-size: 12px;
+            font-weight: 700;
+            box-shadow: 0 2px 8px var(--c-primary-s);
+        }
+        #security_pool_adjust .el-button--text {
+            color: var(--c-primary); font-weight: 600; font-size: 12px;
+            border-radius: var(--r-sm); padding: 4px 10px;
+            background: transparent; border: 1px solid transparent;
+            transition: all .15s;
+        }
+        #security_pool_adjust .el-button--text:hover {
+            background: var(--c-primary-l);
+            border-color: rgba(23,70,212,.15);
+            box-shadow: 0 1px 4px var(--c-primary-s);
+        }
+        #security_pool_adjust .el-tabs__item { font-size: 13px; font-weight: 500; color: var(--c-text-3); }
+        #security_pool_adjust .el-tabs__item.is-active { color: var(--c-primary); font-weight: 700; }
+        #security_pool_adjust .el-tabs__active-bar { background: var(--c-primary); height: 2.5px; border-radius: 3px; }
+        #security_pool_adjust .el-tabs__nav-wrap::after { background: var(--c-border-l); }
+        #security_pool_adjust .el-tabs__header { margin-bottom: 14px; }
+        #security_pool_adjust .el-pager li.active {
+            background: var(--c-primary); color: #fff;
+            border-radius: var(--r-sm);
+            box-shadow: 0 2px 6px var(--c-primary-s);
+        }
+        #security_pool_adjust .el-pagination .btn-next,
+        #security_pool_adjust .el-pagination .btn-prev,
+        #security_pool_adjust .el-pagination .el-pager li { border-radius: var(--r-sm); font-weight: 500; }
+
+        /* el-descriptions 描述列表：标签列背景色与内容列字号覆写 */
+        #security_pool_adjust .el-descriptions__label {
+            font-size: 12px; font-weight: 600; color: var(--c-text-3);
+            background: var(--c-surface-2) !important;
+            white-space: nowrap;
+        }
+        #security_pool_adjust .el-descriptions__content { font-size: 13px; }
+        #security_pool_adjust .el-descriptions-item__label { padding: 10px 14px !important; }
+        #security_pool_adjust .el-descriptions-item__content { padding: 8px 14px !important; }
+
+        /* 自定义滚动条：细条样式 */
+        #security_pool_adjust ::-webkit-scrollbar { width: 5px; height: 5px; }
+        #security_pool_adjust ::-webkit-scrollbar-track { background: transparent; }
+        #security_pool_adjust ::-webkit-scrollbar-thumb { background: #C8D2EA; border-radius: 6px; }
+        #security_pool_adjust ::-webkit-scrollbar-thumb:hover { background: #9AAAD0; }
+
+        /* 文件链接：可点击的文件名样式 */
+        #security_pool_adjust .file-link {
+            display: inline-flex; align-items: center; gap: 4px;
+            color: var(--c-primary); font-size: 12px; cursor: pointer; font-weight: 500;
+        }
+        #security_pool_adjust .file-link:hover { text-decoration: underline; }
+        /* 竖向分隔线 */
+        #security_pool_adjust .divider {
+            width: 1px; height: 22px; background: var(--c-border); flex-shrink: 0;
+        }
+
+        /* 上传单元格 */
+        #security_pool_adjust .upload-cell {
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        #security_pool_adjust .upload-file-list {
+            display: flex; flex-wrap: wrap; gap: 3px;
+        }
+        #security_pool_adjust .upload-file-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 8px; border-radius: var(--r-xs);
+            background: var(--c-primary-l); color: var(--c-primary);
+            font-size: 11px; font-weight: 500;
+            border: 1px solid rgba(23,70,212,.12);
+            max-width: 100%;
+        }
+        #security_pool_adjust .upload-file-tag span {
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            max-width: 120px;
+        }
+        #security_pool_adjust .upload-file-tag .el-icon-close {
+            cursor: pointer; font-size: 10px; flex-shrink: 0; color: var(--c-text-3);
+        }
+        #security_pool_adjust .upload-file-tag .el-icon-close:hover { color: var(--c-red); }
+        #security_pool_adjust .upload-btn { font-size: 12px; padding: 2px 8px; font-weight: 500; }
+
+        /* 调库操作区：左右双栏等分布局（调入 / 调出各一列）*/
+        #security_pool_adjust .adjust-dual-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        #security_pool_adjust .adjust-panel {
+            min-width: 0; overflow: hidden;
+            background: var(--c-surface-2);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-lg);
+            padding: 16px;
+        }
+
+        /* 调入面板：绿色边框与渐变背景强调 */
+        #security_pool_adjust .adjust-panel.panel-in {
+            border-color: rgba(10,138,90,.2);
+            background: linear-gradient(to bottom, #F0FDF7, var(--c-surface-2));
+        }
+        #security_pool_adjust .adjust-panel.panel-out {
+            border-color: rgba(208,32,32,.15);
+            background: linear-gradient(to bottom, #FFF8F8, var(--c-surface-2));
+        }
+
+        /* 详情页底部操作按钮栏（上一步/提交）*/
+        #security_pool_adjust .action-footer {
+            display: flex; align-items: center; justify-content: flex-end;
+            gap: 10px;
+            padding: 14px 22px;
+            border-top: 1px solid var(--c-border-l);
+            background: linear-gradient(to right, var(--c-surface-2), var(--c-surface));
+        }
+
+        /* 圆形状态指示小圆点（绿色=通过 / 红色=不通过）*/
+        #security_pool_adjust .status-dot {
+            display: inline-block; width: 6px; height: 6px;
+            border-radius: 50%; flex-shrink: 0;
+        }
+        #security_pool_adjust .status-dot.green { background: var(--c-green); box-shadow: 0 0 0 2px var(--c-green-l); }
+        #security_pool_adjust .status-dot.red { background: var(--c-red); box-shadow: 0 0 0 2px var(--c-red-l); }
+
+        /* 页面切换淡入上滑动画 */
+        #security_pool_adjust .page.active { animation: pageIn .22s ease; }
+        @keyframes pageIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        #security_pool_adjust .section-card { animation: cardIn .25s ease both; }
+        #security_pool_adjust .section-card:nth-child(1) { animation-delay: .03s; }
+        #security_pool_adjust .section-card:nth-child(2) { animation-delay: .07s; }
+        #security_pool_adjust .section-card:nth-child(3) { animation-delay: .11s; }
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 空状态占位区：居中显示图标与提示文字 */
+        #security_pool_adjust .empty-state {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 48px 24px; gap: 10px;
+            color: var(--c-text-3);
+        }
+        #security_pool_adjust .empty-state svg { opacity: .35; }
+        #security_pool_adjust .empty-state span { font-size: 13px; }
+
+        /* 步骤1底部操作按钮区：右对齐布局 */
+        #security_pool_adjust .submit-area {
+            display: flex; align-items: center; justify-content: flex-end;
+            gap: 10px; margin-top: 16px;
+        }
+
+        /* ── 信评报告选择弹窗：筛选栏 ── */
+        #security_pool_adjust .report-filter-bar {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+            margin-bottom: 12px; padding: 10px 12px;
+            background: var(--c-surface-2); border-radius: var(--r-sm);
+            border: 1px solid var(--c-border-l);
+        }
+        #security_pool_adjust .report-filter-label {
+            font-size: 11px; font-weight: 600; color: var(--c-text-3);
+            text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;
+        }
+        #security_pool_adjust .report-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 8px; border-radius: var(--r-xs);
+            font-size: 11px; font-weight: 500; max-width: 200px;
+        }
+        #security_pool_adjust .report-tag-internal {
+            background: var(--c-primary-l); color: var(--c-primary);
+            border: 1px solid rgba(23,70,212,.15);
+        }
+        #security_pool_adjust .report-tag-external {
+            background: var(--c-amber-l); color: var(--c-amber);
+            border: 1px solid rgba(176,94,0,.15);
+        }
+        #security_pool_adjust .report-tag span {
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            max-width: 110px;
+        }
+        #security_pool_adjust .report-tag .el-icon-close {
+            cursor: pointer; font-size: 10px; flex-shrink: 0;
+        }
+        #security_pool_adjust .report-tag .el-icon-close:hover { opacity: .7; }
+        #security_pool_adjust .report-source-badge {
+            display: inline-block; padding: 0 4px; border-radius: 2px;
+            font-size: 9px; font-weight: 600; letter-spacing: 0.04em;
+            background: rgba(255,255,255,.5); flex-shrink: 0;
+        }
+        #security_pool_adjust .report-selected-summary {
+            margin-top: 14px;
+            padding: 12px 14px;
+            background: var(--c-surface-2);
+            border-radius: var(--r);
+            border: 1px solid var(--c-border-l);
+        }
+        #security_pool_adjust .report-selected-summary-row {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+        }
+        #security_pool_adjust .report-selected-summary-row + .report-selected-summary-row {
+            margin-top: 8px;
+        }
+        #security_pool_adjust .report-selected-label {
+            font-size: 11px; color: var(--c-text-3); font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px;
+        }
+        #security_pool_adjust .report-selected-empty {
+            font-size: 11px; color: var(--c-text-3);
+        }
+
+        /* ── 信评报告弹窗 - 优化样式 ── */
+        #security_pool_adjust .report-dialog .el-dialog__header {
+            padding: 16px 22px 14px;
+            border-bottom: 1px solid var(--c-border-l);
+            background: linear-gradient(to right, #FAFCFF, var(--c-surface));
+        }
+        #security_pool_adjust .report-dialog .el-dialog__title {
+            font-size: 15px; font-weight: 700; color: var(--c-text);
+            letter-spacing: 0.02em;
+        }
+        #security_pool_adjust .report-dialog .el-dialog__body {
+            padding: 18px 22px 12px;
+        }
+        #security_pool_adjust .report-dialog .el-dialog__footer {
+            padding: 12px 22px;
+            border-top: 1px solid var(--c-border-l);
+            background: var(--c-surface-2);
+        }
+
+        /* 流程选择弹窗 */
+        #security_pool_adjust .flow-dialog .el-dialog__header {
+            padding: 16px 22px 14px;
+            border-bottom: 1px solid var(--c-border-l);
+            background: linear-gradient(to right, #FAFCFF, var(--c-surface));
+        }
+        #security_pool_adjust .flow-dialog .el-dialog__title {
+            font-size: 15px; font-weight: 700; color: var(--c-text);
+        }
+        #security_pool_adjust .flow-dialog .el-dialog__body {
+            padding: 16px 22px 10px;
+        }
+        #security_pool_adjust .flow-dialog .el-dialog__footer {
+            padding: 12px 22px;
+            border-top: 1px solid var(--c-border-l);
+            background: var(--c-surface-2);
+        }
+        #security_pool_adjust .flow-option-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #security_pool_adjust .flow-option-card {
+            display: block;
+            margin-right: 0;
+            padding: 12px 14px;
+            border: 1px solid var(--c-border);
+            border-radius: var(--r);
+            background: var(--c-surface);
+            transition: border-color .18s, box-shadow .18s, background .18s;
+        }
+        #security_pool_adjust .flow-option-card:hover {
+            border-color: rgba(23,70,212,.35);
+            box-shadow: 0 2px 10px var(--c-primary-s);
+            background: #FBFCFF;
+        }
+        #security_pool_adjust .flow-option-card.is-selected {
+            border-color: var(--c-primary);
+            background: var(--c-primary-l);
+            box-shadow: 0 2px 10px var(--c-primary-s);
+        }
+        #security_pool_adjust .flow-option-card .el-radio__label {
+            display: inline-block;
+            width: calc(100% - 22px);
+            vertical-align: top;
+            padding-left: 8px;
+        }
+        #security_pool_adjust .flow-option-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            min-height: 22px;
+        }
+        #security_pool_adjust .flow-option-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--c-text);
+        }
+        #security_pool_adjust .flow-option-reasons {
+            margin-top: 7px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        #security_pool_adjust .flow-option-reason {
+            font-size: 11.5px;
+            line-height: 1.5;
+            color: var(--c-text-3);
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        #security_pool_adjust .flow-option-reason.ok { color: var(--c-green); }
+        #security_pool_adjust .flow-option-reason.warn { color: var(--c-amber); }
+
+        /* 顶部统计条 */
+        #security_pool_adjust .report-stats-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; flex-wrap: wrap;
+            padding: 10px 14px; margin-bottom: 12px;
+            background: linear-gradient(to right, var(--c-primary-l), #F6F9FF);
+            border: 1px solid rgba(23,70,212,.12);
+            border-radius: var(--r);
+        }
+        #security_pool_adjust .report-stats-info {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 12.5px; color: var(--c-text-2);
+        }
+        #security_pool_adjust .report-stats-info i {
+            color: var(--c-primary); font-size: 14px;
+        }
+        #security_pool_adjust .report-stats-info strong {
+            color: var(--c-primary); font-weight: 700;
+        }
+        #security_pool_adjust .report-stats-count {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 12px; color: var(--c-text-3); font-weight: 500;
+        }
+        #security_pool_adjust .report-stats-count strong {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 22px; height: 20px; padding: 0 7px;
+            border-radius: 10px;
+            background: var(--c-primary); color: #fff;
+            font-size: 11.5px; font-weight: 700;
+        }
+
+        /* Tab 角标 */
+        #security_pool_adjust .tab-count-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 18px; height: 17px; padding: 0 5px;
+            border-radius: 10px;
+            background: var(--c-primary); color: #fff;
+            font-size: 10px; font-weight: 700;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+
+        /* 快捷类型筛选 */
+        #security_pool_adjust .report-quick-row {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+            margin-bottom: 8px;
+        }
+        #security_pool_adjust .report-quick-label {
+            font-size: 11px; font-weight: 600; color: var(--c-text-3);
+            text-transform: uppercase; letter-spacing: 0.05em;
+            margin-right: 2px;
+        }
+        #security_pool_adjust .report-quick-chip {
+            display: inline-flex; align-items: center;
+            padding: 3px 11px; border-radius: 14px;
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            font-size: 11.5px; color: var(--c-text-2); font-weight: 500;
+            cursor: pointer; transition: all .15s;
+            user-select: none;
+        }
+        #security_pool_adjust .report-quick-chip:hover {
+            border-color: var(--c-primary); color: var(--c-primary);
+            background: var(--c-primary-l);
+        }
+        #security_pool_adjust .report-quick-chip.active {
+            background: var(--c-primary); color: #fff;
+            border-color: var(--c-primary);
+            box-shadow: 0 2px 6px var(--c-primary-s);
+        }
+
+        /* 类型标签 (按类型着色) */
+        #security_pool_adjust .report-type-tag {
+            display: inline-flex; align-items: center;
+            padding: 2px 9px; border-radius: var(--r-xs);
+            font-size: 11px; font-weight: 500;
+            letter-spacing: 0.02em; white-space: nowrap;
+        }
+        #security_pool_adjust .report-type-tag.type-rating  { background: var(--c-primary-l); color: var(--c-primary); border: 1px solid rgba(23,70,212,.15); }
+        #security_pool_adjust .report-type-tag.type-track   { background: #E8F4FF; color: #1A75D2; border: 1px solid rgba(26,117,210,.15); }
+        #security_pool_adjust .report-type-tag.type-research{ background: #F2EDFC; color: #6332C2; border: 1px solid rgba(99,50,194,.15); }
+        #security_pool_adjust .report-type-tag.type-risk    { background: var(--c-red-l); color: var(--c-red); border: 1px solid rgba(208,32,32,.15); }
+        #security_pool_adjust .report-type-tag.type-industry{ background: var(--c-green-l); color: var(--c-green); border: 1px solid rgba(10,138,90,.15); }
+        #security_pool_adjust .report-type-tag.type-macro   { background: var(--c-amber-l); color: var(--c-amber); border: 1px solid rgba(176,94,0,.15); }
+        #security_pool_adjust .report-type-tag.type-default { background: #F0F2FA; color: var(--c-text-2); border: 1px solid var(--c-border); }
+
+        /* 评级徽章 (按评级着色) */
+        #security_pool_adjust .rating-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 2px 8px; min-width: 40px;
+            border-radius: var(--r-xs);
+            font-family: 'DM Mono', monospace;
+            font-size: 11.5px; font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+        #security_pool_adjust .rating-badge.rating-aaa { background: var(--c-green); color: #fff; }
+        #security_pool_adjust .rating-badge.rating-aa  { background: var(--c-green-l); color: var(--c-green); border: 1px solid rgba(10,138,90,.2); }
+        #security_pool_adjust .rating-badge.rating-a   { background: var(--c-primary-l); color: var(--c-primary); border: 1px solid rgba(23,70,212,.15); }
+        #security_pool_adjust .rating-badge.rating-bbb { background: var(--c-amber-l); color: var(--c-amber); border: 1px solid rgba(176,94,0,.2); }
+        #security_pool_adjust .rating-badge.rating-low { background: var(--c-red-l); color: var(--c-red); border: 1px solid rgba(208,32,32,.15); }
+        #security_pool_adjust .rating-badge.rating-none{ background: #F0F2FA; color: var(--c-text-3); }
+
+        /* 表格行 hover */
+        #security_pool_adjust .report-dialog .el-table__body tr.current-row > td {
+            background: var(--c-primary-l) !important;
+        }
+
+        /* 分页区 */
+        #security_pool_adjust .report-pagination {
+            display: flex; justify-content: flex-end;
+            padding: 10px 0 2px;
+        }
+
+        /* 已选清单优化 */
+        #security_pool_adjust .report-selected-summary {
+            max-height: 130px; overflow-y: auto;
+        }
+        #security_pool_adjust .report-selected-label {
+            display: inline-flex; align-items: center;
+        }
+        #security_pool_adjust .report-selected-count {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 18px; height: 16px; padding: 0 5px;
+            border-radius: 8px;
+            background: var(--c-text-2); color: #fff;
+            font-size: 10px; font-weight: 700;
+            margin-left: 4px;
+        }
+        #security_pool_adjust .report-selected-count.is-empty {
+            background: #DDE3F0; color: var(--c-text-3);
+        }
+        #security_pool_adjust .selected-tag {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 5px 3px 10px; border-radius: 14px;
+            font-size: 11.5px; font-weight: 500;
+            max-width: 240px;
+            transition: all .15s;
+        }
+        #security_pool_adjust .selected-tag > span {
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            min-width: 0;
+        }
+        #security_pool_adjust .selected-tag .el-icon-close {
+            cursor: pointer; font-size: 11px; flex-shrink: 0;
+            width: 14px; height: 14px;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            transition: all .15s;
+        }
+        #security_pool_adjust .selected-tag .el-icon-close:hover {
+            background: rgba(0,0,0,.08);
+        }
+        #security_pool_adjust .selected-tag-internal {
+            background: var(--c-primary-l); color: var(--c-primary);
+            border: 1px solid rgba(23,70,212,.15);
+        }
+        #security_pool_adjust .selected-tag-external {
+            background: var(--c-amber-l); color: var(--c-amber);
+            border: 1px solid rgba(176,94,0,.15);
+        }
+        #security_pool_adjust .selected-clear-btn {
+            color: var(--c-text-3) !important;
+            font-size: 11px !important;
+            padding: 2px 8px !important;
+            margin-left: auto !important;
+            font-weight: 500;
+        }
+        #security_pool_adjust .selected-clear-btn:hover {
+            color: var(--c-red) !important;
+            background: var(--c-red-l) !important;
+        }
+        #security_pool_adjust .report-selected-summary-row {
+            align-items: flex-start;
+        }
+        #security_pool_adjust .report-selected-summary-row .report-selected-label {
+            margin-top: 3px;
+        }
+    </style>
+</head>
+<body style="margin:0;padding:0;">
+
+<div id="security_pool_adjust">
+
+    <!-- ==================== 列表页：证券搜索 + 分页表格 ==================== -->
+    <div class="page" :class="{ active: currentPage === 'list' }">
+        <!-- 顶部导航栏 -->
+        <div class="topbar">
+            <div class="topbar-brand">
+                <div class="topbar-icon">
+                    <svg width="17" height="17" viewBox="0 0 24 24"><path d="M4 4h16v3H4V4zm0 5h16v3H4V9zm0 5h10v3H4v-3z"/></svg>
+                </div>
+                <h2>证券池调库</h2>
+            </div>
+            <div class="topbar-sep"></div>
+            <span class="topbar-sys">证券投资管理系统</span>
+            <div class="topbar-meta">
+                <div class="topbar-date-badge">
+                    <i class="el-icon-time"></i>
+                    证券管理平台
+                </div>
+            </div>
+        </div>
+
+        <!-- 列表主体：搜索条件 + 数据表格 -->
+        <div class="list-body">
+            <!-- 搜索条件区 -->
+            <div class="search-panel">
+                <span class="search-label">
+                    <i class="el-icon-search"></i>筛选
+                </span>
+                <el-input v-model="searchForm.securityCode" placeholder="证券代码" clearable
+                          size="small" style="width:148px;" @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                </el-input>
+                <el-input v-model="searchForm.securityShortName" placeholder="证券简称" clearable
+                          size="small" style="width:148px;" @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
+                </el-input>
+                <el-input v-model="searchForm.issuer" placeholder="发行人" clearable
+                          size="small" style="width:180px;" @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
+                </el-input>
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <div class="total-badge">
+                    <i class="el-icon-data-line"></i>
+                    共 {{ pagination.total }} 条记录
+                </div>
+            </div>
+
+            <!-- 数据列表 -->
+            <div class="table-card">
+                <el-table :data="tableData" v-loading="loading" stripe border size="small"
+                          style="width:100%;" :empty-text="'暂无数据'">
+                    <el-table-column prop="windCode" label="证券代码" min-width="130">
+                        <template slot-scope="{ row }">
+                            <span style="font-family:'DM Mono',monospace;font-size:12.5px;color:var(--c-primary);font-weight:500;">{{ row.windCode || '' }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="shortName" label="证券简称" min-width="130"></el-table-column>
+                    <el-table-column prop="fullName" label="证券全称" min-width="240" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="issuer" label="发行人" min-width="160" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="securityTypeName" label="证券类型" min-width="110">
+                        <template slot-scope="{ row }">
+                            <el-tag v-if="row.securityTypeName" size="mini" type="info">{{ row.securityTypeName }}</el-tag>
+                            <span v-else style="color:var(--c-text-3);"></span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="issueAmountplan" label="发行总额(亿)" min-width="110" align="right">
+                        <template slot-scope="{ row }">
+                            <span style="font-family:'DM Mono',monospace;font-size:12.5px;">{{ row.issueAmountplan != null ? row.issueAmountplan : '' }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="couponRate" label="当期利率(%)" min-width="110" align="right">
+                        <template slot-scope="{ row }">
+                            <span style="font-family:'DM Mono',monospace;font-size:12.5px;color:var(--c-amber);">{{ row.couponRate != null ? row.couponRate : '' }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="carryDate" label="起息日期" min-width="110"></el-table-column>
+                    <el-table-column prop="maturityDate" label="到期日" min-width="110"></el-table-column>
+                    <el-table-column prop="dateExists" label="证券期限" min-width="110"></el-table-column>
+                    <el-table-column prop="ratingBond" label="证券评级" min-width="90">
+                        <template slot-scope="{ row }">
+                            <el-tag v-if="row.ratingBond" size="mini" type="success">{{ row.ratingBond }}</el-tag>
+                            <span v-else style="color:var(--c-text-3);"></span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="ratingBondissuer" label="主体评级" min-width="90">
+                        <template slot-scope="{ row }">
+                            <el-tag v-if="row.ratingBondissuer" size="mini">{{ row.ratingBondissuer }}</el-tag>
+                            <span v-else style="color:var(--c-text-3);"></span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="操作" width="90" fixed="right">
+                        <template slot-scope="{ row }">
+                            <el-button type="primary" size="mini" @click="handleAdjust(row)"
+                                       style="font-size:11px;padding:4px 10px;border-radius:5px;">调库</el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+                <div class="pagination-wrap">
+                    <el-pagination
+                            :total="pagination.total"
+                            :current-page="pagination.pageIndex"
+                            :page-size="pagination.pageSize"
+                            :page-sizes="[10, 20, 50, 100]"
+                            layout="total, sizes, prev, pager, next, jumper"
+                            small
+                            @current-change="handlePageChange"
+                            @size-change="handleSizeChange">
+                    </el-pagination>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 调库详情页：证券信息 + 当前所在池 + 调库操作 + 校验结果 ==================== -->
+    <div class="page" :class="{ active: currentPage === 'detail' }">
+        <div class="topbar">
+            <button class="back-btn" @click="backToList">
+                <i class="el-icon-arrow-left"></i>返回列表
+            </button>
+            <div class="divider"></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:14px;font-weight:700;color:var(--c-text);">调库操作</span>
+                <span v-if="bondDetail.windCode"
+                      style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--c-primary);background:var(--c-primary-l);padding:2px 10px;border-radius:5px;border:1px solid rgba(23,70,212,.15);">
+                    {{ bondDetail.windCode }}
+                </span>
+                <span v-if="bondDetail.shortName || bondDetail.fullName"
+                      style="color:var(--c-text-2);font-weight:500;font-size:13px;">
+                    {{ bondDetail.shortName || bondDetail.fullName }}
+                </span>
+            </div>
+        </div>
+
+        <div class="detail-body" v-loading="detailLoading">
+
+            <!-- 证券基本信息 -->
+            <div class="section-card">
+                <div class="section-header" @click="toggleSection('bondInfo')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">证券基本信息</div>
+                    <i :class="sectionExpanded.bondInfo ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.bondInfo" style="padding:0;">
+                    <el-descriptions :column="3" border size="small" class="bond-info-descriptions">
+                        <el-descriptions-item label="证券全称">
+                            <el-input v-model="bondDetail.fullName" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券简称">
+                            <el-input v-model="bondDetail.shortName" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券代码">
+                            <el-input v-model="bondDetail.windCode" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="发行人名称">
+                            <el-input v-model="bondDetail.issuer" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="银行间代码">
+                            <el-input v-model="bondDetail.windCodeNib" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="沪市证券代码">
+                            <el-input v-model="bondDetail.windCodeSh" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="深市证券代码">
+                            <el-input v-model="bondDetail.windCodeSz" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="北交所代码">
+                            <el-input v-model="bondDetail.windCodeBj" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="发行总额(亿元)">
+                            <el-input v-model="bondDetail.issueAmountplan" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="当期利率(%)">
+                            <el-input v-model="bondDetail.couponRate" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="行权剩余期限">
+                            <el-input v-model="bondDetail.dateInrightExists" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="起息日期">
+                            <el-date-picker
+                                    v-model="bondDetail.carryDate"
+                                    type="date"
+                                    size="small"
+                                    value-format="yyyy-MM-dd"
+                                    placeholder="请选择"
+                                    class="detail-date-picker"
+                                    :disabled="adjustStep === 2">
+                            </el-date-picker>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="到期日">
+                            <el-date-picker
+                                    v-model="bondDetail.maturityDate"
+                                    type="date"
+                                    size="small"
+                                    value-format="yyyy-MM-dd"
+                                    placeholder="请选择"
+                                    class="detail-date-picker"
+                                    :disabled="adjustStep === 2">
+                            </el-date-picker>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="质押比率(%)">
+                            <el-input v-model="bondDetail.infoPledgeRatio" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="评级机构">
+                            <el-input v-model="bondDetail.ratingBondAgency" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券评级">
+                            <el-input v-model="bondDetail.ratingBond" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="主体评级">
+                            <el-input v-model="bondDetail.ratingBondissuer" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="展望评级">
+                            <el-input v-model="bondDetail.ratingOutlook" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="担保情况">
+                            <el-input v-model="bondDetail.agencyGrnttype" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="主承销商">
+                            <el-input v-model="bondDetail.agencyName" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="主体内评分档">
+                            <el-input v-model="bondDetail.innerIssuerRating" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券类型">
+                            <el-input v-model="bondDetail.securityTypeName" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="回售行权期限">
+                            <el-input v-model="bondDetail.dateRedemtionExists" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="赎回行权剩余期限">
+                            <el-input v-model="bondDetail.dateCallExists" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="担保人主体内评分">
+                            <el-input v-model="bondDetail.innerGuarantorRating" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="含权债剩余期限">
+                            <el-input v-model="bondDetail.dateInrightExists" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券期限">
+                            <el-input v-model="bondDetail.dateExists" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="募集资金用途" :span="3">
+                            <el-input type="textarea" :rows="3" v-model="bondDetail.fundUse" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                            <div class="textarea-hint">最多还可输入 968 个字符</div>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="提示原因" :span="3">
+                            <el-input type="textarea" :rows="3" v-model="bondDetail.promptReason" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券分析" :span="3">
+                            <el-input type="textarea" :rows="3" v-model="bondDetail.analysis" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </div>
+            </div>
+
+            <!-- 调库记录 -->
+            <div class="section-card">
+                <div class="section-header" @click="toggleSection('adjustLog')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">调库记录</div>
+                    <i :class="sectionExpanded.adjustLog ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.adjustLog" class="section-body">
+                    <el-table :data="adjustLogList" size="small" stripe border style="width:100%;border-radius:var(--r-sm);overflow:hidden;" :empty-text="'暂无调库记录'">
+                        <el-table-column prop="poolPath" label="投资池名称" min-width="180">
+                            <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.poolPath }}</span></template>
+                        </el-table-column>
+                        <el-table-column prop="adjustType" label="调整类型" min-width="100"></el-table-column>
+                        <el-table-column prop="adjustMode" label="调整方向" min-width="90"></el-table-column>
+                        <el-table-column label="信评报告" min-width="260">
+                            <template slot-scope="{ row }">
+                                <div class="upload-cell">
+                                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                        <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog(getLogRowKey(row), 'credit')">选择报告</el-button>
+                                        <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                   :on-change="(f, fl) => handleAttachmentChange(getLogRowKey(row), f, fl)"
+                                                   multiple :show-file-list="false">
+                                            <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                        </el-upload>
+                                    </div>
+                                    <div v-if="getReportNames(row.creditReports).length" class="upload-file-list">
+                                        <span v-for="(name, i) in getReportNames(row.creditReports)" :key="'cr_'+i" class="report-tag report-tag-internal">{{ name }}</span>
+                                    </div>
+                                    <div v-if="getFileNames(row.attachmentFiles).length" class="upload-file-list">
+                                        <span v-for="(name, i) in getFileNames(row.attachmentFiles)" :key="'af_'+i" class="upload-file-tag">{{ name }}</span>
+                                    </div>
+                                    <div v-if="getCreditReportSelections(getLogRowKey(row)).length > 0" class="upload-file-list">
+                                        <div v-for="(r, i) in getCreditReportSelections(getLogRowKey(row))" :key="'ncr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                            <span :title="r.title">{{ r.title }}</span>
+                                            <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                            <i class="el-icon-close" @click="removeCreditReportSelection(getLogRowKey(row), i)"></i>
+                                        </div>
+                                    </div>
+                                    <div v-if="getAttachmentFiles(getLogRowKey(row)).length > 0" class="upload-file-list">
+                                        <div v-for="(f, i) in getAttachmentFiles(getLogRowKey(row))" :key="'naf_'+i" class="upload-file-tag">
+                                            <span :title="f.name">{{ f.name }}</span>
+                                            <i class="el-icon-close" @click="removeAttachmentFile(getLogRowKey(row), i)"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="其他材料" min-width="260">
+                            <template slot-scope="{ row }">
+                                <div class="upload-cell">
+                                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                        <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog(getLogRowKey(row), 'material')">选择报告</el-button>
+                                        <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                   :on-change="(f, fl) => handleMaterialChange(getLogRowKey(row), f, fl)"
+                                                   multiple :show-file-list="false">
+                                            <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                        </el-upload>
+                                    </div>
+                                    <div v-if="getReportNames(row.otherMaterials).length" class="upload-file-list">
+                                        <span v-for="(name, i) in getReportNames(row.otherMaterials)" :key="'om_'+i" class="report-tag report-tag-external">{{ name }}</span>
+                                    </div>
+                                    <div v-if="getFileNames(row.materialFiles).length" class="upload-file-list">
+                                        <span v-for="(name, i) in getFileNames(row.materialFiles)" :key="'mf_'+i" class="upload-file-tag">{{ name }}</span>
+                                    </div>
+                                    <div v-if="getOtherMaterialSelections(getLogRowKey(row)).length > 0" class="upload-file-list">
+                                        <div v-for="(r, i) in getOtherMaterialSelections(getLogRowKey(row))" :key="'nom_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                            <span :title="r.title">{{ r.title }}</span>
+                                            <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                            <i class="el-icon-close" @click="removeOtherMaterialSelection(getLogRowKey(row), i)"></i>
+                                        </div>
+                                    </div>
+                                    <div v-if="getMaterialFiles(getLogRowKey(row)).length > 0" class="upload-file-list">
+                                        <div v-for="(f, i) in getMaterialFiles(getLogRowKey(row))" :key="'nmf_'+i" class="upload-file-tag">
+                                            <span :title="f.name">{{ f.name }}</span>
+                                            <i class="el-icon-close" @click="removeMaterialFile(getLogRowKey(row), i)"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="auditStatusLabel" label="审核状态" min-width="100">
+                            <template slot-scope="{ row }">
+                                <span :style="{ display:'inline-flex',alignItems:'center',padding:'2px 9px',borderRadius:'12px',fontSize:'11px',fontWeight:500,background:getStatusStyle(row.auditStatus).bg,color:getStatusStyle(row.auditStatus).color }">{{ row.auditStatusLabel }}</span>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </div>
+
+            <!-- 当前流程状态 -->
+            <div class="section-card">
+                <div class="section-header" @click="toggleSection('flowStatus')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">当前流程状态</div>
+                    <i :class="sectionExpanded.flowStatus ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.flowStatus" class="section-body">
+                    <div v-if="!flowStepList || flowStepList.length === 0" style="color:var(--c-text-3);font-size:13px;padding:8px 0;">暂无流程步骤</div>
+                    <el-table
+                            v-else
+                            class="flow-step-table"
+                            :data="flowStepList"
+                            size="small"
+                            stripe
+                            border
+                            :row-class-name="getFlowStepRowClass"
+                            style="width:100%;border-radius:var(--r-sm);overflow:hidden;">
+                        <el-table-column prop="nodeLabel" label="步骤名称" min-width="140">
+                            <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.nodeLabel }}</span></template>
+                        </el-table-column>
+                        <el-table-column label="步骤结果" min-width="110">
+                            <template slot-scope="{ row }">
+                                <span :style="{ display:'inline-flex',alignItems:'center',padding:'2px 9px',borderRadius:'12px',fontSize:'11px',fontWeight:500,background:getStepStatusStyle(row.stepStatus).bg,color:getStepStatusStyle(row.stepStatus).color }">{{ stepStatusLabel(row.stepStatus) }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="开始时间" min-width="160">
+                            <template slot-scope="{ row }"><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-text-2);">{{ row.startTime ? moment(row.startTime).format('YYYY-MM-DD HH:mm:ss') : '' }}</span></template>
+                        </el-table-column>
+                        <el-table-column prop="handlerName" label="处理人" min-width="100">
+                            <template slot-scope="{ row }">
+                                <span :class="isCurrentHandler(row) ? 'flow-current-handler' : ''">{{ row.handlerName || '' }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="处理结果" min-width="100">
+                            <template slot-scope="{ row }"><span style="color:var(--c-text-2);">{{ processActionLabel(row.processAction) }}</span></template>
+                        </el-table-column>
+                        <el-table-column label="处理时间" min-width="160">
+                            <template slot-scope="{ row }"><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-text-2);">{{ row.processTime ? moment(row.processTime).format('YYYY-MM-DD HH:mm:ss') : '' }}</span></template>
+                        </el-table-column>
+                        <el-table-column prop="processComment" label="处理意见" min-width="180">
+                            <template slot-scope="{ row }"><span style="color:var(--c-text-2);">{{ row.processComment || '' }}</span></template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </div>
+
+            <!-- 当前所在池 -->
+            <div class="section-card">
+                <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">当前所在池</div>
+                    <i :class="sectionExpanded.currentPools ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.currentPools" style="padding:0 0 4px;">
+
+                    <!-- ① 当前证券所在池 -->
+                    <div class="pool-sub-block block-bond">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': securityPoolExpanded }">
+                            <div class="pool-inline-label">
+                                <span class="pool-sub-label">当前证券所在池</span>
+                                <span class="pool-sub-count type-bond">{{ securityCurrentPools.length }}</span>
+                            </div>
+                            <div class="pool-inline-content">
+                                <template v-if="!securityPoolExpanded">
+                                    <span v-if="securityCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
+                                    <span v-for="(p, idx) in securityCurrentPools" :key="p.poolName" class="pool-name-chip">{{ p.poolName }}</span>
+                                    <span v-if="securityCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                </template>
+                            </div>
+                            <button class="pool-toggle-btn" @click.stop="securityPoolExpanded = !securityPoolExpanded">
+                                <i :class="securityPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="font-size:10px;"></i>
+                                {{ securityPoolExpanded ? '收起' : '展开' }}
+                            </button>
+                        </div>
+                        <div v-if="securityPoolExpanded" class="pool-expand-table">
+                            <el-table :data="securityCurrentPools" size="small" stripe border style="width:100%;" :empty-text="'暂无'">
+                                <el-table-column prop="poolName" label="投资池名称" min-width="200">
+                                    <template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template>
+                                </el-table-column>
+                                <el-table-column prop="poolType" label="池类型" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ poolTypeLabel(row.poolType) }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="entryDate" label="入池日期" min-width="130">
+                                    <template slot-scope="{ row }"><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                    </div>
+
+                    <!-- ② 当前证券主体所在池 -->
+                    <div class="pool-sub-block block-issuer">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': issuerPoolExpanded }">
+                            <div class="pool-inline-label">
+                                <span class="pool-sub-label">当前证券主体所在池</span>
+                                <span class="pool-sub-count type-issuer">{{ issuerCurrentPools.length }}</span>
+                            </div>
+                            <div class="pool-inline-content">
+                                <template v-if="!issuerPoolExpanded">
+                                    <span v-if="issuerCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
+                                    <span v-for="(p, idx) in issuerCurrentPools" :key="p.poolName+idx" class="pool-name-chip pool-name-chip--green">{{ p.poolName }}</span>
+                                    <span v-if="issuerCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                </template>
+                            </div>
+                            <button class="pool-toggle-btn" @click.stop="issuerPoolExpanded = !issuerPoolExpanded">
+                                <i :class="issuerPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="font-size:10px;"></i>
+                                {{ issuerPoolExpanded ? '收起' : '展开' }}
+                            </button>
+                        </div>
+                        <div v-if="issuerPoolExpanded" class="pool-expand-table">
+                            <el-table :data="issuerCurrentPools" size="small" stripe border style="width:100%;" max-height="280" :empty-text="'暂无'">
+                                <el-table-column prop="poolName" label="投资池名称" min-width="200">
+                                    <template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template>
+                                </el-table-column>
+                                <el-table-column prop="poolType" label="池类型" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ poolTypeLabel(row.poolType) }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="bondCount" label="主体在该池证券数" min-width="140" align="center">
+                                    <template slot-scope="{ row }">
+                                        <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--c-primary);font-size:13px;">{{ row.bondCount }}<span style="font-size:10px;font-weight:400;color:var(--c-text-3);margin-left:2px;">只</span></span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="entryDate" label="最早入池日期" min-width="130">
+                                    <template slot-scope="{ row }"><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 调库操作 -->
+            <div class="section-card" v-show="adjustStep === 1">
+                <div class="section-header" @click="toggleSection('adjustOp')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">调库操作</div>
+                    <i :class="sectionExpanded.adjustOp ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.adjustOp" class="section-body">
+                    <!-- 步骤1：选择调库池 -->
+                    <div v-show="adjustStep === 1">
+                        <div class="adjust-dual-panels">
+                            <!-- 可调入库 -->
+                            <div class="adjust-panel panel-in">
+                                <div class="sub-heading" style="margin-bottom:12px;">
+                                    <span class="status-dot green" style="width:8px;height:8px;"></span>
+                                    <span>可调入库</span>
+                                    <span class="count-chip" style="background:var(--c-green-l);color:var(--c-green);border-color:rgba(10,138,90,.15);">
+                                    已选 {{ selectedInPools.length }}
+                                </span>
+                                </div>
+                                <el-table :data="adjustInTree" size="small" stripe border style="width:100%;border-radius:var(--r-sm);overflow:hidden;"
+                                          row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+                                          default-expand-all :empty-text="'暂无可调入的投资池'"
+                                          ref="inTableRef"
+                                          @select="handleInPoolSelect">
+                                    <el-table-column type="selection" width="40"
+                                                     :selectable="(row) => !row.children || row.children.length === 0">
+                                    </el-table-column>
+                                    <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                                    <el-table-column prop="maxCapacity" label="上限数量" min-width="90" align="center">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                                <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.maxCapacity != null ? row.maxCapacity : '' }}</span>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column prop="currentCount" label="现有数量" min-width="90" align="center">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                                <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.currentCount != null ? row.currentCount : '' }}</span>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="信评报告" min-width="240">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                            <div class="upload-cell">
+                                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                    <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog(row.id, 'credit')">选择报告</el-button>
+                                                    <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                               :on-change="(f, fl) => handleAttachmentChange(row.id, f, fl)"
+                                                               multiple :show-file-list="false">
+                                                        <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                    </el-upload>
+                                                </div>
+                                                <div v-if="getCreditReportSelections(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(r, i) in getCreditReportSelections(row.id)" :key="'cr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                                        <i class="el-icon-close" @click="removeCreditReportSelection(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                                <div v-if="getAttachmentFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in getAttachmentFiles(row.id)" :key="i" class="upload-file-tag">
+                                                        <span :title="f.name">{{ f.name }}</span>
+                                                        <i class="el-icon-close" @click="removeAttachmentFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="其他材料" min-width="240">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                            <div class="upload-cell">
+                                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                    <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog(row.id, 'material')">选择报告</el-button>
+                                                    <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                               :on-change="(f, fl) => handleMaterialChange(row.id, f, fl)"
+                                                               multiple :show-file-list="false">
+                                                        <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                    </el-upload>
+                                                </div>
+                                                <div v-if="getOtherMaterialSelections(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(r, i) in getOtherMaterialSelections(row.id)" :key="'om_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                                        <i class="el-icon-close" @click="removeOtherMaterialSelection(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                                <div v-if="getMaterialFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in getMaterialFiles(row.id)" :key="i" class="upload-file-tag">
+                                                        <span :title="f.name">{{ f.name }}</span>
+                                                        <i class="el-icon-close" @click="removeMaterialFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
+                            </div>
+                            <!-- 可调出库 -->
+                            <div class="adjust-panel panel-out">
+                                <div class="sub-heading" style="margin-bottom:12px;">
+                                    <span class="status-dot red" style="width:8px;height:8px;"></span>
+                                    <span>可调出库</span>
+                                    <span class="count-chip" style="background:var(--c-red-l);color:var(--c-red);border-color:rgba(208,32,32,.12);">
+                                    已选 {{ selectedOutPools.length }}
+                                </span>
+                                </div>
+                                <el-table :data="adjustOutTree" size="small" stripe border style="width:100%;border-radius:var(--r-sm);overflow:hidden;"
+                                          row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+                                          default-expand-all :empty-text="'暂无可调出的投资池'"
+                                          ref="outTableRef"
+                                          @select="handleOutPoolSelect">
+                                    <el-table-column type="selection" width="40"
+                                                     :selectable="(row) => !row.children || row.children.length === 0">
+                                    </el-table-column>
+                                    <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                                    <el-table-column prop="maxCapacity" label="上限数量" min-width="90" align="center">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                                <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.maxCapacity != null ? row.maxCapacity : '' }}</span>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column prop="currentCount" label="现有数量" min-width="90" align="center">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                                <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ row.currentCount != null ? row.currentCount : '' }}</span>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="信评报告" min-width="240">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                            <div class="upload-cell">
+                                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                    <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog(row.id, 'credit')">选择报告</el-button>
+                                                    <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                               :on-change="(f, fl) => handleAttachmentChange(row.id, f, fl)"
+                                                               multiple :show-file-list="false">
+                                                        <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                    </el-upload>
+                                                </div>
+                                                <div v-if="getCreditReportSelections(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(r, i) in getCreditReportSelections(row.id)" :key="'cr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                                        <i class="el-icon-close" @click="removeCreditReportSelection(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                                <div v-if="getAttachmentFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in getAttachmentFiles(row.id)" :key="i" class="upload-file-tag">
+                                                        <span :title="f.name">{{ f.name }}</span>
+                                                        <i class="el-icon-close" @click="removeAttachmentFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="其他材料" min-width="240">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                            <div class="upload-cell">
+                                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                    <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog(row.id, 'material')">选择报告</el-button>
+                                                    <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                               :on-change="(f, fl) => handleMaterialChange(row.id, f, fl)"
+                                                               multiple :show-file-list="false">
+                                                        <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                    </el-upload>
+                                                </div>
+                                                <div v-if="getOtherMaterialSelections(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(r, i) in getOtherMaterialSelections(row.id)" :key="'om_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                                        <i class="el-icon-close" @click="removeOtherMaterialSelection(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                                <div v-if="getMaterialFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in getMaterialFiles(row.id)" :key="i" class="upload-file-tag">
+                                                        <span :title="f.name">{{ f.name }}</span>
+                                                        <i class="el-icon-close" @click="removeMaterialFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
+                            </div>
+                        </div>
+
+                        <!-- 提交区 -->
+                        <div class="submit-area">
+                            <el-button size="small" @click="backToList" icon="el-icon-close">取消</el-button>
+                            <el-button type="primary" size="small" icon="el-icon-arrow-right"
+                                       :disabled="selectedInPools.length === 0 && selectedOutPools.length === 0"
+                                       :loading="adjustCheckLoading"
+                                       @click="goToStep2">
+                                下一步
+                                <span v-if="selectedInPools.length + selectedOutPools.length > 0"
+                                      style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">
+                                {{ selectedInPools.length + selectedOutPools.length }}
+                            </span>
+                            </el-button>
+                        </div>
+                    </div>
+                    <!-- /步骤1 -->
+                </div>
+            </div>
+            <!-- /调库操作 -->
+
+            <!-- 步骤2：调库校验结果 -->
+            <div class="section-card" v-show="adjustStep === 2" style="animation-delay:.03s;">
+                <div class="section-header" @click="toggleSection('adjustReview')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">调库校验结果</div>
+                    <span class="count-chip" style="margin-left:10px;">共 {{ adjustReviewList.length }} 条</span>
+                    <i :class="sectionExpanded.adjustReview ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.adjustReview" class="section-body" style="padding:0;">
+                    <el-table :data="adjustReviewList" size="small" stripe border style="width:100%;"
+                              :empty-text="'暂无数据'">
+                        <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                        <el-table-column prop="direction" label="调库方向" min-width="90" align="center">
+                            <template slot-scope="{ row }">
+                                <el-tag size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="flowName" label="审批流程" min-width="170" show-overflow-tooltip>
+                            <template slot-scope="{ row }">
+                                <span v-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
+                                    <el-tag size="mini" type="info">{{ flowTypeLabel(row.flowType) }}</el-tag>
+                                    <span>{{ row.flowName }}</span>
+                                </span>
+                                <span v-else></span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="信评报告" min-width="260">
+                            <template slot-scope="{ row }">
+                                <div class="upload-cell">
+                                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                        <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog(row.poolId, 'credit')">选择报告</el-button>
+                                        <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                   :on-change="(f, fl) => handleAttachmentChange(row.poolId, f, fl)"
+                                                   multiple :show-file-list="false">
+                                            <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                        </el-upload>
+                                    </div>
+                                    <div v-if="getCreditReportSelections(row.poolId).length > 0" class="upload-file-list">
+                                        <div v-for="(r, i) in getCreditReportSelections(row.poolId)" :key="'cr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                            <span :title="r.title">{{ r.title }}</span>
+                                            <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                            <i class="el-icon-close" @click="removeCreditReportSelection(row.poolId, i)"></i>
+                                        </div>
+                                    </div>
+                                    <div v-if="getAttachmentFiles(row.poolId).length > 0" class="upload-file-list">
+                                        <div v-for="(f, i) in getAttachmentFiles(row.poolId)" :key="'af_'+i" class="upload-file-tag">
+                                            <span :title="f.name">{{ f.name }}</span>
+                                            <i class="el-icon-close" @click="removeAttachmentFile(row.poolId, i)"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="其他材料" min-width="260">
+                            <template slot-scope="{ row }">
+                                <div class="upload-cell">
+                                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                        <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog(row.poolId, 'material')">选择报告</el-button>
+                                        <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                   :on-change="(f, fl) => handleMaterialChange(row.poolId, f, fl)"
+                                                   multiple :show-file-list="false">
+                                            <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                        </el-upload>
+                                    </div>
+                                    <div v-if="getOtherMaterialSelections(row.poolId).length > 0" class="upload-file-list">
+                                        <div v-for="(r, i) in getOtherMaterialSelections(row.poolId)" :key="'om_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                            <span :title="r.title">{{ r.title }}</span>
+                                            <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                            <i class="el-icon-close" @click="removeOtherMaterialSelection(row.poolId, i)"></i>
+                                        </div>
+                                    </div>
+                                    <div v-if="getMaterialFiles(row.poolId).length > 0" class="upload-file-list">
+                                        <div v-for="(f, i) in getMaterialFiles(row.poolId)" :key="'mf_'+i" class="upload-file-tag">
+                                            <span :title="f.name">{{ f.name }}</span>
+                                            <i class="el-icon-close" @click="removeMaterialFile(row.poolId, i)"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="adjustNote" label="调整说明" min-width="200" show-overflow-tooltip></el-table-column>
+                        <el-table-column label="校验结果" min-width="160" align="center">
+                            <template slot-scope="{ row }">
+                                <span style="display:inline-flex;align-items:center;gap:5px;">
+                                    <span class="status-dot" :class="{ green: row.valid, red: !row.valid }"></span>
+                                    <span :style="{fontSize:'12px',fontWeight:600,color:row.valid?'var(--c-green)':'var(--c-red)'}">
+                                        {{ row.valid ? '可调整' : '不可调整' }}
+                                    </span>
+                                </span>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </div>
+            <!-- /调库校验结果 -->
+
+            <!-- 原因和建议 -->
+            <div class="section-card" v-show="adjustStep === 2" style="animation-delay:.06s;">
+                <div class="section-header" @click="toggleSection('reasonAdvice')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">原因和建议</div>
+                    <i :class="sectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.reasonAdvice" style="padding:20px 22px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div>
+                            <el-input type="textarea" :rows="4" v-model="adjustReason"
+                                      size="small" placeholder="请输入调整原因" maxlength="500" show-word-limit></el-input>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div>
+                            <el-input type="textarea" :rows="4" v-model="adjustAdvice"
+                                      size="small" placeholder="请输入调整建议" maxlength="500" show-word-limit></el-input>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 步骤2操作按钮 -->
+                <div class="action-footer">
+                    <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
+                    <el-button type="primary" size="small" icon="el-icon-check"
+                               :disabled="validCount === 0"
+                               @click="handleSubmit">
+                        提交
+                        <span v-if="validCount > 0"
+                              style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">
+                            {{ validCount }}
+                        </span>
+                    </el-button>
+                </div>
+            </div>
+            <!-- /原因和建议 -->
+
+            <!-- /步骤2 -->
+
+        </div>
+    </div>
+
+        <!-- ── 调库流程选择弹窗 ── -->
+        <el-dialog title="选择调库流程" :visible.sync="flowDialogVisible" width="620px"
+                   custom-class="flow-dialog" :close-on-click-modal="false" :show-close="false">
+            <div class="flow-option-list">
+                <el-radio-group v-model="selectedFlowKey" style="width:100%;">
+                    <el-radio v-for="option in flowOptions" :key="option.optionKey"
+                              :label="option.optionKey"
+                              :disabled="!option.selectable"
+                              class="flow-option-card"
+                              :class="{ 'is-selected': selectedFlowKey === option.optionKey }">
+                        <div class="flow-option-head">
+                            <span class="flow-option-name">{{ option.flowName }}</span>
+                            <el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag>
+                            <el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag>
+                            <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
+                        </div>
+                        <div class="flow-option-reasons">
+                            <div v-for="(reason, idx) in option.matchReasons" :key="'m_' + option.optionKey + '_' + idx"
+                                 class="flow-option-reason ok">{{ reason }}</div>
+                            <div v-for="(reason, idx) in option.unmatchReasons" :key="'u_' + option.optionKey + '_' + idx"
+                                 class="flow-option-reason warn">{{ reason }}</div>
+                        </div>
+                    </el-radio>
+                </el-radio-group>
+            </div>
+            <span slot="footer">
+                <el-button size="small" @click="goToStep1">取消</el-button>
+                <el-button type="primary" size="small" :disabled="!selectedFlowOption" @click="confirmFlowSelection">确认</el-button>
+            </span>
+        </el-dialog>
+
+        <!-- ── 信评报告选择弹窗 ── -->
+        <el-dialog :title="reportDialogTitle" :visible.sync="reportDialogVisible" width="960px"
+                   custom-class="report-dialog" top="6vh" @closed="handleReportDialogClosed">
+
+            <!-- 顶部统计条 -->
+            <div class="report-stats-bar">
+                <div class="report-stats-info">
+                    <i class="el-icon-collection-tag"></i>
+                    <span>正在为 <strong>{{ reportDialogColumn === 'material' ? '其他材料' : '信评报告' }}</strong> 选择参考材料，可在内部 / 外部报告之间切换</span>
+                </div>
+                <div class="report-stats-count">
+                    已选 <strong>{{ totalSelectedReports }}</strong> 条
+                </div>
+            </div>
+
+            <el-tabs v-model="reportActiveTab" @tab-click="handleReportTabClick">
+                <el-tab-pane name="internal">
+                    <span slot="label">
+                        内部报告<span v-if="selectedInternalReports.length" class="tab-count-badge">{{ selectedInternalReports.length }}</span>
+                    </span>
+
+                    <!-- 快捷类型 -->
+                    <div class="report-quick-row">
+                        <span class="report-quick-label">类型</span>
+                        <span class="report-quick-chip" :class="{ active: !internalReportFilters.reportType }"
+                              @click="setInternalReportTypeFilter('')">全部</span>
+                        <span v-for="t in internalReportTypeOptions" :key="t" class="report-quick-chip"
+                              :class="{ active: internalReportFilters.reportType === t }"
+                              @click="setInternalReportTypeFilter(t)">{{ t }}</span>
+                    </div>
+
+                    <!-- 筛选条件 -->
+                    <div class="report-filter-bar">
+                        <el-input v-model="internalReportFilters.title" placeholder="标题关键字" clearable size="small"
+                                  style="width:200px;" prefix-icon="el-icon-search"
+                                  @keyup.enter.native="queryInternalReports"></el-input>
+                        <el-input v-model="internalReportFilters.securityCode" placeholder="证券编码" clearable size="small"
+                                  style="width:180px;" prefix-icon="el-icon-document"
+                                  @keyup.enter.native="queryInternalReports"></el-input>
+                        <el-date-picker v-model="internalReportFilters.writeDateRange" type="daterange"
+                                        range-separator="~" start-placeholder="开始日期" end-placeholder="结束日期"
+                                        size="small" style="width:240px;" value-format="yyyy-MM-dd">
+                        </el-date-picker>
+                        <el-button type="primary" size="small" icon="el-icon-search" @click="queryInternalReports">查询</el-button>
+                        <el-button size="small" icon="el-icon-refresh-left" @click="resetInternalReportFilters">重置</el-button>
+                    </div>
+
+                    <el-table ref="internalReportTableRef" :data="internalReportPageData" size="small" stripe border
+                              v-loading="internalReportLoading" style="width:100%;"
+                              :empty-text="'未找到匹配的报告'"
+                              @selection-change="handleInternalReportSelectionChange">
+                        <el-table-column type="selection" width="42"></el-table-column>
+                        <el-table-column prop="title" label="报告标题" min-width="220" show-overflow-tooltip>
+                            <template slot-scope="{ row }">
+                                <span style="font-weight:500;color:var(--c-text);">{{ row.title }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="reportType" label="类型" min-width="110">
+                            <template slot-scope="{ row }">
+                                <span class="report-type-tag" :class="getReportTypeClass(row.reportType)">{{ row.reportType }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="securityCode" label="证券代码" min-width="120">
+                            <template slot-scope="{ row }">
+                                <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-primary);">{{ row.securityCode }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="industry" label="行业" min-width="90"></el-table-column>
+                        <el-table-column prop="rating" label="评级" min-width="80" align="center">
+                            <template slot-scope="{ row }">
+                                <span class="rating-badge" :class="getRatingClass(row.rating)">{{ row.rating }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="作者 / 撰写时间" min-width="140">
+                            <template slot-scope="{ row }">
+                                <div style="display:flex;flex-direction:column;line-height:1.4;">
+                                    <span style="font-size:12px;color:var(--c-text);">{{ row.author }}</span>
+                                    <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--c-text-3);">{{ row.writeDate }}</span>
+                                </div>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+
+                    <div class="report-pagination">
+                        <el-pagination
+                            :total="internalReportPagination.total"
+                            :current-page="internalReportPagination.pageIndex"
+                            :page-size="internalReportPagination.pageSize"
+                            :page-sizes="[10, 20, 50]"
+                            layout="total, sizes, prev, pager, next"
+                            small
+                            @current-change="(p) => { internalReportPagination.pageIndex = p; queryInternalReports(); }"
+                            @size-change="(s) => { internalReportPagination.pageSize = s; internalReportPagination.pageIndex = 1; queryInternalReports(); }">
+                        </el-pagination>
+                    </div>
+                </el-tab-pane>
+
+                <el-tab-pane name="external">
+                    <span slot="label">
+                        外部报告<span v-if="selectedExternalReports.length" class="tab-count-badge">{{ selectedExternalReports.length }}</span>
+                    </span>
+
+                    <!-- 快捷类型 -->
+                    <div class="report-quick-row">
+                        <span class="report-quick-label">类型</span>
+                        <span class="report-quick-chip" :class="{ active: !externalReportFilters.reportType }"
+                              @click="setExternalReportTypeFilter('')">全部</span>
+                        <span v-for="t in externalReportTypeOptions" :key="t" class="report-quick-chip"
+                              :class="{ active: externalReportFilters.reportType === t }"
+                              @click="setExternalReportTypeFilter(t)">{{ t }}</span>
+                    </div>
+
+                    <!-- 筛选条件 -->
+                    <div class="report-filter-bar">
+                        <el-input v-model="externalReportFilters.title" placeholder="标题关键字" clearable size="small"
+                                  style="width:200px;" prefix-icon="el-icon-search"
+                                  @keyup.enter.native="queryExternalReports"></el-input>
+                        <el-input v-model="externalReportFilters.securityCode" placeholder="证券编码" clearable size="small"
+                                  style="width:180px;" prefix-icon="el-icon-document"
+                                  @keyup.enter.native="queryExternalReports"></el-input>
+                        <el-date-picker v-model="externalReportFilters.writeDateRange" type="daterange"
+                                        range-separator="~" start-placeholder="开始日期" end-placeholder="结束日期"
+                                        size="small" style="width:240px;" value-format="yyyy-MM-dd">
+                        </el-date-picker>
+                        <el-button type="primary" size="small" icon="el-icon-search" @click="queryExternalReports">查询</el-button>
+                        <el-button size="small" icon="el-icon-refresh-left" @click="resetExternalReportFilters">重置</el-button>
+                    </div>
+
+                    <el-table ref="externalReportTableRef" :data="externalReportPageData" size="small" stripe border
+                              v-loading="externalReportLoading" style="width:100%;"
+                              :empty-text="'未找到匹配的报告'"
+                              @selection-change="handleExternalReportSelectionChange">
+                        <el-table-column type="selection" width="42"></el-table-column>
+                        <el-table-column prop="title" label="报告标题" min-width="220" show-overflow-tooltip>
+                            <template slot-scope="{ row }">
+                                <span style="font-weight:500;color:var(--c-text);">{{ row.title }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="reportType" label="类型" min-width="110">
+                            <template slot-scope="{ row }">
+                                <span class="report-type-tag" :class="getReportTypeClass(row.reportType)">{{ row.reportType }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="securityCode" label="证券代码" min-width="120">
+                            <template slot-scope="{ row }">
+                                <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-primary);">{{ row.securityCode }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="industry" label="行业" min-width="90"></el-table-column>
+                        <el-table-column prop="rating" label="评级" min-width="80" align="center">
+                            <template slot-scope="{ row }">
+                                <span class="rating-badge" :class="getRatingClass(row.rating)">{{ row.rating }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="作者 / 撰写时间" min-width="140">
+                            <template slot-scope="{ row }">
+                                <div style="display:flex;flex-direction:column;line-height:1.4;">
+                                    <span style="font-size:12px;color:var(--c-text);">{{ row.author }}</span>
+                                    <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--c-text-3);">{{ row.writeDate }}</span>
+                                </div>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+
+                    <div class="report-pagination">
+                        <el-pagination
+                            :total="externalReportPagination.total"
+                            :current-page="externalReportPagination.pageIndex"
+                            :page-size="externalReportPagination.pageSize"
+                            :page-sizes="[10, 20, 50]"
+                            layout="total, sizes, prev, pager, next"
+                            small
+                            @current-change="(p) => { externalReportPagination.pageIndex = p; queryExternalReports(); }"
+                            @size-change="(s) => { externalReportPagination.pageSize = s; externalReportPagination.pageIndex = 1; queryExternalReports(); }">
+                        </el-pagination>
+                    </div>
+                </el-tab-pane>
+            </el-tabs>
+
+            <!-- 已选清单 -->
+            <div class="report-selected-summary">
+                <div class="report-selected-summary-row">
+                    <span class="report-selected-label">
+                        内部报告
+                        <span class="report-selected-count" :class="{ 'is-empty': !selectedInternalReports.length }">{{ selectedInternalReports.length }}</span>
+                    </span>
+                    <template v-if="selectedInternalReports.length">
+                        <span v-for="r in selectedInternalReports" :key="'ir_'+r.id" class="selected-tag selected-tag-internal">
+                            <span :title="r.title">{{ r.title }}</span>
+                            <i class="el-icon-close" @click="removeInternalSelection(r.id)"></i>
+                        </span>
+                        <el-button type="text" class="selected-clear-btn" @click="clearInternalSelection">清空</el-button>
+                    </template>
+                    <span v-else class="report-selected-empty">未选择</span>
+                </div>
+                <div class="report-selected-summary-row">
+                    <span class="report-selected-label">
+                        外部报告
+                        <span class="report-selected-count" :class="{ 'is-empty': !selectedExternalReports.length }">{{ selectedExternalReports.length }}</span>
+                    </span>
+                    <template v-if="selectedExternalReports.length">
+                        <span v-for="r in selectedExternalReports" :key="'er_'+r.id" class="selected-tag selected-tag-external">
+                            <span :title="r.title">{{ r.title }}</span>
+                            <i class="el-icon-close" @click="removeExternalSelection(r.id)"></i>
+                        </span>
+                        <el-button type="text" class="selected-clear-btn" @click="clearExternalSelection">清空</el-button>
+                    </template>
+                    <span v-else class="report-selected-empty">未选择</span>
+                </div>
+            </div>
+
+            <span slot="footer">
+                <el-button size="small" @click="reportDialogVisible = false">取消</el-button>
+                <el-button type="primary" size="small" icon="el-icon-check"
+                           :disabled="totalSelectedReports === 0"
+                           @click="handleConfirmReportDialog">
+                    确认选择
+                    <span v-if="totalSelectedReports > 0"
+                          style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">
+                        {{ totalSelectedReports }}
+                    </span>
+                </el-button>
+            </span>
+        </el-dialog>
+</div>
+
+<script>
+    new Vue({
+        el: '#security_pool_adjust',
+        data() {
+            return {
+                currentPage: 'detail',          // 当前显示页：'list'=列表页 / 'detail'=详情页
+                searchForm: { securityCode: '', securityShortName: '', issuer: '' }, // 列表页搜索条件
+                tableData: [],                // 列表页表格数据
+                loading: false,               // 列表页加载状态
+                pagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 列表页分页参数
+                selectedSecurityId: null,     // 当前选中操作的证券ID
+                bondDetail: {},               // 证券基本信息（详情页）
+                detailLoading: false,         // 详情页加载状态
+                securityCurrentPools: [],     // 当前证券所在的投资池列表
+                issuerCurrentPools: [],       // 当前证券主体所在的投资池列表
+                securityPoolExpanded: false,  // 证券所在池展开/折叠状态
+                issuerPoolExpanded: false,    // 主体所在池展开/折叠状态
+                adjustInTree: [],             // 可调入池树形数据
+                adjustOutTree: [],            // 可调出池树形数据
+                selectedInPools: [],          // 步骤1中已勾选的调入池列表
+                selectedOutPools: [],         // 步骤1中已勾选的调出池列表
+                attachmentFiles: {},          // 各池附件文件映射 { poolId: [File, ...] }
+                materialFiles: {},            // 各池其他材料文件映射 { poolId: [File, ...] }
+                adjustStep: 1,           // 调库步骤：1=选择池, 2=校验确认
+                adjustCheckLoading: false, // 下一步校验接口加载状态
+                currentLoginUserId: '1001', // 当前默认登录用户 ID
+                adjustReviewList: [],    // 步骤2校验结果列表
+                pendingAdjustReviewList: [], // 等待流程选择确认的校验结果
+                flowDialogVisible: false, // 流程选择弹窗显示状态
+                flowOptions: [],          // 后端返回的可选流程
+                selectedFlowKey: '',      // 当前选中的流程 Key
+                adjustReason: '',       // 调整原因（步骤2）
+                adjustAdvice: '',       // 调整建议（步骤2）
+                adjustLogList: [],       // 调库记录列表
+                flowStepList: [],        // 当前流程步骤列表
+                sectionExpanded: {      // 详情页各区块折叠状态
+                    bondInfo: true,
+                    adjustLog: true,
+                    flowStatus: true,
+                    currentPools: true,
+                    adjustOp: true,
+                    adjustReview: true,
+                    reasonAdvice: true
+                },
+                // ── 信评报告选择弹窗 ──
+                reportDialogVisible: false,        // 弹窗显示状态
+                reportDialogPoolId: null,          // 当前操作池ID
+                reportDialogColumn: '',            // 当前操作列 'credit' | 'material'
+                reportActiveTab: 'internal',       // 当前激活Tab
+                internalReportData: [],            // 全部内部报告数据
+                internalReportFilters: {
+                    title: '',                     // 标题筛选
+                    securityCode: '',              // 证券编码筛选
+                    reportType: '',                // 报告类型快捷筛选
+                    writeDateRange: null           // 撰写日期范围 [start, end]
+                },
+                internalReportPagination: {
+                    pageIndex: 1,                  // 当前页码
+                    pageSize: 10,                  // 每页条数
+                    total: 0                       // 总条数
+                },
+                internalReportLoading: false,      // 内部报告加载状态
+                selectedInternalReports: [],       // 本次弹窗会话中选中的内部报告
+                externalReportData: [],            // 全部外部报告数据
+                externalReportFilters: {
+                    title: '',                     // 标题筛选
+                    securityCode: '',              // 证券编码筛选
+                    reportType: '',                // 报告类型快捷筛选
+                    writeDateRange: null           // 撰写日期范围 [start, end]
+                },
+                externalReportPagination: {
+                    pageIndex: 1,                  // 当前页码
+                    pageSize: 10,                  // 每页条数
+                    total: 0                       // 总条数
+                },
+                externalReportLoading: false,      // 外部报告加载状态
+                selectedExternalReports: [],       // 本次弹窗会话中选中的外部报告
+                restoringReportSelection: false,   // 恢复选中状态时的防抖标志
+                creditReportSelections: {},        // { poolId: [{ id, title, reportType, source }] }
+                otherMaterialSelections: {},       // { poolId: [{ id, title, reportType, source }] }
+                inMutexMap: {},                    // 调入互斥映射 { poolId: [mutexPoolId, ...] }
+                outMutexMap: {},                   // 调出互斥映射 { poolId: [mutexPoolId, ...] }
+            };
+        },
+        computed: {
+            // 通过校验的数量
+            validCount() {
+                return this.adjustReviewList.filter(r => r.valid).length;
+            },
+            // 未通过校验的数量
+            invalidCount() {
+                return this.adjustReviewList.filter(r => !r.valid).length;
+            },
+            // 未通过校验的原因列表
+            invalidReasons() {
+                return this.adjustReviewList.filter(r => !r.valid).map(r => ({
+                    poolName: r.poolName,
+                    direction: r.direction,
+                    reason: r.failReason
+                }));
+            },
+            // 调整建议
+            adjustSuggestion() {
+                if (this.invalidCount === 0) return '';
+                return '请根据上述提示原因，调整所选投资池或补充相关材料后重新提交校验。如确认无法调整，可剔除不可调整的库后单独提交可调整的部分。';
+            },
+            // 当前选中的流程候选项
+            selectedFlowOption() {
+                if (!this.selectedFlowKey) return null;
+                return this.flowOptions.find(option => option.optionKey === this.selectedFlowKey) || null;
+            },
+            // 可选择的流程候选项
+            selectableFlowOptions() {
+                return this.flowOptions.filter(option => option.selectable);
+            },
+            // 内部报告当前页数据（客户端筛选+分页）
+            internalReportPageData() {
+                let list = this.internalReportData;
+                const f = this.internalReportFilters;
+                if (f.title) {
+                    const kw = f.title.toLowerCase();
+                    list = list.filter(r => r.title.toLowerCase().indexOf(kw) !== -1);
+                }
+                if (f.securityCode) {
+                    const kw = f.securityCode.toLowerCase();
+                    list = list.filter(r => r.securityCode.toLowerCase().indexOf(kw) !== -1);
+                }
+                if (f.reportType) {
+                    list = list.filter(r => r.reportType === f.reportType);
+                }
+                if (f.writeDateRange && f.writeDateRange.length === 2) {
+                    const [start, end] = f.writeDateRange;
+                    list = list.filter(r => r.writeDate >= start && r.writeDate <= end);
+                }
+                this.internalReportPagination.total = list.length;
+                const start = (this.internalReportPagination.pageIndex - 1) * this.internalReportPagination.pageSize;
+                return list.slice(start, start + this.internalReportPagination.pageSize);
+            },
+            // 外部报告当前页数据（客户端筛选+分页）
+            externalReportPageData() {
+                let list = this.externalReportData;
+                const f = this.externalReportFilters;
+                if (f.title) {
+                    const kw = f.title.toLowerCase();
+                    list = list.filter(r => r.title.toLowerCase().indexOf(kw) !== -1);
+                }
+                if (f.securityCode) {
+                    const kw = f.securityCode.toLowerCase();
+                    list = list.filter(r => r.securityCode.toLowerCase().indexOf(kw) !== -1);
+                }
+                if (f.reportType) {
+                    list = list.filter(r => r.reportType === f.reportType);
+                }
+                if (f.writeDateRange && f.writeDateRange.length === 2) {
+                    const [start, end] = f.writeDateRange;
+                    list = list.filter(r => r.writeDate >= start && r.writeDate <= end);
+                }
+                this.externalReportPagination.total = list.length;
+                const start = (this.externalReportPagination.pageIndex - 1) * this.externalReportPagination.pageSize;
+                return list.slice(start, start + this.externalReportPagination.pageSize);
+            },
+            // 内部报告所有可选类型（去重）
+            internalReportTypeOptions() {
+                const set = new Set();
+                this.internalReportData.forEach(r => { if (r.reportType) set.add(r.reportType); });
+                return Array.from(set);
+            },
+            // 外部报告所有可选类型（去重）
+            externalReportTypeOptions() {
+                const set = new Set();
+                this.externalReportData.forEach(r => { if (r.reportType) set.add(r.reportType); });
+                return Array.from(set);
+            },
+            // 总选中数量
+            totalSelectedReports() {
+                return this.selectedInternalReports.length + this.selectedExternalReports.length;
+            },
+            // 弹窗标题（按列动态变化）
+            reportDialogTitle() {
+                return this.reportDialogColumn === 'material' ? '选择其他材料' : '选择信评报告';
+            },
+        },
+        // 页面初始化：设置接口基础地址，加载独立调库详情页
+        created() {
+            axios.defaults.baseURL = 'http://localhost:18090';
+            this.initStandaloneDetailPage();
+        },
+        methods: {
+            // 统一 POST 请求封装，后端返回 { code, data, message }，code≠0 时弹错误提示并抛异常
+            async apiPost(path, body) {
+                const resp = await axios.post(path, body || {});
+                const json = resp.data;
+                if (json.code !== 0) {
+                    this.$message.error(json.message || '接口异常');
+                    throw new Error(json.message || '接口异常');
+                }
+                return json.data;
+            },
+            // 获取 URL 查询参数
+            getUrlParam(name) {
+                return new URLSearchParams(window.location.search).get(name) || '';
+            },
+            // 初始化独立调库详情页
+            async initStandaloneDetailPage() {
+                const securityId = this.getUrlParam('securityId') || this.getUrlParam('id');
+                let securityCode = this.getUrlParam('securityCode') || this.getUrlParam('windCode');
+                if (!securityId && !securityCode) {
+                    this.$message.warning('缺少证券信息，请从业务页面进入');
+                    return;
+                }
+                this.selectedSecurityId = securityId || null;
+                this.adjustStep = 1;
+                if (!securityCode && securityId) {
+                    try {
+                        const detail = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail', { securityId });
+                        securityCode = detail && detail.windCode ? detail.windCode : '';
+                    } catch (e) {}
+                }
+                await this.loadDetailData(securityCode);
+            },
+            // 加载证券分页列表（按搜索条件查询）
+            async loadList() {
+                this.loading = true;
+                try {
+                    const data = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityPage', {
+                        securityCode: this.searchForm.securityCode,
+                        securityShortName: this.searchForm.securityShortName,
+                        issuer: this.searchForm.issuer,
+                        pageIndex: this.pagination.pageIndex,
+                        pageSize: this.pagination.pageSize
+                    });
+                    this.tableData = data.records || [];
+                    this.pagination.total = data.total || 0;
+                } catch (e) {}
+                this.loading = false;
+            },
+            // 触发查询（重置到第一页）
+            handleSearch() { this.pagination.pageIndex = 1; this.loadList(); },
+            // 重置搜索条件并重新加载
+            handleReset() {
+                this.searchForm = { securityCode: '', securityShortName: '', issuer: '' };
+                this.pagination.pageIndex = 1; this.loadList();
+            },
+            // 分页页码切换
+            handlePageChange(page) { this.pagination.pageIndex = page; this.loadList(); },
+            // 每页条数切换
+            handleSizeChange(size) { this.pagination.pageSize = size; this.pagination.pageIndex = 1; this.loadList(); },
+            // 点击调库按钮，跳转到详情页并加载证券完整数据
+            async handleAdjust(row) {
+                this.selectedSecurityId = row.id;
+                this.currentPage = 'detail';
+                await this.loadDetailData(row.windCode || row.securityCode);
+            },
+            // 查询当前证券所在池及主体所在池
+            async loadSecurityPoolStatus(securityCode) {
+                try {
+                    const data = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', {
+                        securityCode: securityCode
+                    });
+                    this.securityCurrentPools = data.securityCurrentPools || [];
+                    this.issuerCurrentPools = data.issuerCurrentPools || [];
+                } catch (e) {
+                    this.securityCurrentPools = [];
+                    this.issuerCurrentPools = [];
+                }
+            },
+            // 池类型码 → 中文名
+            poolTypeLabel(poolType) {
+                const map = {
+                    credit_bond: '信用债', offshore_bond: '境外债', convertible_bond: '转债',
+                    special_account: '专户产品', research: '研究池', fund: '基金池',
+                    restricted: '限制池', industry: '行业池', whitelist: '白名单',
+                    blacklist: '黑名单', private_placement: '私募池', other: '其他'
+                };
+                return map[poolType] || poolType || '';
+            },
+            // 并发加载详情页所需的全部数据（证券详情/可调入出池/当前所在池/调库记录）
+            async loadDetailData(securityCode) {
+                this.detailLoading = true;
+                try {
+                    const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
+                        this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail',     { securityId: this.selectedSecurityId }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityId: this.selectedSecurityId, adjustDirection: 'in' }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityId: this.selectedSecurityId, adjustDirection: 'out' }),
+                        this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode })
+                    ]);
+                    this.bondDetail    = detail  || {};
+                    // 当前所在池
+                    this.securityCurrentPools   = (poolStatus && poolStatus.securityCurrentPools)   || [];
+                    this.issuerCurrentPools = (poolStatus && poolStatus.issuerCurrentPools) || [];
+
+                    const inPoolsData  = inPools  || [];
+                    const outPoolsData = outPools || [];
+
+                    // 证券当前已在库的池 ID 集合
+                    const currentSecurityPoolIds = new Set(
+                        this.securityCurrentPools.map(p => p.targetPoolId).filter(id => id != null)
+                    );
+
+                    // 调出池：只保留证券当前已在其中的池及其父节点
+                    const outPoolsFiltered = outPoolsData.filter(p =>
+                        currentSecurityPoolIds.has(p.id) ||
+                        outPoolsData.some(c => c.parentId === p.id && currentSecurityPoolIds.has(c.id))
+                    );
+                    this.adjustOutTree = this.buildPoolTree(outPoolsFiltered);
+
+                    // 调入池：排除证券已在其中的叶子节点，父节点若所有子节点均被排除则一并移除
+                    const inPoolsFiltered = inPoolsData.filter(p => {
+                        if (currentSecurityPoolIds.has(p.id)) return false;
+                        const isLeaf = !inPoolsData.some(c => c.parentId === p.id);
+                        if (isLeaf) return true;
+                        return inPoolsData.some(c => c.parentId === p.id && !currentSecurityPoolIds.has(c.id));
+                    });
+                    this.adjustInTree = this.buildPoolTree(inPoolsFiltered);
+
+                    // 构建互斥映射（合并调入/调出两边的数据，两边互斥关系一致）
+                    const allPools = [...inPoolsData, ...outPoolsData];
+                    const inMap = {};
+                    const outMap = {};
+                    allPools.forEach(p => {
+                        if (p.inMutexPoolIds && p.inMutexPoolIds.length > 0) {
+                            inMap[p.id] = p.inMutexPoolIds;
+                        }
+                        if (p.outMutexPoolIds && p.outMutexPoolIds.length > 0) {
+                            outMap[p.id] = p.outMutexPoolIds;
+                        }
+                    });
+                    this.inMutexMap = inMap;
+                    this.outMutexMap = outMap;
+                    this.adjustLogList = logList || [];
+                    // 查找当前活跃的调库记录并加载流程步骤
+                    this.loadFlowSteps(this.adjustLogList);
+                    this.attachmentFiles = {};
+                    this.materialFiles = {};
+                    this.creditReportSelections = {};
+                    this.otherMaterialSelections = {};
+                    this.initMockReportData();
+                } catch (e) {}
+                this.detailLoading = false;
+            },
+            // 由扁平的投资池列表组装树结构
+            buildPoolTree(list) {
+                if (!list || list.length === 0) return [];
+                const map = {};
+                const roots = [];
+                list.forEach(item => {
+                    map[item.id] = Object.assign({}, item, { children: [] });
+                });
+                list.forEach(item => {
+                    const node = map[item.id];
+                    if (item.parentId != null && map[item.parentId]) {
+                        map[item.parentId].children.push(node);
+                    } else {
+                        roots.push(node);
+                    }
+                });
+                return roots;
+            },
+            // 调入池选择互斥校验
+            handleInPoolSelect(selection, row) {
+                const id = row.id;
+                const wasSelected = this.selectedInPools.some(p => p.id === id);
+                const isNowSelected = selection.some(p => p.id === id);
+                if (!wasSelected && isNowSelected) {
+                    const mutexIds = this.inMutexMap[id] || [];
+                    // 同面板：调入 vs 调入
+                    const conflictIn = this.selectedInPools.filter(p => mutexIds.includes(p.id));
+                    if (conflictIn.length > 0) {
+                        const names = conflictIn.map(p => p.poolName).join('、');
+                        this.$message.warning('「' + row.poolName + '」与已选调入的「' + names + '」存在互斥关系，不能同时勾选');
+                        this.$refs.inTableRef.toggleRowSelection(row, false);
+                        return;
+                    }
+                    // 跨面板：调入 vs 已选调出
+                    const conflictOut = this.selectedOutPools.filter(p => mutexIds.includes(p.id));
+                    if (conflictOut.length > 0) {
+                        const names = conflictOut.map(p => p.poolName).join('、');
+                        this.$message.warning('「' + row.poolName + '」与已选调出的「' + names + '」存在互斥关系，不能同时勾选');
+                        this.$refs.inTableRef.toggleRowSelection(row, false);
+                        return;
+                    }
+                }
+                this.selectedInPools = selection;
+            },
+            // 调出池选择互斥校验
+            handleOutPoolSelect(selection, row) {
+                const id = row.id;
+                const wasSelected = this.selectedOutPools.some(p => p.id === id);
+                const isNowSelected = selection.some(p => p.id === id);
+                if (!wasSelected && isNowSelected) {
+                    const mutexIds = this.outMutexMap[id] || [];
+                    // 同面板：调出 vs 调出
+                    const conflictOut = this.selectedOutPools.filter(p => mutexIds.includes(p.id));
+                    if (conflictOut.length > 0) {
+                        const names = conflictOut.map(p => p.poolName).join('、');
+                        this.$message.warning('「' + row.poolName + '」与已选调出的「' + names + '」存在互斥关系，不能同时勾选');
+                        this.$refs.outTableRef.toggleRowSelection(row, false);
+                        return;
+                    }
+                    // 跨面板：调出 vs 已选调入
+                    const conflictIn = this.selectedInPools.filter(p => {
+                        const inMutexOfP = this.inMutexMap[p.id] || [];
+                        return inMutexOfP.includes(id);
+                    });
+                    if (conflictIn.length > 0) {
+                        const names = conflictIn.map(p => p.poolName).join('、');
+                        this.$message.warning('「' + row.poolName + '」与已选调入的「' + names + '」存在互斥关系，不能同时勾选');
+                        this.$refs.outTableRef.toggleRowSelection(row, false);
+                        return;
+                    }
+                }
+                this.selectedOutPools = selection;
+            },
+            // 获取指定池的信评报告附件文件列表
+            getAttachmentFiles(poolId) { return this.attachmentFiles[poolId] || []; },
+            // 获取指定池的其他材料文件列表
+            getMaterialFiles(poolId) { return this.materialFiles[poolId] || []; },
+            // 生成调库记录行的唯一 key（与投资池ID命名空间隔离）
+            getLogRowKey(row) {
+                const id = row.id != null ? row.id : (row.adjustLogId != null ? row.adjustLogId : (this.adjustLogList.indexOf(row)));
+                return 'log_' + id;
+            },
+            // 信评报告附件文件变更（el-upload on-change 回调），去重后追加到对应池
+            handleAttachmentChange(poolId, file, fileList) {
+                const current = this.attachmentFiles[poolId] || [];
+                if (file.raw && !current.some(f => f.uid === file.uid)) {
+                    this.$set(this.attachmentFiles, poolId, [...current, file]);
+                }
+            },
+            // 其他材料文件变更（el-upload on-change 回调），去重后追加到对应池
+            handleMaterialChange(poolId, file, fileList) {
+                const current = this.materialFiles[poolId] || [];
+                if (file.raw && !current.some(f => f.uid === file.uid)) {
+                    this.$set(this.materialFiles, poolId, [...current, file]);
+                }
+            },
+            // 移除指定池的附件文件
+            removeAttachmentFile(poolId, index) {
+                const files = [...(this.attachmentFiles[poolId] || [])];
+                files.splice(index, 1);
+                this.$set(this.attachmentFiles, poolId, files);
+            },
+            // 移除指定池的其他材料文件
+            removeMaterialFile(poolId, index) {
+                const files = [...(this.materialFiles[poolId] || [])];
+                files.splice(index, 1);
+                this.$set(this.materialFiles, poolId, files);
+            },
+            // 折叠/展开区块
+            toggleSection(key) {
+                this.$set(this.sectionExpanded, key, !this.sectionExpanded[key]);
+            },
+
+            // 审核状态样式
+            getStatusStyle(code) {
+                const map = {
+                    '-1': { bg: '#F0F2FA', color: '#8895B8' },
+                    '00': { bg: '#EEF2FD', color: '#1746D4' },
+                    '10': { bg: '#E8FBF3', color: '#0A8A5A' },
+                    '11': { bg: '#FFF6E8', color: '#B05E00' },
+                    '20': { bg: '#E8FBF3', color: '#0A8A5A' },
+                    '21': { bg: '#FFF0F0', color: '#D02020' },
+                    '99': { bg: '#F0F2FA', color: '#8895B8' }
+                };
+                return map[code] || { bg: '#F0F2FA', color: '#8895B8' };
+            },
+
+            // 加载当前活跃调库记录的流程步骤
+            async loadFlowSteps(adjustLogList) {
+                this.flowStepList = [];
+                if (!adjustLogList || adjustLogList.length === 0) return;
+                // 优先查找进行中的记录（00/10/11），其次最近一条审批通过的（20）
+                const activeLog = adjustLogList.find(l => ['00','10','11'].includes(l.auditStatus))
+                               || adjustLogList.find(l => l.auditStatus === '20');
+                if (!activeLog || !activeLog.id) return;
+                try {
+                    this.flowStepList = await this.apiPost('/api/v1/securityPoolAdjust/queryAdjustStepList', { adjustLogId: activeLog.id }) || [];
+                } catch (e) { this.flowStepList = []; }
+            },
+
+            // 步骤状态映射
+            stepStatusLabel(code) {
+                const map = {
+                    pending: '待处理',
+                    approved: '已通过',
+                    rejected: '已驳回',
+                    auto_completed: '自动完成',
+                    skipped: '已跳过',
+                    canceled: '已撤回'
+                };
+                return map[code] || code || '';
+            },
+
+            // 步骤状态样式
+            getStepStatusStyle(code) {
+                const map = {
+                    pending:        { bg: '#EEF2FD', color: '#1746D4' },
+                    approved:       { bg: '#E8FBF3', color: '#0A8A5A' },
+                    rejected:       { bg: '#FFF0F0', color: '#D02020' },
+                    auto_completed: { bg: '#E8FBF3', color: '#0A8A5A' },
+                    skipped:        { bg: '#F0F2FA', color: '#8895B8' },
+                    canceled:       { bg: '#F0F2FA', color: '#8895B8' }
+                };
+                return map[code] || { bg: '#F0F2FA', color: '#8895B8' };
+            },
+
+            // 流程步骤行样式：按状态和当前登录人区分显示
+            getFlowStepRowClass({ row }) {
+                if (!row) return '';
+                if (row.stepStatus === 'auto_completed') return 'flow-row-auto';
+                if (row.stepStatus === 'rejected') return 'flow-row-rejected';
+                if (row.stepStatus === 'approved') return 'flow-row-approved';
+                if (row.stepStatus === 'pending') {
+                    return this.isCurrentHandler(row)
+                        ? 'flow-row-pending-current'
+                        : 'flow-row-pending-other';
+                }
+                if (row.stepStatus === 'skipped' || row.stepStatus === 'canceled') return 'flow-row-ended';
+                return '';
+            },
+
+            // 判断流程步骤处理人是否为当前登录人
+            isCurrentHandler(row) {
+                return row && String(row.handlerId || '') === String(this.currentLoginUserId);
+            },
+
+            // 处理动作映射
+            processActionLabel(code) {
+                const map = {
+                    submit: '提交',
+                    approve: '通过',
+                    reject: '驳回',
+                    auto_process: '自动处理'
+                };
+                return map[code] || code || '';
+            },
+
+            // 解析附件/材料JSON，返回文件名数组
+            getFileNames(jsonStr) {
+                if (!jsonStr) return [];
+                let arr = [];
+                try { arr = JSON.parse(jsonStr); } catch (e) { return []; }
+                if (!Array.isArray(arr) || arr.length === 0) return [];
+                return arr.map(f => f.name || f.fileName || '').filter(Boolean);
+            },
+
+            // 流程类型展示文案
+            flowTypeLabel(type) {
+                const map = {
+                    whitelistInbound: '白名单',
+                    simpleInbound: '简易',
+                    normalInbound: '普通',
+                    upgradeInbound: '上调',
+                    downgradeInbound: '下调'
+                };
+                return map[type] || '标准';
+            },
+
+            // 流程候选标签样式
+            getFlowOptionTagType(option) {
+                if (!option) return 'info';
+                if (option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound') return 'success';
+                if (option.flowType === 'downgradeInbound') return 'warning';
+                return 'info';
+            },
+
+            // 进入步骤2（调用后端校验接口）
+            async goToStep2() {
+                const items = [];
+                this.selectedInPools.forEach(p => {
+                    items.push({ targetPoolId: p.id, targetPoolName: p.poolName, poolType: p.poolType || '', adjustMode: '调入' });
+                });
+                this.selectedOutPools.forEach(p => {
+                    items.push({ targetPoolId: p.id, targetPoolName: p.poolName, poolType: p.poolType || '', adjustMode: '调出' });
+                });
+
+                this.adjustCheckLoading = true;
+                const result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', {
+                    securityId: this.selectedSecurityId,
+                    securityCode: this.bondDetail.windCode || '',
+                    securityShortName: this.bondDetail.shortName || '',
+                    securityType: this.bondDetail.securityType || '',
+                    items
+                });
+                this.adjustCheckLoading = false;
+
+                const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' }
+                this.adjustReviewList = result.items.map(item => {
+                    const typePrefix = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode
+                    const failReasonStr = (item.failReasons || []).join('；')
+                    return {
+                        poolId: item.targetPoolId,
+                        poolName: item.poolName,
+                        poolType: item.poolType,
+                        direction: item.adjustMode,
+                        valid: item.canAdjust,
+                        failReason: failReasonStr,
+                        adjustNote: failReasonStr ? typePrefix + '；' + failReasonStr : typePrefix,
+                        attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
+                        materialFiles: this.getMaterialFiles(item.targetPoolId),
+                        creditReports: this.getCreditReportSelections(item.targetPoolId),
+                        otherMaterials: this.getOtherMaterialSelections(item.targetPoolId)
+                    }
+                });
+                this.pendingAdjustReviewList = this.adjustReviewList;
+                this.flowOptions = (result.flowOptions || []).map((option, index) => ({
+                    optionKey: (option.flowKey || option.flowType || 'flow') + '_' + index,
+                    flowType: option.flowType,
+                    flowName: option.flowName,
+                    flowId: option.flowId,
+                    flowKey: option.flowKey,
+                    matched: !!option.matched,
+                    selectable: option.selectable !== false,
+                    recommended: !!option.recommended,
+                    matchReasons: option.matchReasons || [],
+                    unmatchReasons: option.unmatchReasons || []
+                }));
+                const recommended = this.selectableFlowOptions.find(option => option.recommended) || this.selectableFlowOptions[0];
+                this.selectedFlowKey = recommended ? recommended.optionKey : '';
+                this.flowDialogVisible = false;
+                this.adjustStep = 2;
+            },
+
+            // 返回步骤1
+            goToStep1() {
+                this.adjustStep = 1;
+                this.flowDialogVisible = false;
+            },
+
+            // 确认选择调库流程
+            async confirmFlowSelection() {
+                const flow = this.selectedFlowOption;
+                if (!flow || !flow.selectable) {
+                    this.$message.warning('请选择调库流程');
+                    return;
+                }
+                this.flowDialogVisible = false;
+                await this.submitAdjustLog(flow);
+            },
+
+            // 提交调库申请
+            async handleSubmit() {
+                if (this.validCount === 0) {
+                    this.$message.warning('没有可提交的调库申请，请检查校验结果');
+                    return;
+                }
+                if (this.flowOptions.length === 0) {
+                    await this.submitAdjustLog(null);
+                    return;
+                }
+                if (this.selectableFlowOptions.length === 0) {
+                    this.$message.warning('没有可选择的调库流程，请检查流程配置或候选原因');
+                    return;
+                }
+                if (this.flowOptions.length === 1 && this.selectableFlowOptions.length === 1) {
+                    await this.submitAdjustLog(this.selectableFlowOptions[0]);
+                    return;
+                }
+                const recommended = this.selectableFlowOptions.find(option => option.recommended) || this.selectableFlowOptions[0];
+                this.selectedFlowKey = recommended ? recommended.optionKey : '';
+                this.flowDialogVisible = true;
+            },
+
+            // 执行调库申请提交
+            async submitAdjustLog(flow) {
+                if (flow) {
+                    this.adjustReviewList = this.adjustReviewList.map(item => ({
+                        ...item,
+                        flowId: flow.flowId,
+                        flowKey: flow.flowKey,
+                        flowType: flow.flowType,
+                        flowName: flow.flowName
+                    }));
+                }
+                const validItems = this.adjustReviewList.filter(r => r.valid);
+                const securityInfo = {
+                    fullName: this.bondDetail.fullName,
+                    shortName: this.bondDetail.shortName,
+                    windCode: this.bondDetail.windCode,
+                    issuer: this.bondDetail.issuer,
+                    windCodeNib: this.bondDetail.windCodeNib,
+                    windCodeSh: this.bondDetail.windCodeSh,
+                    windCodeSz: this.bondDetail.windCodeSz,
+                    windCodeBj: this.bondDetail.windCodeBj,
+                    issueAmountplan: this.bondDetail.issueAmountplan,
+                    couponRate: this.bondDetail.couponRate,
+                    dateInrightExists: this.bondDetail.dateInrightExists,
+                    carryDate: this.bondDetail.carryDate,
+                    maturityDate: this.bondDetail.maturityDate,
+                    infoPledgeRatio: this.bondDetail.infoPledgeRatio,
+                    ratingBondAgency: this.bondDetail.ratingBondAgency,
+                    ratingBond: this.bondDetail.ratingBond,
+                    ratingBondissuer: this.bondDetail.ratingBondissuer,
+                    ratingOutlook: this.bondDetail.ratingOutlook,
+                    agencyGrnttype: this.bondDetail.agencyGrnttype,
+                    agencyName: this.bondDetail.agencyName,
+                    innerIssuerRating: this.bondDetail.innerIssuerRating,
+                    dateRedemtionExists: this.bondDetail.dateRedemtionExists,
+                    dateCallExists: this.bondDetail.dateCallExists,
+                    innerGuarantorRating: this.bondDetail.innerGuarantorRating,
+                    dateExists: this.bondDetail.dateExists,
+                    fundUse: this.bondDetail.fundUse,
+                    promptReason: this.bondDetail.promptReason,
+                    analysis: this.bondDetail.analysis
+                };
+                const payload = {
+                    securityId: this.selectedSecurityId,
+                    securityCode: this.bondDetail.windCode || '',
+                    securityShortName: this.bondDetail.shortName || '',
+                    securityType: this.bondDetail.securityType || '',
+                    adjustType: '手工调整',
+                    adjustReason: this.adjustReason,
+                    adjustAdvice: this.adjustAdvice,
+                    securityInfo,
+                    adjusterId: '1001',
+                    adjusterName: '管理员',
+                    items: validItems.map(r => ({
+                        targetPoolId: r.poolId,
+                        targetPoolName: r.poolName,
+                        poolType: r.poolType || '',
+                        adjustMode: r.direction,
+                        flowId: r.flowId,
+                        flowKey: r.flowKey,
+                        flowType: r.flowType,
+                        adjustmentNote: r.adjustNote,
+                        attachmentFiles: JSON.stringify(r.attachmentFiles || []),
+                        materialFiles: JSON.stringify(r.materialFiles || []),
+                        creditReports: JSON.stringify(r.creditReports || []),
+                        otherMaterials: JSON.stringify(r.otherMaterials || [])
+                    }))
+                };
+                try {
+                    await this.apiPost('/api/v1/securityPoolAdjust/addAdjustLog', payload);
+                    this.$message.success('调库申请已成功提交');
+                    this.backToList();
+                } catch (e) {
+                    // apiPost 已弹出错误提示
+                }
+            },
+
+            // ── 信评报告选择弹窗方法 ──
+
+            // 初始化模拟报告数据
+            initMockReportData() {
+                if (this.internalReportData.length > 0 && this.externalReportData.length > 0) return;
+                this.internalReportData = [
+                    { id: 'ir1', title: '万科企业2025年度信用评级报告', reportType: '评级报告', securityCode: '101900001.IB', industry: '房地产', rating: 'AA+', author: '张明远', writeDate: '2025-11-15' },
+                    { id: 'ir2', title: '中国石油2025年跟踪评级报告', reportType: '跟踪报告', securityCode: '102000002.IB', industry: '能源', rating: 'AAA', author: '李思涵', writeDate: '2025-10-20' },
+                    { id: 'ir3', title: '深圳地铁集团尽职调查报告', reportType: '尽调报告', securityCode: '102100003.IB', industry: '交通运输', rating: 'AAA', author: '王建强', writeDate: '2025-09-08' },
+                    { id: 'ir4', title: '华夏幸福2025年风险提示报告', reportType: '风险提示', securityCode: '101900004.IB', industry: '房地产', rating: 'BBB', author: '赵晓峰', writeDate: '2025-08-22' },
+                    { id: 'ir5', title: '中国平安2025年度评级更新报告', reportType: '评级报告', securityCode: '102200005.IB', industry: '金融', rating: 'AAA', author: '陈雨欣', writeDate: '2025-07-15' },
+                    { id: 'ir6', title: '比亚迪2025年跟踪评级报告', reportType: '跟踪报告', securityCode: '102100006.IB', industry: '制造业', rating: 'AA', author: '刘志伟', writeDate: '2025-06-30' },
+                    { id: 'ir7', title: '华为技术有限公司尽职调查', reportType: '尽调报告', securityCode: '102300007.IB', industry: '信息技术', rating: 'AAA', author: '周明华', writeDate: '2025-05-18' },
+                    { id: 'ir8', title: '碧桂园集团风险提示报告', reportType: '风险提示', securityCode: '101800008.IB', industry: '房地产', rating: 'A+', author: '吴建平', writeDate: '2025-04-12' },
+                    { id: 'ir9', title: '国家电网2025年度评级报告', reportType: '评级报告', securityCode: '102000009.IB', industry: '能源', rating: 'AAA', author: '张明远', writeDate: '2025-03-25' },
+                    { id: 'ir10', title: '三一重工跟踪评级更新', reportType: '跟踪报告', securityCode: '102100010.IB', industry: '制造业', rating: 'AA-', author: '李思涵', writeDate: '2025-02-10' },
+                ];
+                this.externalReportData = [
+                    { id: 'er1', title: '万科企业2025年券商研报：地产复苏展望', reportType: '券商研究报告', securityCode: '101900001.IB', industry: '房地产', rating: 'AA+', author: '中金证券', writeDate: '2025-12-01' },
+                    { id: 'er2', title: '中国石油行业分析报告2025', reportType: '行业分析报告', securityCode: '102000002.IB', industry: '能源', rating: 'AAA', author: '中信证券', writeDate: '2025-11-20' },
+                    { id: 'er3', title: '中国宏观经济展望2026年度', reportType: '宏观经济报告', securityCode: '', industry: '', rating: '', author: '华泰证券', writeDate: '2025-11-10' },
+                    { id: 'er4', title: '平安集团外部信用评级报告', reportType: '信用评级报告', securityCode: '102200005.IB', industry: '金融', rating: 'AAA', author: '穆迪评级', writeDate: '2025-10-05' },
+                    { id: 'er5', title: '比亚迪新能源汽车产业链研究', reportType: '券商研究报告', securityCode: '102100006.IB', industry: '制造业', rating: 'AA', author: '招商证券', writeDate: '2025-09-18' },
+                    { id: 'er6', title: '信息技术行业2025年度趋势分析', reportType: '行业分析报告', securityCode: '', industry: '信息技术', rating: '', author: '中泰证券', writeDate: '2025-08-25' },
+                    { id: 'er7', title: '华夏幸福债务重组评估报告', reportType: '信用评级报告', securityCode: '101900004.IB', industry: '房地产', rating: 'BBB', author: '标准普尔', writeDate: '2025-07-30' },
+                    { id: 'er8', title: '交通运输基础设施投资展望', reportType: '券商研究报告', securityCode: '102100003.IB', industry: '交通运输', rating: 'AAA', author: '国泰君安', writeDate: '2025-06-15' },
+                    { id: 'er9', title: '全球能源格局分析与展望', reportType: '宏观经济报告', securityCode: '', industry: '能源', rating: '', author: '申万宏源', writeDate: '2025-05-20' },
+                    { id: 'er10', title: '三一重工城投行业信用分析', reportType: '信用评级报告', securityCode: '102100010.IB', industry: '制造业', rating: 'AA-', author: '联合资信', writeDate: '2025-04-08' },
+                ];
+            },
+
+            // 打开报告选择弹窗
+            openReportDialog(poolId, column) {
+                this.reportDialogPoolId = poolId;
+                this.reportDialogColumn = column;
+                this.reportActiveTab = 'internal';
+                this.reportDialogVisible = true;
+                this.initMockReportData();
+                const existing = column === 'credit'
+                    ? (this.creditReportSelections[poolId] || [])
+                    : (this.otherMaterialSelections[poolId] || []);
+                this.selectedInternalReports = existing.filter(r => r.source === 'internal');
+                this.selectedExternalReports = existing.filter(r => r.source === 'external');
+                this.resetInternalReportFiltersSilent();
+                this.resetExternalReportFiltersSilent();
+                this.internalReportPagination.pageIndex = 1;
+                this.externalReportPagination.pageIndex = 1;
+                this.$nextTick(() => {
+                    this.restoreInternalReportSelection();
+                    this.restoreExternalReportSelection();
+                });
+            },
+
+            // 弹窗关闭回调
+            handleReportDialogClosed() {
+                this.reportDialogPoolId = null;
+                this.reportDialogColumn = '';
+                this.reportActiveTab = 'internal';
+                this.selectedInternalReports = [];
+                this.selectedExternalReports = [];
+                this.restoringReportSelection = false;
+                this.resetInternalReportFiltersSilent();
+                this.resetExternalReportFiltersSilent();
+            },
+
+            // 内部报告筛选查询
+            queryInternalReports() {
+                this.internalReportLoading = true;
+                this.restoringReportSelection = true;
+                this.$nextTick(() => {
+                    this.internalReportLoading = false;
+                    this.restoreInternalReportSelection();
+                });
+            },
+
+            // 外部报告筛选查询
+            queryExternalReports() {
+                this.externalReportLoading = true;
+                this.restoringReportSelection = true;
+                this.$nextTick(() => {
+                    this.externalReportLoading = false;
+                    this.restoreExternalReportSelection();
+                });
+            },
+
+            // 内部报告选中变化（合并可见+不可见）
+            handleInternalReportSelectionChange(rows) {
+                if (this.restoringReportSelection) return;
+                const visibleIds = this.internalReportPageData.map(r => r.id);
+                const mergeMap = {};
+                this.selectedInternalReports.forEach(r => {
+                    if (visibleIds.indexOf(r.id) === -1) mergeMap[r.id] = r;
+                });
+                rows.forEach(row => {
+                    mergeMap[row.id] = { id: row.id, title: row.title, reportType: row.reportType, source: 'internal' };
+                });
+                this.selectedInternalReports = Object.keys(mergeMap).map(k => mergeMap[k]);
+            },
+
+            // 外部报告选中变化
+            handleExternalReportSelectionChange(rows) {
+                if (this.restoringReportSelection) return;
+                const visibleIds = this.externalReportPageData.map(r => r.id);
+                const mergeMap = {};
+                this.selectedExternalReports.forEach(r => {
+                    if (visibleIds.indexOf(r.id) === -1) mergeMap[r.id] = r;
+                });
+                rows.forEach(row => {
+                    mergeMap[row.id] = { id: row.id, title: row.title, reportType: row.reportType, source: 'external' };
+                });
+                this.selectedExternalReports = Object.keys(mergeMap).map(k => mergeMap[k]);
+            },
+
+            // 恢复内部报告选中状态
+            restoreInternalReportSelection() {
+                const tableRef = this.$refs.internalReportTableRef;
+                if (!tableRef) { this.restoringReportSelection = false; return; }
+                this.restoringReportSelection = true;
+                tableRef.clearSelection();
+                this.internalReportPageData.forEach(row => {
+                    const isSelected = this.selectedInternalReports.some(r => r.id === row.id);
+                    if (isSelected) tableRef.toggleRowSelection(row, true);
+                });
+                this.$nextTick(() => { this.restoringReportSelection = false; });
+            },
+
+            // 恢复外部报告选中状态
+            restoreExternalReportSelection() {
+                const tableRef = this.$refs.externalReportTableRef;
+                if (!tableRef) { this.restoringReportSelection = false; return; }
+                this.restoringReportSelection = true;
+                tableRef.clearSelection();
+                this.externalReportPageData.forEach(row => {
+                    const isSelected = this.selectedExternalReports.some(r => r.id === row.id);
+                    if (isSelected) tableRef.toggleRowSelection(row, true);
+                });
+                this.$nextTick(() => { this.restoringReportSelection = false; });
+            },
+
+            // Tab切换时恢复选中
+            handleReportTabClick() {
+                this.$nextTick(() => {
+                    if (this.reportActiveTab === 'internal') {
+                        this.restoreInternalReportSelection();
+                    } else {
+                        this.restoreExternalReportSelection();
+                    }
+                });
+            },
+
+            // 重置内部报告筛选
+            resetInternalReportFilters() {
+                this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null };
+                this.internalReportPagination.pageIndex = 1;
+                this.queryInternalReports();
+            },
+            // 静默重置内部报告筛选（不触发查询，用于弹窗打开/关闭时初始化）
+            resetInternalReportFiltersSilent() {
+                this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null };
+            },
+
+            // 重置外部报告筛选
+            resetExternalReportFilters() {
+                this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null };
+                this.externalReportPagination.pageIndex = 1;
+                this.queryExternalReports();
+            },
+            // 静默重置外部报告筛选（不触发查询，用于弹窗打开/关闭时初始化）
+            resetExternalReportFiltersSilent() {
+                this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null };
+            },
+
+            // 设置内部报告类型快捷筛选
+            setInternalReportTypeFilter(type) {
+                this.internalReportFilters.reportType = type;
+                this.internalReportPagination.pageIndex = 1;
+                this.queryInternalReports();
+            },
+
+            // 设置外部报告类型快捷筛选
+            setExternalReportTypeFilter(type) {
+                this.externalReportFilters.reportType = type;
+                this.externalReportPagination.pageIndex = 1;
+                this.queryExternalReports();
+            },
+
+            // 从已选清单移除某个内部报告
+            removeInternalSelection(id) {
+                this.selectedInternalReports = this.selectedInternalReports.filter(r => r.id !== id);
+                this.$nextTick(() => this.restoreInternalReportSelection());
+            },
+
+            // 从已选清单移除某个外部报告
+            removeExternalSelection(id) {
+                this.selectedExternalReports = this.selectedExternalReports.filter(r => r.id !== id);
+                this.$nextTick(() => this.restoreExternalReportSelection());
+            },
+
+            // 清空内部报告已选
+            clearInternalSelection() {
+                this.selectedInternalReports = [];
+                this.$nextTick(() => this.restoreInternalReportSelection());
+            },
+
+            // 清空外部报告已选
+            clearExternalSelection() {
+                this.selectedExternalReports = [];
+                this.$nextTick(() => this.restoreExternalReportSelection());
+            },
+
+            // 报告类型对应的样式类
+            getReportTypeClass(type) {
+                const map = {
+                    '评级报告':      'type-rating',
+                    '信用评级报告':  'type-rating',
+                    '跟踪报告':      'type-track',
+                    '尽调报告':      'type-research',
+                    '券商研究报告':  'type-research',
+                    '风险提示':      'type-risk',
+                    '行业分析报告':  'type-industry',
+                    '宏观经济报告':  'type-macro'
+                };
+                return map[type] || 'type-default';
+            },
+
+            // 评级对应的样式类
+            getRatingClass(rating) {
+                if (!rating) return 'rating-none';
+                const r = String(rating).toUpperCase();
+                if (r === 'AAA') return 'rating-aaa';
+                if (r.indexOf('AA') === 0) return 'rating-aa';
+                if (r.indexOf('A') === 0) return 'rating-a';
+                if (r.indexOf('BBB') === 0) return 'rating-bbb';
+                return 'rating-low';
+            },
+
+            // 确认选择
+            handleConfirmReportDialog() {
+                const allSelected = [
+                    ...this.selectedInternalReports,
+                    ...this.selectedExternalReports,
+                ];
+                const poolId = this.reportDialogPoolId;
+                const column = this.reportDialogColumn;
+                if (column === 'credit') {
+                    this.$set(this.creditReportSelections, poolId, [...allSelected]);
+                } else if (column === 'material') {
+                    this.$set(this.otherMaterialSelections, poolId, [...allSelected]);
+                }
+                this.reportDialogVisible = false;
+            },
+
+            // 获取某池的信用报告选择
+            getCreditReportSelections(poolId) {
+                return this.creditReportSelections[poolId] || [];
+            },
+            // 获取某池的其他材料报告选择
+            getOtherMaterialSelections(poolId) {
+                return this.otherMaterialSelections[poolId] || [];
+            },
+            // 移除信用报告选择
+            removeCreditReportSelection(poolId, index) {
+                const arr = [...(this.creditReportSelections[poolId] || [])];
+                arr.splice(index, 1);
+                this.$set(this.creditReportSelections, poolId, arr);
+            },
+            // 移除其他材料报告选择
+            removeOtherMaterialSelection(poolId, index) {
+                const arr = [...(this.otherMaterialSelections[poolId] || [])];
+                arr.splice(index, 1);
+                this.$set(this.otherMaterialSelections, poolId, arr);
+            },
+
+            // 解析报告JSON，返回报告标题数组
+            getReportNames(jsonStr) {
+                if (!jsonStr) return [];
+                let arr = [];
+                try { arr = JSON.parse(jsonStr); } catch (e) { return []; }
+                if (!Array.isArray(arr) || arr.length === 0) return [];
+                return arr.map(r => r.title || '').filter(Boolean);
+            },
+
+            // 返回列表页并重置详情页所有状态
+            backToList() {
+                if (window.history.length > 1) {
+                    window.history.back();
+                    return;
+                }
+                window.location.href = 'security_pool_adjust.html';
+            },
+            // 返回列表页并重置详情页所有状态
+            resetDetailState() {
+                this.currentPage = 'list';
+                this.selectedSecurityId = null;  // 清空选中证券ID
+                this.bondDetail = {};             // 清空证券详情
+                this.adjustStep = 1;              // 重置调库步骤为第一步
+                this.adjustReviewList = [];       // 清空校验结果列表
+                this.pendingAdjustReviewList = []; // 清空待确认校验结果
+                this.flowDialogVisible = false;    // 关闭流程选择弹窗
+                this.flowOptions = [];             // 清空流程候选项
+                this.selectedFlowKey = '';         // 清空已选流程
+                this.selectedInPools = [];        // 清空已选调入池
+                this.selectedOutPools = [];       // 清空已选调出池
+                this.attachmentFiles = {};        // 清空附件文件
+                this.materialFiles = {};          // 清空其他材料文件
+                this.creditReportSelections = {}; // 清空信评报告选择
+                this.otherMaterialSelections = {}; // 清空其他材料报告选择
+                this.inMutexMap = {};             // 清空调入互斥映射
+                this.outMutexMap = {};            // 清空调出互斥映射
+                this.adjustReason = '';           // 清空调整原因
+                this.adjustAdvice = '';           // 清空调整建议
+            }
+        }
+    });
+</script>
+</body>
+</html>
