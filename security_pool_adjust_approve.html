@@ -782,6 +782,43 @@
             background: var(--c-primary-l);
             box-shadow: 0 2px 10px var(--c-primary-s);
         }
+        #security_pool_adjust .flow-row-card {
+            border-width: 1.5px;
+        }
+        #security_pool_adjust .flow-row-card.flow-row-color-0 {
+            border-color: rgba(23,70,212,.34);
+            background: linear-gradient(180deg, #EEF4FF 0%, #FFFFFF 76%);
+        }
+        #security_pool_adjust .flow-row-card.flow-row-color-1 {
+            border-color: rgba(10,138,90,.30);
+            background: linear-gradient(180deg, #F0FBF6 0%, #FFFFFF 76%);
+        }
+        #security_pool_adjust .flow-row-card.flow-row-color-2 {
+            border-color: rgba(176,94,0,.30);
+            background: linear-gradient(180deg, #FFF7EA 0%, #FFFFFF 76%);
+        }
+        #security_pool_adjust .flow-row-card.flow-row-color-3 {
+            border-color: rgba(123,77,214,.30);
+            background: linear-gradient(180deg, #F5F0FF 0%, #FFFFFF 76%);
+        }
+        #security_pool_adjust .flow-row-card.flow-row-color-4 {
+            border-color: rgba(0,142,163,.28);
+            background: linear-gradient(180deg, #ECFBFD 0%, #FFFFFF 76%);
+        }
+        #security_pool_adjust .flow-choice-card {
+            margin-top: 8px;
+            border-left-width: 4px;
+            background: #FFFFFF;
+        }
+        #security_pool_adjust .flow-choice-card.is-selected {
+            border-color: var(--c-primary);
+            background: var(--c-primary-l);
+            box-shadow: 0 2px 10px var(--c-primary-s);
+        }
+        #security_pool_adjust .flow-choice-card.is-disabled {
+            opacity: .76;
+            background: #F7F9FC;
+        }
         #security_pool_adjust .flow-option-card .el-radio__label {
             display: inline-block;
             width: calc(100% - 22px);
@@ -1819,7 +1856,8 @@
                 <div class="action-footer">
                     <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
                     <el-button type="primary" size="small" icon="el-icon-check"
-                               :disabled="validCount === 0"
+                               :disabled="validCount === 0 || submitLoading"
+                               :loading="submitLoading"
                                @click="handleSubmit">
                         提交
                         <span v-if="validCount > 0"
@@ -1837,33 +1875,49 @@
     </div>
 
         <!-- ── 调库流程选择弹窗 ── -->
-        <el-dialog title="选择调库流程" :visible.sync="flowDialogVisible" width="620px"
+        <el-dialog title="选择调库流程" :visible.sync="flowDialogVisible" width="760px"
                    custom-class="flow-dialog" :close-on-click-modal="false" :show-close="false">
             <div class="flow-option-list">
-                <el-radio-group v-model="selectedFlowKey" style="width:100%;">
-                    <el-radio v-for="option in flowOptions" :key="option.optionKey"
-                              :label="option.optionKey"
-                              :disabled="!option.selectable"
-                              class="flow-option-card"
-                              :class="{ 'is-selected': selectedFlowKey === option.optionKey }">
-                        <div class="flow-option-head">
-                            <span class="flow-option-name">{{ option.flowName }}</span>
-                            <el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag>
-                            <el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag>
-                            <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
-                        </div>
-                        <div class="flow-option-reasons">
-                            <div v-for="(reason, idx) in option.matchReasons" :key="'m_' + option.optionKey + '_' + idx"
-                                 class="flow-option-reason ok">{{ reason }}</div>
-                            <div v-for="(reason, idx) in option.unmatchReasons" :key="'u_' + option.optionKey + '_' + idx"
-                                 class="flow-option-reason warn">{{ reason }}</div>
-                        </div>
-                    </el-radio>
-                </el-radio-group>
+                <div v-for="(row, rowIndex) in validManualAdjustReviewList" :key="row.poolId + '_' + row.direction"
+                     class="flow-option-card flow-row-card"
+                     :class="getFlowRowColorClass(rowIndex)">
+                    <div class="flow-option-head">
+                        <span class="flow-option-name">{{ row.poolName }}</span>
+                        <el-tag size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
+                    </div>
+                    <el-radio-group v-model="row.selectedFlowKey" style="width:100%;margin-top:10px;" @change="handleRowFlowChange(row)">
+                        <el-radio v-for="option in row.flowOptions" :key="option.optionKey"
+                                  :label="option.optionKey"
+                                  :disabled="!option.selectable"
+                                  class="flow-option-card flow-choice-card"
+                                  :class="{ 'is-selected': row.selectedFlowKey === option.optionKey, 'is-disabled': !option.selectable }">
+                            <div class="flow-option-head">
+                                <span class="flow-option-name">{{ option.flowName }}</span>
+                                <el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag>
+                                <el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag>
+                                <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
+                            </div>
+                            <div class="flow-option-reasons">
+                                <div v-for="(reason, idx) in option.matchReasons"
+                                     :key="'m_' + option.optionKey + '_' + idx"
+                                     class="flow-option-reason ok">{{ reason }}</div>
+                                <div v-for="(reason, idx) in option.unmatchReasons"
+                                     :key="'u_' + option.optionKey + '_' + idx"
+                                     class="flow-option-reason warn">{{ reason }}</div>
+                            </div>
+                        </el-radio>
+                    </el-radio-group>
+                </div>
+                <div v-if="validManualAdjustReviewList.length === 0" style="color:var(--c-text-3);font-size:13px;">
+                    暂无可选择流程的手工调库项
+                </div>
             </div>
             <span slot="footer">
-                <el-button size="small" @click="goToStep1">取消</el-button>
-                <el-button type="primary" size="small" :disabled="!selectedFlowOption" @click="confirmFlowSelection">确认</el-button>
+                <el-button size="small" :disabled="submitLoading" @click="flowDialogVisible = false">取消</el-button>
+                <el-button type="primary" size="small"
+                           :disabled="!allValidRowsHaveFlow || submitLoading"
+                           :loading="submitLoading"
+                           @click="confirmFlowSelection">确认</el-button>
             </span>
         </el-dialog>
 
@@ -2115,6 +2169,7 @@
                 adjustOutTree: [],            // 可调出池树形数据
                 selectedInPools: [],          // 步骤1中已勾选的调入池列表
                 selectedOutPools: [],         // 步骤1中已勾选的调出池列表
+                submitLoading: false,         // 调库提交防重复点击状态
                 attachmentFiles: {},          // 各池附件文件映射 { poolId: [File, ...] }
                 materialFiles: {},            // 各池其他材料文件映射 { poolId: [File, ...] }
                 adjustStep: 2,           // 调库步骤：1=选择池, 2=校验确认
@@ -2182,6 +2237,19 @@
             // 通过校验的数量
             validCount() {
                 return this.adjustReviewList.filter(r => r.valid).length;
+            },
+            // 可提交调库项列表
+            validAdjustReviewList() {
+                return this.adjustReviewList.filter(r => r.valid);
+            },
+            // 可选择流程的手工调库项列表
+            validManualAdjustReviewList() {
+                return this.adjustReviewList.filter(r => r.valid && r.itemTag === 'manual');
+            },
+            // 所有可提交调库项是否均已选择流程
+            allValidRowsHaveFlow() {
+                return this.validManualAdjustReviewList.length > 0
+                    && this.validManualAdjustReviewList.every(row => !!this.selectedRowFlowOption(row));
             },
             // 未通过校验的数量
             invalidCount() {
@@ -2369,6 +2437,7 @@
             // 点击调库按钮，跳转到详情页并加载证券完整数据
             async handleAdjust(row) {
                 this.selectedSecurityId = row.id;
+                this.selectedTargetPoolId = this.getUrlParam('targetPoolId') || null;
                 this.currentPage = 'detail';
                 await this.loadDetailData(row.windCode || row.securityCode);
             },
@@ -2657,6 +2726,37 @@
                 return map[code] || code || '';
             },
 
+            // 格式化单条调库项的流程候选项
+            formatRowFlowOptions(options, rowIndex) {
+                return (options || []).map((option, index) => ({
+                    optionKey: (option.flowKey || option.flowType || 'flow') + '_' + rowIndex + '_' + index,
+                    flowType: option.flowType,
+                    flowName: option.flowName,
+                    flowId: option.flowId,
+                    flowKey: option.flowKey,
+                    matched: !!option.matched,
+                    selectable: option.selectable !== false,
+                    recommended: !!option.recommended,
+                    matchReasons: option.matchReasons || [],
+                    unmatchReasons: option.unmatchReasons || []
+                }));
+            },
+
+            // 获取行当前选中的流程
+            selectedRowFlowOption(row) {
+                if (!row || !row.selectedFlowKey) return null;
+                return (row.flowOptions || []).find(option => option.optionKey === row.selectedFlowKey) || null;
+            },
+
+            // 行流程变更时同步提交字段
+            handleRowFlowChange(row) {
+                const flow = this.selectedRowFlowOption(row);
+                row.flowId = flow ? flow.flowId : null;
+                row.flowKey = flow ? flow.flowKey : '';
+                row.flowType = flow ? flow.flowType : '';
+                row.flowName = flow ? flow.flowName : '';
+            },
+
             // 解析附件/材料JSON，返回文件名数组
             getFileNames(jsonStr) {
                 if (!jsonStr) return [];
@@ -2687,6 +2787,11 @@
                 return 'info';
             },
 
+            // 外层调库项卡片颜色样式
+            getFlowRowColorClass(index) {
+                return 'flow-row-color-' + (index % 5);
+            },
+
             // 进入步骤2（调用后端校验接口）
             async goToStep2() {
                 const items = [];
@@ -2708,9 +2813,12 @@
                 this.adjustCheckLoading = false;
 
                 const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' }
-                this.adjustReviewList = result.items.map(item => {
+                this.adjustReviewList = result.items.map((item, rowIndex) => {
                     const typePrefix = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode
                     const failReasonStr = (item.failReasons || []).join('；')
+                    const rowFlowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex);
+                    const recommendedFlow = rowFlowOptions.find(option => option.recommended && option.selectable)
+                        || rowFlowOptions.find(option => option.selectable);
                     return {
                         poolId: item.targetPoolId,
                         poolName: item.poolName,
@@ -2724,7 +2832,13 @@
                         attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
                         materialFiles: this.getMaterialFiles(item.targetPoolId),
                         creditReports: this.getCreditReportSelections(item.targetPoolId),
-                        otherMaterials: this.getOtherMaterialSelections(item.targetPoolId)
+                        otherMaterials: this.getOtherMaterialSelections(item.targetPoolId),
+                        flowOptions: rowFlowOptions,
+                        selectedFlowKey: recommendedFlow ? recommendedFlow.optionKey : '',
+                        flowId: recommendedFlow ? recommendedFlow.flowId : null,
+                        flowKey: recommendedFlow ? recommendedFlow.flowKey : '',
+                        flowType: recommendedFlow ? recommendedFlow.flowType : '',
+                        flowName: recommendedFlow ? recommendedFlow.flowName : ''
                     }
                 });
                 this.pendingAdjustReviewList = this.adjustReviewList;
@@ -2754,45 +2868,33 @@
 
             // 确认选择调库流程
             async confirmFlowSelection() {
-                const flow = this.selectedFlowOption;
-                if (!flow || !flow.selectable) {
-                    this.$message.warning('请选择调库流程');
+                if (this.submitLoading) return;
+                if (!this.allValidRowsHaveFlow) {
+                    this.$message.warning('请为所有可提交调库项选择审批流程');
                     return;
                 }
                 this.flowDialogVisible = false;
-                await this.submitAdjustLog(flow);
+                await this.submitAdjustLog();
             },
 
             // 提交调库申请
             async handleSubmit() {
+                if (this.submitLoading) return;
                 if (this.validCount === 0) {
                     this.$message.warning('没有可提交的调库申请，请检查校验结果');
                     return;
                 }
-                if (this.flowOptions.length === 0) {
-                    this.$message.warning('没有可选择的调库流程，请检查流程配置');
+                if (!this.allValidRowsHaveFlow) {
+                    this.$message.warning('请为所有可提交调库项选择审批流程');
                     return;
                 }
-                if (this.selectableFlowOptions.length === 0) {
-                    this.$message.warning('没有可选择的调库流程，请检查流程配置或候选原因');
-                    return;
-                }
-                const recommended = this.selectableFlowOptions.find(option => option.recommended) || this.selectableFlowOptions[0];
-                this.selectedFlowKey = recommended ? recommended.optionKey : '';
                 this.flowDialogVisible = true;
             },
 
             // 执行调库申请提交
-            async submitAdjustLog(flow) {
-                if (flow) {
-                    this.adjustReviewList = this.adjustReviewList.map(item => ({
-                        ...item,
-                        flowId: flow.flowId,
-                        flowKey: flow.flowKey,
-                        flowType: flow.flowType,
-                        flowName: flow.flowName
-                    }));
-                }
+            async submitAdjustLog() {
+                if (this.submitLoading) return;
+                this.submitLoading = true;
                 const validItems = this.adjustReviewList.filter(r => r.valid);
                 const securityInfo = {
                     fullName: this.bondDetail.fullName,
@@ -2858,6 +2960,8 @@
                     this.backToList();
                 } catch (e) {
                     // apiPost 已弹出错误提示
+                } finally {
+                    this.submitLoading = false;
                 }
             },
 
@@ -3151,7 +3255,7 @@
                 }
                 window.location.href = 'security_pool_adjust.html';
             },
-            // 返回列表页并重置详情页所有状态
+            // 重置详情页所有状态
             resetDetailState() {
                 this.currentPage = 'list';
                 this.selectedSecurityId = null;  // 清空选中证券ID
