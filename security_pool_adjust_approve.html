@@ -2157,8 +2157,8 @@
                 tableData: [],                // 列表页表格数据
                 loading: false,               // 列表页加载状态
                 pagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 列表页分页参数
-                selectedSecurityId: null,     // 当前选中操作的证券ID
                 selectedTargetPoolId: null,   // 从目标池入口进入时携带的目标池ID
+                selectedAdjustLogId: null,    // 从调库记录入口进入时携带的调库记录ID
                 bondDetail: {},               // 证券基本信息（详情页）
                 detailLoading: false,         // 详情页加载状态
                 securityCurrentPools: [],     // 当前证券所在的投资池列表
@@ -2366,21 +2366,14 @@
             },
             // 初始化独立调库审核页
             async initStandaloneReviewPage() {
-                const securityId = this.getUrlParam('securityId') || this.getUrlParam('id');
-                let securityCode = this.getUrlParam('securityCode') || this.getUrlParam('windCode');
-                if (!securityId && !securityCode) {
+                const securityCode = this.getUrlParam('securityCode') || this.getUrlParam('windCode');
+                if (!securityCode) {
                     this.$message.warning('缺少证券信息，请从业务页面进入');
                     return;
                 }
-                this.selectedSecurityId = securityId || null;
                 this.selectedTargetPoolId = this.getUrlParam('targetPoolId') || null;
+                this.selectedAdjustLogId = this.getUrlParam('adjustLogId') || this.getUrlParam('adjust_log_id') || null;
                 this.adjustStep = 2;
-                if (!securityCode && securityId) {
-                    try {
-                        const detail = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail', { securityId });
-                        securityCode = detail && detail.windCode ? detail.windCode : '';
-                    } catch (e) {}
-                }
                 await this.loadDetailData(securityCode);
                 await this.restoreStandaloneAdjustDraft();
             },
@@ -2436,8 +2429,8 @@
             handleSizeChange(size) { this.pagination.pageSize = size; this.pagination.pageIndex = 1; this.loadList(); },
             // 点击调库按钮，跳转到详情页并加载证券完整数据
             async handleAdjust(row) {
-                this.selectedSecurityId = row.id;
                 this.selectedTargetPoolId = this.getUrlParam('targetPoolId') || null;
+                this.selectedAdjustLogId = this.getUrlParam('adjustLogId') || this.getUrlParam('adjust_log_id') || null;
                 this.currentPage = 'detail';
                 await this.loadDetailData(row.windCode || row.securityCode);
             },
@@ -2469,11 +2462,11 @@
                 this.detailLoading = true;
                 try {
                     const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
-                        this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail',     { securityId: this.selectedSecurityId }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityId: this.selectedSecurityId, adjustDirection: 'in' }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityId: this.selectedSecurityId, adjustDirection: 'out' }),
+                        this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail',     { securityCode: securityCode }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityCode: securityCode, adjustDirection: 'in' }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityCode: securityCode, adjustDirection: 'out' }),
                         this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode, targetPoolId: this.selectedTargetPoolId })
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode, targetPoolId: this.selectedTargetPoolId, adjustLogId: this.selectedAdjustLogId })
                     ]);
                     this.bondDetail    = detail  || {};
                     // 当前所在池
@@ -2661,7 +2654,8 @@
                 this.flowStepList = [];
                 if (!adjustLogList || adjustLogList.length === 0) return;
                 // 优先查找进行中的记录（00/10/11），其次最近一条审批通过的（20）
-                const activeLog = adjustLogList.find(l => ['00','10','11'].includes(l.auditStatus))
+                const activeLog = (this.selectedAdjustLogId ? adjustLogList.find(l => String(l.id) === String(this.selectedAdjustLogId)) : null)
+                               || adjustLogList.find(l => ['00','10','11'].includes(l.auditStatus))
                                || adjustLogList.find(l => l.auditStatus === '20');
                 if (!activeLog || !activeLog.id) return;
                 try {
@@ -2804,7 +2798,6 @@
 
                 this.adjustCheckLoading = true;
                 const result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', {
-                    securityId: this.selectedSecurityId,
                     securityCode: this.bondDetail.windCode || '',
                     securityShortName: this.bondDetail.shortName || '',
                     securityType: this.bondDetail.securityType || '',
@@ -2927,7 +2920,6 @@
                     analysis: this.bondDetail.analysis
                 };
                 const payload = {
-                    securityId: this.selectedSecurityId,
                     securityCode: this.bondDetail.windCode || '',
                     securityShortName: this.bondDetail.shortName || '',
                     securityType: this.bondDetail.securityType || '',
@@ -3258,7 +3250,6 @@
             // 重置详情页所有状态
             resetDetailState() {
                 this.currentPage = 'list';
-                this.selectedSecurityId = null;  // 清空选中证券ID
                 this.bondDetail = {};             // 清空证券详情
                 this.adjustStep = 1;              // 重置调库步骤为第一步
                 this.adjustReviewList = [];       // 清空校验结果列表
