@@ -2158,6 +2158,7 @@
                 loading: false,               // 列表页加载状态
                 pagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 列表页分页参数
                 selectedSecurityId: null,     // 当前选中操作的证券ID
+                selectedTargetPoolId: null,   // 从目标池入口进入时携带的目标池ID
                 bondDetail: {},               // 证券基本信息（详情页）
                 detailLoading: false,         // 详情页加载状态
                 securityCurrentPools: [],     // 当前证券所在的投资池列表
@@ -2359,6 +2360,10 @@
                 }
                 return json.data;
             },
+            // 获取 URL 查询参数
+            getUrlParam(name) {
+                return new URLSearchParams(window.location.search).get(name) || '';
+            },
             // 加载证券分页列表（按搜索条件查询）
             async loadList() {
                 this.loading = true;
@@ -2389,6 +2394,7 @@
             // 点击调库按钮，跳转到详情页并加载证券完整数据
             async handleAdjust(row) {
                 this.selectedSecurityId = row.id;
+                this.selectedTargetPoolId = this.getUrlParam('targetPoolId') || null;
                 this.currentPage = 'detail';
                 await this.loadDetailData(row.windCode || row.securityCode);
             },
@@ -2424,7 +2430,7 @@
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityId: this.selectedSecurityId, adjustDirection: 'in' }),
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityId: this.selectedSecurityId, adjustDirection: 'out' }),
                         this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode })
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode, targetPoolId: this.selectedTargetPoolId })
                     ]);
                     this.bondDetail    = detail  || {};
                     // 当前所在池
@@ -2776,6 +2782,7 @@
                         poolType: item.poolType,
                         direction: item.adjustMode,
                         itemTag: item.itemTag,
+                        adjustGroupKey: item.adjustGroupKey,
                         valid: item.canAdjust,
                         failReason: failReasonStr,
                         adjustNote: failReasonStr ? typePrefix + '；' + failReasonStr : typePrefix,
@@ -2892,6 +2899,8 @@
                         targetPoolName: r.poolName,
                         poolType: r.poolType || '',
                         adjustMode: r.direction,
+                        itemTag: r.itemTag,
+                        adjustGroupKey: r.adjustGroupKey,
                         flowId: r.flowId,
                         flowKey: r.flowKey,
                         flowType: r.flowType,
