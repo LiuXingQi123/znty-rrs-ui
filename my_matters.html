@@ -110,6 +110,13 @@
             background: var(--c-surface-2);
         }
         #my_matters .desc-cell { color: var(--c-text-2); line-height: 1.6; }
+        #my_matters .desc-link {
+            color: var(--c-primary);
+            line-height: 1.6;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        #my_matters .desc-link:hover { text-decoration: underline; }
         #my_matters .handled-text { color: var(--c-text-3); font-size: 12px; }
 
         #my_matters .el-table th.el-table__cell {
@@ -164,6 +171,11 @@
         #my_matters .el-pagination .el-pager li { border-radius: var(--r-sm); font-weight: 500; }
         #my_matters .el-pagination { font-weight: 500; }
         #my_matters .el-pagination.is-small .el-select .el-input { width: 100px !important; }
+        #my_matters .el-tabs__header { margin: 0; padding: 0 20px; background: var(--c-surface); }
+        #my_matters .el-tabs__nav-wrap::after { background: var(--c-border-l); }
+        #my_matters .el-tabs__item { font-size: 13px; font-weight: 600; color: var(--c-text-3); }
+        #my_matters .el-tabs__item.is-active { color: var(--c-primary); }
+        #my_matters .el-tabs__active-bar { background: var(--c-primary); height: 2px; border-radius: 2px; }
         #my_matters ::-webkit-scrollbar { width: 5px; height: 5px; }
         #my_matters ::-webkit-scrollbar-track { background: transparent; }
         #my_matters ::-webkit-scrollbar-thumb { background: #CCD5E8; border-radius: 10px; }
@@ -222,18 +234,22 @@
                 <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
 
                 <div class="total-badge">
-                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条事宜
+                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条{{ activeTab === 'pending' ? '待处理' : '已完成' }}事宜
                 </div>
             </div>
         </div>
 
         <div class="table-card">
+            <el-tabs v-model="activeTab" @tab-click="handleTabClick">
+                <el-tab-pane label="待处理" name="pending"></el-tab-pane>
+                <el-tab-pane label="已完成" name="completed"></el-tab-pane>
+            </el-tabs>
             <el-table :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无事宜">
                 <el-table-column prop="flowName" label="流程名称" min-width="160" show-overflow-tooltip fixed="left"></el-table-column>
                 <el-table-column prop="stepName" label="步骤名称" min-width="140" show-overflow-tooltip></el-table-column>
                 <el-table-column label="流程描述" min-width="300" show-overflow-tooltip>
                     <template slot-scope="{ row }">
-                        <span class="desc-cell">{{ row.processDescription || '' }}</span>
+                        <span class="desc-link" @click="openMatterPage(row)">{{ row.processDescription || '' }}</span>
                     </template>
                 </el-table-column>
                 <el-table-column label="步骤状态" min-width="110">
@@ -262,8 +278,8 @@
                 </el-table-column>
                 <el-table-column label="操作" width="100" fixed="right" align="center">
                     <template slot-scope="{ row }">
-                        <el-button v-if="row.stepStatus === 'pending'" type="primary" size="mini" @click="handleProcess(row)">处理</el-button>
-                        <span v-else class="handled-text">已处理</span>
+                        <el-button v-if="activeTab === 'pending'" type="primary" size="mini" @click="openMatterPage(row)">处理</el-button>
+                        <el-button v-else size="mini" @click="openMatterPage(row)">查看</el-button>
                     </template>
                 </el-table-column>
             </el-table>
@@ -307,6 +323,7 @@ new Vue({
                 { value: '99', label: '已撤回' },
             ],
             flowOptions: [],              // 流程名称下拉选项
+            activeTab: 'pending',         // 当前事宜页签：pending=待处理 / completed=已完成
             tableData: [],                // 当前页事宜数据
             loading: false,               // 表格加载状态
             pagination: {
@@ -406,6 +423,7 @@ new Vue({
                     startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
                     processDescription: this.searchForm.processDescription || null,
                     auditStatus: this.searchForm.auditStatus || null,
+                    stepStatus: this.activeTab,
                     initiatorName: this.searchForm.initiatorName || null,
                     currentUserId: this.searchForm.currentUserId,
                     pageIndex: this.pagination.pageIndex,
@@ -420,6 +438,12 @@ new Vue({
 
         // 触发查询
         handleSearch() {
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 切换事宜页签
+        handleTabClick() {
             this.pagination.pageIndex = 1;
             this.loadList();
         },
@@ -452,9 +476,15 @@ new Vue({
             this.loadList();
         },
 
-        // 处理按钮占位
-        handleProcess(row) {
-            this.$message.info('处理功能待接入');
+        // 打开对应调库页面
+        openMatterPage(row) {
+            const params = new URLSearchParams();
+            if (row.securityCode) params.set('securityCode', row.securityCode);
+            if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
+            if (row.adjustLogId) params.set('adjustLogId', row.adjustLogId);
+            if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
+            const page = this.activeTab === 'pending' ? 'security_pool_adjust_approve.html' : 'security_pool_adjust_detail.html';
+            window.location.href = page + '?' + params.toString();
         },
     }
 });
