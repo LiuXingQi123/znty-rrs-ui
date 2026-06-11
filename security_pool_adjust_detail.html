@@ -2623,6 +2623,7 @@
                     '11': { bg: '#FFF6E8', color: '#B05E00' },
                     '20': { bg: '#E8FBF3', color: '#0A8A5A' },
                     '21': { bg: '#FFF0F0', color: '#D02020' },
+                    '32': { bg: '#E8FBF3', color: '#0A8A5A' },
                     '99': { bg: '#F0F2FA', color: '#8895B8' }
                 };
                 return map[code] || { bg: '#F0F2FA', color: '#8895B8' };
@@ -2632,14 +2633,21 @@
             async loadFlowSteps(adjustLogList) {
                 this.flowStepList = [];
                 if (!adjustLogList || adjustLogList.length === 0) return;
-                // 优先查找进行中的记录（00/10/11），其次最近一条审批通过的（20）
-                const activeLog = (this.selectedAdjustLogId ? adjustLogList.find(l => String(l.id) === String(this.selectedAdjustLogId)) : null)
-                               || adjustLogList.find(l => ['00','10','11'].includes(l.auditStatus))
-                               || adjustLogList.find(l => l.auditStatus === '20');
-                if (!activeLog || !activeLog.id) return;
-                try {
-                    this.flowStepList = await this.apiPost('/api/v1/securityPoolAdjust/queryAdjustStepList', { adjustLogId: activeLog.id, adjustBatchNo: activeLog.adjustBatchNo }) || [];
-                } catch (e) { this.flowStepList = []; }
+                const selectedLog = this.selectedAdjustLogId ? adjustLogList.find(l => String(l.id) === String(this.selectedAdjustLogId)) : null;
+                const candidateLogs = selectedLog ? [selectedLog] : adjustLogList;
+                let fallback = null;
+                for (const log of candidateLogs) {
+                    if (!log || !log.id) continue;
+                    try {
+                        const steps = await this.apiPost('/api/v1/securityPoolAdjust/queryAdjustStepList', { adjustLogId: log.id, adjustBatchNo: log.adjustBatchNo }) || [];
+                        if (!fallback) fallback = steps;
+                        if (steps.some(step => step.stepStatus === 'pending')) {
+                            this.flowStepList = steps;
+                            return;
+                        }
+                    } catch (e) {}
+                }
+                this.flowStepList = fallback || [];
             },
 
             // 步骤状态映射

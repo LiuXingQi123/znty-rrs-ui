@@ -35,6 +35,7 @@ const DICT_AUDIT_STATUS = {
     '11': '驳回待修改',   // 一级审核驳回，发起人可修改后重新提交
     '20': '审批通过',     // 二级审批通过，证券已入池/已生效
     '21': '审批驳回',     // 二级审批驳回，流程终止
+    '32': 'O32自动审批',  // 审批通过后进入 O32 自动审批节点
     '99': '已撤回',       // 发起人主动撤回，流程终止
 };
 
@@ -46,6 +47,7 @@ const DICT_AUDIT_STATUS_TAG_TYPE = {
     '11': 'warning',
     '20': 'success',
     '21': 'danger',
+    '32': 'success',
     '99': 'info',
 };
 
@@ -57,6 +59,7 @@ const DICT_AUDIT_STATUS_STYLE = {
     '11': { bg: '#FFF6E8', color: '#B05E00' },
     '20': { bg: '#E8FBF3', color: '#0A8A5A' },
     '21': { bg: '#FFF0F0', color: '#D02020' },
+    '32': { bg: '#E8FBF3', color: '#0A8A5A' },
     '99': { bg: '#F0F2FA', color: '#8895B8' },
 };
 
