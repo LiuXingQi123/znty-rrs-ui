@@ -466,44 +466,60 @@
         #security_pool_adjust .flow-step-table .el-table__body tr > td:first-child {
             border-left: 3px solid transparent;
         }
-        #security_pool_adjust .flow-step-table .flow-row-auto > td {
-            background: #F4FCF8 !important;
+        #security_pool_adjust .flow-step-table .flow-node-terminal > td {
+            background: #F5F7FB !important;
         }
-        #security_pool_adjust .flow-step-table .flow-row-auto > td:first-child {
-            border-left-color: var(--c-green);
+        #security_pool_adjust .flow-step-table .flow-node-terminal > td:first-child {
+            border-left-color: #94A3B8;
         }
-        #security_pool_adjust .flow-step-table .flow-row-approved > td {
-            background: #F7FBF8 !important;
+        #security_pool_adjust .flow-step-table .flow-node-initiator > td {
+            background: #F2F7FF !important;
         }
-        #security_pool_adjust .flow-step-table .flow-row-approved > td:first-child {
-            border-left-color: rgba(10,138,90,.55);
+        #security_pool_adjust .flow-step-table .flow-node-initiator > td:first-child {
+            border-left-color: #3B82F6;
+        }
+        #security_pool_adjust .flow-step-table .flow-node-review > td {
+            background: #F0FBF6 !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-node-review > td:first-child {
+            border-left-color: #10B981;
+        }
+        #security_pool_adjust .flow-step-table .flow-node-modify > td {
+            background: #FFF5F5 !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-node-modify > td:first-child {
+            border-left-color: #F87171;
+        }
+        #security_pool_adjust .flow-step-table .flow-node-approve > td {
+            background: #FFF8EC !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-node-approve > td:first-child {
+            border-left-color: #F59E0B;
+        }
+        #security_pool_adjust .flow-step-table .flow-node-auto > td {
+            background: #F8F5FF !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-node-auto > td:first-child {
+            border-left-color: #8B5CF6;
+        }
+        #security_pool_adjust .flow-step-table .flow-node-default > td {
+            background: #FAFCFF !important;
+        }
+        #security_pool_adjust .flow-step-table .flow-node-default > td:first-child {
+            border-left-color: #9AA8D3;
         }
         #security_pool_adjust .flow-step-table .flow-row-pending-current > td {
-            background: #E7EEFF !important;
-            box-shadow: inset 0 0 0 9999px rgba(23,70,212,.035);
+            box-shadow: inset 0 0 0 9999px rgba(23,70,212,.06);
             font-weight: 600;
         }
         #security_pool_adjust .flow-step-table .flow-row-pending-current > td:first-child {
-            border-left-width: 5px;
             border-left-color: var(--c-primary);
-        }
-        #security_pool_adjust .flow-step-table .flow-row-pending-other > td {
-            background: #FAFCFF !important;
         }
         #security_pool_adjust .flow-step-table .flow-row-pending-other > td:first-child {
             border-left-color: #9AA8D3;
         }
-        #security_pool_adjust .flow-step-table .flow-row-rejected > td {
-            background: var(--c-red-l) !important;
-        }
         #security_pool_adjust .flow-step-table .flow-row-rejected > td:first-child {
             border-left-color: var(--c-red);
-        }
-        #security_pool_adjust .flow-step-table .flow-row-ended > td {
-            background: var(--c-surface-2) !important;
-        }
-        #security_pool_adjust .flow-step-table .flow-row-ended > td:first-child {
-            border-left-color: var(--c-border);
         }
         #security_pool_adjust .flow-current-handler {
             display: inline-flex;
@@ -2753,19 +2769,46 @@
                 return map[code] || { bg: '#F0F2FA', color: '#8895B8' };
             },
 
-            // 流程步骤行样式：按状态和当前登录人区分显示
+            // 流程步骤行样式：节点背景按角色区分，处理状态按边框和强调层区分
             getFlowStepRowClass({ row }) {
                 if (!row) return '';
-                if (row.stepStatus === 'auto_completed') return 'flow-row-auto';
-                if (row.stepStatus === 'rejected') return 'flow-row-rejected';
-                if (row.stepStatus === 'approved') return 'flow-row-approved';
+                const classList = [this.getFlowStepNodeClass(row)];
                 if (row.stepStatus === 'pending') {
-                    return this.isCurrentHandler(row)
+                    classList.push(this.isCurrentHandler(row)
                         ? 'flow-row-pending-current'
-                        : 'flow-row-pending-other';
+                        : 'flow-row-pending-other');
+                    return classList.join(' ');
                 }
-                if (row.stepStatus === 'skipped' || row.stepStatus === 'canceled') return 'flow-row-ended';
-                return '';
+                if (row.stepStatus === 'auto_completed') classList.push('flow-row-auto');
+                if (row.stepStatus === 'rejected') classList.push('flow-row-rejected');
+                if (row.stepStatus === 'approved') classList.push('flow-row-approved');
+                if (row.stepStatus === 'skipped' || row.stepStatus === 'canceled') classList.push('flow-row-ended');
+                return classList.join(' ');
+            },
+
+            // 根据节点类型和名称识别流程节点角色
+            getFlowStepNodeClass(row) {
+                const nodeType = String(row.nodeType || '').toLowerCase();
+                const text = [row.nodeLabel, row.nodeCode, row.nodeType].filter(Boolean).join(' ');
+                if (nodeType === 'start' || nodeType === 'end' || text.indexOf('开始') >= 0 || text.indexOf('结束') >= 0) {
+                    return 'flow-node-terminal';
+                }
+                if (nodeType === 'auto' || text.indexOf('自动审批') >= 0 || text.toLowerCase().indexOf('o32') >= 0) {
+                    return 'flow-node-auto';
+                }
+                if (text.indexOf('发起') >= 0 || text.indexOf('提交') >= 0) {
+                    return 'flow-node-initiator';
+                }
+                if (text.indexOf('复核') >= 0 || text.indexOf('复合') >= 0) {
+                    return 'flow-node-review';
+                }
+                if (text.indexOf('修改') >= 0) {
+                    return 'flow-node-modify';
+                }
+                if (text.indexOf('审批') >= 0) {
+                    return 'flow-node-approve';
+                }
+                return 'flow-node-default';
             },
 
             // 判断流程步骤处理人是否为当前登录人
