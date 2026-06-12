@@ -1543,11 +1543,12 @@
                 <el-form-item class="create-form-item">
                     <label slot="label" class="create-label">
                         <i class="el-icon-key create-label-icon"></i> 流程 Key
+                        <span class="create-label-required">*</span>
                     </label>
-                    <el-input v-model="createForm.key" placeholder="选填，如 bond:credit-inbound" class="create-input">
+                    <el-input v-model="createForm.key" placeholder="如 bond:credit-inbound" class="create-input">
                         <span slot="prepend" class="key-prepend">KEY</span>
                     </el-input>
-                    <div class="create-hint">程序化标识，供外部系统调用时使用</div>
+                    <div class="create-hint">程序化标识，供外部系统调用时使用，如 bond:credit-inbound</div>
                 </el-form-item>
                 <el-form-item class="create-form-item">
                     <label slot="label" class="create-label">
@@ -1639,11 +1640,12 @@
                 <el-form-item class="create-form-item">
                     <label slot="label" class="create-label">
                         <i class="el-icon-key create-label-icon"></i> 流程 Key
+                        <span class="create-label-required">*</span>
                     </label>
-                    <el-input v-model="editInfoForm.key" placeholder="选填，如 bond:credit-inbound" class="create-input">
+                    <el-input v-model="editInfoForm.key" placeholder="如 bond:credit-inbound" class="create-input" :disabled="editInfoTargetStatus !== 'draft'">
                         <span slot="prepend" class="key-prepend">KEY</span>
                     </el-input>
-                    <div class="create-hint">程序化标识，供外部系统调用时使用</div>
+                    <div class="create-hint">程序化标识，供外部系统调用时使用，如 bond:credit-inbound</div>
                 </el-form-item>
                 <el-form-item class="create-form-item">
                     <label slot="label" class="create-label">
@@ -1906,6 +1908,7 @@
                     remark: '',                 // 内部备注
                     category: '',              // 业务分类
                 },
+                editInfoTargetStatus: '',      // 当前编辑行的状态，用于控制 Key 字段只读
                 publishVisible: false,          // 发布流程弹窗是否可见
                 publishNote: '',                // 发布版本备注文本
                 deleteVisible: false,           // 删除确认弹窗是否可见
@@ -2509,12 +2512,17 @@
             // 打开编辑基础信息弹窗（回填当前行数据）
             openEditInfo(row) {
                 this.editInfoForm = { id: row.id, name: row.name, key: row.key, desc: row.desc || '', remark: row.remark || '', category: row.category || '' };
+                this.editInfoTargetStatus = row.status;
                 this.editInfoVisible = true;
             },
             // 确认修改基础信息
             async confirmEditInfo() {
                 if (!this.editInfoForm.name) {
                     this.$message.warning('请填写名称');
+                    return;
+                }
+                if (!this.editInfoForm.key || !this.editInfoForm.key.trim()) {
+                    this.$message.warning('请填写流程 Key');
                     return;
                 }
                 const params = { id: this.editInfoForm.id, name: this.editInfoForm.name, flowKey: this.editInfoForm.key, category: this.editInfoForm.category, description: this.editInfoForm.desc, remark: this.editInfoForm.remark };
@@ -2539,6 +2547,10 @@
             async confirmCreate() {
                 if (!this.createForm.name) {
                     this.$message.warning('请填写名称');
+                    return;
+                }
+                if (!this.createForm.key || !this.createForm.key.trim()) {
+                    this.$message.warning('请填写流程 Key');
                     return;
                 }
                 const params = { name: this.createForm.name, flowKey: this.createForm.key, category: this.createForm.category || 'other', description: this.createForm.desc || '', remark: this.createForm.remark || '' };
@@ -2637,6 +2649,10 @@
                 const id = this.designerFlowId;
                 if (!id) { this.$message.warning('请先创建流程'); return; }
                 const row = this.tableData.find(x => x.id === id);
+                if (row && !row.key) {
+                    this.$message.warning('流程 Key 不能为空，请先在基础信息中设置');
+                    return;
+                }
                 const params = { id: id, name: row ? row.name : undefined, flowKey: row ? row.key : undefined, nodes: JSON.parse(JSON.stringify(this.nodes.map(n => this.normalizeNode(n)))), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
                 console.log('saveDraft params:', params);
                 try {
