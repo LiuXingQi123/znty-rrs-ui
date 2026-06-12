@@ -1299,6 +1299,11 @@
                             <el-form-item label="显示名称">
                                 <el-input size="small" v-model="selEdge.label" @change="renderAll" placeholder="自动生成 / 手动覆盖" :readonly="viewMode" :disabled="viewMode"></el-input>
                             </el-form-item>
+                            <el-form-item label="流转动作">
+                                <el-select v-model="selEdge.routeAction" size="small" style="width:100%" placeholder="固定路径可不选" clearable :disabled="viewMode">
+                                    <el-option v-for="item in routeActionOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                                </el-select>
+                            </el-form-item>
                         </div>
                         <div class="fsec">
                             <div class="fsec-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -1955,6 +1960,12 @@
                 // 连线条件编辑器（绑定到当前选中连线）
                 condRules: [],                  // 条件规则列表
                 condLogic: 'AND',               // 条件间逻辑：'AND' | 'OR'
+                routeActionOptions: [
+                    { label: '通过', value: 'approve' },
+                    { label: '驳回', value: 'reject' },
+                    { label: '自动', value: 'auto' },
+                    { label: '提交', value: 'submit' },
+                ],
             };
         },
         computed: {
@@ -2046,6 +2057,9 @@
                     this.propsTitle = '连线属性';
                     this.propsSub = this.viewMode ? '只读预览' : '配置触发条件';
                     this.statusbarSel = '连线已选中';
+                    if (!Object.prototype.hasOwnProperty.call(this.selEdge, 'routeAction')) {
+                        this.$set(this.selEdge, 'routeAction', '');
+                    }
                     // 从连线对象加载已保存的条件规则，过滤掉字段缺失的无效规则
                     this.condRules = this.selEdge.condRules
                         ? JSON.parse(JSON.stringify(this.selEdge.condRules)).filter(r => r.field && r.field !== 'undefined' && r.field !== 'null')
@@ -2975,7 +2989,7 @@
                 if (!this.linkSrc) return;
                 if (!this.edges.find(e => e.from === this.linkSrc.id && e.to === tn.id)) {
                     this.pushH();
-                    this.edges.push({ id: 'e' + (++this.seq), from: this.linkSrc.id, to: tn.id, label: '', remark: '' });
+                    this.edges.push({ id: 'e' + (++this.seq), from: this.linkSrc.id, to: tn.id, label: '', routeAction: '', remark: '' });
                     this.renderAll();
                 }
                 this.cancelLink();
@@ -3134,7 +3148,7 @@
                 const au  = a('auto',     '创建账号',730, 90,  'accountService');
                 const en  = a('end',      '结束',    880, 184);
                 // 创建连线辅助函数
-                const ae  = (f, t, l) => this.edges.push({ id: 'e' + (++this.seq), from: f, to: t, label: l || '', remark: '' });
+                const ae  = (f, t, l) => this.edges.push({ id: 'e' + (++this.seq), from: f, to: t, label: l || '', routeAction: '', remark: '' });
                 ae(s, hr); ae(hr, cd); ae(cd, mg, '通过'); ae(cd, rj, '驳回'); ae(mg, au); ae(au, en); ae(rj, en);
                 this.pushH(); this.renderAll(); // 保存初始快照
             },

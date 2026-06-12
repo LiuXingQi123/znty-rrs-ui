@@ -1413,6 +1413,8 @@
                             size="small"
                             stripe
                             border
+                            row-key="id"
+                            :span-method="flowStepSpanMethod"
                             :row-class-name="getFlowStepRowClass"
                             style="width:100%;border-radius:var(--r-sm);overflow:hidden;">
                         <el-table-column prop="nodeLabel" label="步骤名称" min-width="140">
@@ -1432,7 +1434,7 @@
                             </template>
                         </el-table-column>
                         <el-table-column label="处理结果" min-width="100">
-                            <template slot-scope="{ row }"><span style="color:var(--c-text-2);">{{ processActionLabel(row.processAction) }}</span></template>
+                            <template slot-scope="{ row }"><span style="color:var(--c-text-2);">{{ processActionLabel(row.processAction, row) }}</span></template>
                         </el-table-column>
                         <el-table-column label="处理时间" min-width="160">
                             <template slot-scope="{ row }"><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--c-text-2);">{{ row.processTime ? moment(row.processTime).format('YYYY-MM-DD HH:mm:ss') : '' }}</span></template>
@@ -1454,10 +1456,10 @@
                 <div v-show="sectionExpanded.auditApproval" style="padding:20px 22px;">
                     <div v-if="currentPendingStep" style="display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start;">
                         <div>
-                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:8px;">审核结果</div>
+                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:8px;">{{ auditResultTitle }}</div>
                             <el-radio-group v-model="auditAction" size="small">
-                                <el-radio-button label="approve">通过</el-radio-button>
-                                <el-radio-button label="reject">驳回</el-radio-button>
+                                <el-radio-button label="approve">{{ approveActionLabel }}</el-radio-button>
+                                <el-radio-button label="reject">{{ rejectActionLabel }}</el-radio-button>
                             </el-radio-group>
                             <div style="margin-top:10px;font-size:12px;color:var(--c-text-3);">
                                 当前步骤：{{ currentPendingStep.nodeLabel || '' }}
@@ -1476,7 +1478,7 @@
                                :disabled="!currentPendingStep || auditSubmitLoading"
                                :loading="auditSubmitLoading"
                                @click="submitAdjustAudit">
-                        提交审批
+                        {{ auditSubmitButtonText }}
                     </el-button>
                 </div>
             </div>
@@ -2301,7 +2303,39 @@
             },
             // 当前用户可处理的待审批步骤
             currentPendingStep() {
-                return (this.flowStepList || []).find(row => row.stepStatus === 'pending' && (!row.handlerId || this.isCurrentHandler(row) || this.isAdminUser())) || null;
+                const pendingList = (this.flowStepList || []).filter(row => row.stepStatus === 'pending');
+                const ownStep = pendingList.find(row => !row.handlerId || this.isCurrentHandler(row));
+                if (ownStep) return ownStep;
+                if (this.isAdminUser()) {
+                    return pendingList[0] || null;
+                }
+                return null;
+            },
+            // 当前是否处于驳回待修改阶段
+            isModifyAuditStage() {
+                const activeLog = this.activeAdjustLog || {};
+                const currentStep = this.currentPendingStep || {};
+                const nodeLabel = currentStep.nodeLabel || '';
+                return activeLog.auditStatus === '11' || nodeLabel.indexOf('修改') >= 0;
+            },
+            // 审核结果区域标题
+            auditResultTitle() {
+                return this.isModifyAuditStage ? '处理结果' : '审核结果';
+            },
+            // 正向处理动作展示文案
+            approveActionLabel() {
+                return this.isModifyAuditStage ? '提交' : '通过';
+            },
+            // 负向处理动作展示文案
+            rejectActionLabel() {
+                return this.isModifyAuditStage ? '终止流程' : '驳回';
+            },
+            // 审批提交按钮文案
+            auditSubmitButtonText() {
+                if (!this.isModifyAuditStage) {
+                    return '提交';
+                }
+                return this.auditAction === 'reject' ? '终止流程' : '提交';
             },
             // 可提交调库项列表
             validAdjustReviewList() {
@@ -2769,14 +2803,45 @@
                 });
             },
 
+            // 当前流程状态表格行合并：前三列按各自业务含义分别合并
+            flowStepSpanMethod({ rowIndex, columnIndex }) {
+                if (columnIndex > 2) return { rowspan: 1, colspan: 1 };
+                const span = this.getFlowStepMergeSpan(rowIndex, columnIndex);
+                return { rowspan: span, colspan: span === 0 ? 0 : 1 };
+            },
+
+            // 计算当前行在连续相同流程步骤组中的合并行数
+            getFlowStepMergeSpan(rowIndex, columnIndex) {
+                const list = this.flowStepList || [];
+                const row = list[rowIndex];
+                if (!row) return 1;
+                const currentKey = this.getFlowStepMergeKey(row, columnIndex);
+                const prevRow = list[rowIndex - 1];
+                if (prevRow && this.getFlowStepMergeKey(prevRow, columnIndex) === currentKey) return 0;
+                let span = 1;
+                for (let i = rowIndex + 1; i < list.length; i++) {
+                    if (this.getFlowStepMergeKey(list[i], columnIndex) !== currentKey) break;
+                    span++;
+                }
+                return span;
+            },
+
+            // 按列生成合并键：名称按节点，结果按节点+结果，开始时间按节点+结果+时间
+            getFlowStepMergeKey(row, columnIndex) {
+                if (!row) return '';
+                if (columnIndex === 0) return row.nodeLabel || '';
+                if (columnIndex === 1) return [row.nodeLabel || '', row.stepStatus || ''].join('|');
+                return [row.nodeLabel || '', row.stepStatus || '', row.startTime || ''].join('|');
+            },
+
             // 步骤状态映射
             stepStatusLabel(code) {
                 const map = {
                     pending: '待处理',
-                    approved: '已通过',
-                    rejected: '已驳回',
-                    auto_completed: '自动完成',
-                    skipped: '已跳过',
+                    approve: '通过',
+                    reject: '驳回',
+                    submit: '提交',
+                    auto_process: '自动处理',
                     canceled: '已撤回'
                 };
                 return map[code] || code || '';
@@ -2786,10 +2851,10 @@
             getStepStatusStyle(code) {
                 const map = {
                     pending:        { bg: '#EEF2FD', color: '#1746D4' },
-                    approved:       { bg: '#E8FBF3', color: '#0A8A5A' },
-                    rejected:       { bg: '#FFF0F0', color: '#D02020' },
-                    auto_completed: { bg: '#E8FBF3', color: '#0A8A5A' },
-                    skipped:        { bg: '#F0F2FA', color: '#8895B8' },
+                    approve:        { bg: '#E8FBF3', color: '#0A8A5A' },
+                    reject:         { bg: '#FFF0F0', color: '#D02020' },
+                    submit:         { bg: '#EEF2FD', color: '#1746D4' },
+                    auto_process:   { bg: '#E8FBF3', color: '#0A8A5A' },
                     canceled:       { bg: '#F0F2FA', color: '#8895B8' }
                 };
                 return map[code] || { bg: '#F0F2FA', color: '#8895B8' };
@@ -2805,10 +2870,10 @@
                         : 'flow-row-pending-other');
                     return classList.join(' ');
                 }
-                if (row.stepStatus === 'auto_completed') classList.push('flow-row-auto');
-                if (row.stepStatus === 'rejected') classList.push('flow-row-rejected');
-                if (row.stepStatus === 'approved') classList.push('flow-row-approved');
-                if (row.stepStatus === 'skipped' || row.stepStatus === 'canceled') classList.push('flow-row-ended');
+                if (row.stepStatus === 'auto_process') classList.push('flow-row-auto');
+                if (row.stepStatus === 'reject') classList.push('flow-row-rejected');
+                if (row.stepStatus === 'approve' || row.stepStatus === 'submit') classList.push('flow-row-approved');
+                if (row.stepStatus === 'canceled') classList.push('flow-row-ended');
                 return classList.join(' ');
             },
 
@@ -2855,7 +2920,7 @@
                     return;
                 }
                 if (this.auditAction === 'reject' && !this.auditComment.trim()) {
-                    this.$message.warning('驳回时处理意见不能为空');
+                    this.$message.warning(this.isModifyAuditStage ? '终止流程时处理意见不能为空' : '驳回时处理意见不能为空');
                     return;
                 }
                 this.auditSubmitLoading = true;
@@ -2883,12 +2948,20 @@
             },
 
             // 处理动作映射
-            processActionLabel(code) {
+            processActionLabel(code, row) {
+                if (row && row.nodeLabel && row.nodeLabel.indexOf('修改') >= 0) {
+                    const modifyMap = {
+                        approve: '提交',
+                        reject: '终止流程'
+                    };
+                    if (modifyMap[code]) return modifyMap[code];
+                }
                 const map = {
                     submit: '提交',
                     approve: '通过',
                     reject: '驳回',
-                    auto_process: '自动处理'
+                    auto_process: '自动处理',
+                    skipped: '被跳过'
                 };
                 return map[code] || code || '';
             },
