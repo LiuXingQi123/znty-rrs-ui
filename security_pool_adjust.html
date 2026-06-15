@@ -2645,6 +2645,17 @@
                 return 'info';
             },
 
+            // 构建调库校验结果的调整说明
+            buildAdjustNote(item, failReason) {
+                const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' };
+                const typeLabel = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode;
+                if (!failReason) return typeLabel;
+                if (item.itemTag === 'manual') {
+                    return item.adjustMode + '失败：' + failReason;
+                }
+                return typeLabel + '失败：' + failReason;
+            },
+
             // 外层调库项卡片颜色样式
             getFlowRowColorClass(index) {
                 return 'flow-row-color-' + (index % 5);
@@ -2669,9 +2680,7 @@
                 });
                 this.adjustCheckLoading = false;
 
-                const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' }
                 this.adjustReviewList = result.items.map((item, rowIndex) => {
-                    const typePrefix = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode
                     const failReasonStr = (item.failReasons || []).join('；')
                     const rowFlowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex);
                     const recommendedFlow = rowFlowOptions.find(option => option.recommended && option.selectable)
@@ -2685,7 +2694,7 @@
                         adjustGroupKey: item.adjustGroupKey,
                         valid: item.canAdjust,
                         failReason: failReasonStr,
-                        adjustNote: failReasonStr ? typePrefix + '；' + failReasonStr : typePrefix,
+                        adjustNote: this.buildAdjustNote(item, failReasonStr),
                         attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
                         materialFiles: this.getMaterialFiles(item.targetPoolId),
                         creditReports: this.getCreditReportSelections(item.targetPoolId),
