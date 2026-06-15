@@ -14,6 +14,8 @@
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <!-- Axios -->
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <!-- Moment.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <style>
         /*
  * flow_definition 页面专用样式
@@ -2294,7 +2296,7 @@
             <el-table-column label="更新时间" width="180">
                 <template slot-scope="scope"><div class="cell-time">{{ scope.row.updateTime }}</div></template>
             </el-table-column>
-            <el-table-column label="操作" min-width="100">
+            <el-table-column label="操作" min-width="100" fixed="right">
                 <template slot-scope="scope">
                     <el-button v-if="scope.row.status === 'draft'" size="mini" type="primary" plain @click="openDesigner(scope.row.rowId || historyTarget.id, false, false); historyVisible = false">编辑流程</el-button>
                     <el-button v-else size="mini" @click="viewVersion(scope.row.rowId || historyTarget.id, scope.row.versionId); historyVisible = false">查看流程</el-button>
@@ -2347,17 +2349,17 @@
                 roleOptions: [],                // 角色选项 [{value, label}]
                 autoTaskOptions: [],            // 自动任务选项 [{value, label}]
                 condFieldGroupOptions: [],      // 条件字段分组 [{groupName, fields: [{value, label}]}]
-                approvalPersonDialogVisible: false,
-                approvalRoleTreeData: [],
-                approvalRoleTreeProps: { children: 'children', label: 'roleName' },
-                approvalUserTableData: [],
-                filteredApprovalUserTableData: [],
-                approvalUserKeyword: '',
-                approvalUserTableLoading: false,
-                currentApprovalRoleId: null,
-                selectedApprovalRoles: [],
-                selectedApprovalUsers: [],
-                restoringApprovalSelection: false,
+                approvalPersonDialogVisible: false, // 处理人选择弹窗显示状态
+                approvalRoleTreeData: [], // 审批角色树数据
+                approvalRoleTreeProps: { children: 'children', label: 'roleName' }, // 角色树字段配置
+                approvalUserTableData: [], // 审批人员列表
+                filteredApprovalUserTableData: [], // 筛选后的审批人员列表
+                approvalUserKeyword: '', // 审批人员搜索关键词
+                approvalUserTableLoading: false, // 审批人员列表加载状态
+                currentApprovalRoleId: null, // 当前选中的审批角色 ID
+                selectedApprovalRoles: [], // 已选择的审批角色
+                selectedApprovalUsers: [], // 已选择的审批人员
+                restoringApprovalSelection: false, // 是否正在恢复人员选择状态
                 // 列表搜索与筛选
                 _searchTimer: null,             // 搜索防抖定时器
                 searchText: '',                 // 搜索关键字
@@ -2442,7 +2444,7 @@
                 // 连线条件编辑器（绑定到当前选中连线）
                 condRules: [],                  // 条件规则列表
                 condLogic: 'AND',               // 条件间逻辑：'AND' | 'OR'
-                routeActionOptions: [
+                routeActionOptions: [ // 连线路由动作选项
                     { label: '通过', value: 'approve' },
                     { label: '驳回', value: 'reject' },
                     { label: '自动', value: 'auto' },
@@ -2497,30 +2499,12 @@
                 return parts.join(` ${this.condLogic} `);
             },
         },
-        mounted() {
-            // 配置 axios
-            axios.defaults.baseURL = 'http://localhost:18090';
-            axios.defaults.headers.common['Content-Type'] = 'application/json; charset=utf-8';
-
-            // 在 window 上注册全局鼠标事件
-            window.addEventListener('mousemove', this.globalMousemove);
-            window.addEventListener('mouseup', this.globalMouseup);
-            document.addEventListener('click', this.hideCtx);
-
-            // 加载字典和列表数据
-            this.loadDicts();
-            this.loadList();
-        },
-        // 组件销毁前：移除全局鼠标事件和右键菜单监听器，防止内存泄漏
-        beforeDestroy() {
-            window.removeEventListener('mousemove', this.globalMousemove);
-            window.removeEventListener('mouseup', this.globalMouseup);
-            document.removeEventListener('click', this.hideCtx);
-        },
         watch: {
             // 筛选条件变化时重新加载列表（300ms 防抖）
             searchText() { clearTimeout(this._searchTimer); this._searchTimer = setTimeout(() => { this.pagination.pageIndex = 1; this.loadList(); }, 300); },
+            // 状态筛选变化时重置页码并重新加载列表
             statusFilter() { this.pagination.pageIndex = 1; this.loadList(); },
+            // 分类筛选变化时重置页码并重新加载列表
             categoryFilter() { this.pagination.pageIndex = 1; this.loadList(); },
             // 选中 ID 变化时，更新属性面板标题和状态栏
             selId(val, oldVal) {
@@ -2552,6 +2536,26 @@
             // 条件逻辑运算符变化时同步更新连线标签
             condLogic() { this.syncEdgeLabel(); },
         },
+        mounted() {
+            // 配置 axios
+            axios.defaults.baseURL = 'http://localhost:18090';
+            axios.defaults.headers.common['Content-Type'] = 'application/json; charset=utf-8';
+
+            // 在 window 上注册全局鼠标事件
+            window.addEventListener('mousemove', this.globalMousemove);
+            window.addEventListener('mouseup', this.globalMouseup);
+            document.addEventListener('click', this.hideCtx);
+
+            // 加载字典和列表数据
+            this.loadDicts();
+            this.loadList();
+        },
+        // 组件销毁前：移除全局鼠标事件和右键菜单监听器，防止内存泄漏
+        beforeDestroy() {
+            window.removeEventListener('mousemove', this.globalMousemove);
+            window.removeEventListener('mouseup', this.globalMouseup);
+            document.removeEventListener('click', this.hideCtx);
+        },
         methods: {
             // ─── API 辅助函数 ───
             // 将后端 FlowListDto 映射为前端行格式
@@ -2575,10 +2579,7 @@
             },
             // 返回当前时间的格式化字符串（YYYY-MM-DD HH:mm:ss），用于本地更新时间字段
             nowStr() {
-                const d = new Date();
-                const pad = n => String(n).padStart(2, '0');
-                return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
-                       pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+                return moment().format('YYYY-MM-DD HH:mm:ss');
             },
             // 统一请求封装：自动处理 code !== 0 异常
             async apiPost(path, body) {
@@ -2593,7 +2594,6 @@
             async loadList() {
                 this.loading = true;
                 const params = { pageIndex: this.pagination.pageIndex, pageSize: this.pagination.pageSize, keyword: this.searchText || '', status: this.statusFilter || '', category: this.categoryFilter || '' };
-                console.log('loadList params:', params);
                 try {
                     const res = await this.apiPost('/api/v1/flows/queryFlowPage', params);
                     this.tableData = (res.records || []).map(r => this.mapFlowItem(r));
@@ -2892,7 +2892,6 @@
                     const panY = (flow.draft && flow.draft.panY != null) ? flow.draft.panY : 50;
                     const zoom = (flow.draft && flow.draft.zoom != null) ? flow.draft.zoom : 1;
                     const pubParams = { id: id, publishNote: '', nodes, edges, panX, panY, zoom };
-                    console.log('pubRow params:', pubParams);
                     const pubResult = await this.apiPost('/api/v1/flows/editFlowToPublished', pubParams);
                     if (pubResult && pubResult.verNum != null) {
                         row.ver = 'v' + pubResult.verNum;
@@ -2913,7 +2912,6 @@
             // 打开流程历史弹窗：从 API 加载版本列表并合并当前流程信息
             async openHistory(row) {
                 this.historyTarget = row;
-                console.log('openHistory params:', { id: row.id });
                 try {
                     const versions = await this.apiPost('/api/v1/flows/queryFlowVersionList', { id: row.id });
                     this.historyRows = (versions || []).map(v => ({
@@ -2944,7 +2942,6 @@
             },
             // 查看历史版本详情（只读模式，加载指定版本的真实数据）
             async viewVersion(flowId, versionId) {
-                console.log('viewVersion params:', { flowId, versionId });
                 try {
                     const ver = await this.apiPost('/api/v1/flows/queryFlowVersionDetail', { flowId, versionId });
                     this.designerFlowId = flowId;
@@ -2973,7 +2970,6 @@
             // 确认删除流程（软删除）
             async confirmDelete() {
                 if (!this.deleteTarget) return;
-                console.log('confirmDelete params:', { id: this.deleteTarget.id });
                 try {
                     await this.apiPost('/api/v1/flows/deleteFlow', { id: this.deleteTarget.id });
                     this.deleteVisible = false;
@@ -3005,7 +3001,6 @@
                     return;
                 }
                 const params = { id: this.editInfoForm.id, name: this.editInfoForm.name, flowKey: this.editInfoForm.key, category: this.editInfoForm.category, description: this.editInfoForm.desc, remark: this.editInfoForm.remark };
-                console.log('confirmEditInfo params:', params);
                 try {
                     await this.apiPost('/api/v1/flows/editFlow', params);
                     const row = this.tableData.find(r => r.id === this.editInfoForm.id);
@@ -3033,7 +3028,6 @@
                     return;
                 }
                 const params = { name: this.createForm.name, flowKey: this.createForm.key, category: this.createForm.category || 'other', description: this.createForm.desc || '', remark: this.createForm.remark || '' };
-                console.log('confirmCreate params:', params);
                 try {
                     const res = await this.apiPost('/api/v1/flows/addFlow', params);
                     this.$message.success('创建成功');
@@ -3088,7 +3082,6 @@
                 }
 
                 // 从 API 加载流程详情（含画布节点/连线）
-                console.log('openDesigner params:', { id: id });
                 try {
                     const flow = await this.apiPost('/api/v1/flows/queryFlowDetail', { id: id });
                     // 更新设计器信息
@@ -3133,7 +3126,6 @@
                     return;
                 }
                 const params = { id: id, name: row ? row.name : undefined, flowKey: row ? row.key : undefined, nodes: JSON.parse(JSON.stringify(this.nodes.map(n => this.normalizeNode(n)))), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
-                console.log('saveDraft params:', params);
                 try {
                     const res = await this.apiPost('/api/v1/flows/editFlowDraft', params);
                     if (row) {
@@ -3152,7 +3144,6 @@
                 if (!id) { this.$message.warning('请先创建流程'); return; }
                 const row = this.tableData.find(x => x.id === id);
                 const pubParams = { id: id, publishNote: this.publishNote || '', nodes: JSON.parse(JSON.stringify(this.nodes.map(n => this.normalizeNode(n)))), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
-                console.log('confirmPublish params:', pubParams);
                 try {
                     const res = await this.apiPost('/api/v1/flows/editFlowToPublished', pubParams);
                     if (row) {
@@ -3204,7 +3195,6 @@
                         cancelButtonText: '取消',
                         type: 'warning',
                     });
-                    console.log('disableFlow params:', { id: row.id });
                     await this.apiPost('/api/v1/flows/editFlowStatus', { id: row.id });
                     row.status = 'disabled';
                     this.$message.success('已停用');
@@ -3501,13 +3491,16 @@
                 if (t !== 'link') this.cancelLink();
             },
             // 双击连线编辑标签（弹出输入框）
-            editEdgeLbl(eid) {
+            async editEdgeLbl(eid) {
                 const e = this.edges.find(x => x.id === eid); if (!e) return;
-                this.$prompt('设置连线条件标签（如：通过、驳回）：', '编辑标签', {
-                    confirmButtonText: '确定', cancelButtonText: '取消', inputValue: e.label || ''
-                }).then(({ value }) => {
+                try {
+                    const { value } = await this.$prompt('设置连线条件标签（如：通过、驳回）：', '编辑标签', {
+                        confirmButtonText: '确定', cancelButtonText: '取消', inputValue: e.label || ''
+                    });
                     this.pushH(); e.label = value || ''; this.renderAll();
-                }).catch(() => {});
+                } catch (e) {
+                    // 用户取消编辑时保留原连线标签
+                }
             },
             // 显示节点右键菜单
             showCtx(id, x, y) {
