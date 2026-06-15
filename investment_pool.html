@@ -1802,7 +1802,7 @@
                 <div style="display:flex;align-items:center;gap:8px;">
                     <div class="ptd-right-label">已选规则</div>
                     <span class="ptd-count-badge">{{ rulePickerSelected.length }}</span>
-                    <button v-if="rulePickerSelected.length" class="btn btn-ghost" style="height:24px;padding:0 8px;font-size:11px;margin-left:auto;" @click="rulePickerSelected = []">
+                    <button v-if="rulePickerSelected.length" class="btn btn-ghost" style="height:24px;padding:0 8px;font-size:11px;margin-left:auto;" @click="clearRulePickerSelection">
                         清空
                     </button>
                 </div>
@@ -2060,6 +2060,7 @@
                 rulePickerFilteredList: [],         // 当前显示的过滤后列表
                 rulePickerSelected: [],             // 弹窗中已勾选的规则
                 ruleCategoryOptions: [],            // 规则分类下拉选项
+                restoringRulePickerSelection: false, // 是否正在恢复规则表格勾选状态
 
                 permissionSubmitLoading: false,     // 权限配置保存按钮加载状态
                 permissionDialogVisible: false,     // 权限人员选择弹窗显示状态
@@ -2694,6 +2695,7 @@
                 this.rulePickerSelected = (ids || []).map(function(id, i) {
                     return { id: id, name: (descs && descs[i]) ? descs[i] : String(id), category: '' }
                 })
+                this.restoringRulePickerSelection = true
                 this.applyRulePickerFilters()
                 this.rulePickerVisible = true
                 this.$nextTick(function() {
@@ -2703,13 +2705,20 @@
 
             // 恢复表格勾选状态
             restoreRulePickerTableSelection() {
-                if (!this.$refs.rulePickerTableRef) return
-                const selectedIds = this.rulePickerSelected.map(function(s) { return s.id })
+                if (!this.$refs.rulePickerTableRef) {
+                    this.restoringRulePickerSelection = false
+                    return
+                }
+                this.restoringRulePickerSelection = true
+                const selectedIds = this.rulePickerSelected.map(function(s) { return String(s.id) })
                 this.$refs.rulePickerTableRef.clearSelection()
                 this.rulePickerFilteredList.forEach(function(row) {
-                    if (selectedIds.indexOf(row.id) !== -1) {
+                    if (selectedIds.indexOf(String(row.id)) !== -1) {
                         this.$refs.rulePickerTableRef.toggleRowSelection(row, true)
                     }
+                }.bind(this))
+                this.$nextTick(function() {
+                    this.restoringRulePickerSelection = false
                 }.bind(this))
             },
 
@@ -2719,10 +2728,12 @@
                 this.rulePickerSearch = ''
                 this.rulePickerCategoryFilter = ''
                 this.rulePickerSelected = []
+                this.restoringRulePickerSelection = false
             },
 
             // 规则搜索过滤
             handleRulePickerSearch(val) {
+                this.restoringRulePickerSelection = true
                 this.applyRulePickerFilters()
                 this.$nextTick(function() {
                     this.restoreRulePickerTableSelection()
@@ -2731,6 +2742,7 @@
 
             // 规则分类筛选
             handleRulePickerCategoryChange() {
+                this.restoringRulePickerSelection = true
                 this.applyRulePickerFilters()
                 this.$nextTick(function() {
                     this.restoreRulePickerTableSelection()
@@ -2739,22 +2751,30 @@
 
             // 多选规则行
             handleRulePickerSelect(rows) {
-                const visibleIds = this.rulePickerFilteredList.map(function(r) { return r.id })
+                if (this.restoringRulePickerSelection) return
+                const visibleIds = this.rulePickerFilteredList.map(function(r) { return String(r.id) })
                 const keepMap = {}
                 this.rulePickerSelected.forEach(function(s) {
-                    if (visibleIds.indexOf(s.id) === -1) keepMap[s.id] = s
+                    if (visibleIds.indexOf(String(s.id)) === -1) keepMap[String(s.id)] = s
                 })
                 rows.forEach(function(row) {
-                    keepMap[row.id] = { id: row.id, name: row.name, category: row.category }
+                    keepMap[String(row.id)] = { id: row.id, name: row.name, category: row.category }
                 })
-                const allIds = Object.keys(keepMap).map(function(k) { return parseInt(k) })
-                this.rulePickerSelected = allIds.map(function(id) { return keepMap[id] })
+                this.rulePickerSelected = Object.keys(keepMap).map(function(id) { return keepMap[id] })
             },
 
             // 从已选列表中移除单条规则
             removeFromRulePickerSelected(id) {
                 const idx = this.rulePickerSelected.findIndex(function(s) { return s.id === id })
                 if (idx !== -1) this.rulePickerSelected.splice(idx, 1)
+                this.$nextTick(function() {
+                    this.restoreRulePickerTableSelection()
+                }.bind(this))
+            },
+
+            // 清空规则选择并同步取消当前表格勾选
+            clearRulePickerSelection() {
+                this.rulePickerSelected = []
                 this.$nextTick(function() {
                     this.restoreRulePickerTableSelection()
                 }.bind(this))
