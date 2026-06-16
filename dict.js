@@ -395,10 +395,11 @@ const DICT_FLOW_STATUS_TAG_TYPE = {
 // ── 29. 流程业务分类（category）──────────────────────────
 // 表：wf_flow_definition
 const DICT_FLOW_CATEGORY = {
-    'bond':   '利率债',
-    'credit': '信用债',
-    'fund':   '基金',
-    'other':  '其他',
+    'bond':    '债券',
+    'stock':   '股票',
+    'fund':    '基金',
+    'company': '主体',
+    'other':   '其他',
 };
 
 // ── 30. 节点类型（node_type）─────────────────────────────

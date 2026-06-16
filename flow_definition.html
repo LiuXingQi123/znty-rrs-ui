@@ -749,12 +749,6 @@
             grid-template-columns: 1fr 1fr;
             gap: 0 16px;
         }
-        #flow_definition .key-prepend {
-            font-size: 10.5px;
-            font-weight: 700;
-            color: #9ba3c0;
-            letter-spacing: .05em;
-        }
         #flow_definition .sel-opt-dot {
             display: inline-flex;
             align-items: center;
@@ -1448,9 +1442,10 @@
                     <el-option label="已停用" value="disabled"></el-option>
                 </el-select>
                 <el-select v-model="categoryFilter" placeholder="全部分类" size="small" style="width:110px" clearable>
-                    <el-option label="利率债" value="bond"></el-option>
+                    <el-option label="债券" value="bond"></el-option>
                     <el-option label="基金" value="fund"></el-option>
-                    <el-option label="信用债" value="credit"></el-option>
+                    <el-option label="股票" value="stock"></el-option>
+                    <el-option label="主体" value="company"></el-option>
                     <el-option label="其他" value="other"></el-option>
                 </el-select>
                 <div class="topbar-stat" style="margin-left:auto">
@@ -1950,16 +1945,16 @@
                 <div class="flow-form-guide-item">
                     <span class="flow-form-guide-index">01</span>
                     <div>
-                        <div class="flow-form-guide-label">定义业务身份</div>
-                        <div class="flow-form-guide-text">名称、唯一 Key 与业务分类</div>
+                        <div class="flow-form-guide-label">填写基础信息</div>
+                        <div class="flow-form-guide-text">设置名称、标识和分类</div>
                     </div>
                 </div>
                 <i class="el-icon-right flow-form-guide-arrow"></i>
                 <div class="flow-form-guide-item">
                     <span class="flow-form-guide-index">02</span>
                     <div>
-                        <div class="flow-form-guide-label">进入流程编排</div>
-                        <div class="flow-form-guide-text">创建后配置节点、路由和处理人</div>
+                        <div class="flow-form-guide-label">设计审批流程</div>
+                        <div class="flow-form-guide-text">配置节点、连线和审批人</div>
                     </div>
                 </div>
             </div>
@@ -1970,7 +1965,7 @@
                         <i class="el-icon-edit-outline create-label-icon"></i> 流程名称
                         <span class="create-label-required">*</span>
                     </label>
-                    <el-input v-model="createForm.name" placeholder="请输入流程名称，例如：信用债入库审批" class="create-input"></el-input>
+                    <el-input v-model="createForm.name" placeholder="例如：信用债入库审批" class="create-input"></el-input>
                 </el-form-item>
 
                 <!-- Key 与业务分类双列布局 -->
@@ -1980,24 +1975,25 @@
                             <i class="el-icon-key create-label-icon"></i> 流程 Key
                             <span class="create-label-required">*</span>
                         </label>
-                        <el-input v-model="createForm.key" placeholder="请输入唯一标识，例如：credit:bond-admission" class="create-input">
-                            <span slot="prepend" class="key-prepend">KEY</span>
-                        </el-input>
-                        <div class="create-hint">用于接口调用，建议使用“业务域:业务动作”格式</div>
+                        <el-input v-model="createForm.key" placeholder="例如：credit:bond-admission" class="create-input"></el-input>
+                        <div class="create-hint">建议格式：业务域:业务动作</div>
                     </el-form-item>
                     <el-form-item class="create-form-item" style="margin-bottom:0">
                         <label slot="label" class="create-label">
                             <i class="el-icon-collection-tag create-label-icon"></i> 业务分类
                         </label>
-                        <el-select v-model="createForm.category" style="width:100%" placeholder="请选择业务分类" :popper-append-to-body="false">
-                            <el-option label="利率债" value="bond">
-                                <span class="sel-opt-dot" style="background:#dbeafe;color:#1d4ed8">债</span> 利率债
+                        <el-select v-model="createForm.category" style="width:100%" placeholder="请选择分类" :popper-append-to-body="false">
+                            <el-option label="债券" value="bond">
+                                <span class="sel-opt-dot" style="background:#dbeafe;color:#1d4ed8">债</span> 债券
                             </el-option>
                             <el-option label="基金" value="fund">
                                 <span class="sel-opt-dot" style="background:#fdf4ff;color:#7c3aed">基</span> 基金
                             </el-option>
-                            <el-option label="信用债" value="credit">
-                                <span class="sel-opt-dot" style="background:#fff7ed;color:#c2410c">信</span> 信用债
+                            <el-option label="股票" value="stock">
+                                <span class="sel-opt-dot" style="background:#dcfce7;color:#15803d">股</span> 股票
+                            </el-option>
+                            <el-option label="主体" value="company">
+                                <span class="sel-opt-dot" style="background:#fff7ed;color:#c2410c">主</span> 主体
                             </el-option>
                             <el-option label="其他" value="other">
                                 <span class="sel-opt-dot" style="background:#f1f5f9;color:#64748b">他</span> 其他
@@ -2013,7 +2009,7 @@
                     <label slot="label" class="create-label">
                         <i class="el-icon-document create-label-icon"></i> 业务描述
                     </label>
-                    <el-input type="textarea" v-model="createForm.desc" :rows="3" placeholder="请输入适用场景、审批目标及使用范围" class="create-input"></el-input>
+                    <el-input type="textarea" v-model="createForm.desc" :rows="3" placeholder="填写适用场景和审批目标" class="create-input"></el-input>
                 </el-form-item>
 
                 <!-- 备注字段 -->
@@ -2022,7 +2018,7 @@
                         <i class="el-icon-chat-dot-square create-label-icon"></i> 内部备注
                         <span class="create-label-optional">内部可见</span>
                     </label>
-                    <el-input type="textarea" v-model="createForm.remark" :rows="3" placeholder="请输入内部管理说明（选填）" class="create-input"></el-input>
+                    <el-input type="textarea" v-model="createForm.remark" :rows="3" placeholder="填写内部管理说明" class="create-input"></el-input>
                 </el-form-item>
             </div>
         </el-form>
@@ -2045,7 +2041,7 @@
         </div>
         <el-form label-position="top" size="small">
             <el-form-item label="版本备注">
-                <el-input v-model="publishNote" placeholder="描述本次改动…"></el-input>
+                <el-input v-model="publishNote" placeholder="填写本次改动"></el-input>
             </el-form-item>
         </el-form>
         <span slot="footer">
@@ -2068,16 +2064,16 @@
                 <div class="flow-form-guide-item">
                     <span class="flow-form-guide-index">01</span>
                     <div>
-                        <div class="flow-form-guide-label">核对业务身份</div>
-                        <div class="flow-form-guide-text">统一维护名称、Key 与业务分类</div>
+                        <div class="flow-form-guide-label">核对基础信息</div>
+                        <div class="flow-form-guide-text">修改名称、标识和分类</div>
                     </div>
                 </div>
                 <i class="el-icon-right flow-form-guide-arrow"></i>
                 <div class="flow-form-guide-item">
                     <span class="flow-form-guide-index">02</span>
                     <div>
-                        <div class="flow-form-guide-label">保存基础信息</div>
-                        <div class="flow-form-guide-text">本次修改不会改变已发布画布版本</div>
+                        <div class="flow-form-guide-label">保存修改</div>
+                        <div class="flow-form-guide-text">不影响已发布版本</div>
                     </div>
                 </div>
             </div>
@@ -2088,7 +2084,7 @@
                         <i class="el-icon-edit-outline create-label-icon"></i> 流程名称
                         <span class="create-label-required">*</span>
                     </label>
-                    <el-input v-model="editInfoForm.name" placeholder="请输入流程名称，例如：信用债入库审批" class="create-input"></el-input>
+                    <el-input v-model="editInfoForm.name" placeholder="例如：信用债入库审批" class="create-input"></el-input>
                 </el-form-item>
 
                 <!-- Key 与业务分类双列布局 -->
@@ -2098,19 +2094,18 @@
                             <i class="el-icon-key create-label-icon"></i> 流程 Key
                             <span class="create-label-required">*</span>
                         </label>
-                        <el-input v-model="editInfoForm.key" placeholder="请输入唯一标识，例如：credit:bond-admission" class="create-input" :disabled="editInfoTargetStatus !== 'draft'">
-                            <span slot="prepend" class="key-prepend">KEY</span>
-                        </el-input>
-                        <div class="create-hint">用于接口调用，建议使用“业务域:业务动作”格式</div>
+                        <el-input v-model="editInfoForm.key" placeholder="例如：credit:bond-admission" class="create-input" :disabled="editInfoTargetStatus !== 'draft'"></el-input>
+                        <div class="create-hint">建议格式：业务域:业务动作</div>
                     </el-form-item>
                     <el-form-item class="create-form-item" style="margin-bottom:0">
                         <label slot="label" class="create-label">
                             <i class="el-icon-collection-tag create-label-icon"></i> 业务分类
                         </label>
-                        <el-select v-model="editInfoForm.category" style="width:100%" placeholder="请选择业务分类" :popper-append-to-body="false">
-                            <el-option label="利率债" value="bond"><span class="sel-opt-dot" style="background:#dbeafe;color:#1d4ed8">债</span> 利率债</el-option>
+                        <el-select v-model="editInfoForm.category" style="width:100%" placeholder="请选择分类" :popper-append-to-body="false">
+                            <el-option label="债券" value="bond"><span class="sel-opt-dot" style="background:#dbeafe;color:#1d4ed8">债</span> 债券</el-option>
                             <el-option label="基金" value="fund"><span class="sel-opt-dot" style="background:#fdf4ff;color:#7c3aed">基</span> 基金</el-option>
-                            <el-option label="信用债" value="credit"><span class="sel-opt-dot" style="background:#fff7ed;color:#c2410c">信</span> 信用债</el-option>
+                            <el-option label="股票" value="stock"><span class="sel-opt-dot" style="background:#dcfce7;color:#15803d">股</span> 股票</el-option>
+                            <el-option label="主体" value="company"><span class="sel-opt-dot" style="background:#fff7ed;color:#c2410c">主</span> 主体</el-option>
                             <el-option label="其他" value="other"><span class="sel-opt-dot" style="background:#f1f5f9;color:#64748b">他</span> 其他</el-option>
                         </el-select>
                     </el-form-item>
@@ -2123,7 +2118,7 @@
                     <label slot="label" class="create-label">
                         <i class="el-icon-document create-label-icon"></i> 业务描述
                     </label>
-                    <el-input type="textarea" v-model="editInfoForm.desc" :rows="3" placeholder="请输入适用场景、审批目标及使用范围" class="create-input"></el-input>
+                    <el-input type="textarea" v-model="editInfoForm.desc" :rows="3" placeholder="填写适用场景和审批目标" class="create-input"></el-input>
                 </el-form-item>
 
                 <!-- 备注字段 -->
@@ -2132,7 +2127,7 @@
                         <i class="el-icon-chat-dot-square create-label-icon"></i> 内部备注
                         <span class="create-label-optional">内部可见</span>
                     </label>
-                    <el-input type="textarea" v-model="editInfoForm.remark" :rows="3" placeholder="请输入内部管理说明（选填）" class="create-input"></el-input>
+                    <el-input type="textarea" v-model="editInfoForm.remark" :rows="3" placeholder="填写内部管理说明" class="create-input"></el-input>
                 </el-form-item>
             </div>
         </el-form>
@@ -2364,7 +2359,7 @@
                 _searchTimer: null,             // 搜索防抖定时器
                 searchText: '',                 // 搜索关键字
                 statusFilter: '',               // 状态筛选：'' | 'active' | 'draft' | 'disabled'
-                categoryFilter: '',             // 分类筛选：'' | 'bond' | 'fund' | 'credit' | 'other'
+                categoryFilter: '',             // 分类筛选：'' | 'bond' | 'fund' | 'stock' | 'company' | 'other'
                 pagination: {                   // 列表分页状态
                     pageIndex: 1,               // 当前页码
                     pageSize: 10,               // 每页条数
@@ -2647,11 +2642,11 @@
             },
             // 返回业务分类的 el-tag type
             catTagType(c) {
-                return { bond: '', fund: 'danger', credit: 'warning', other: 'info' }[c] || 'info';
+                return { bond: '', fund: 'danger', stock: 'success', company: 'warning', other: 'info' }[c] || 'info';
             },
             // 返回业务分类中文标签
             catLabel(c) {
-                return { bond: '利率债', fund: '基金', credit: '信用债', other: '其他' }[c] || '其他';
+                return { bond: '债券', fund: '基金', stock: '股票', company: '主体', other: '其他' }[c] || '其他';
             },
             // 根据节点类型返回默认配置对象（用于新建节点时初始化 per-node 配置）
             nodeDefaults(type) {
