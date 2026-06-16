@@ -1552,8 +1552,8 @@
                 <el-button size="mini" @click="undo" :disabled="histIdx <= 0">↺ 撤销</el-button>
                 <el-button size="mini" @click="redo" :disabled="histIdx >= hist.length - 1">↻ 重做</el-button>
                 <div class="tool-sep"></div>
-                <el-button size="mini" @click="saveDraft">保存</el-button>
-                <el-button type="primary" size="mini" icon="el-icon-upload2" @click="publishVisible = true">发布</el-button>
+                <el-button size="mini" @click="openSaveConfirm">保存</el-button>
+                <el-button type="primary" size="mini" icon="el-icon-upload2" @click="openPublishConfirm">发布</el-button>
             </template>
         </div>
         <div class="designer-body">
@@ -3111,6 +3111,21 @@
                     this.backToList();
                 }
             },
+            // 打开保存确认提示
+            async openSaveConfirm() {
+                try {
+                    await this.$confirm('保存后将更新当前流程草稿。', '保存流程', {
+                        confirmButtonText: '确认保存',
+                        cancelButtonText: '取消',
+                        type: 'warning',
+                    });
+                    // 确认后复用草稿保存逻辑
+                    await this.saveDraft();
+                } catch (e) {
+                    if (e === 'cancel') return;
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
             // 保存草稿：调用 API 保存当前画布
             async saveDraft() {
                 const id = this.designerFlowId;
@@ -3130,6 +3145,21 @@
                     }
                     this.$message.success('已保存');
                 } catch (e) {
+                    this.$message.error(e.message || '请求异常');
+                }
+            },
+            // 打开发布确认提示
+            async openPublishConfirm() {
+                try {
+                    await this.$confirm('发布后该流程将正式生效，可被业务系统调用。', '发布流程', {
+                        confirmButtonText: '确认发布',
+                        cancelButtonText: '取消',
+                        type: 'success',
+                    });
+                    // 确认后复用发布提交逻辑
+                    await this.confirmPublish();
+                } catch (e) {
+                    if (e === 'cancel') return;
                     this.$message.error(e.message || '请求异常');
                 }
             },

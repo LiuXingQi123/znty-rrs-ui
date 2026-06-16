@@ -2234,7 +2234,7 @@
                 materialFiles: {},            // 各池其他材料文件映射 { poolId: [File, ...] }
                 adjustStep: 2,           // 调库步骤：1=选择池, 2=校验确认
                 adjustCheckLoading: false, // 下一步校验接口加载状态
-                currentLoginUserId: '2', // 当前默认登录用户 ID
+                currentLoginUserId: '1001', // 当前默认登录用户 ID
                 currentLoginUserName: '管理员', // 当前默认登录用户名称
                 adjustReviewList: [],    // 步骤2校验结果列表
                 pendingAdjustReviewList: [], // 等待流程选择确认的校验结果
@@ -2355,7 +2355,7 @@
             // 当前用户可处理的待审批步骤
             currentPendingStep() {
                 const pendingList = (this.flowStepList || []).filter(row => row.stepStatus === 'pending');
-                const ownStep = pendingList.find(row => !row.handlerId || this.isCurrentHandler(row));
+                const ownStep = pendingList.find(row => this.isCurrentHandler(row));
                 if (ownStep) return ownStep;
                 if (this.isAdminUser()) {
                     return pendingList[0] || null;
@@ -2956,7 +2956,16 @@
 
             // 判断流程步骤处理人是否为当前登录人
             isCurrentHandler(row) {
-                return row && String(row.handlerId || '') === String(this.currentLoginUserId);
+                if (!row) return false;
+                const handlerId = String(row.handlerId || '').trim();
+                const currentUserId = String(this.currentLoginUserId || '').trim();
+                if (!handlerId || !currentUserId || handlerId !== currentUserId) return false;
+                const handlerName = String(row.handlerName || '').trim();
+                const currentUserName = String(this.currentLoginUserName || '').trim();
+                if (handlerName && currentUserName) {
+                    return handlerName === currentUserName;
+                }
+                return true;
             },
 
             // 判断当前登录用户是否为管理员
