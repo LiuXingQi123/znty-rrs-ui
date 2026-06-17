@@ -2235,7 +2235,6 @@
                 adjustStep: 2,           // 调库步骤：1=选择池, 2=校验确认
                 adjustCheckLoading: false, // 下一步校验接口加载状态
                 currentLoginUserId: '1001', // 当前默认登录用户 ID
-                currentLoginUserName: '管理员', // 当前默认登录用户名称
                 adjustReviewList: [],    // 步骤2校验结果列表
                 pendingAdjustReviewList: [], // 等待流程选择确认的校验结果
                 flowDialogVisible: false, // 流程选择弹窗显示状态
@@ -2616,8 +2615,8 @@
                 try {
                     const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail',     { securityCode: securityCode }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityCode: securityCode, adjustDirection: 'in' }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityCode: securityCode, adjustDirection: 'out' }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId }),
                         this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode }),
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
@@ -2959,18 +2958,12 @@
                 if (!row) return false;
                 const handlerId = String(row.handlerId || '').trim();
                 const currentUserId = String(this.currentLoginUserId || '').trim();
-                if (!handlerId || !currentUserId || handlerId !== currentUserId) return false;
-                const handlerName = String(row.handlerName || '').trim();
-                const currentUserName = String(this.currentLoginUserName || '').trim();
-                if (handlerName && currentUserName) {
-                    return handlerName === currentUserName;
-                }
-                return true;
+                return !!handlerId && !!currentUserId && handlerId === currentUserId;
             },
 
             // 判断当前登录用户是否为管理员
             isAdminUser() {
-                return String(this.currentLoginUserId) === '1001' || this.currentLoginUserName === '管理员';
+                return String(this.currentLoginUserId) === '1001';
             },
 
             // 提交当前流程步骤审批意见
@@ -2994,8 +2987,7 @@
                         stepId: step.id,
                         processAction: this.auditAction,
                         processComment: this.auditComment,
-                        handlerId: this.currentLoginUserId,
-                        handlerName: this.currentLoginUserName
+                        handlerId: this.currentLoginUserId
                     });
                     this.$message.success((result && result.message) || '审批处理成功');
                     this.auditAction = 'approve';
@@ -3234,8 +3226,7 @@
                     adjustReason: this.adjustReason,
                     adjustAdvice: this.adjustAdvice,
                     securityInfo,
-                    adjusterId: '1001',
-                    adjusterName: '管理员',
+                    adjusterId: this.currentLoginUserId,
                     items: validItems.map(r => ({
                         targetPoolId: r.poolId,
                         targetPoolName: r.poolName,
