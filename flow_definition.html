@@ -1550,7 +1550,7 @@
             <div class="flex1"></div>
             <template v-if="!viewMode">
                 <el-button size="mini" @click="undo" :disabled="histIdx <= 0">↺ 撤销</el-button>
-                <el-button size="mini" @click="redo" :disabled="histIdx >= hist.length - 1">↻ 重做</el-button>
+                <el-button size="mini" @click="redo" :disabled="histIdx >= hist.length - 1">↻ 恢复</el-button>
                 <div class="tool-sep"></div>
                 <el-button size="mini" @click="openSaveConfirm">保存</el-button>
                 <el-button type="primary" size="mini" icon="el-icon-upload2" @click="openPublishConfirm">发布</el-button>
@@ -2413,6 +2413,7 @@
                 panY: 50,                       // 垂直平移偏移
                 hist: [],                       // 撤销历史栈
                 histIdx: -1,                    // 当前历史位置（-1 表示空）
+                isRestoringHistory: false,      // 是否正在执行撤销/恢复，避免选中项 watcher 污染历史栈
                 seq: 100,                       // 节点/连线自增 ID 序号
                 dragNode: null,                 // 当前拖拽中的节点 ID
                 dragMoved: false,               // 拖拽是否发生实际位移
@@ -2504,7 +2505,7 @@
             // 选中 ID 变化时，更新属性面板标题和状态栏
             selId(val, oldVal) {
                 // 从已编辑节点/连线切换走时，保存当前快照以便撤销
-                if (oldVal && !this.viewMode) this.pushH();
+                if (oldVal && !this.viewMode && !this.isRestoringHistory) this.pushH();
                 if (!val) {
                     this.propsTitle = '属性';
                     this.propsSub = this.viewMode ? '点击节点查看属性' : '点击节点编辑';
@@ -2843,6 +2844,7 @@
                     list.push({ subjectType: 'user', subjectId: user.id, subjectName: user.userName })
                 })
                 this.selNode.approvalPersons = list
+                this.pushH()
                 this.approvalPersonDialogVisible = false
                 this.renderAll()
             },
@@ -2853,6 +2855,7 @@
                 this.pushH()
                 this.selNode.approvalPersons = this.selNode.approvalPersons
                     .filter(p => !(p.subjectType === item.subjectType && String(p.subjectId) === String(item.subjectId)))
+                this.pushH()
             },
 
             // ─── 列表操作 ───
@@ -3244,12 +3247,19 @@
                 if (!this.nodes.length && !this.edges.length) return;
                 this.pushH();
                 this.nodes = []; this.edges = []; this.selId = null;
+                this.pushH();
                 this.renderAll();
             },
-            // 推入撤销历史快照（在每次修改前调用）
+            // 推入撤销历史快照（在每次修改后调用，重复快照自动忽略）
             pushH() {
+                const snap = { n: JSON.stringify(this.nodes), e: JSON.stringify(this.edges) };
                 this.hist = this.hist.slice(0, this.histIdx + 1);
-                this.hist.push({ n: JSON.stringify(this.nodes), e: JSON.stringify(this.edges) });
+                const last = this.hist[this.hist.length - 1];
+                if (last && last.n === snap.n && last.e === snap.e) {
+                    this.histIdx = this.hist.length - 1;
+                    return;
+                }
+                this.hist.push(snap);
                 this.histIdx = this.hist.length - 1;
             },
             // 撤销：恢复到上一个历史快照
@@ -3257,16 +3267,20 @@
                 if (this.histIdx <= 0) { this.$message.info('没有可撤销的操作'); return; }
                 this.histIdx--;
                 const s = this.hist[this.histIdx];
+                this.isRestoringHistory = true;
                 this.nodes = JSON.parse(s.n); this.edges = JSON.parse(s.e); this.selId = null;
                 this.renderAll();
+                this.$nextTick(() => { this.isRestoringHistory = false; });
             },
-            // 重做：前进到下一个历史快照
+            // 恢复撤销：前进到下一个历史快照
             redo() {
-                if (this.histIdx >= this.hist.length - 1) { this.$message.info('没有可重做的操作'); return; }
+                if (this.histIdx >= this.hist.length - 1) { this.$message.info('没有可恢复的操作'); return; }
                 this.histIdx++;
                 const s = this.hist[this.histIdx];
+                this.isRestoringHistory = true;
                 this.nodes = JSON.parse(s.n); this.edges = JSON.parse(s.e); this.selId = null;
                 this.renderAll();
+                this.$nextTick(() => { this.isRestoringHistory = false; });
             },
             // 获取节点几何中心坐标
             nc(n) {
@@ -3432,7 +3446,7 @@
                 const ox = sh === 'circle' ? CR : sh === 'diamond' ? DW : NW / 2;
                 const oy = sh === 'circle' ? CR : sh === 'diamond' ? DH : NH / 2;
                 const n = { id, type, label: cfg.label, x: pt.x - ox, y: pt.y - oy, shape: sh, ...this.nodeDefaults(type) };
-                this.nodes.push(n); this.renderAll(); this.selId = n.id; this.dragType = null;
+                this.nodes.push(n); this.selId = n.id; this.dragType = null; this.pushH(); this.renderAll();
             },
             // 画布空白区域 mousedown：平移或取消选中
             canvasMousedown(ev) {
@@ -3500,6 +3514,7 @@
                 if (!this.edges.find(e => e.from === this.linkSrc.id && e.to === tn.id)) {
                     this.pushH();
                     this.edges.push({ id: 'e' + (++this.seq), from: this.linkSrc.id, to: tn.id, label: '', routeAction: '', remark: '' });
+                    this.pushH();
                     this.renderAll();
                 }
                 this.cancelLink();
@@ -3522,7 +3537,7 @@
                     const { value } = await this.$prompt('设置连线条件标签（如：通过、驳回）：', '编辑标签', {
                         confirmButtonText: '确定', cancelButtonText: '取消', inputValue: e.label || ''
                     });
-                    this.pushH(); e.label = value || ''; this.renderAll();
+                    this.pushH(); e.label = value || ''; this.pushH(); this.renderAll();
                 } catch (e) {
                     // 用户取消编辑时保留原连线标签
                 }
@@ -3541,11 +3556,13 @@
                     this.edges = this.edges.filter(e => e.from !== this.ctxNid && e.to !== this.ctxNid);
                     this.nodes = this.nodes.filter(n => n.id !== this.ctxNid);
                     if (this.selId === this.ctxNid) this.selId = null;
+                    this.pushH();
                     this.renderAll();
                 } else if (act === 'dup') {
                     const n = this.nodes.find(x => x.id === this.ctxNid); if (!n) return; this.pushH();
                     const id = 'n' + (++this.seq);
                     this.nodes.push({ ...JSON.parse(JSON.stringify(n)), id, x: n.x + 30, y: n.y + 30 });
+                    this.pushH();
                     this.renderAll();
                 }
             },
@@ -3554,12 +3571,14 @@
                 const id = this.selId; if (!id) return; this.pushH();
                 this.edges = this.edges.filter(e => e.from !== id && e.to !== id);
                 this.nodes = this.nodes.filter(n => n.id !== id);
+                this.pushH();
                 this.selId = null; this.renderAll();
             },
             // 删除当前选中的连线
             deleteEdge() {
                 const id = this.selId; if (!id) return; this.pushH();
                 this.edges = this.edges.filter(e => e.id !== id);
+                this.pushH();
                 this.selId = null; this.renderAll();
             },
 
@@ -3605,12 +3624,14 @@
                 this.pushH();
                 this.condRules.push({ field: '', op: 'eq', val: '' });
                 this.syncEdgeLabel();
+                this.pushH();
             },
             // 移除指定位置的条件规则
             removeCondRule(idx) {
                 this.pushH();
                 this.condRules.splice(idx, 1);
                 this.syncEdgeLabel();
+                this.pushH();
             },
             // 为当前选中节点添加自动任务
             addAutoTask() {
@@ -3618,6 +3639,7 @@
                 this.pushH();
                 if (!this.selNode.autoTasks) this.$set(this.selNode, 'autoTasks', []);
                 this.selNode.autoTasks.push({ id: ++this.autoSeq, task: '' });
+                this.pushH();
             },
             // 将条件规则同步写入连线标签（用于保存和条件预览）
             syncEdgeLabel() {
@@ -3645,7 +3667,7 @@
                 this.nodes = []; this.edges = []; this.selId = null; this.seq = 100;
                 this.hist = []; this.histIdx = -1;
                 this.panX = 60; this.panY = 50; this.zoom = 1;
-                if (empty) { this.renderAll(); return; }
+                if (empty) { this.pushH(); this.renderAll(); return; }
                 // 创建节点辅助函数
                 const a = (type, label, x, y, sub) => {
                     const id = 'n' + (++this.seq);
