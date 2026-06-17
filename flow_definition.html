@@ -1644,7 +1644,9 @@
                 <div class="canvas-toolbar">
                     <el-button-group v-if="!viewMode">
                         <el-button size="mini" :type="tool === 'select' ? 'primary' : ''" @click="setTool('select')"><i class="el-icon-cursor"></i> 选择</el-button>
-                        <el-button size="mini" :type="tool === 'link' ? 'primary' : ''" @click="setTool('link')"><i class="el-icon-share"></i> 连线</el-button>
+                        <el-tooltip placement="bottom" content="选择连线后，从一个节点按住鼠标左键拖到另一个节点，松开完成连接；未连接成功会自动取消">
+                            <el-button size="mini" :type="tool === 'link' ? 'primary' : ''" @click="setTool('link')"><i class="el-icon-share"></i> 连线</el-button>
+                        </el-tooltip>
                     </el-button-group>
                     <el-divider v-if="!viewMode" direction="vertical"></el-divider>
                     <el-button-group>
@@ -3240,8 +3242,34 @@
             },
             // 缩放步进（限制 25%~250%）
             changeZoom(d) { this.zoom = Math.max(.25, Math.min(2.5, this.zoom + d)); },
-            // 适应窗口：恢复默认缩放与平移
-            fitView() { this.zoom = 1; this.panX = 60; this.panY = 50; },
+            // 适应窗口：根据节点边界自动居中并保留适当留白
+            fitView() {
+                if (!this.nodes.length) {
+                    this.zoom = 1;
+                    this.panX = 60;
+                    this.panY = 50;
+                    return;
+                }
+                const cw = document.getElementById('cw');
+                if (!cw) return;
+                const rect = cw.getBoundingClientRect();
+                const pad = 96;
+                const bounds = this.nodes.reduce((acc, n) => {
+                    const width = n.shape === 'circle' ? CR * 2 : n.shape === 'diamond' ? DW * 2 : NW;
+                    const height = n.shape === 'circle' ? CR * 2 : n.shape === 'diamond' ? DH * 2 : NH;
+                    acc.minX = Math.min(acc.minX, n.x);
+                    acc.minY = Math.min(acc.minY, n.y);
+                    acc.maxX = Math.max(acc.maxX, n.x + width);
+                    acc.maxY = Math.max(acc.maxY, n.y + height);
+                    return acc;
+                }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+                const contentW = Math.max(1, bounds.maxX - bounds.minX);
+                const contentH = Math.max(1, bounds.maxY - bounds.minY);
+                const fitZoom = Math.min((rect.width - pad * 2) / contentW, (rect.height - pad * 2) / contentH);
+                this.zoom = Math.max(0.25, Math.min(1.5, fitZoom));
+                this.panX = (rect.width - contentW * this.zoom) / 2 - bounds.minX * this.zoom;
+                this.panY = (rect.height - contentH * this.zoom) / 2 - bounds.minY * this.zoom;
+            },
             // 清空画布所有节点和连线
             clearCanvas() {
                 if (!this.nodes.length && !this.edges.length) return;
@@ -3492,8 +3520,7 @@
                 if (this.isPanning) this.isPanning = false;
                 if (this.dragNode !== null) { if (this.dragMoved) this.pushH(); this.dragNode = null; }
                 if (this.linkSrc) {
-                    const cw = document.getElementById('cw');
-                    if (ev.target === cw || ev.target.id === 'fsvg') this.cancelLink();
+                    this.cancelLink();
                 }
             },
             // 鼠标滚轮缩放
