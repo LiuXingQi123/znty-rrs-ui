@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>证券池批量调整</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        #batch_security_pool_adjust {
+            --c-bg:#F2F4F8; --c-surface:#FFFFFF; --c-surface-2:#F8FAFD; --c-border:#E2E8F4; --c-border-l:#ECF0F9;
+            --c-text:#0D1829; --c-text-2:#3A4769; --c-text-3:#8895B8;
+            --c-primary:#1746D4; --c-primary-h:#0F35B0; --c-primary-l:#EEF2FD; --c-primary-s:rgba(23,70,212,.12);
+            --c-green:#0A8A5A; --c-green-l:#E8FBF3; --c-red:#D02020; --c-red-l:#FFF0F0;
+            --r-xs:4px; --r-sm:7px; --r:10px; --r-xl:18px;
+            --sh-xs:0 1px 3px rgba(13,24,54,.05);
+            --sh-sm:0 2px 8px rgba(13,24,54,.08),0 0 0 1px rgba(13,24,54,.04);
+            display:flex; flex-direction:column; height:100vh; overflow:hidden;
+            background:var(--c-bg); color:var(--c-text);
+            font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+            font-size:14px; letter-spacing:.01em;
+        }
+        #batch_security_pool_adjust .topbar {
+            display:flex; align-items:center; gap:14px; height:60px; padding:0 28px;
+            background:var(--c-surface); border-bottom:1px solid var(--c-border);
+            box-shadow:0 1px 0 var(--c-border),0 2px 8px rgba(13,24,54,.04);
+            flex-shrink:0;
+        }
+        #batch_security_pool_adjust .topbar-brand { display:flex; align-items:center; gap:12px; }
+        #batch_security_pool_adjust .topbar-icon {
+            width:34px; height:34px; border-radius:9px;
+            display:flex; align-items:center; justify-content:center;
+            background:linear-gradient(135deg,var(--c-primary) 0%,#3B6AEA 100%);
+            color:#fff; box-shadow:0 2px 8px rgba(23,70,212,.18);
+        }
+        #batch_security_pool_adjust .topbar h2 { font-size:15px; font-weight:700; }
+        #batch_security_pool_adjust .topbar-sep { width:1px; height:18px; background:var(--c-border); }
+        #batch_security_pool_adjust .topbar-sys { color:var(--c-text-3); font-size:12px; }
+        #batch_security_pool_adjust .topbar-date { margin-left:auto; padding:4px 10px; border:1px solid var(--c-border); border-radius:20px; background:var(--c-surface-2); color:var(--c-text-3); font-size:11px; }
+        #batch_security_pool_adjust .list-body { flex:1; overflow-y:auto; padding:22px 28px; }
+
+        #batch_security_pool_adjust .search-panel {
+            margin-bottom:16px; padding:16px 20px;
+            background:var(--c-surface); border:1px solid var(--c-border);
+            border-radius:var(--r-xl); box-shadow:var(--sh-xs);
+        }
+        #batch_security_pool_adjust .search-row { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+        #batch_security_pool_adjust .search-row + .search-row { margin-top:10px; }
+        #batch_security_pool_adjust .search-label {
+            display:inline-flex; align-items:center; gap:6px; margin-right:4px;
+            color:var(--c-text-3); font-size:12px; font-weight:600;
+            text-transform:uppercase; letter-spacing:.06em;
+        }
+        #batch_security_pool_adjust .total-badge {
+            margin-left:auto; display:inline-flex; align-items:center; gap:6px;
+            padding:5px 14px; border-radius:20px; color:var(--c-primary);
+            background:var(--c-primary-l); border:1px solid rgba(23,70,212,.15);
+            font-size:12px; font-weight:600;
+        }
+        #batch_security_pool_adjust .pool-trigger {
+            display:inline-flex; align-items:center; gap:6px; padding:7px 14px;
+            border:1px solid var(--c-border); border-radius:var(--r);
+            color:var(--c-text-2); background:var(--c-surface);
+            cursor:pointer; font-size:13px; font-weight:500; white-space:nowrap;
+            transition:all .18s ease;
+        }
+        #batch_security_pool_adjust .pool-trigger:hover,
+        #batch_security_pool_adjust .pool-trigger.has-selection {
+            color:var(--c-primary); border-color:var(--c-primary);
+            background:var(--c-primary-l); box-shadow:0 1px 4px var(--c-primary-s);
+        }
+        #batch_security_pool_adjust .pool-popover-content { width:340px; max-height:380px; overflow:auto; }
+        #batch_security_pool_adjust .pool-tag-row { display:flex; flex-wrap:wrap; gap:6px; max-width:calc(100vw - 360px); }
+        #batch_security_pool_adjust .pool-tag {
+            display:inline-flex; align-items:center; gap:4px;
+            max-width:280px; padding:3px 8px; border-radius:14px;
+            background:var(--c-primary-l); border:1px solid rgba(23,70,212,.15);
+            color:var(--c-primary); font-size:11.5px; font-weight:500;
+        }
+        #batch_security_pool_adjust .pool-tag span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        #batch_security_pool_adjust .pool-tag i { cursor:pointer; }
+
+        #batch_security_pool_adjust .table-card {
+            background:var(--c-surface);
+            border:1px solid var(--c-border);
+            border-radius:var(--r-xl);
+            overflow:hidden;
+            box-shadow:var(--sh-sm);
+        }
+        #batch_security_pool_adjust .pagination-wrap {
+            display:flex; justify-content:flex-end;
+            padding:12px 20px;
+            border-top:1px solid var(--c-border-l);
+            background:var(--c-surface-2);
+        }
+        #batch_security_pool_adjust .pool-name {
+            color:var(--c-text); font-weight:500;
+        }
+        #batch_security_pool_adjust .number-text { font-family:'DM Mono',monospace; font-weight:600; color:var(--c-text-2); }
+        #batch_security_pool_adjust .action-button-group {
+            display:inline-flex; gap:10px; align-items:center; justify-content:center;
+            width:100%;
+        }
+
+        #batch_security_pool_adjust .el-table th.el-table__cell {
+            background:#F4F7FE; color:var(--c-text-2); font-size:11.5px;
+            font-weight:700; letter-spacing:.05em; border-bottom:1px solid var(--c-border);
+            padding:11px 0;
+        }
+        #batch_security_pool_adjust .el-table td.el-table__cell {
+            color:var(--c-text); border-bottom-color:var(--c-border-l); padding:10px 0;
+        }
+        #batch_security_pool_adjust .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background:#FAFBFF; }
+        #batch_security_pool_adjust .el-table__body tr:hover > td { background:var(--c-primary-l)!important; }
+        #batch_security_pool_adjust .el-input--small .el-input__inner {
+            border-radius:var(--r-sm); border-color:var(--c-border); color:var(--c-text); font-size:13px;
+            transition:border-color .18s, box-shadow .18s;
+        }
+        #batch_security_pool_adjust .el-input--small .el-input__inner:hover { border-color:#B0BCE8; }
+        #batch_security_pool_adjust .el-input--small .el-input__inner:focus {
+            border-color:var(--c-primary);
+            box-shadow:0 0 0 3px var(--c-primary-s);
+        }
+        #batch_security_pool_adjust .el-button--primary {
+            background:linear-gradient(135deg,var(--c-primary) 0%,#2D5CE8 100%);
+            border-color:var(--c-primary);
+            border-radius:var(--r-sm); font-weight:600; letter-spacing:.03em;
+            transition:all .18s; box-shadow:0 2px 6px var(--c-primary-s);
+        }
+        #batch_security_pool_adjust .el-button--primary:hover {
+            background:linear-gradient(135deg,var(--c-primary-h) 0%,var(--c-primary) 100%);
+            border-color:var(--c-primary-h);
+            box-shadow:0 4px 12px rgba(23,70,212,.18);
+            transform:translateY(-1px);
+        }
+        #batch_security_pool_adjust .el-button--primary:active { transform:scale(.97) translateY(0); }
+        #batch_security_pool_adjust .el-button--default {
+            border-radius:var(--r-sm); color:var(--c-text-2);
+            border-color:var(--c-border); font-weight:500;
+            background:var(--c-surface); transition:all .18s;
+        }
+        #batch_security_pool_adjust .el-button--default:hover {
+            color:var(--c-primary); border-color:rgba(23,70,212,.2); background:var(--c-primary-l);
+            box-shadow:0 2px 8px var(--c-primary-s);
+        }
+        #batch_security_pool_adjust .el-tag--mini { border-radius:20px; font-weight:600; font-size:11px; letter-spacing:.03em; }
+        #batch_security_pool_adjust .el-tag--info { background:#F0F2FA; border-color:transparent; color:var(--c-text-3); }
+        #batch_security_pool_adjust .el-pager li.active {
+            background:var(--c-primary); color:#fff;
+            border-radius:var(--r-sm);
+            box-shadow:0 2px 6px var(--c-primary-s);
+        }
+        #batch_security_pool_adjust .el-pagination .btn-next,
+        #batch_security_pool_adjust .el-pagination .btn-prev,
+        #batch_security_pool_adjust .el-pagination .el-pager li { border-radius:var(--r-sm); font-weight:500; }
+        #batch_security_pool_adjust .el-pagination { font-weight:500; }
+        #batch_security_pool_adjust .el-pagination.is-small .el-select .el-input { width:100px !important; }
+        #batch_security_pool_adjust .el-tree { background:transparent; font-family:inherit; }
+        #batch_security_pool_adjust .el-tree-node__content { height:32px; border-radius:var(--r-xs); }
+        #batch_security_pool_adjust .el-tree-node__content:hover { background:var(--c-primary-l); }
+        @media (max-width: 760px) {
+            #batch_security_pool_adjust .list-body { padding:16px; }
+            #batch_security_pool_adjust .total-badge { margin-left:0; }
+            #batch_security_pool_adjust .pool-tag-row { max-width:100%; }
+        }
+    </style>
+</head>
+<body>
+<div id="batch_security_pool_adjust">
+    <div class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon"><i class="el-icon-sort"></i></div>
+            <h2>证券池批量调整</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <span class="topbar-date">{{ today }}</span>
+    </div>
+
+    <div class="list-body">
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+                <el-popover placement="bottom-start" width="360" v-model="poolTreeVisible" :append-to-body="false">
+                    <div class="pool-popover-content">
+                        <el-tree
+                            ref="poolTreeRef"
+                            :data="poolTreeData"
+                            node-key="id"
+                            :props="treeProps"
+                            show-checkbox
+                            default-expand-all>
+                        </el-tree>
+                    </div>
+                    <div style="margin-top:8px;text-align:right;">
+                        <el-button size="mini" @click="poolTreeVisible = false">取消</el-button>
+                        <el-button type="primary" size="mini" @click="handlePoolTreeConfirm">确认</el-button>
+                    </div>
+                    <span slot="reference" class="pool-trigger" :class="{ 'has-selection': searchForm.poolIds.length > 0 }">
+                        <i class="el-icon-folder-opened"></i>
+                        {{ searchForm.poolIds.length > 0 ? '已选 ' + searchForm.poolIds.length + ' 个池' : '请选择投资池' }}
+                    </span>
+                </el-popover>
+
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+
+                <div class="total-badge">
+                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 个投资池
+                </div>
+            </div>
+
+            <div class="search-row" v-if="selectedPoolTags.length > 0">
+                <span class="search-label" style="visibility:hidden;"><i class="el-icon-search"></i>筛选</span>
+                <div class="pool-tag-row">
+                    <span class="pool-tag" v-for="item in selectedPoolTags" :key="item.id">
+                        <span :title="item.poolName">{{ item.poolName }}</span>
+                        <i class="el-icon-close" @click="removePoolTag(item.id)"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <el-table :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无可调整投资池">
+                <el-table-column label="序号" width="50" align="center">
+                    <template slot-scope="{ $index }">{{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}</template>
+                </el-table-column>
+                <el-table-column prop="poolFullName" label="投资池名称" min-width="260" show-overflow-tooltip>
+                    <template slot-scope="{ row }">
+                        <span class="pool-name">{{ row.poolFullName || row.poolName || '' }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="description" label="投资池描述" min-width="180" show-overflow-tooltip>
+                    <template slot-scope="{ row }">{{ row.description || '' }}</template>
+                </el-table-column>
+                <el-table-column prop="marketCodes" label="投资市场" min-width="150" show-overflow-tooltip>
+                    <template slot-scope="{ row }">{{ marketLabel(row.marketCodes) }}</template>
+                </el-table-column>
+                <el-table-column prop="varietyCodes" label="投资品种" min-width="140" show-overflow-tooltip>
+                    <template slot-scope="{ row }">{{ varietyLabel(row.varietyCodes) }}</template>
+                </el-table-column>
+                <el-table-column prop="maxCapacity" label="上限数量" min-width="110" align="center">
+                    <template slot-scope="{ row }"><span class="number-text">{{ row.maxCapacity == null ? '' : row.maxCapacity }}</span></template>
+                </el-table-column>
+                <el-table-column prop="currentCount" label="现有数量" min-width="110" align="center">
+                    <template slot-scope="{ row }"><span class="number-text">{{ row.currentCount == null ? '' : row.currentCount }}</span></template>
+                </el-table-column>
+                <el-table-column label="操作" width="170" align="center" fixed="right">
+                    <template slot-scope="{ row }">
+                        <div class="action-button-group">
+                            <el-button type="primary" size="mini" @click="openAdjust(row, 'in')">调入</el-button>
+                            <el-button size="mini" @click="openAdjust(row, 'out')">调出</el-button>
+                        </div>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+                <el-pagination
+                    :total="pagination.total"
+                    :current-page="pagination.pageIndex"
+                    :page-size="pagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    small
+                    @current-change="handlePageChange"
+                    @size-change="handleSizeChange">
+                </el-pagination>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+new Vue({
+    el: '#batch_security_pool_adjust',
+    data() {
+        return {
+            today: moment().format('YYYY年MM月DD日'), // 顶栏日期
+            loading: false,                          // 列表加载状态
+            poolList: [],                            // 可调整投资池列表
+            filteredPoolList: [],                    // 筛选后的投资池列表
+            tableData: [],                           // 当前页投资池列表
+            poolTreeData: [],                        // 投资池筛选树
+            poolTreeVisible: false,                  // 投资池选择弹层
+            selectedPoolTags: [],                    // 已选投资池标签
+            currentUserId: '1001',                   // 当前用户 ID
+            searchForm: {
+                poolIds: []                          // 已选投资池 ID
+            },
+            pagination: {
+                pageIndex: 1,                        // 当前页码
+                pageSize: 10,                        // 每页条数
+                total: 0                             // 总条数
+            },
+            treeProps: {
+                children: 'children',
+                label: 'poolName',
+                disabled(data) {
+                    return data.children && data.children.length > 0
+                }
+            },
+            varietyOptions: [
+                { value: 'bond', label: '证券' },
+                { value: 'warrant', label: '权证' },
+                { value: 'trust', label: '信托' },
+                { value: 'index', label: '指数' },
+                { value: 'stock', label: '股票' },
+                { value: 'issuer', label: '公司主体' },
+                { value: 'fund', label: '基金' }
+            ],
+            marketOptions: [
+                { value: 'UNKNOWN', label: '未知' },
+                { value: 'SSE', label: '上海证券交易所' },
+                { value: 'SZSE', label: '深圳证券交易所' },
+                { value: 'CIBM', label: '银行间市场' }
+            ]
+        }
+    },
+    mounted() {
+        axios.defaults.baseURL = 'http://localhost:18090'
+        this.initPage()
+    },
+    methods: {
+        // 统一发送 POST 请求
+        async apiPost(path, body) {
+            const resp = await axios.post(path, body || {})
+            const json = resp.data
+            if (json.code !== 0) {
+                this.$message.error(json.message || '接口异常')
+                throw new Error(json.message || '接口异常')
+            }
+            return json.data
+        },
+
+        // 初始化页面数据
+        async initPage() {
+            this.loading = true
+            try {
+                const poolTreeList = await this.apiPost('/api/v1/securityPoolQuery/queryPoolTreeList', {})
+                const adjustPoolList = await this.apiPost('/api/v1/batchSecurityPoolAdjust/queryPoolList', {
+                    currentUserId: this.currentUserId
+                })
+                this.poolTreeData = this.buildPoolTree(poolTreeList || [])
+                this.poolList = this.mergePoolFullName(adjustPoolList || [])
+                this.applyFilter()
+            } finally {
+                this.loading = false
+            }
+        },
+
+        // 构建投资池筛选树
+        buildPoolTree(list) {
+            if (!list || list.length === 0) return []
+            const roots = []
+            const map = {}
+            list.forEach(item => {
+                map[item.id] = Object.assign({}, item, { children: [] })
+            })
+            list.forEach(item => {
+                const node = map[item.id]
+                if (item.parentId != null && map[item.parentId]) {
+                    const parent = map[item.parentId]
+                    node.fullPath = parent.fullPath ? parent.fullPath + '/' + node.poolName : parent.poolName + '/' + node.poolName
+                    parent.children.push(node)
+                } else {
+                    node.fullPath = node.poolName
+                    roots.push(node)
+                }
+            })
+            return roots
+        },
+
+        // 将证券池查询页同源树中的全路径合并到可调整池列表
+        mergePoolFullName(list) {
+            const flatList = this.flattenTree(this.poolTreeData)
+            return list.map(pool => {
+                const treeNode = flatList.find(node => node.id === pool.id)
+                return Object.assign({}, pool, {
+                    poolFullName: treeNode ? treeNode.fullPath : (pool.poolFullName || pool.poolName || '')
+                })
+            })
+        },
+
+        // 确认投资池树选择
+        handlePoolTreeConfirm() {
+            const checkedKeys = this.$refs.poolTreeRef.getCheckedKeys()
+            const halfCheckedKeys = this.$refs.poolTreeRef.getHalfCheckedKeys()
+            const allKeys = checkedKeys.concat(halfCheckedKeys)
+            const adjustableIdMap = {}
+            this.poolList.forEach(pool => {
+                adjustableIdMap[pool.id] = true
+            })
+            this.searchForm.poolIds = allKeys.filter(id => adjustableIdMap[id])
+            const flatList = this.flattenTree(this.poolTreeData)
+            this.selectedPoolTags = flatList.filter(node => {
+                return this.searchForm.poolIds.indexOf(node.id) !== -1
+            }).map(node => ({
+                id: node.id,
+                poolName: node.fullPath
+            }))
+            this.poolTreeVisible = false
+            this.handleSearch()
+        },
+
+        // 移除投资池标签
+        removePoolTag(poolId) {
+            this.searchForm.poolIds = this.searchForm.poolIds.filter(id => id !== poolId)
+            this.selectedPoolTags = this.selectedPoolTags.filter(item => item.id !== poolId)
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.setCheckedKeys(this.searchForm.poolIds)
+            }
+            this.handleSearch()
+        },
+
+        // 树扁平化
+        flattenTree(nodes) {
+            let result = []
+            const walk = list => {
+                list.forEach(node => {
+                    result.push(node)
+                    if (node.children && node.children.length > 0) {
+                        walk(node.children)
+                    }
+                })
+            }
+            walk(nodes || [])
+            return result
+        },
+
+        // 执行筛选
+        handleSearch() {
+            this.pagination.pageIndex = 1
+            this.applyFilter()
+        },
+
+        // 重置筛选
+        handleReset() {
+            this.searchForm = { poolIds: [] }
+            this.selectedPoolTags = []
+            this.pagination.pageIndex = 1
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.setCheckedKeys([])
+            }
+            this.applyFilter()
+        },
+
+        // 应用客户端筛选
+        applyFilter() {
+            this.filteredPoolList = this.poolList.filter(pool => {
+                const poolMatched = this.searchForm.poolIds.length === 0 || this.searchForm.poolIds.indexOf(pool.id) !== -1
+                return poolMatched
+            })
+            this.pagination.total = this.filteredPoolList.length
+            this.refreshTableData()
+        },
+
+        // 刷新当前页表格数据
+        refreshTableData() {
+            const start = (this.pagination.pageIndex - 1) * this.pagination.pageSize
+            this.tableData = this.filteredPoolList.slice(start, start + this.pagination.pageSize)
+        },
+
+        // 翻页查询
+        handlePageChange(page) {
+            this.pagination.pageIndex = page
+            this.refreshTableData()
+        },
+
+        // 切换每页数量
+        handleSizeChange(size) {
+            this.pagination.pageSize = size
+            this.pagination.pageIndex = 1
+            this.refreshTableData()
+        },
+
+        // 打开批量调入或调出页面
+        openAdjust(row, direction) {
+            const params = new URLSearchParams()
+            params.set('poolId', row.id)
+            params.set('poolName', row.poolFullName || row.poolName || '')
+            params.set('poolType', row.poolType || '')
+            params.set('direction', direction)
+            window.location.href = 'batch_security_pool_adjust_select.html?' + params.toString()
+        },
+
+        // 投资品种中文映射
+        varietyLabel(value) {
+            const codes = this.parseCodeList(value)
+            return codes.map(code => {
+                const item = this.varietyOptions.find(option => option.value === code)
+                return item ? item.label : code
+            }).join('、')
+        },
+
+        // 投资市场中文映射
+        marketLabel(value) {
+            const codes = this.parseCodeList(value)
+            return codes.map(code => {
+                const item = this.marketOptions.find(option => option.value === code)
+                return item ? item.label : code
+            }).join('、')
+        },
+
+        // 解析 JSON 或逗号分隔编码列表
+        parseCodeList(value) {
+            if (!value) return []
+            if (Array.isArray(value)) return value
+            try {
+                const parsed = JSON.parse(value)
+                return Array.isArray(parsed) ? parsed : []
+            } catch (e) {
+                return String(value).split(',').map(item => item.trim()).filter(Boolean)
+            }
+        }
+    }
+})
+</script>
+</body>
+</html>

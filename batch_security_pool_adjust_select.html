@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>证券池批量调整</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+        #batch_security_pool_adjust_select {
+            --c-bg:#F2F4F8; --c-surface:#FFF; --c-surface-2:#F8FAFD; --c-border:#E2E8F4;
+            --c-border-l:#ECF0F9; --c-text:#0D1829; --c-text-2:#3A4769; --c-text-3:#8895B8;
+            --c-primary:#1746D4; --c-primary-h:#0F35B0; --c-primary-l:#EEF2FD; --c-primary-s:rgba(23,70,212,.12);
+            --c-green:#0A8A5A; --c-green-l:#E8FBF3; --c-red:#D02020; --c-red-l:#FFF0F0;
+            --c-amber:#B05E00; --c-amber-l:#FFF6E8; --r-sm:7px; --r:10px; --r-xl:18px;
+            min-height:100vh; background:var(--c-bg); color:var(--c-text); font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+        }
+        .topbar { height:60px; display:flex; align-items:center; gap:14px; padding:0 28px; background:#fff; border-bottom:1px solid var(--c-border); box-shadow:0 1px 0 var(--c-border),0 2px 8px rgba(13,24,54,.04); }
+        .back-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px 7px 10px; border-radius:var(--r); border:1px solid var(--c-border); background:var(--c-surface); color:var(--c-text-2); font-size:13px; font-weight:500; cursor:pointer; transition:all .18s ease; outline:none; font-family:inherit; box-shadow:0 1px 2px rgba(13,24,54,.04); }
+        .back-btn:hover { border-color:var(--c-primary); color:var(--c-primary); background:var(--c-primary-l); box-shadow:0 2px 8px var(--c-primary-s); transform:translateX(-1px); }
+        .divider { width:1px; height:22px; background:var(--c-border); flex-shrink:0; }
+        .topbar-detail { display:flex; align-items:center; gap:8px; min-width:0; }
+        .topbar-title { font-size:14px; font-weight:700; color:var(--c-text); white-space:nowrap; }
+        .topbar-code { font-family:'DM Mono',monospace; font-size:13px; font-weight:600; color:var(--c-primary); background:var(--c-primary-l); padding:2px 10px; border-radius:5px; border:1px solid rgba(23,70,212,.15); }
+        .topbar-name { color:var(--c-text-2); font-weight:500; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .topbar-date { margin-left:auto; padding:4px 10px; border:1px solid var(--c-border); border-radius:20px; background:var(--c-surface-2); color:var(--c-text-3); font-size:12px; }
+        .list-body { padding:22px 28px 34px; }
+        .workbench { display:block; }
+        .main-column { min-width:0; }
+        .section-card { background:#fff; border:1px solid var(--c-border); border-radius:var(--r-xl); margin-bottom:14px; box-shadow:0 1px 3px rgba(13,24,54,.04); overflow:hidden; }
+        .materials-stack { margin-bottom:16px; }
+        .materials-stack .section-card:last-child { margin-bottom:0; }
+        .rule-card { padding:14px 16px; }
+        .rule-row { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+        .rule-title { display:flex; align-items:center; gap:8px; color:var(--c-text-2); font-size:13px; font-weight:700; }
+        .rule-title i { color:var(--c-primary); }
+        .candidate-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--c-border-l); background:#fff; }
+        .candidate-title { display:inline-flex; align-items:center; gap:8px; margin-right:8px; color:var(--c-text); font-weight:700; white-space:nowrap; }
+        .candidate-title i { color:var(--c-primary); }
+        .candidate-filters { display:flex; align-items:center; flex-wrap:wrap; gap:10px; flex:1; min-width:0; }
+        .total-badge { margin-left:auto; padding:5px 14px; border-radius:20px; color:var(--c-primary); background:var(--c-primary-l); font-size:12px; font-weight:600; white-space:nowrap; }
+        .table-card { overflow:hidden; background:#fff; border:1px solid var(--c-border); border-radius:var(--r-xl); box-shadow:0 2px 8px rgba(13,24,54,.08); }
+        .pagination-wrap { display:flex; justify-content:flex-end; padding:12px 20px; border-top:1px solid var(--c-border-l); background:var(--c-surface-2); }
+        .section-header { display:flex; align-items:center; gap:10px; padding:14px 22px; border-bottom:1px solid var(--c-border-l); background:linear-gradient(to right,#FAFCFF 0%,var(--c-surface) 100%); cursor:pointer; user-select:none; }
+        .section-dot { width:3px; height:16px; background:linear-gradient(180deg,var(--c-primary) 0%,#5C82EF 100%); border-radius:4px; flex-shrink:0; }
+        .section-title { font-size:13px; font-weight:700; color:var(--c-text); letter-spacing:.03em; }
+        .section-count { color:var(--c-text-3); font-size:12px; font-weight:500; }
+        .section-tools { margin-left:auto; display:flex; align-items:center; gap:10px; }
+        .section-body { padding:13px 16px; }
+        .inline-material-body { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+        .inline-material-body .el-upload { flex-shrink:0; }
+        .selected-list,.file-list,.report-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+        .inline-material-body .file-list,.inline-material-body .report-list { flex:1; min-width:0; margin-top:0; }
+        .selected-list.scrollable,.file-list.scrollable,.report-list.scrollable {
+            max-height:132px; overflow-y:auto; padding-right:4px;
+        }
+        .selected-list.scrollable { max-height:170px; }
+        .selected-chip,.file-chip,.report-chip { display:inline-flex; align-items:center; gap:7px; max-width:320px; padding:5px 9px; border:1px solid rgba(23,70,212,.15); border-radius:16px; background:var(--c-primary-l); color:var(--c-primary); font-size:12px; }
+        .file-chip { background:#F7F8FC; border-color:var(--c-border); color:var(--c-text-2); }
+        .report-chip.internal { color:var(--c-primary); background:var(--c-primary-l); }
+        .report-chip.external { color:#6332C2; background:#F2EDFC; border-color:#DED2F4; }
+        .selected-chip span,.file-chip span,.report-chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .selected-chip i,.file-chip i,.report-chip i { cursor:pointer; }
+        .empty-hint { color:var(--c-text-3); font-size:12px; }
+        .selected-body { min-height:64px; display:flex; flex-direction:column; }
+        .selected-confirm-row { display:flex; justify-content:flex-end; margin-top:12px; }
+        .security-code { font-family:'DM Mono',monospace; color:var(--c-primary); font-weight:500; }
+        .market-tag { margin-right:4px; }
+        .report-filter { display:flex; gap:8px; margin-bottom:12px; }
+        .report-selected { margin-top:12px; padding:10px; background:var(--c-surface-2); border-radius:var(--r); }
+        .report-selected-title { margin-bottom:8px; color:var(--c-text-3); font-size:12px; }
+        .el-table th.el-table__cell { background:#F4F7FE; color:var(--c-text-2); font-size:11.5px; font-weight:700; padding:11px 0; }
+        .el-table td.el-table__cell { padding:10px 0; border-bottom-color:var(--c-border-l); }
+        .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background:#FAFBFF; }
+        .el-table__body tr:hover > td { background:var(--c-primary-l)!important; }
+        .el-input--small .el-input__inner,.el-select .el-input__inner { border-radius:var(--r-sm); border-color:var(--c-border); }
+        .el-button--primary { background:linear-gradient(135deg,var(--c-primary),#2D5CE8); border-color:var(--c-primary); border-radius:var(--r-sm); font-weight:600; }
+        .el-button--default { border-radius:var(--r-sm); }
+        .el-pager li.active { background:var(--c-primary); color:#fff; border-radius:var(--r-sm); }
+        @media (max-width:1100px) {
+            .total-badge { margin-left:0; }
+            .rule-row { align-items:flex-start; flex-direction:column; }
+            .topbar { align-items:flex-start; height:auto; min-height:60px; padding-top:10px; padding-bottom:10px; }
+            .topbar-detail { flex-wrap:wrap; }
+        }
+    </style>
+</head>
+<body>
+<div id="batch_security_pool_adjust_select">
+    <div class="topbar">
+        <button class="back-btn" @click="goBack">
+            <i class="el-icon-arrow-left"></i>返回
+        </button>
+        <div class="divider"></div>
+        <div class="topbar-detail">
+            <span class="topbar-title">批量{{ directionLabel }}</span>
+            <span v-if="poolId" class="topbar-code">{{ poolId }}</span>
+            <span class="topbar-name">{{ poolName }}</span>
+        </div>
+        <span class="topbar-date">{{ today }}</span>
+    </div>
+
+    <div class="list-body">
+        <div class="workbench">
+            <div class="main-column">
+                <div class="materials-stack">
+                    <div class="section-card">
+                        <div class="section-header" @click="togglePanel('report')">
+                            <div class="section-dot"></div>
+                            <div class="section-title">报告</div>
+                            <span class="section-count">{{ selectedReports.length }} 篇</span>
+                            <div class="section-tools">
+                                <i :class="isPanelActive('report') ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                            </div>
+                        </div>
+                        <div v-show="isPanelActive('report')" class="section-body inline-material-body">
+                            <el-button size="small" icon="el-icon-document" @click="openReportDialog">选择信评报告</el-button>
+                            <div v-if="selectedReports.length" class="report-list scrollable">
+                                <span v-for="item in selectedReports" :key="item.source + item.id" class="report-chip" :class="item.source">
+                                    <span>{{ item.title }}</span><i class="el-icon-close" @click="removeReport(item)"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-header" @click="togglePanel('attachment')">
+                            <div class="section-dot"></div>
+                            <div class="section-title">附件</div>
+                            <span class="section-count">{{ attachmentFiles.length }} 个</span>
+                            <div class="section-tools">
+                                <i :class="isPanelActive('attachment') ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                            </div>
+                        </div>
+                        <div v-show="isPanelActive('attachment')" class="section-body inline-material-body">
+                            <el-upload action="#" :auto-upload="false" multiple :show-file-list="false" :on-change="handleAttachmentChange">
+                                <el-button size="small" icon="el-icon-upload2">选择附件</el-button>
+                            </el-upload>
+                            <div v-if="attachmentFiles.length" class="file-list scrollable">
+                                <span v-for="(item,index) in attachmentFiles" :key="item.uid" class="file-chip">
+                                    <span>{{ item.name }}</span><i class="el-icon-close" @click="removeAttachment(index)"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-header" style="cursor:default;">
+                            <div class="section-dot"></div>
+                            <div class="section-title">是否放开规则</div>
+                            <el-radio-group v-model="releaseRules" size="small" style="margin-left:12px;">
+                                <el-radio-button label="no">否</el-radio-button>
+                                <el-radio-button label="yes">是</el-radio-button>
+                            </el-radio-group>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-header" @click="togglePanel('selected')">
+                            <div class="section-dot"></div>
+                            <div class="section-title">已选证券</div>
+                            <span class="section-count">{{ selectedSecurities.length }} 条</span>
+                            <div class="section-tools">
+                                <i :class="isPanelActive('selected') ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                            </div>
+                        </div>
+                        <div v-show="isPanelActive('selected')" class="section-body selected-body">
+                            <span v-if="selectedSecurities.length === 0" class="empty-hint">尚未选择证券</span>
+                            <div v-else class="selected-list scrollable">
+                                <span v-for="item in selectedSecurities" :key="item.securityCode" class="selected-chip">
+                                    <span>{{ item.securityShortName }}（{{ item.securityCode }}）</span>
+                                    <i class="el-icon-close" @click="removeSelectedSecurity(item.securityCode)"></i>
+                                </span>
+                                <el-button type="text" size="mini" @click="clearSelectedSecurities">清空</el-button>
+                            </div>
+                            <div class="selected-confirm-row">
+                                <el-button type="primary" size="small" :icon="isInbound ? 'el-icon-plus' : 'el-icon-minus'" @click="confirmSelection">确认{{ directionLabel }}</el-button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="candidate-toolbar">
+                        <span class="candidate-title"><i class="el-icon-tickets"></i>可选证券</span>
+                        <div class="candidate-filters">
+                            <el-input v-model="searchForm.securityCode" placeholder="证券代码" clearable size="small" style="width:150px;" @keyup.enter.native="handleSearch"></el-input>
+                            <el-input v-model="searchForm.securityShortName" placeholder="证券简称" clearable size="small" style="width:150px;" @keyup.enter.native="handleSearch"></el-input>
+                            <el-select v-model="searchForm.marketCodes" multiple collapse-tags clearable size="small" placeholder="市场（多选）" style="width:220px;">
+                                <el-option v-for="item in marketOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                            </el-select>
+                            <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                            <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                        </div>
+                        <div class="total-badge"><i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条</div>
+                    </div>
+                    <el-table ref="securityTableRef" :data="tableData" v-loading="loading" stripe border size="small"
+                              row-key="securityCode" style="width:100%;" empty-text="暂无符合条件的证券"
+                              @selection-change="handleSelectionChange">
+                        <el-table-column type="selection" width="46" fixed="left" :reserve-selection="true"></el-table-column>
+                        <el-table-column label="序号" width="62" align="center" fixed="left">
+                            <template slot-scope="{ $index }">{{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}</template>
+                        </el-table-column>
+                        <el-table-column prop="securityShortName" label="证券简称" min-width="150" fixed="left" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="securityCode" label="证券代码" min-width="130">
+                            <template slot-scope="{ row }"><span class="security-code">{{ row.securityCode || '' }}</span></template>
+                        </el-table-column>
+                        <el-table-column label="市场" min-width="150">
+                            <template slot-scope="{ row }">
+                                <el-tag v-for="code in row.marketCodes" :key="code" class="market-tag" size="mini" type="info">{{ marketLabel(code) }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="issuer" label="发行人" min-width="210" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="ratingBond" label="证券评级" min-width="100" align="center">
+                            <template slot-scope="{ row }"><el-tag v-if="row.ratingBond" size="mini" type="info">{{ row.ratingBond }}</el-tag></template>
+                        </el-table-column>
+                        <el-table-column prop="maturityDate" label="到期日期" min-width="125">
+                            <template slot-scope="{ row }">{{ row.maturityDate || '' }}</template>
+                        </el-table-column>
+                    </el-table>
+                    <div class="pagination-wrap">
+                        <el-pagination :total="pagination.total" :current-page="pagination.pageIndex" :page-size="pagination.pageSize"
+                                       :page-sizes="[10,20,50,100]" layout="total, sizes, prev, pager, next, jumper" small
+                                       @current-change="handlePageChange" @size-change="handleSizeChange"></el-pagination>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <el-dialog title="选择信评报告" :visible.sync="reportDialogVisible" width="900px" top="7vh">
+        <el-tabs v-model="reportActiveTab">
+            <el-tab-pane label="内部报告" name="internal">
+                <div class="report-filter">
+                    <el-input v-model="reportKeyword" clearable size="small" placeholder="报告标题或证券代码" @keyup.enter.native="filterReports"></el-input>
+                    <el-button type="primary" size="small" icon="el-icon-search" @click="filterReports">查询</el-button>
+                    <el-button size="small" @click="reportKeyword = ''">重置</el-button>
+                </div>
+                <el-table ref="internalReportTableRef" :data="filteredInternalReports" stripe border size="small" @selection-change="handleInternalReportSelectionChange">
+                    <el-table-column type="selection" width="44"></el-table-column>
+                    <el-table-column prop="title" label="报告标题" min-width="260" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="reportType" label="类型" width="110"></el-table-column>
+                    <el-table-column prop="securityCode" label="证券代码" width="130"></el-table-column>
+                    <el-table-column prop="rating" label="评级" width="80"></el-table-column>
+                    <el-table-column prop="writeDate" label="撰写日期" width="110"></el-table-column>
+                </el-table>
+            </el-tab-pane>
+            <el-tab-pane label="外部报告" name="external">
+                <div class="report-filter">
+                    <el-input v-model="reportKeyword" clearable size="small" placeholder="报告标题或证券代码" @keyup.enter.native="filterReports"></el-input>
+                    <el-button type="primary" size="small" icon="el-icon-search" @click="filterReports">查询</el-button>
+                    <el-button size="small" @click="reportKeyword = ''">重置</el-button>
+                </div>
+                <el-table ref="externalReportTableRef" :data="filteredExternalReports" stripe border size="small" @selection-change="handleExternalReportSelectionChange">
+                    <el-table-column type="selection" width="44"></el-table-column>
+                    <el-table-column prop="title" label="报告标题" min-width="260" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="reportType" label="类型" width="130"></el-table-column>
+                    <el-table-column prop="securityCode" label="证券代码" width="130"></el-table-column>
+                    <el-table-column prop="rating" label="评级" width="80"></el-table-column>
+                    <el-table-column prop="writeDate" label="撰写日期" width="110"></el-table-column>
+                </el-table>
+            </el-tab-pane>
+        </el-tabs>
+        <div class="report-selected">
+            <div class="report-selected-title">本次弹窗已选 {{ selectedInternalReports.length + selectedExternalReports.length }} 篇</div>
+            <span v-if="selectedInternalReports.length + selectedExternalReports.length === 0" class="empty-hint">未选择报告</span>
+            <div v-else class="report-list scrollable">
+                <span v-for="item in selectedInternalReports" :key="'i'+item.id" class="report-chip internal">{{ item.title }}</span>
+                <span v-for="item in selectedExternalReports" :key="'e'+item.id" class="report-chip external">{{ item.title }}</span>
+            </div>
+        </div>
+        <span slot="footer">
+            <el-button @click="reportDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="confirmReports">确认选择</el-button>
+        </span>
+    </el-dialog>
+</div>
+
+<script>
+new Vue({
+    el: '#batch_security_pool_adjust_select',
+    data() {
+        return {
+            today: moment().format('YYYY年MM月DD日'), // 顶栏日期
+            poolId: null,                            // 目标投资池 ID
+            poolName: '',                            // 目标投资池名称
+            poolType: '',                            // 目标投资池类型
+            direction: 'in',                         // 调整方向
+            currentUserId: '1001',                   // 当前用户 ID
+            activeMaterialPanels: ['report', 'attachment', 'selected'], // 默认展开的折叠区
+            searchForm: { securityCode: '', securityShortName: '', marketCodes: [] }, // 查询条件
+            marketOptions: [
+                { value: 'SH', label: '上海证券交易所' },
+                { value: 'SZ', label: '深圳证券交易所' },
+                { value: 'IB', label: '银行间市场' },
+                { value: 'BJ', label: '北京证券交易所' },
+                { value: 'NBC', label: '其他市场' }
+            ],
+            tableData: [],                           // 当前页候选证券
+            loading: false,                          // 表格加载状态
+            pagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 分页参数
+            selectedSecurityMap: {},                 // 跨页已选证券映射
+            selectionSyncing: false,                 // 恢复勾选状态标记
+            attachmentFiles: [],                     // 整批附件
+            releaseRules: 'no',                      // 是否放开规则
+            reportDialogVisible: false,              // 报告弹窗
+            reportActiveTab: 'internal',             // 报告来源标签
+            reportKeyword: '',                       // 报告筛选关键词
+            internalReports: [],                     // 内部报告模拟数据
+            externalReports: [],                     // 外部报告模拟数据
+            selectedInternalReports: [],             // 弹窗内部报告选择
+            selectedExternalReports: [],             // 弹窗外部报告选择
+            reportSelectionSyncing: false,            // 报告选中状态恢复标记
+            selectedReports: []                      // 已确认报告
+        }
+    },
+    computed: {
+        // 是否为调入方向
+        isInbound() {
+            return this.direction === 'in'
+        },
+
+        // 调整方向中文
+        directionLabel() {
+            return this.isInbound ? '调入' : '调出'
+        },
+
+        // 已选证券列表
+        selectedSecurities() {
+            return Object.keys(this.selectedSecurityMap).map(code => this.selectedSecurityMap[code])
+        },
+
+        // 筛选后的内部报告
+        filteredInternalReports() {
+            return this.filterReportList(this.internalReports)
+        },
+
+        // 筛选后的外部报告
+        filteredExternalReports() {
+            return this.filterReportList(this.externalReports)
+        }
+    },
+    mounted() {
+        axios.defaults.baseURL = 'http://localhost:18090'
+        this.initPageParams()
+        this.initReportData()
+        this.loadList()
+    },
+    methods: {
+        // 初始化页面参数
+        initPageParams() {
+            const params = new URLSearchParams(window.location.search)
+            this.poolId = Number(params.get('poolId'))
+            this.poolName = params.get('poolName') || ''
+            this.poolType = params.get('poolType') || ''
+            this.direction = params.get('direction') === 'out' ? 'out' : 'in'
+            if (!this.poolId) {
+                this.$message.error('目标投资池参数缺失')
+            }
+        },
+
+        // 初始化报告模拟数据
+        initReportData() {
+            this.internalReports = [
+                { id:'ir1', title:'万科企业年度信用评级报告', reportType:'评级报告', securityCode:'101900001.IB', rating:'AA+', writeDate:'2026-05-15' },
+                { id:'ir2', title:'中国石油跟踪评级报告', reportType:'跟踪报告', securityCode:'102000002.IB', rating:'AAA', writeDate:'2026-04-20' },
+                { id:'ir3', title:'深圳地铁集团尽职调查报告', reportType:'尽调报告', securityCode:'102100003.IB', rating:'AAA', writeDate:'2026-03-08' },
+                { id:'ir4', title:'房地产行业风险提示报告', reportType:'风险提示', securityCode:'', rating:'', writeDate:'2026-02-22' }
+            ]
+            this.externalReports = [
+                { id:'er1', title:'地产信用债市场展望', reportType:'券商研究报告', securityCode:'101900001.IB', rating:'AA+', writeDate:'2026-05-28' },
+                { id:'er2', title:'能源行业信用分析报告', reportType:'行业分析报告', securityCode:'102000002.IB', rating:'AAA', writeDate:'2026-04-18' },
+                { id:'er3', title:'宏观经济与债券市场展望', reportType:'宏观经济报告', securityCode:'', rating:'', writeDate:'2026-03-10' },
+                { id:'er4', title:'企业外部信用评级报告', reportType:'信用评级报告', securityCode:'102200005.IB', rating:'AAA', writeDate:'2026-02-05' }
+            ]
+        },
+
+        // 统一发送 POST 请求
+        async apiPost(path, body) {
+            const resp = await axios.post(path, body || {})
+            const json = resp.data
+            if (json.code !== 0) {
+                this.$message.error(json.message || '接口异常')
+                throw new Error(json.message || '接口异常')
+            }
+            return json.data
+        },
+
+        // 加载候选证券分页
+        async loadList() {
+            if (!this.poolId) return
+            this.loading = true
+            try {
+                const data = await this.apiPost('/api/v1/batchSecurityPoolAdjust/querySecurityPage', {
+                    currentUserId: this.currentUserId,
+                    poolId: this.poolId,
+                    direction: this.direction,
+                    securityCode: this.searchForm.securityCode || null,
+                    securityShortName: this.searchForm.securityShortName || null,
+                    marketCodes: this.searchForm.marketCodes.length ? this.searchForm.marketCodes : null,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize
+                })
+                this.tableData = data.records || []
+                this.pagination.total = data.total || 0
+                this.$nextTick(this.restoreCurrentPageSelection)
+            } finally {
+                this.loading = false
+            }
+        },
+
+        // 恢复当前页已选状态
+        restoreCurrentPageSelection() {
+            this.selectionSyncing = true
+            this.tableData.forEach(row => {
+                this.$refs.securityTableRef.toggleRowSelection(row, !!this.selectedSecurityMap[row.securityCode])
+            })
+            this.$nextTick(() => { this.selectionSyncing = false })
+        },
+
+        // 同步当前页勾选到跨页选择映射
+        handleSelectionChange(selection) {
+            if (this.selectionSyncing) return
+            const selectedCodes = selection.map(item => item.securityCode)
+            const nextMap = Object.assign({}, this.selectedSecurityMap)
+            this.tableData.forEach(item => {
+                if (selectedCodes.indexOf(item.securityCode) === -1) delete nextMap[item.securityCode]
+            })
+            selection.forEach(item => { nextMap[item.securityCode] = item })
+            this.selectedSecurityMap = nextMap
+        },
+
+        // 查询并回到第一页
+        handleSearch() {
+            this.pagination.pageIndex = 1
+            this.loadList()
+        },
+
+        // 重置查询条件
+        handleReset() {
+            this.searchForm = { securityCode: '', securityShortName: '', marketCodes: [] }
+            this.pagination.pageIndex = 1
+            this.loadList()
+        },
+
+        // 切换页码
+        handlePageChange(page) {
+            this.pagination.pageIndex = page
+            this.loadList()
+        },
+
+        // 切换每页数量
+        handleSizeChange(size) {
+            this.pagination.pageSize = size
+            this.pagination.pageIndex = 1
+            this.loadList()
+        },
+
+        // 移除单只已选证券
+        removeSelectedSecurity(securityCode) {
+            const nextMap = Object.assign({}, this.selectedSecurityMap)
+            delete nextMap[securityCode]
+            this.selectedSecurityMap = nextMap
+            this.$nextTick(this.restoreCurrentPageSelection)
+        },
+
+        // 清空全部已选证券
+        clearSelectedSecurities() {
+            this.selectedSecurityMap = {}
+            this.$refs.securityTableRef.clearSelection()
+        },
+
+        // 市场编码中文映射
+        marketLabel(code) {
+            const option = this.marketOptions.find(item => item.value === code)
+            return option ? option.label : code
+        },
+
+        // 判断材料区是否展开
+        isPanelActive(name) {
+            return this.activeMaterialPanels.indexOf(name) !== -1
+        },
+
+        // 切换材料区展开状态
+        togglePanel(name) {
+            if (this.isPanelActive(name)) {
+                this.activeMaterialPanels = this.activeMaterialPanels.filter(item => item !== name)
+                return
+            }
+            this.activeMaterialPanels = this.activeMaterialPanels.concat(name)
+        },
+
+        // 选择附件并按文件名去重
+        handleAttachmentChange(file) {
+            if (!this.attachmentFiles.some(item => item.name === file.name)) {
+                this.attachmentFiles.push(file)
+            }
+        },
+
+        // 移除附件
+        removeAttachment(index) {
+            this.attachmentFiles.splice(index, 1)
+        },
+
+        // 打开报告选择弹窗并恢复已确认选中
+        openReportDialog() {
+            this.selectedInternalReports = this.selectedReports.filter(item => item.source === 'internal')
+            this.selectedExternalReports = this.selectedReports.filter(item => item.source === 'external')
+            this.reportDialogVisible = true
+            this.$nextTick(() => {
+                this.restoreReportSelection('internal')
+                this.restoreReportSelection('external')
+            })
+        },
+
+        // 恢复报告表格选中状态
+        restoreReportSelection(source) {
+            const refName = source === 'internal' ? 'internalReportTableRef' : 'externalReportTableRef'
+            const selected = source === 'internal' ? this.selectedInternalReports : this.selectedExternalReports
+            const list = source === 'internal' ? this.filteredInternalReports : this.filteredExternalReports
+            if (!this.$refs[refName]) return
+            const selectedIds = selected.map(item => item.id)
+            this.reportSelectionSyncing = true
+            this.$refs[refName].clearSelection()
+            list.forEach(row => {
+                this.$refs[refName].toggleRowSelection(row, selectedIds.indexOf(row.id) !== -1)
+            })
+            this.$nextTick(() => { this.reportSelectionSyncing = false })
+        },
+
+        // 同步内部报告选中状态
+        handleInternalReportSelectionChange(selection) {
+            if (this.reportSelectionSyncing) return
+            const visibleIds = this.filteredInternalReports.map(item => item.id)
+            const hiddenSelected = this.selectedInternalReports.filter(item => visibleIds.indexOf(item.id) === -1)
+            this.selectedInternalReports = hiddenSelected.concat(selection)
+        },
+
+        // 同步外部报告选中状态
+        handleExternalReportSelectionChange(selection) {
+            if (this.reportSelectionSyncing) return
+            const visibleIds = this.filteredExternalReports.map(item => item.id)
+            const hiddenSelected = this.selectedExternalReports.filter(item => visibleIds.indexOf(item.id) === -1)
+            this.selectedExternalReports = hiddenSelected.concat(selection)
+        },
+
+        // 报告列表关键词筛选
+        filterReportList(list) {
+            const keyword = this.reportKeyword.trim()
+            if (!keyword) return list
+            return list.filter(item => (item.title + item.securityCode).indexOf(keyword) !== -1)
+        },
+
+        // 执行报告筛选并恢复选中
+        filterReports() {
+            this.$nextTick(() => this.restoreReportSelection(this.reportActiveTab))
+        },
+
+        // 确认报告选择
+        confirmReports() {
+            const internal = this.selectedInternalReports.map(item => Object.assign({}, item, { source:'internal' }))
+            const external = this.selectedExternalReports.map(item => Object.assign({}, item, { source:'external' }))
+            this.selectedReports = internal.concat(external)
+            this.reportDialogVisible = false
+        },
+
+        // 移除已确认报告
+        removeReport(report) {
+            this.selectedReports = this.selectedReports.filter(item => !(item.id === report.id && item.source === report.source))
+        },
+
+        // 返回批量调整主页面
+        goBack() {
+            window.location.href = 'batch_security_pool_adjust.html'
+        },
+
+        // 确认并提示所选证券名称
+        confirmSelection() {
+            if (this.selectedSecurities.length === 0) {
+                this.$message.warning('请至少选择一只证券')
+                return
+            }
+            const names = this.selectedSecurities.map(item => item.securityShortName || item.securityCode)
+            this.$alert(names.join('、'), '已选择以下证券', {
+                confirmButtonText: '知道了',
+                customClass: 'selected-confirm-dialog'
+            })
+        }
+    }
+})
+</script>
+</body>
+</html>
