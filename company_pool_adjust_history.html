@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主体池调整历史查询</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        #company_pool_adjust_history {
+            --c-bg:#F2F4F8; --c-surface:#FFFFFF; --c-surface-2:#F8FAFD; --c-border:#E2E8F4; --c-border-l:#ECF0F9;
+            --c-text:#0D1829; --c-text-2:#3A4769; --c-text-3:#8895B8; --c-primary:#1746D4; --c-primary-h:#0F35B0;
+            --c-primary-l:#EEF2FD; --c-primary-s:rgba(23,70,212,.12); --c-primary-glow:rgba(23,70,212,.18);
+            --c-green:#0A8A5A; --c-green-l:#E8FBF3; --c-amber:#B05E00; --c-amber-l:#FFF6E8; --c-red:#D02020; --c-red-l:#FFF0F0;
+            --r-xs:4px; --r-sm:7px; --r:10px; --r-xl:18px; --sh-xs:0 1px 3px rgba(13,24,54,.05); --sh-sm:0 2px 8px rgba(13,24,54,.08),0 0 0 1px rgba(13,24,54,.04);
+            display:flex; flex-direction:column; height:100vh; overflow:hidden;
+            font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif; background:var(--c-bg); color:var(--c-text); font-size:14px;
+        }
+        #company_pool_adjust_history .topbar { display:flex; align-items:center; height:60px; padding:0 28px; gap:14px; background:var(--c-surface); border-bottom:1px solid var(--c-border); box-shadow:0 1px 0 var(--c-border),0 2px 8px rgba(13,24,54,.04); flex-shrink:0; }
+        #company_pool_adjust_history .topbar-brand { display:flex; align-items:center; gap:12px; }
+        #company_pool_adjust_history .topbar-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,var(--c-primary),#3B6AEA); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px var(--c-primary-glow); }
+        #company_pool_adjust_history .topbar-icon svg { fill:#fff; }
+        #company_pool_adjust_history .topbar h2 { font-size:15px; font-weight:700; letter-spacing:.02em; }
+        #company_pool_adjust_history .topbar-sep { width:1px; height:18px; background:var(--c-border); }
+        #company_pool_adjust_history .topbar-sys { font-size:12px; color:var(--c-text-3); }
+        #company_pool_adjust_history .topbar-meta { margin-left:auto; }
+        #company_pool_adjust_history .topbar-date-badge { display:inline-flex; padding:4px 10px; border-radius:20px; background:var(--c-surface-2); border:1px solid var(--c-border); color:var(--c-text-3); font-size:11px; font-weight:500; }
+        #company_pool_adjust_history .list-body { flex:1; overflow-y:auto; padding:22px 28px; }
+        #company_pool_adjust_history .search-panel { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-xl); padding:16px 20px; margin-bottom:16px; box-shadow:var(--sh-xs); }
+        #company_pool_adjust_history .search-row { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+        #company_pool_adjust_history .search-row + .search-row { margin-top:10px; }
+        #company_pool_adjust_history .search-label { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--c-text-3); letter-spacing:.06em; margin-right:4px; }
+        #company_pool_adjust_history .total-badge { margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:20px; background:var(--c-primary-l); border:1px solid rgba(23,70,212,.15); color:var(--c-primary); font-size:12px; font-weight:600; }
+        #company_pool_adjust_history .pool-trigger { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:var(--r); border:1px solid var(--c-border); background:var(--c-surface); color:var(--c-text-2); font-size:13px; font-weight:500; cursor:pointer; transition:all .18s; white-space:nowrap; }
+        #company_pool_adjust_history .pool-trigger:hover,
+        #company_pool_adjust_history .pool-trigger.has-selection { border-color:var(--c-primary); color:var(--c-primary); background:var(--c-primary-l); box-shadow:0 1px 4px var(--c-primary-s); }
+        #company_pool_adjust_history .pool-popover-content { width:320px; max-height:400px; overflow-y:auto; }
+        #company_pool_adjust_history .pool-tag-row { display:flex; flex-wrap:wrap; gap:6px; max-width:calc(100vw - 400px); }
+        #company_pool_adjust_history .pool-tag { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:14px; background:var(--c-primary-l); border:1px solid rgba(23,70,212,.15); color:var(--c-primary); font-size:11.5px; font-weight:500; white-space:nowrap; }
+        #company_pool_adjust_history .pool-tag .el-icon-close { cursor:pointer; font-size:11px; color:var(--c-primary); }
+        #company_pool_adjust_history .pool-tag .el-icon-close:hover { color:var(--c-red); }
+        #company_pool_adjust_history .table-card { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-xl); overflow:hidden; box-shadow:var(--sh-sm); }
+        #company_pool_adjust_history .pagination-wrap { display:flex; justify-content:flex-end; padding:12px 20px; border-top:1px solid var(--c-border-l); background:var(--c-surface-2); }
+        #company_pool_adjust_history .el-table th.el-table__cell { background:#F4F7FE; color:var(--c-text-2); font-weight:700; font-size:11.5px; letter-spacing:.05em; border-bottom:1px solid var(--c-border); padding:11px 0; }
+        #company_pool_adjust_history .el-table td.el-table__cell { color:var(--c-text); border-bottom-color:var(--c-border-l); padding:10px 0; }
+        #company_pool_adjust_history .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background:#FAFBFF; }
+        #company_pool_adjust_history .el-table__body tr:hover > td { background:var(--c-primary-l) !important; }
+        #company_pool_adjust_history .el-input--small .el-input__inner { border-radius:var(--r-sm); border-color:var(--c-border); color:var(--c-text); font-size:13px; transition:border-color .18s,box-shadow .18s; }
+        #company_pool_adjust_history .el-input--small .el-input__inner:hover { border-color:#B0BCE8; }
+        #company_pool_adjust_history .el-input--small .el-input__inner:focus { border-color:var(--c-primary); box-shadow:0 0 0 3px var(--c-primary-s); }
+        #company_pool_adjust_history .el-date-editor.el-range-editor .el-range-separator { min-width:24px; width:24px; padding:0; text-align:center; }
+        #company_pool_adjust_history .el-button--primary { background:linear-gradient(135deg,var(--c-primary),#2D5CE8); border-color:var(--c-primary); border-radius:var(--r-sm); font-weight:600; box-shadow:0 2px 6px var(--c-primary-s); }
+        #company_pool_adjust_history .el-button--primary:hover { background:linear-gradient(135deg,var(--c-primary-h),var(--c-primary)); border-color:var(--c-primary-h); box-shadow:0 4px 12px var(--c-primary-glow); transform:translateY(-1px); }
+        #company_pool_adjust_history .el-button--default { border-radius:var(--r-sm); color:var(--c-text-2); border-color:var(--c-border); font-weight:500; background:var(--c-surface); }
+        #company_pool_adjust_history .el-button--default:hover { color:var(--c-primary); border-color:rgba(23,70,212,.2); background:var(--c-primary-l); }
+        #company_pool_adjust_history .el-tag--mini { border-radius:20px; font-weight:600; font-size:11px; letter-spacing:.03em; }
+        #company_pool_adjust_history .el-tag--success { background:var(--c-green-l); border-color:transparent; color:var(--c-green); }
+        #company_pool_adjust_history .el-tag--warning { background:var(--c-amber-l); border-color:transparent; color:var(--c-amber); }
+        #company_pool_adjust_history .el-tag--danger { background:var(--c-red-l); border-color:transparent; color:var(--c-red); }
+        #company_pool_adjust_history .el-tag--info { background:#F0F2FA; border-color:transparent; color:var(--c-text-3); }
+        #company_pool_adjust_history .el-pager li.active { background:var(--c-primary); color:#fff; border-radius:var(--r-sm); box-shadow:0 2px 6px var(--c-primary-s); }
+        #company_pool_adjust_history .el-pagination .btn-next,
+        #company_pool_adjust_history .el-pagination .btn-prev,
+        #company_pool_adjust_history .el-pagination .el-pager li { border-radius:var(--r-sm); font-weight:500; }
+        #company_pool_adjust_history .el-pagination { font-weight:500; }
+        #company_pool_adjust_history .el-pagination.is-small .el-select .el-input { width:100px !important; }
+        #company_pool_adjust_history .el-tree { font-family:inherit; background:transparent; }
+        #company_pool_adjust_history .el-tree-node__content { height:32px; border-radius:var(--r-xs); }
+        #company_pool_adjust_history .el-tree-node__content:hover { background:var(--c-primary-l); }
+        #company_pool_adjust_history .el-checkbox__input.is-checked .el-checkbox__inner,
+        #company_pool_adjust_history .el-checkbox__input.is-indeterminate .el-checkbox__inner { background-color:var(--c-primary) !important; border-color:var(--c-primary) !important; }
+    </style>
+</head>
+<body>
+<div id="company_pool_adjust_history">
+    <div class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+            </div>
+            <h2>主体池调整历史查询</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta"><span class="topbar-date-badge">{{ today }}</span></div>
+    </div>
+
+    <div class="list-body">
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+                <el-popover placement="bottom-start" width="340" v-model="poolTreeVisible" :append-to-body="false">
+                    <div class="pool-popover-content">
+                        <el-tree
+                            ref="poolTreeRef"
+                            :data="poolTreeData"
+                            node-key="id"
+                            :props="treeProps"
+                            show-checkbox
+                            check-strictly
+                            default-expand-all>
+                        </el-tree>
+                    </div>
+                    <div style="margin-top:8px;text-align:right;">
+                        <el-button size="mini" @click="poolTreeVisible = false">取消</el-button>
+                        <el-button type="primary" size="mini" @click="handlePoolTreeConfirm">确认</el-button>
+                    </div>
+                    <span slot="reference" class="pool-trigger" :class="{ 'has-selection': searchForm.poolIds.length > 0 }">
+                        <i class="el-icon-folder-opened"></i>
+                        {{ searchForm.poolIds.length > 0 ? '已选 ' + searchForm.poolIds.length + ' 个池' : '请选择投资池' }}
+                    </span>
+                </el-popover>
+                <el-input v-model="searchForm.companyCode" placeholder="主体代码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch"></el-input>
+                <el-input v-model="searchForm.companyName" placeholder="主体名称" clearable size="small" style="width:160px;" @keyup.enter.native="handleSearch"></el-input>
+                <el-date-picker
+                    v-model="searchForm.adjustTimeRange"
+                    type="daterange"
+                    range-separator="至"
+                    start-placeholder="调整开始"
+                    end-placeholder="调整结束"
+                    size="small"
+                    style="width:240px;"
+                    value-format="yyyy-MM-dd">
+                </el-date-picker>
+            </div>
+            <div class="search-row">
+                <span class="search-label" style="visibility:hidden;"><i class="el-icon-search"></i>筛选</span>
+                <el-input v-model="searchForm.adjusterName" placeholder="调整人" clearable size="small" style="width:130px;" @keyup.enter.native="handleSearch"></el-input>
+                <el-select v-model="searchForm.adjustMode" placeholder="调整方向" clearable size="small" style="width:120px;">
+                    <el-option v-for="m in adjustModeOptions" :key="m.value" :label="m.label" :value="m.value"></el-option>
+                </el-select>
+                <el-select v-model="searchForm.auditStatus" placeholder="调整状态" clearable size="small" style="width:140px;">
+                    <el-option v-for="s in auditStatusOptions" :key="s.value" :label="s.label" :value="s.value"></el-option>
+                </el-select>
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <div class="total-badge"><i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录</div>
+            </div>
+            <div class="search-row" v-if="selectedPoolTags.length > 0">
+                <span class="search-label" style="visibility:hidden;"><i class="el-icon-search"></i>筛选</span>
+                <div class="pool-tag-row">
+                    <span class="pool-tag" v-for="p in selectedPoolTags" :key="p.id">
+                        {{ p.poolName }}
+                        <i class="el-icon-close" @click="removePoolTag(p.id)"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <el-table :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;">
+                <el-table-column prop="adjusterName" label="调整人" min-width="90"></el-table-column>
+                <el-table-column label="提交日期" min-width="140">
+                    <template slot-scope="{ row }">{{ formatDate(row.submitTime) }}</template>
+                </el-table-column>
+                <el-table-column prop="companyName" label="主体名称" min-width="170" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="companyCode" label="主体代码" min-width="120"></el-table-column>
+                <el-table-column prop="adjustType" label="调整类型" min-width="110"></el-table-column>
+                <el-table-column label="调整方向" min-width="90">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.adjustMode === '调入'" type="success" size="mini">调入</el-tag>
+                        <el-tag v-else-if="row.adjustMode === '调出'" type="danger" size="mini">调出</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="targetPoolName" label="投资池名称" min-width="170" show-overflow-tooltip></el-table-column>
+                <el-table-column label="审批状态" min-width="120">
+                    <template slot-scope="{ row }">
+                        <el-tag :type="auditStatusType(row.auditStatus)" size="mini" v-if="row.auditStatus != null">
+                            {{ auditStatusLabel(row.auditStatus) }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+                <el-pagination
+                    :total="pagination.total"
+                    :current-page="pagination.pageIndex"
+                    :page-size="pagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    small
+                    @current-change="handlePageChange"
+                    @size-change="handleSizeChange">
+                </el-pagination>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+new Vue({
+    el: '#company_pool_adjust_history',
+    data() {
+        return {
+            today: moment().format('YYYY年MM月DD日'), // 顶栏日期
+            searchForm: {
+                poolIds: [],           // 投资池 ID
+                companyCode: '',       // 主体代码
+                companyName: '',       // 主体名称
+                adjustTimeRange: null, // 调整日期范围
+                adjusterName: '',      // 调整人
+                adjustMode: '',        // 调整方向
+                auditStatus: '',       // 调整状态
+            },
+            poolTreeData: [],          // 投资池树
+            poolTreeVisible: false,    // 投资池弹层
+            selectedPoolTags: [],      // 已选投资池标签
+            treeProps: {
+                children: 'children',
+                label: 'poolName',
+                disabled(data) {
+                    return data.children && data.children.length > 0;
+                }
+            },
+            adjustModeOptions: [
+                { value: '调入', label: '调入' },
+                { value: '调出', label: '调出' },
+            ],
+            auditStatusOptions: [
+                { value: '-1', label: '无效调整' },
+                { value: '00', label: '已提交待审核' },
+                { value: '10', label: '审核通过待审批' },
+                { value: '11', label: '驳回待修改' },
+                { value: '20', label: '审批通过' },
+                { value: '21', label: '审批驳回' },
+                { value: '32', label: 'O32自动审批' },
+                { value: '99', label: '发起人已撤回' },
+            ],
+            tableData: [],             // 表格数据
+            loading: false,            // 加载状态
+            pagination: {
+                pageIndex: 1,          // 当前页
+                pageSize: 20,          // 每页条数
+                total: 0,              // 总数
+            },
+        };
+    },
+    mounted() {
+        axios.defaults.baseURL = 'http://localhost:18090';
+        this.loadPoolTree();
+        this.loadList();
+    },
+    methods: {
+        // API 请求封装
+        async apiPost(path, body) {
+            const resp = await axios.post(path, body || {});
+            const json = resp.data;
+            if (json.code !== 0) {
+                this.$message.error(json.message || '接口异常');
+                throw new Error(json.message || '接口异常');
+            }
+            return json.data;
+        },
+
+        // 审批状态名称
+        auditStatusLabel(code) {
+            const map = {
+                '-1': '无效调整', '00': '已提交待审核', '10': '审核通过待审批',
+                '11': '驳回待修改', '20': '审批通过', '21': '审批驳回',
+                '32': 'O32自动审批', '99': '发起人已撤回'
+            };
+            return map[String(code)] || code || '';
+        },
+
+        // 审批状态样式
+        auditStatusType(code) {
+            const map = {
+                '20': 'success', '10': 'success', '32': 'success',
+                '21': 'danger', '-1': 'danger',
+                '00': 'warning', '11': 'warning', '99': 'info'
+            };
+            return map[String(code)] || 'info';
+        },
+
+        // 格式化日期
+        formatDate(value) {
+            return value ? moment(value).format('YYYY-MM-DD HH:mm') : '';
+        },
+
+        // 加载投资池树
+        async loadPoolTree() {
+            try {
+                const data = await this.apiPost('/api/v1/companyPoolAdjustHistory/queryPoolTreeList', {});
+                this.poolTreeData = this.buildPoolTree(data || []);
+            } catch (e) {}
+        },
+
+        // 构建树结构
+        buildPoolTree(list) {
+            const map = {};
+            const roots = [];
+            list.forEach(item => {
+                map[item.id] = Object.assign({}, item, { children: [] });
+            });
+            list.forEach(item => {
+                const node = map[item.id];
+                if (item.parentId != null && map[item.parentId]) {
+                    const parent = map[item.parentId];
+                    node.fullPath = parent.fullPath ? parent.fullPath + '/' + node.poolName : parent.poolName + '/' + node.poolName;
+                    parent.children.push(node);
+                } else {
+                    node.fullPath = node.poolName;
+                    roots.push(node);
+                }
+            });
+            return roots;
+        },
+
+        // 展平树
+        flattenTree(nodes) {
+            const result = [];
+            const walk = list => {
+                list.forEach(node => {
+                    result.push(node);
+                    if (node.children && node.children.length > 0) {
+                        walk(node.children);
+                    }
+                });
+            };
+            walk(nodes);
+            return result;
+        },
+
+        // 确认投资池选择
+        handlePoolTreeConfirm() {
+            const checkedKeys = this.$refs.poolTreeRef.getCheckedKeys();
+            this.searchForm.poolIds = checkedKeys;
+            const flatList = this.flattenTree(this.poolTreeData);
+            this.selectedPoolTags = flatList
+                .filter(item => checkedKeys.indexOf(item.id) !== -1)
+                .map(item => ({ id: item.id, poolName: item.fullPath }));
+            this.poolTreeVisible = false;
+            this.handleSearch();
+        },
+
+        // 移除投资池标签
+        removePoolTag(poolId) {
+            this.searchForm.poolIds = this.searchForm.poolIds.filter(id => id !== poolId);
+            this.selectedPoolTags = this.selectedPoolTags.filter(item => item.id !== poolId);
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.setCheckedKeys(this.searchForm.poolIds);
+            }
+            this.handleSearch();
+        },
+
+        // 加载列表
+        async loadList() {
+            this.loading = true;
+            try {
+                const params = {
+                    poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
+                    companyCode: this.searchForm.companyCode || null,
+                    companyName: this.searchForm.companyName || null,
+                    adjustTimeStart: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[0] : null,
+                    adjustTimeEnd: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[1] : null,
+                    adjusterName: this.searchForm.adjusterName || null,
+                    adjustMode: this.searchForm.adjustMode || null,
+                    auditStatus: this.searchForm.auditStatus || null,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                };
+                const data = await this.apiPost('/api/v1/companyPoolAdjustHistory/queryCompanyPoolAdjustHistoryPage', params);
+                this.tableData = data.records || [];
+                this.pagination.total = data.total || 0;
+            } catch (e) {}
+            this.loading = false;
+        },
+
+        // 查询
+        handleSearch() {
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 重置
+        handleReset() {
+            this.searchForm = {
+                poolIds: [],
+                companyCode: '',
+                companyName: '',
+                adjustTimeRange: null,
+                adjusterName: '',
+                adjustMode: '',
+                auditStatus: '',
+            };
+            this.selectedPoolTags = [];
+            this.pagination.pageIndex = 1;
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.setCheckedKeys([]);
+            }
+            this.loadList();
+        },
+
+        // 切换页码
+        handlePageChange(page) {
+            this.pagination.pageIndex = page;
+            this.loadList();
+        },
+
+        // 切换每页条数
+        handleSizeChange(size) {
+            this.pagination.pageSize = size;
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+    }
+});
+</script>
+</body>
+</html>

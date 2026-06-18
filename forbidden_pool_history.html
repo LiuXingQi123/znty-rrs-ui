@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>禁投池历史查询</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        #forbidden_pool_history {
+            --c-bg:#F2F4F8; --c-surface:#FFFFFF; --c-surface-2:#F8FAFD; --c-border:#E2E8F4; --c-border-l:#ECF0F9;
+            --c-text:#0D1829; --c-text-2:#3A4769; --c-text-3:#8895B8; --c-primary:#1746D4; --c-primary-h:#0F35B0;
+            --c-primary-l:#EEF2FD; --c-primary-s:rgba(23,70,212,.12); --c-primary-glow:rgba(23,70,212,.18);
+            --c-green:#0A8A5A; --c-green-l:#E8FBF3; --c-amber:#B05E00; --c-amber-l:#FFF6E8; --c-red:#D02020; --c-red-l:#FFF0F0;
+            --r-sm:7px; --r:10px; --r-xl:18px; --sh-xs:0 1px 3px rgba(13,24,54,.05); --sh-sm:0 2px 8px rgba(13,24,54,.08),0 0 0 1px rgba(13,24,54,.04);
+            display:flex; flex-direction:column; height:100vh; overflow:hidden;
+            font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif; background:var(--c-bg); color:var(--c-text); font-size:14px;
+        }
+        #forbidden_pool_history .topbar { display:flex; align-items:center; height:60px; padding:0 28px; gap:14px; background:var(--c-surface); border-bottom:1px solid var(--c-border); box-shadow:0 1px 0 var(--c-border),0 2px 8px rgba(13,24,54,.04); flex-shrink:0; }
+        #forbidden_pool_history .topbar-brand { display:flex; align-items:center; gap:12px; }
+        #forbidden_pool_history .topbar-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,var(--c-primary),#3B6AEA); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px var(--c-primary-glow); }
+        #forbidden_pool_history .topbar-icon svg { fill:#fff; }
+        #forbidden_pool_history .topbar h2 { font-size:15px; font-weight:700; letter-spacing:.02em; }
+        #forbidden_pool_history .topbar-sep { width:1px; height:18px; background:var(--c-border); }
+        #forbidden_pool_history .topbar-sys { font-size:12px; color:var(--c-text-3); }
+        #forbidden_pool_history .topbar-meta { margin-left:auto; }
+        #forbidden_pool_history .topbar-date-badge { display:inline-flex; padding:4px 10px; border-radius:20px; background:var(--c-surface-2); border:1px solid var(--c-border); color:var(--c-text-3); font-size:11px; font-weight:500; }
+        #forbidden_pool_history .list-body { flex:1; overflow-y:auto; padding:22px 28px; }
+        #forbidden_pool_history .search-panel { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-xl); padding:16px 20px; margin-bottom:16px; box-shadow:var(--sh-xs); }
+        #forbidden_pool_history .search-row { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+        #forbidden_pool_history .search-row + .search-row { margin-top:10px; }
+        #forbidden_pool_history .search-label { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--c-text-3); letter-spacing:.06em; margin-right:4px; }
+        #forbidden_pool_history .total-badge { margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:20px; background:var(--c-primary-l); border:1px solid rgba(23,70,212,.15); color:var(--c-primary); font-size:12px; font-weight:600; }
+        #forbidden_pool_history .table-card { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-xl); overflow:hidden; box-shadow:var(--sh-sm); }
+        #forbidden_pool_history .pagination-wrap { display:flex; justify-content:flex-end; padding:12px 20px; border-top:1px solid var(--c-border-l); background:var(--c-surface-2); }
+        #forbidden_pool_history .el-table th.el-table__cell { background:#F4F7FE; color:var(--c-text-2); font-weight:700; font-size:11.5px; letter-spacing:.05em; border-bottom:1px solid var(--c-border); padding:11px 0; }
+        #forbidden_pool_history .el-table td.el-table__cell { color:var(--c-text); border-bottom-color:var(--c-border-l); padding:10px 0; }
+        #forbidden_pool_history .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background:#FAFBFF; }
+        #forbidden_pool_history .el-table__body tr:hover > td { background:var(--c-primary-l) !important; }
+        #forbidden_pool_history .el-input--small .el-input__inner { border-radius:var(--r-sm); border-color:var(--c-border); color:var(--c-text); font-size:13px; transition:border-color .18s,box-shadow .18s; }
+        #forbidden_pool_history .el-input--small .el-input__inner:hover { border-color:#B0BCE8; }
+        #forbidden_pool_history .el-input--small .el-input__inner:focus { border-color:var(--c-primary); box-shadow:0 0 0 3px var(--c-primary-s); }
+        #forbidden_pool_history .el-date-editor.el-range-editor .el-range-separator { min-width:24px; width:24px; padding:0; text-align:center; }
+        #forbidden_pool_history .el-button--primary { background:linear-gradient(135deg,var(--c-primary),#2D5CE8); border-color:var(--c-primary); border-radius:var(--r-sm); font-weight:600; box-shadow:0 2px 6px var(--c-primary-s); }
+        #forbidden_pool_history .el-button--primary:hover { background:linear-gradient(135deg,var(--c-primary-h),var(--c-primary)); border-color:var(--c-primary-h); box-shadow:0 4px 12px var(--c-primary-glow); transform:translateY(-1px); }
+        #forbidden_pool_history .el-button--default { border-radius:var(--r-sm); color:var(--c-text-2); border-color:var(--c-border); font-weight:500; background:var(--c-surface); }
+        #forbidden_pool_history .el-button--default:hover { color:var(--c-primary); border-color:rgba(23,70,212,.2); background:var(--c-primary-l); }
+        #forbidden_pool_history .el-tag--mini { border-radius:20px; font-weight:600; font-size:11px; letter-spacing:.03em; }
+        #forbidden_pool_history .el-tag--success { background:var(--c-green-l); border-color:transparent; color:var(--c-green); }
+        #forbidden_pool_history .el-tag--warning { background:var(--c-amber-l); border-color:transparent; color:var(--c-amber); }
+        #forbidden_pool_history .el-tag--danger { background:var(--c-red-l); border-color:transparent; color:var(--c-red); }
+        #forbidden_pool_history .el-tag--info { background:#F0F2FA; border-color:transparent; color:var(--c-text-3); }
+        #forbidden_pool_history .el-pager li.active { background:var(--c-primary); color:#fff; border-radius:var(--r-sm); box-shadow:0 2px 6px var(--c-primary-s); }
+        #forbidden_pool_history .el-pagination .btn-next,
+        #forbidden_pool_history .el-pagination .btn-prev,
+        #forbidden_pool_history .el-pagination .el-pager li { border-radius:var(--r-sm); font-weight:500; }
+        #forbidden_pool_history .el-pagination { font-weight:500; }
+        #forbidden_pool_history .el-pagination.is-small .el-select .el-input { width:100px !important; }
+    </style>
+</head>
+<body>
+<div id="forbidden_pool_history">
+    <div class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+            </div>
+            <h2>禁投池历史查询</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta"><span class="topbar-date-badge">{{ today }}</span></div>
+    </div>
+
+    <div class="list-body">
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+                <el-input v-model="searchForm.companyCode" placeholder="主体代码" clearable size="small" style="width:130px;" @keyup.enter.native="handleSearch"></el-input>
+                <el-input v-model="searchForm.companyName" placeholder="主体名称" clearable size="small" style="width:150px;" @keyup.enter.native="handleSearch"></el-input>
+                <el-input v-model="searchForm.securityCode" placeholder="证券代码" clearable size="small" style="width:130px;" @keyup.enter.native="handleSearch"></el-input>
+                <el-input v-model="searchForm.securityShortName" placeholder="证券名称" clearable size="small" style="width:150px;" @keyup.enter.native="handleSearch"></el-input>
+                <el-date-picker
+                    v-model="searchForm.adjustTimeRange"
+                    type="daterange"
+                    range-separator="至"
+                    start-placeholder="调整开始"
+                    end-placeholder="调整结束"
+                    size="small"
+                    style="width:240px;"
+                    value-format="yyyy-MM-dd">
+                </el-date-picker>
+            </div>
+            <div class="search-row">
+                <span class="search-label" style="visibility:hidden;"><i class="el-icon-search"></i>筛选</span>
+                <el-input v-model="searchForm.adjusterName" placeholder="调整人" clearable size="small" style="width:130px;" @keyup.enter.native="handleSearch"></el-input>
+                <el-select v-model="searchForm.adjustMode" placeholder="调整方向" clearable size="small" style="width:120px;">
+                    <el-option v-for="m in adjustModeOptions" :key="m.value" :label="m.label" :value="m.value"></el-option>
+                </el-select>
+                <el-select v-model="searchForm.auditStatus" placeholder="调整状态" clearable size="small" style="width:140px;">
+                    <el-option v-for="s in auditStatusOptions" :key="s.value" :label="s.label" :value="s.value"></el-option>
+                </el-select>
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <div class="total-badge"><i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录</div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <el-table :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;">
+                <el-table-column prop="adjusterName" label="调整人" min-width="90"></el-table-column>
+                <el-table-column label="提交时间" min-width="140">
+                    <template slot-scope="{ row }">{{ formatDate(row.submitTime) }}</template>
+                </el-table-column>
+                <el-table-column prop="securityShortName" label="证券名称" min-width="150" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="securityCode" label="证券代码" min-width="120"></el-table-column>
+                <el-table-column prop="issuer" label="发行主体" min-width="180" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="adjustType" label="调整类型" min-width="110"></el-table-column>
+                <el-table-column label="调整方向" min-width="90">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.adjustMode === '调入'" type="success" size="mini">调入</el-tag>
+                        <el-tag v-else-if="row.adjustMode === '调出'" type="danger" size="mini">调出</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="targetPoolName" label="投资池名称" min-width="170" show-overflow-tooltip></el-table-column>
+                <el-table-column label="审批状态" min-width="120">
+                    <template slot-scope="{ row }">
+                        <el-tag :type="auditStatusType(row.auditStatus)" size="mini" v-if="row.auditStatus != null">
+                            {{ auditStatusLabel(row.auditStatus) }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+                <el-pagination
+                    :total="pagination.total"
+                    :current-page="pagination.pageIndex"
+                    :page-size="pagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    small
+                    @current-change="handlePageChange"
+                    @size-change="handleSizeChange">
+                </el-pagination>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+new Vue({
+    el: '#forbidden_pool_history',
+    data() {
+        return {
+            today: moment().format('YYYY年MM月DD日'), // 顶栏日期
+            searchForm: {
+                companyCode: '',        // 主体代码
+                companyName: '',        // 主体名称
+                securityCode: '',       // 证券代码
+                securityShortName: '',  // 证券名称
+                adjustTimeRange: null,  // 调整日期范围
+                adjusterName: '',       // 调整人
+                adjustMode: '',         // 调整方向
+                auditStatus: '',        // 调整状态
+            },
+            adjustModeOptions: [
+                { value: '调入', label: '调入' },
+                { value: '调出', label: '调出' },
+            ],
+            auditStatusOptions: [
+                { value: '-1', label: '无效调整' },
+                { value: '00', label: '已提交待审核' },
+                { value: '10', label: '审核通过待审批' },
+                { value: '11', label: '驳回待修改' },
+                { value: '20', label: '审批通过' },
+                { value: '21', label: '审批驳回' },
+                { value: '32', label: 'O32自动审批' },
+                { value: '99', label: '发起人已撤回' },
+            ],
+            tableData: [],              // 表格数据
+            loading: false,             // 加载状态
+            pagination: {
+                pageIndex: 1,           // 当前页
+                pageSize: 20,           // 每页条数
+                total: 0,               // 总数
+            },
+        };
+    },
+    mounted() {
+        axios.defaults.baseURL = 'http://localhost:18090';
+        this.loadList();
+    },
+    methods: {
+        // API 请求封装
+        async apiPost(path, body) {
+            const resp = await axios.post(path, body || {});
+            const json = resp.data;
+            if (json.code !== 0) {
+                this.$message.error(json.message || '接口异常');
+                throw new Error(json.message || '接口异常');
+            }
+            return json.data;
+        },
+
+        // 审批状态名称
+        auditStatusLabel(code) {
+            const map = {
+                '-1': '无效调整', '00': '已提交待审核', '10': '审核通过待审批',
+                '11': '驳回待修改', '20': '审批通过', '21': '审批驳回',
+                '32': 'O32自动审批', '99': '发起人已撤回'
+            };
+            return map[String(code)] || code || '';
+        },
+
+        // 审批状态样式
+        auditStatusType(code) {
+            const map = {
+                '20': 'success', '10': 'success', '32': 'success',
+                '21': 'danger', '-1': 'danger',
+                '00': 'warning', '11': 'warning', '99': 'info'
+            };
+            return map[String(code)] || 'info';
+        },
+
+        // 格式化日期
+        formatDate(value) {
+            return value ? moment(value).format('YYYY-MM-DD HH:mm') : '';
+        },
+
+        // 加载列表
+        async loadList() {
+            this.loading = true;
+            try {
+                const params = {
+                    companyCode: this.searchForm.companyCode || null,
+                    companyName: this.searchForm.companyName || null,
+                    securityCode: this.searchForm.securityCode || null,
+                    securityShortName: this.searchForm.securityShortName || null,
+                    adjustTimeStart: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[0] : null,
+                    adjustTimeEnd: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[1] : null,
+                    adjusterName: this.searchForm.adjusterName || null,
+                    adjustMode: this.searchForm.adjustMode || null,
+                    auditStatus: this.searchForm.auditStatus || null,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                };
+                const data = await this.apiPost('/api/v1/forbiddenPoolHistory/queryForbiddenPoolHistoryPage', params);
+                this.tableData = data.records || [];
+                this.pagination.total = data.total || 0;
+            } catch (e) {}
+            this.loading = false;
+        },
+
+        // 查询
+        handleSearch() {
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 重置
+        handleReset() {
+            this.searchForm = {
+                companyCode: '',
+                companyName: '',
+                securityCode: '',
+                securityShortName: '',
+                adjustTimeRange: null,
+                adjusterName: '',
+                adjustMode: '',
+                auditStatus: '',
+            };
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 切换页码
+        handlePageChange(page) {
+            this.pagination.pageIndex = page;
+            this.loadList();
+        },
+
+        // 切换每页条数
+        handleSizeChange(size) {
+            this.pagination.pageSize = size;
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+    }
+});
+</script>
+</body>
+</html>
