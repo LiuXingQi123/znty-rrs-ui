@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>禁投池历史查询</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
     <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
@@ -13,55 +11,301 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         #forbidden_pool_history {
-            --c-bg:#F2F4F8; --c-surface:#FFFFFF; --c-surface-2:#F8FAFD; --c-border:#E2E8F4; --c-border-l:#ECF0F9;
-            --c-text:#0D1829; --c-text-2:#3A4769; --c-text-3:#8895B8; --c-primary:#1746D4; --c-primary-h:#0F35B0;
-            --c-primary-l:#EEF2FD; --c-primary-s:rgba(23,70,212,.12); --c-primary-glow:rgba(23,70,212,.18);
-            --c-green:#0A8A5A; --c-green-l:#E8FBF3; --c-amber:#B05E00; --c-amber-l:#FFF6E8; --c-red:#D02020; --c-red-l:#FFF0F0;
-            --r-sm:7px; --r:10px; --r-xl:18px; --sh-xs:0 1px 3px rgba(13,24,54,.05); --sh-sm:0 2px 8px rgba(13,24,54,.08),0 0 0 1px rgba(13,24,54,.04);
-            display:flex; flex-direction:column; height:100vh; overflow:hidden;
-            font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif; background:var(--c-bg); color:var(--c-text); font-size:14px;
+            --color-primary: #2743A4;
+            --color-primary-hover: #1F3683;
+            --color-primary-light: #E9ECF6;
+            --color-bg-page: #F7F8FA;
+            --color-bg-panel: #FFFFFF;
+            --color-text-primary: #242933;
+            --color-text-regular: #3F485A;
+            --color-text-secondary: #707783;
+            --color-text-placeholder: #9199BD;
+            --color-border: #E5E5E5;
+            --color-border-hover: #CCCCCC;
+            --color-success: #06C687;
+            --color-success-light: #E7F9F3;
+            --color-warning-light: #FFF4CC;
+            --color-danger: #FF4542;
+            --color-danger-light: #FFEDEC;
+            --radius-base: 4px;
+
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background: var(--color-bg-page);
+            color: var(--color-text-regular);
+            font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+            font-size: 13px;
         }
-        #forbidden_pool_history .topbar { display:flex; align-items:center; height:60px; padding:0 28px; gap:14px; background:var(--c-surface); border-bottom:1px solid var(--c-border); box-shadow:0 1px 0 var(--c-border),0 2px 8px rgba(13,24,54,.04); flex-shrink:0; }
-        #forbidden_pool_history .topbar-brand { display:flex; align-items:center; gap:12px; }
-        #forbidden_pool_history .topbar-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,var(--c-primary),#3B6AEA); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px var(--c-primary-glow); }
-        #forbidden_pool_history .topbar-icon svg { fill:#fff; }
-        #forbidden_pool_history .topbar h2 { font-size:15px; font-weight:700; letter-spacing:.02em; }
-        #forbidden_pool_history .topbar-sep { width:1px; height:18px; background:var(--c-border); }
-        #forbidden_pool_history .topbar-sys { font-size:12px; color:var(--c-text-3); }
-        #forbidden_pool_history .topbar-meta { margin-left:auto; }
-        #forbidden_pool_history .topbar-date-badge { display:inline-flex; padding:4px 10px; border-radius:20px; background:var(--c-surface-2); border:1px solid var(--c-border); color:var(--c-text-3); font-size:11px; font-weight:500; }
-        #forbidden_pool_history .list-body { flex:1; overflow-y:auto; padding:22px 28px; }
-        #forbidden_pool_history .search-panel { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-xl); padding:16px 20px; margin-bottom:16px; box-shadow:var(--sh-xs); }
-        #forbidden_pool_history .search-row { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-        #forbidden_pool_history .search-row + .search-row { margin-top:10px; }
-        #forbidden_pool_history .search-label { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--c-text-3); letter-spacing:.06em; margin-right:4px; }
-        #forbidden_pool_history .total-badge { margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:20px; background:var(--c-primary-l); border:1px solid rgba(23,70,212,.15); color:var(--c-primary); font-size:12px; font-weight:600; }
-        #forbidden_pool_history .table-card { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-xl); overflow:hidden; box-shadow:var(--sh-sm); }
-        #forbidden_pool_history .pagination-wrap { display:flex; justify-content:flex-end; padding:12px 20px; border-top:1px solid var(--c-border-l); background:var(--c-surface-2); }
-        #forbidden_pool_history .el-table th.el-table__cell { background:#F4F7FE; color:var(--c-text-2); font-weight:700; font-size:11.5px; letter-spacing:.05em; border-bottom:1px solid var(--c-border); padding:11px 0; }
-        #forbidden_pool_history .el-table td.el-table__cell { color:var(--c-text); border-bottom-color:var(--c-border-l); padding:10px 0; }
-        #forbidden_pool_history .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background:#FAFBFF; }
-        #forbidden_pool_history .el-table__body tr:hover > td { background:var(--c-primary-l) !important; }
-        #forbidden_pool_history .el-input--small .el-input__inner { border-radius:var(--r-sm); border-color:var(--c-border); color:var(--c-text); font-size:13px; transition:border-color .18s,box-shadow .18s; }
-        #forbidden_pool_history .el-input--small .el-input__inner:hover { border-color:#B0BCE8; }
-        #forbidden_pool_history .el-input--small .el-input__inner:focus { border-color:var(--c-primary); box-shadow:0 0 0 3px var(--c-primary-s); }
-        #forbidden_pool_history .el-date-editor.el-range-editor .el-range-separator { min-width:24px; width:24px; padding:0; text-align:center; }
-        #forbidden_pool_history .el-button--primary { background:linear-gradient(135deg,var(--c-primary),#2D5CE8); border-color:var(--c-primary); border-radius:var(--r-sm); font-weight:600; box-shadow:0 2px 6px var(--c-primary-s); }
-        #forbidden_pool_history .el-button--primary:hover { background:linear-gradient(135deg,var(--c-primary-h),var(--c-primary)); border-color:var(--c-primary-h); box-shadow:0 4px 12px var(--c-primary-glow); transform:translateY(-1px); }
-        #forbidden_pool_history .el-button--default { border-radius:var(--r-sm); color:var(--c-text-2); border-color:var(--c-border); font-weight:500; background:var(--c-surface); }
-        #forbidden_pool_history .el-button--default:hover { color:var(--c-primary); border-color:rgba(23,70,212,.2); background:var(--c-primary-l); }
-        #forbidden_pool_history .el-tag--mini { border-radius:20px; font-weight:600; font-size:11px; letter-spacing:.03em; }
-        #forbidden_pool_history .el-tag--success { background:var(--c-green-l); border-color:transparent; color:var(--c-green); }
-        #forbidden_pool_history .el-tag--warning { background:var(--c-amber-l); border-color:transparent; color:var(--c-amber); }
-        #forbidden_pool_history .el-tag--danger { background:var(--c-red-l); border-color:transparent; color:var(--c-red); }
-        #forbidden_pool_history .el-tag--info { background:#F0F2FA; border-color:transparent; color:var(--c-text-3); }
-        #forbidden_pool_history .el-pager li.active { background:var(--c-primary); color:#fff; border-radius:var(--r-sm); box-shadow:0 2px 6px var(--c-primary-s); }
+
+        #forbidden_pool_history .topbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            height: 52px;
+            padding: 0 24px;
+            background: var(--color-bg-panel);
+            border-bottom: 1px solid var(--color-border);
+            flex-shrink: 0;
+        }
+
+        #forbidden_pool_history .topbar-brand { display: flex; align-items: center; gap: 8px; }
+
+        #forbidden_pool_history .topbar-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--color-primary-light);
+            border-radius: var(--radius-base);
+            background: var(--color-primary-light);
+            color: var(--color-primary);
+        }
+
+        #forbidden_pool_history .topbar-icon svg { width: 16px; height: 16px; fill: currentColor; }
+
+        #forbidden_pool_history .topbar h2 {
+            color: var(--color-text-primary);
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 28px;
+        }
+
+        #forbidden_pool_history .topbar-sep { width: 1px; height: 18px; background: var(--color-border); }
+        #forbidden_pool_history .topbar-sys { color: var(--color-text-secondary); font-size: 12px; line-height: 20px; }
+        #forbidden_pool_history .topbar-meta { margin-left: auto; }
+
+        #forbidden_pool_history .topbar-date-badge {
+            display: inline-flex;
+            align-items: center;
+            height: 24px;
+            padding: 0 8px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-base);
+            background: var(--color-bg-page);
+            color: var(--color-text-secondary);
+            font-size: 12px;
+        }
+
+        #forbidden_pool_history .list-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+        #forbidden_pool_history .search-panel {
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-base);
+            background: var(--color-bg-panel);
+        }
+
+        #forbidden_pool_history .search-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+        }
+
+        #forbidden_pool_history .search-row + .search-row { margin-top: 12px; }
+
+        #forbidden_pool_history .search-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            min-width: 54px;
+            height: 32px;
+            color: var(--color-text-regular);
+            font-size: 13px;
+            font-weight: 400;
+        }
+
+        #forbidden_pool_history .search-label .el-icon-search { color: var(--color-text-placeholder); font-size: 14px; }
+
+        #forbidden_pool_history .total-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            height: 24px;
+            margin-left: auto;
+            padding: 0 8px;
+            border-radius: var(--radius-base);
+            background: var(--color-primary-light);
+            color: var(--color-primary);
+            font-size: 12px;
+            line-height: 20px;
+        }
+
+        #forbidden_pool_history .table-card {
+            overflow: hidden;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-base);
+            background: var(--color-bg-panel);
+        }
+
+        #forbidden_pool_history .pagination-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            min-height: 64px;
+            padding: 12px 20px;
+            border-top: 1px solid var(--color-border);
+            background: var(--color-bg-panel);
+        }
+
+        #forbidden_pool_history .el-table { color: var(--color-text-regular); font-size: 13px; }
+
+        #forbidden_pool_history .el-table th.el-table__cell {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--color-border);
+            background: var(--color-bg-page);
+            color: var(--color-text-primary);
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 22px;
+        }
+
+        #forbidden_pool_history .el-table td.el-table__cell {
+            padding: 8px 0;
+            border-bottom-color: var(--color-border);
+            color: var(--color-text-regular);
+            font-size: 13px;
+            line-height: 22px;
+        }
+
+        #forbidden_pool_history .el-table--border,
+        #forbidden_pool_history .el-table--group { border-color: var(--color-border); }
+        #forbidden_pool_history .el-table--border th.el-table__cell,
+        #forbidden_pool_history .el-table--border td.el-table__cell { border-right-color: var(--color-border); }
+        #forbidden_pool_history .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background: #FAFAFA; }
+        #forbidden_pool_history .el-table__body tr:hover > td { background: var(--color-bg-page) !important; }
+
+        #forbidden_pool_history .el-input--small .el-input__inner,
+        #forbidden_pool_history .el-select .el-input__inner,
+        #forbidden_pool_history .el-date-editor--daterange.el-input__inner {
+            height: 32px;
+            border-color: var(--color-border);
+            border-radius: var(--radius-base);
+            color: var(--color-text-regular);
+            font-size: 13px;
+            line-height: 32px;
+        }
+
+        #forbidden_pool_history .el-input--small .el-input__inner::placeholder { color: var(--color-text-placeholder); }
+        #forbidden_pool_history .el-input--small .el-input__inner:hover,
+        #forbidden_pool_history .el-select .el-input__inner:hover,
+        #forbidden_pool_history .el-date-editor--daterange.el-input__inner:hover { border-color: var(--color-border-hover); }
+        #forbidden_pool_history .el-input--small .el-input__inner:focus,
+        #forbidden_pool_history .el-select .el-input.is-focus .el-input__inner,
+        #forbidden_pool_history .el-date-editor--daterange.el-input__inner.is-active { border-color: var(--color-primary); }
+
+        #forbidden_pool_history .el-date-editor.el-range-editor .el-range-separator {
+            min-width: 24px;
+            width: 24px;
+            padding: 0;
+            color: var(--color-text-secondary);
+            font-size: 13px;
+            line-height: 24px;
+            text-align: center;
+        }
+
+        #forbidden_pool_history .el-date-editor .el-range__icon,
+        #forbidden_pool_history .el-date-editor .el-range__close-icon { line-height: 24px; }
+
+        #forbidden_pool_history .el-button--small {
+            height: 32px;
+            padding: 0 12px;
+            border-radius: var(--radius-base);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        #forbidden_pool_history .el-button--primary {
+            border-color: var(--color-primary);
+            background: var(--color-primary);
+            color: #FFFFFF;
+        }
+
+        #forbidden_pool_history .el-button--primary:hover,
+        #forbidden_pool_history .el-button--primary:focus {
+            border-color: var(--color-primary-hover);
+            background: var(--color-primary-hover);
+            color: #FFFFFF;
+        }
+
+        #forbidden_pool_history .el-button--default {
+            border-color: var(--color-border);
+            background: var(--color-bg-panel);
+            color: var(--color-text-regular);
+            font-weight: 500;
+        }
+
+        #forbidden_pool_history .el-button--default:hover,
+        #forbidden_pool_history .el-button--default:focus {
+            border-color: var(--color-primary);
+            background: var(--color-bg-panel);
+            color: var(--color-primary);
+        }
+
+        #forbidden_pool_history .el-tag--mini {
+            height: 22px;
+            border-radius: 2px;
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 20px;
+        }
+
+        #forbidden_pool_history .el-tag--success { background: var(--color-success-light); border-color: var(--color-success-light); color: var(--color-success); }
+        #forbidden_pool_history .el-tag--warning { background: var(--color-warning-light); border-color: var(--color-warning-light); color: #A7865F; }
+        #forbidden_pool_history .el-tag--danger { background: var(--color-danger-light); border-color: var(--color-danger-light); color: var(--color-danger); }
+        #forbidden_pool_history .el-tag--info { background: var(--color-bg-page); border-color: var(--color-bg-page); color: var(--color-text-secondary); }
+
+        #forbidden_pool_history .el-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            color: var(--color-text-regular);
+            font-size: 13px;
+            font-weight: 400;
+            line-height: 28px;
+        }
+        #forbidden_pool_history .el-pager li.active { color: var(--color-primary); font-weight: 600; }
+        #forbidden_pool_history .el-pagination .el-pagination__total,
+        #forbidden_pool_history .el-pagination .el-pagination__sizes,
+        #forbidden_pool_history .el-pagination .el-pagination__jump,
+        #forbidden_pool_history .el-pagination .el-pager {
+            display: inline-flex;
+            align-items: center;
+            height: 28px;
+            margin: 0;
+            line-height: 28px;
+        }
         #forbidden_pool_history .el-pagination .btn-next,
         #forbidden_pool_history .el-pagination .btn-prev,
-        #forbidden_pool_history .el-pagination .el-pager li { border-radius:var(--r-sm); font-weight:500; }
-        #forbidden_pool_history .el-pagination { font-weight:500; }
-        #forbidden_pool_history .el-pagination.is-small .el-select .el-input { width:100px !important; }
+        #forbidden_pool_history .el-pagination .el-pager li {
+            min-width: 28px;
+            height: 28px;
+            margin: 0;
+            border-radius: var(--radius-base);
+            line-height: 28px;
+        }
+        #forbidden_pool_history .el-pagination .el-pager li.active { color: var(--color-primary); }
+        #forbidden_pool_history .el-pagination.is-small .el-select .el-input { width: 100px !important; }
+        #forbidden_pool_history .el-pagination .el-input__inner {
+            height: 28px;
+            line-height: 28px;
+        }
+        #forbidden_pool_history .el-pagination__jump .el-input {
+            display: inline-flex;
+            align-items: center;
+            height: 28px;
+            width: 48px;
+            margin: 0 6px;
+            line-height: 28px;
+            vertical-align: top;
+        }
     </style>
 </head>
 <body>

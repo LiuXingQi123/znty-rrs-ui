@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>规则管理中心</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/theme-chalk/index.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.16/vue.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/locale/zh-cn.min.js"></script>
     <style>
         /* 主题变量 */
         #rule_manager {
@@ -71,7 +76,7 @@
         }
         #rule_manager .logo-icon {
             width: 28px; height: 28px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+            background: var(--bg-card);
             border-radius: 6px;
             display: flex; align-items: center; justify-content: center;
             font-size: 14px;
@@ -128,7 +133,7 @@
         }
         #rule_manager .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
         #rule_manager .nav-item.active {
-            background: linear-gradient(90deg, var(--accent-dim), rgba(255,255,255,0));
+            background: var(--bg-card);
             color: var(--accent);
             border-left-color: var(--accent);
             font-weight: 700;
@@ -190,7 +195,7 @@
         #rule_manager .manager-card { margin-bottom: 20px; }
         #rule_manager .manager-card .el-card__header {
             padding: 15px 18px;
-            background: linear-gradient(180deg, #fff, #fbfcff);
+            background: var(--bg-card);
         }
         #rule_manager .manager-card-header {
             display: flex;
@@ -361,7 +366,7 @@
             display: flex; align-items: center; gap: 12px;
             padding: 15px 16px;
             cursor: pointer;
-            background: linear-gradient(180deg, #fff, #fbfcff);
+            background: var(--bg-card);
             user-select: none;
         }
         #rule_manager .rule-index,
@@ -728,7 +733,7 @@
         }
         #rule_manager .progress-bar-inner {
             height: 100%;
-            background: linear-gradient(90deg, var(--accent), var(--accent-soft));
+            background: var(--bg-card);
             border-radius: 2px;
             transition: width 0.3s;
         }
@@ -833,6 +838,945 @@
         #rule_manager .el-radio__inner { background: var(--bg-card2) !important; border-color: var(--border) !important; }
         #rule_manager .el-radio__input.is-checked .el-radio__inner { border-color: var(--accent) !important; }
         #rule_manager .el-radio__input.is-checked .el-radio__inner::after { background: var(--accent) !important; }
+
+        /* ── 与证券池页面统一的视觉覆盖 ── */
+        #rule_manager {
+            --bg-base: #F2F4F8;
+            --bg-card: #FFFFFF;
+            --bg-card2: #F8FAFD;
+            --bg-hover: #E9ECF6;
+            --bg-code: #F8FAFD;
+            --border: #E2E8F4;
+            --border-light: #ECF0F9;
+            --accent: #2743A4;
+            --accent-soft: #2D5CE8;
+            --accent-dim: #E9ECF6;
+            --accent-glow: rgba(39,67,164,.12);
+            --green: #0A8A5A;
+            --green-dim: #E8FBF3;
+            --orange: #B05E00;
+            --orange-dim: #FFF6E8;
+            --red: #D02020;
+            --red-dim: #FFF0F0;
+            --purple: #5A57C8;
+            --purple-dim: #F1F0FF;
+            --text-primary: #0D1829;
+            --text-secondary: #3A4769;
+            --text-muted: #8895B8;
+            --shadow-card: 0 1px 3px rgba(13,24,54,.05);
+            --shadow-hover: 0 2px 8px rgba(13,24,54,.08), 0 0 0 1px rgba(13,24,54,.04);
+            --font-ui: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            font-size: 14px;
+            letter-spacing: 0.01em;
+        }
+        body {
+            background: #F2F4F8;
+            color: #0D1829;
+            font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+            font-size: 14px;
+            overflow: hidden;
+        }
+        #rule_manager .topbar {
+            height: 60px;
+            padding: 0 28px;
+            gap: 14px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            position: static;
+            flex-shrink: 0;
+            box-shadow: 0 1px 0 var(--border), 0 2px 8px rgba(13,24,54,.04);
+        }
+        #rule_manager .topbar-logo { gap: 12px; }
+        #rule_manager .logo-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            background: var(--bg-card);
+            box-shadow: 0 2px 8px rgba(39,67,164,.18);
+            font-size: 18px;
+        }
+        #rule_manager .logo-text {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 0.02em;
+        }
+        #rule_manager .topbar-divider { height: 18px; background: var(--border); }
+        #rule_manager .topbar-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 400;
+            letter-spacing: 0.03em;
+        }
+        #rule_manager .topbar-right { margin-left: auto; gap: 8px; }
+        #rule_manager .status-dot { display: none; }
+        #rule_manager .status-text {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: var(--bg-card2);
+            border: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        #rule_manager .main-layout {
+            flex: 1;
+            min-height: 0;
+            height: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        #rule_manager .sidebar {
+            width: auto;
+            min-height: 58px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 12px 28px;
+            background: var(--bg-card);
+            border-right: 0;
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 1px 0 rgba(13,24,54,.03);
+        }
+        #rule_manager .nav-section-title { display: none; }
+        #rule_manager .nav-item {
+            height: 34px;
+            padding: 0 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            gap: 7px;
+            transition: all .18s ease;
+        }
+        #rule_manager .nav-item:hover {
+            border-color: rgba(39,67,164,.2);
+            background: var(--accent-dim);
+            color: var(--accent);
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+        #rule_manager .nav-item.active {
+            background: var(--accent-dim);
+            border-color: rgba(39,67,164,.25);
+            color: var(--accent);
+            font-weight: 700;
+        }
+        #rule_manager .nav-item .icon {
+            width: 16px;
+            font-size: 13px;
+        }
+        #rule_manager .nav-badge {
+            margin-left: 2px;
+            background: var(--bg-card);
+            border: 1px solid rgba(39,67,164,.15);
+            color: var(--accent);
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 20px;
+        }
+        #rule_manager .sidebar > div[style] {
+            margin-top: 0 !important;
+            margin-left: auto;
+        }
+        #rule_manager .sidebar-stats {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            background: transparent;
+            border: 0;
+        }
+        #rule_manager .stat-row {
+            height: 28px;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 0;
+            padding: 0 10px;
+            border-radius: 20px;
+            background: var(--accent-dim);
+            border: 1px solid rgba(39,67,164,.15);
+        }
+        #rule_manager .stat-label,
+        #rule_manager .stat-val {
+            font-size: 12px;
+            font-weight: 600;
+        }
+        #rule_manager .content-area {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 22px 28px;
+        }
+        #rule_manager .page-header {
+            margin-bottom: 16px;
+            min-height: 38px;
+        }
+        #rule_manager .page-title {
+            font-size: 16px;
+            line-height: 24px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        #rule_manager .page-title span { display: none; }
+        #rule_manager .page-desc {
+            margin-top: 3px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        #rule_manager .toolbar {
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow-card);
+        }
+        #rule_manager .manager-card,
+        #rule_manager .metric-card,
+        #rule_manager .rule-card,
+        #rule_manager .test-card {
+            border-color: var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow-card);
+        }
+        #rule_manager .manager-card .el-card__header,
+        #rule_manager .rule-card-header,
+        #rule_manager .test-card-header {
+            background: var(--bg-card);
+            border-bottom-color: var(--border-light);
+        }
+        #rule_manager .manager-card .el-card__body { padding: 18px 20px; }
+        #rule_manager .rule-detail,
+        #rule_manager .test-detail {
+            background: var(--bg-card2);
+            border-top-color: var(--border-light);
+        }
+        #rule_manager .el-input--small .el-input__inner,
+        #rule_manager .el-select .el-input__inner,
+        #rule_manager .el-textarea__inner {
+            border-radius: 7px !important;
+            border-color: var(--border) !important;
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            font-size: 13px !important;
+            font-family: var(--font-ui) !important;
+        }
+        #rule_manager .el-input--small .el-input__inner:hover,
+        #rule_manager .el-select .el-input__inner:hover {
+            border-color: #B0BCE8 !important;
+        }
+        #rule_manager .el-input__inner:focus,
+        #rule_manager .el-textarea__inner:focus,
+        #rule_manager .el-select .el-input.is-focus .el-input__inner {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px var(--accent-glow) !important;
+        }
+        #rule_manager .el-button--primary {
+            background: var(--bg-card);
+            border-color: var(--accent) !important;
+            border-radius: 7px !important;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            box-shadow: 0 2px 6px var(--accent-glow);
+        }
+        #rule_manager .el-button--default,
+        #rule_manager .el-button {
+            border-radius: 7px !important;
+            font-weight: 500;
+        }
+        #rule_manager .el-tag--mini,
+        #rule_manager .el-tag--small {
+            border-radius: 20px;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+        #rule_manager .metric-card .el-card__body { padding: 14px 18px; }
+        #rule_manager .metric-label {
+            color: var(--text-muted);
+            font-size: 12px;
+            letter-spacing: 0.06em;
+        }
+        #rule_manager .metric-value {
+            font-size: 20px;
+            color: var(--text-primary);
+        }
+        #rule_manager .code-editor-wrapper,
+        #rule_manager .code-preview,
+        #rule_manager .result-console {
+            border-color: var(--border);
+            background: var(--bg-code);
+            border-radius: 10px;
+        }
+        #rule_manager .code-editor-toolbar {
+            background: #F7F8FA;
+            border-bottom-color: var(--border-light);
+        }
+        #rule_manager .type-option-card,
+        #rule_manager .preset-set-item,
+        #rule_manager .rule-info-item,
+        #rule_manager .test-info-item {
+            background: var(--bg-card);
+            border-color: var(--border-light);
+            border-radius: 10px;
+        }
+        @media (max-width: 980px) {
+            #rule_manager .sidebar > div[style] { margin-left: 0; width: 100%; }
+            #rule_manager .sidebar-stats { justify-content: flex-start; }
+            #rule_manager .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        /* 项目UI规范覆盖层：金融后台、紧凑、高密度 */
+        #rule_manager {
+            --bg-base:#F7F8FA;
+            --bg-card:#FFFFFF;
+            --bg-card2:#F7F8FA;
+            --bg-hover:#F7F8FA;
+            --bg-code:#F7F8FA;
+            --border:#E5E5E5;
+            --border-light:#E5E5E5;
+            --accent:#2743A4;
+            --accent-soft:#1F3683;
+            --accent-dim:#E9ECF6;
+            --accent-glow:rgba(39,67,164,.12);
+            --green:#06C687;
+            --green-dim:#E7F9F3;
+            --orange:#A7865F;
+            --orange-dim:#FFF4CC;
+            --red:#FF4542;
+            --red-dim:#FFEDEC;
+            --purple:#2743A4;
+            --purple-dim:#E9ECF6;
+            --text-primary:#242933;
+            --text-secondary:#3F485A;
+            --text-muted:#707783;
+            --shadow-card:none;
+            --shadow-hover:none;
+            --font-ui:"PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+            --font-mono:"Courier New",monospace;
+            background:var(--bg-base);
+            color:var(--text-secondary);
+            font-family:var(--font-ui);
+            font-size:13px;
+            letter-spacing:0;
+        }
+
+        body {
+            background:#F7F8FA;
+            color:#3F485A;
+            font-family:"PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+            font-size:13px;
+        }
+
+        #rule_manager .topbar {
+            height:52px;
+            padding:0 24px;
+            gap:12px;
+            border-bottom:1px solid var(--border);
+            background:var(--bg-card);
+            box-shadow:none;
+        }
+
+        #rule_manager .topbar-logo {
+            gap:8px;
+        }
+
+        #rule_manager .logo-icon {
+            width:28px;
+            height:28px;
+            border:1px solid var(--accent-dim);
+            border-radius:4px;
+            background:var(--accent-dim);
+            color:var(--accent);
+            box-shadow:none;
+            font-size:16px;
+        }
+
+        #rule_manager .logo-text {
+            color:#242933;
+            font-size:20px;
+            font-weight:600;
+            line-height:28px;
+            letter-spacing:0;
+        }
+
+        #rule_manager .topbar-divider {
+            height:18px;
+            background:var(--border);
+        }
+
+        #rule_manager .topbar-subtitle,
+        #rule_manager .status-text {
+            color:var(--text-muted);
+            font-size:12px;
+            line-height:20px;
+            letter-spacing:0;
+        }
+
+        #rule_manager .status-text {
+            height:24px;
+            padding:0 8px;
+            border:1px solid var(--border);
+            border-radius:4px;
+            background:var(--bg-base);
+            font-weight:400;
+        }
+
+        #rule_manager .main-layout {
+            height:calc(100vh - 52px);
+            background:var(--bg-base);
+        }
+
+        #rule_manager .sidebar {
+            min-height:52px;
+            padding:10px 24px;
+            gap:8px;
+            border-bottom:1px solid var(--border);
+            background:var(--bg-card);
+            box-shadow:none;
+        }
+
+        #rule_manager .nav-item {
+            height:32px;
+            padding:0 12px;
+            border:1px solid var(--border);
+            border-radius:4px;
+            background:var(--bg-card);
+            color:var(--text-secondary);
+            font-size:13px;
+            font-weight:500;
+            box-shadow:none;
+        }
+
+        #rule_manager .nav-item:hover,
+        #rule_manager .nav-item.active {
+            border-color:var(--accent);
+            background:var(--bg-card);
+            color:var(--accent);
+            box-shadow:none;
+            font-weight:600;
+        }
+
+        #rule_manager .nav-badge,
+        #rule_manager .stat-row {
+            min-height:22px;
+            padding:0 8px;
+            border:1px solid var(--accent-dim);
+            border-radius:2px;
+            background:var(--accent-dim);
+            color:var(--accent);
+            font-size:12px;
+            font-weight:400;
+            line-height:20px;
+        }
+
+        #rule_manager .sidebar-stats {
+            gap:6px;
+        }
+
+        #rule_manager .stat-label,
+        #rule_manager .stat-val {
+            font-size:12px;
+            font-weight:400;
+        }
+
+        #rule_manager .content-area {
+            padding:20px 24px;
+            background:var(--bg-base);
+        }
+
+        #rule_manager .page-header {
+            min-height:36px;
+            margin-bottom:12px;
+        }
+
+        #rule_manager .page-title {
+            color:#242933;
+            font-size:16px;
+            font-weight:600;
+            line-height:24px;
+            letter-spacing:0;
+        }
+
+        #rule_manager .page-desc {
+            color:var(--text-muted);
+            font-size:12px;
+            line-height:20px;
+        }
+
+        #rule_manager .toolbar,
+        #rule_manager .manager-card,
+        #rule_manager .metric-card,
+        #rule_manager .rule-card,
+        #rule_manager .test-card,
+        #rule_manager .type-option-card,
+        #rule_manager .preset-set-item,
+        #rule_manager .rule-info-item,
+        #rule_manager .test-info-item,
+        #rule_manager .code-editor-wrapper,
+        #rule_manager .code-preview,
+        #rule_manager .result-console {
+            border:1px solid var(--border);
+            border-radius:4px;
+            background:var(--bg-card);
+            box-shadow:none;
+        }
+
+        #rule_manager .toolbar {
+            padding:16px 20px;
+            margin-bottom:12px;
+            gap:8px 12px;
+        }
+
+        #rule_manager .manager-card .el-card__header,
+        #rule_manager .rule-card-header,
+        #rule_manager .test-card-header,
+        #rule_manager .code-editor-toolbar {
+            border-bottom:1px solid var(--border);
+            background:var(--bg-base);
+        }
+
+        #rule_manager .manager-card .el-card__body,
+        #rule_manager .metric-card .el-card__body {
+            padding:16px 20px;
+        }
+
+        #rule_manager .rule-card:hover,
+        #rule_manager .test-card:hover {
+            border-color:var(--border);
+            box-shadow:none;
+        }
+
+        #rule_manager .rule-detail,
+        #rule_manager .test-detail {
+            border-top:1px solid var(--border);
+            background:var(--bg-base);
+        }
+
+        #rule_manager .rule-name,
+        #rule_manager .test-name,
+        #rule_manager .manager-card-title,
+        #rule_manager .metric-value {
+            color:#242933;
+            font-size:14px;
+            font-weight:600;
+            letter-spacing:0;
+        }
+
+        #rule_manager .rule-desc,
+        #rule_manager .test-rule-ref,
+        #rule_manager .metric-label,
+        #rule_manager .detail-label {
+            color:var(--text-muted);
+            font-size:12px;
+            letter-spacing:0;
+            text-transform:none;
+        }
+
+        #rule_manager .rule-index,
+        #rule_manager .test-index {
+            width:28px;
+            height:28px;
+            border-radius:4px;
+            border:1px solid var(--accent-dim);
+            background:var(--accent-dim);
+            color:var(--accent);
+            font-family:var(--font-ui);
+            font-size:12px;
+            font-weight:500;
+            line-height:26px;
+        }
+
+        #rule_manager .el-input--small .el-input__inner,
+        #rule_manager .el-select .el-input__inner,
+        #rule_manager .el-textarea__inner {
+            border-color:var(--border)!important;
+            border-radius:4px!important;
+            background:var(--bg-card)!important;
+            color:var(--text-secondary)!important;
+            font-family:var(--font-ui)!important;
+            font-size:13px!important;
+            box-shadow:none!important;
+        }
+
+        #rule_manager .el-input--small .el-input__inner,
+        #rule_manager .el-select .el-input__inner {
+            height:32px;
+            line-height:32px;
+        }
+
+        #rule_manager .el-input__inner:focus,
+        #rule_manager .el-textarea__inner:focus,
+        #rule_manager .el-select .el-input.is-focus .el-input__inner {
+            border-color:var(--accent)!important;
+            box-shadow:none!important;
+        }
+
+        #rule_manager .el-button {
+            border-radius:4px!important;
+            font-size:13px;
+            font-weight:500;
+            box-shadow:none!important;
+            transform:none!important;
+        }
+
+        #rule_manager .el-button--small {
+            height:32px;
+            padding:0 12px;
+        }
+
+        #rule_manager .el-button--mini {
+            height:28px;
+            padding:0 10px;
+        }
+
+        #rule_manager .el-button--primary:not(.is-plain),
+        #rule_manager .el-button--primary:not(.is-plain):hover,
+        #rule_manager .el-button--primary:not(.is-plain):focus {
+            border-color:var(--accent)!important;
+            background:var(--accent)!important;
+            color:#FFFFFF!important;
+            box-shadow:none!important;
+            letter-spacing:0;
+        }
+
+        #rule_manager .el-button--primary:not(.is-plain):hover {
+            border-color:var(--accent-soft)!important;
+            background:var(--accent-soft)!important;
+        }
+
+        #rule_manager .el-button--primary.is-plain,
+        #rule_manager .el-button--primary.is-plain:hover,
+        #rule_manager .el-button--primary.is-plain:focus,
+        #rule_manager .el-button--success.is-plain,
+        #rule_manager .el-button--success.is-plain:hover,
+        #rule_manager .el-button--success.is-plain:focus {
+            border-color:var(--accent)!important;
+            background:var(--bg-card)!important;
+            color:var(--accent)!important;
+            box-shadow:none!important;
+        }
+
+        #rule_manager .el-button--default:hover,
+        #rule_manager .el-button:hover {
+            border-color:var(--accent);
+            background:var(--bg-card);
+            color:var(--accent);
+            box-shadow:none;
+        }
+
+        #rule_manager .el-tag,
+        #rule_manager .el-tag--mini,
+        #rule_manager .el-tag--small,
+        #rule_manager .params-chip,
+        #rule_manager .param-type-tag,
+        #rule_manager .template-tag,
+        #rule_manager .test-result-tag {
+            min-height:22px;
+            border-radius:2px!important;
+            font-size:12px!important;
+            font-weight:400!important;
+            line-height:20px;
+            letter-spacing:0;
+        }
+
+        #rule_manager .code-editor-wrapper,
+        #rule_manager .code-preview,
+        #rule_manager .result-console {
+            background:var(--bg-code);
+        }
+
+        #rule_manager .code-editor-toolbar {
+            min-height:34px;
+            padding:0 12px;
+        }
+
+        #rule_manager .editor-lang-tag {
+            height:22px;
+            padding:0 8px;
+            border-radius:2px;
+            background:var(--accent-dim);
+            color:var(--accent);
+            font-size:12px;
+            font-weight:400;
+            line-height:20px;
+        }
+
+        #rule_manager .code-preview,
+        #rule_manager .result-console,
+        #rule_manager .rule-info-value,
+        #rule_manager .test-info-value,
+        #rule_manager .options-tag {
+            font-family:var(--font-mono);
+            color:var(--text-secondary);
+            font-size:12px;
+        }
+
+        #rule_manager .test-param-row {
+            border-color:var(--border);
+            border-radius:4px;
+            background:var(--bg-base);
+        }
+
+        #rule_manager .test-param-label {
+            color:var(--text-secondary);
+            font-size:13px;
+            font-weight:500;
+        }
+
+        #rule_manager .test-param-input {
+            min-height:32px;
+        }
+
+        #rule_manager .el-checkbox__label,
+        #rule_manager .el-radio__label {
+            color:var(--text-secondary)!important;
+            font-size:13px!important;
+        }
+
+        #rule_manager .el-checkbox__inner,
+        #rule_manager .el-radio__inner {
+            border-color:var(--border)!important;
+            background:var(--bg-card)!important;
+        }
+
+        #rule_manager .el-checkbox__input.is-checked .el-checkbox__inner,
+        #rule_manager .el-radio__input.is-checked .el-radio__inner {
+            border-color:var(--accent)!important;
+            background:var(--accent)!important;
+        }
+
+        .el-dialog {
+            border-radius:4px!important;
+            box-shadow:0 2px 10px rgba(0,0,0,.12)!important;
+        }
+
+        .el-dialog__header {
+            padding:14px 24px!important;
+            border-bottom:1px solid #E5E5E5!important;
+            background:#FFFFFF!important;
+        }
+
+        .el-dialog__title {
+            color:#242933!important;
+            font-size:16px!important;
+            font-weight:600!important;
+            line-height:24px!important;
+        }
+
+        .el-dialog__body {
+            padding:20px 24px!important;
+            color:#3F485A!important;
+        }
+
+        .el-dialog__footer {
+            padding:12px 24px 20px!important;
+            border-top:1px solid #E5E5E5!important;
+            background:#FFFFFF!important;
+        }
+
+        /* 测试脚本页密度校正：与规则列表保持同一行高和按钮规格 */
+        #rule_manager .metric-grid {
+            gap:12px;
+            margin-bottom:12px;
+        }
+
+        #rule_manager .metric-card {
+            min-height:54px;
+        }
+
+        #rule_manager .metric-card .el-card__body {
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            min-height:54px;
+            padding:7px 20px!important;
+        }
+
+        #rule_manager .metric-label {
+            color:var(--text-muted);
+            font-size:12px;
+            font-weight:400;
+            line-height:20px;
+            letter-spacing:0;
+        }
+
+        #rule_manager .metric-value {
+            margin-top:2px;
+            font-size:14px;
+            font-weight:600;
+            line-height:20px;
+        }
+
+        #rule_manager .test-card {
+            margin-bottom:10px;
+            border-radius:4px!important;
+        }
+
+        #rule_manager .test-card > .el-card__body {
+            padding:0!important;
+        }
+
+        #rule_manager .test-item {
+            grid-template-columns:28px minmax(220px, 1.2fr) minmax(220px, 1.35fr) minmax(220px, auto) 128px;
+            gap:10px;
+            min-height:44px;
+            padding:6px 12px;
+            align-items:center;
+        }
+
+        #rule_manager .test-index {
+            width:28px;
+            height:28px;
+            border-radius:4px;
+            font-size:12px;
+            line-height:26px;
+        }
+
+        #rule_manager .test-name {
+            font-size:13px;
+            font-weight:600;
+            line-height:20px;
+        }
+
+        #rule_manager .test-rule-ref {
+            margin-top:0;
+            color:var(--text-muted);
+            font-family:var(--font-ui);
+            font-size:12px;
+            line-height:18px;
+        }
+
+        #rule_manager .test-param-summary {
+            color:var(--text-muted);
+            font-family:var(--font-mono);
+            font-size:12px;
+            line-height:20px;
+        }
+
+        #rule_manager .test-status-col {
+            justify-content:flex-start;
+            gap:6px;
+        }
+
+        #rule_manager .test-result-tag {
+            min-width:52px;
+            height:22px;
+            line-height:20px;
+        }
+
+        #rule_manager .test-output-inline {
+            max-width:180px;
+            color:var(--text-muted);
+            font-family:var(--font-ui);
+            font-size:12px;
+            line-height:20px;
+        }
+
+        #rule_manager .test-actions-col {
+            justify-content:flex-end;
+            gap:6px;
+        }
+
+        #rule_manager .test-actions-col .el-button,
+        #rule_manager .rule-actions .el-button,
+        #rule_manager .test-name-edit .el-button {
+            height:28px!important;
+            min-width:28px;
+            padding:0 10px!important;
+            border-radius:4px!important;
+            font-size:12px;
+            line-height:26px;
+        }
+
+        #rule_manager .test-actions-col .el-button.is-circle,
+        #rule_manager .test-actions-col .el-button [class^="el-icon-"] {
+            line-height:1;
+        }
+
+        #rule_manager .test-actions-col .el-button--primary.is-plain,
+        #rule_manager .rule-actions .el-button--primary.is-plain {
+            border-color:var(--accent)!important;
+            background:var(--bg-card)!important;
+            color:var(--accent)!important;
+        }
+
+        #rule_manager .test-actions-col .el-button--danger.is-plain,
+        #rule_manager .rule-actions .el-button--danger.is-plain {
+            border-color:#F3C7C5!important;
+            background:#FFF7F7!important;
+            color:var(--red)!important;
+        }
+
+        #rule_manager .rule-actions .el-button--warning.is-plain,
+        #rule_manager .rule-actions .el-button--info.is-plain {
+            border-color:var(--border)!important;
+            background:var(--bg-card)!important;
+            color:var(--text-muted)!important;
+        }
+
+        #rule_manager .rule-actions {
+            gap:8px;
+            margin-top:10px;
+            padding-top:10px;
+        }
+
+        #rule_manager .rule-detail-grid {
+            gap:8px;
+        }
+
+        #rule_manager .rule-info-item,
+        #rule_manager .test-info-item {
+            padding:8px 12px;
+        }
+
+        #rule_manager .code-preview {
+            min-height:140px;
+            max-height:180px;
+            padding:10px 12px;
+            line-height:1.6;
+        }
+
+        #rule_manager .page-header .el-button--success,
+        #rule_manager .page-header .el-button--success:hover,
+        #rule_manager .page-header .el-button--success:focus {
+            height:32px!important;
+            padding:0 12px!important;
+            border-color:var(--accent)!important;
+            background:var(--bg-card)!important;
+            color:var(--accent)!important;
+            border-radius:4px!important;
+            box-shadow:none!important;
+            font-size:13px;
+            font-weight:500;
+        }
+
+        #rule_manager .rule-expand-btn.el-button--text,
+        #rule_manager .test-name-edit-btn.el-button--text {
+            height:28px!important;
+            min-width:28px;
+            padding:0!important;
+            color:var(--text-muted)!important;
+        }
+
+        #rule_manager .rule-expand-btn.el-button--text:hover,
+        #rule_manager .test-name-edit-btn.el-button--text:hover {
+            color:var(--accent)!important;
+            background:transparent!important;
+            border-color:transparent!important;
+        }
     </style>
 </head>
 <body>
@@ -841,14 +1785,14 @@
     <!-- 顶部导航 -->
     <div class="topbar">
         <div class="topbar-logo">
-            <div class="logo-icon">⚡</div>
-            <div class="logo-text">RuleEngine</div>
+            <div class="logo-icon"><i class="el-icon-s-operation"></i></div>
+            <div class="logo-text">规则管理</div>
         </div>
         <div class="topbar-divider"></div>
-        <div class="topbar-subtitle">QLExpress 规则管理中心</div>
+        <div class="topbar-subtitle">证券投资管理系统</div>
         <div class="topbar-right">
             <div class="status-dot"></div>
-            <div class="status-text">引擎运行中</div>
+            <div class="status-text">{{ today }}</div>
         </div>
     </div>
 
@@ -860,16 +1804,16 @@
             <div class="nav-section-title">导航</div>
             <!-- 规则列表入口 -->
             <div class="nav-item" :class="{active: currentPage==='rules'}" @click="currentPage='rules'">
-                <span class="icon">📋</span> 规则列表
+                <i class="icon el-icon-tickets"></i> 规则列表
                 <span class="nav-badge">{{ rules.length }}</span>
             </div>
             <!-- 新建规则入口 -->
             <div class="nav-item" :class="{active: currentPage==='create'}" @click="currentPage='create'">
-                <span class="icon">✚</span> 新建规则
+                <i class="icon el-icon-plus"></i> 新建规则
             </div>
             <!-- 测试脚本入口 -->
             <div class="nav-item" :class="{active: currentPage==='tests'}" @click="currentPage='tests'">
-                <span class="icon">🧪</span> 测试脚本
+                <i class="icon el-icon-cpu"></i> 测试脚本
                 <span class="nav-badge">{{ testCases.length }}</span>
             </div>
 
@@ -1520,11 +2464,6 @@
 
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.16/vue.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/index.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/locale/zh-cn.min.js"></script>
 <script>
 
     new Vue({
@@ -1533,6 +2472,7 @@
             return {
                 // 后端接口基地址
                 apiBase: 'http://localhost:18090',
+                today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
 
                 currentPage: 'rules',      // 当前页面
                 rules: [],                 // 规则列表（从后端加载）
