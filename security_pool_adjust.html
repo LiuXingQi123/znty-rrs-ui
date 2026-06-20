@@ -425,8 +425,6 @@
         #security_pool_adjust .el-tag--mini {
             border-radius: 20px; font-weight: 600; font-size: 11px; letter-spacing: 0.03em;
         }
-        #security_pool_adjust .el-tag--success { background: var(--c-green-l); border-color: transparent; color: var(--c-green); }
-        #security_pool_adjust .el-tag--info { background: #F0F2FA; border-color: transparent; color: var(--c-text-3); }
 
         /* 表格整体：字号、分割线、悬停色覆写 */
         #security_pool_adjust .el-table { font-size: 13px; }
@@ -1374,6 +1372,9 @@
             background: var(--c-bg);
             color: var(--c-text-2);
         }
+        #security_pool_adjust .adjust-direction-tag { min-width:40px; height:22px; padding:0 8px; border-radius:2px; font-size:12px; font-weight:400; line-height:20px; text-align:center; }
+        #security_pool_adjust .adjust-direction-tag.el-tag--success { border-color:#E7F9F3; background:#E7F9F3; color:#06C687; }
+        #security_pool_adjust .adjust-direction-tag.el-tag--danger { border-color:#FFEDEC; background:#FFEDEC; color:#FF4542; }
 
         #security_pool_adjust .pagination-wrap {
             display: flex;
@@ -1681,8 +1682,8 @@
                             <span style="font-family:'Courier New',monospace;font-size:12.5px;color:var(--c-amber);">{{ row.couponRate != null ? row.couponRate : '' }}</span>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="carryDate" label="起息日期" min-width="110"></el-table-column>
-                    <el-table-column prop="maturityDate" label="到期日" min-width="110"></el-table-column>
+                    <el-table-column prop="carryDate" label="起息日期" min-width="110" align="center"></el-table-column>
+                    <el-table-column prop="maturityDate" label="到期日" min-width="110" align="center"></el-table-column>
                     <el-table-column prop="dateExists" label="证券期限" min-width="110"></el-table-column>
                     <el-table-column prop="ratingBond" label="证券评级" min-width="90">
                         <template slot-scope="{ row }">
@@ -1902,7 +1903,7 @@
                                         <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ poolTypeLabel(row.poolType) }}</span>
                                     </template>
                                 </el-table-column>
-                                <el-table-column prop="entryDate" label="入池日期" min-width="130">
+                                <el-table-column prop="entryDate" label="入池日期" min-width="130" align="center">
                                     <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
                                 </el-table-column>
                             </el-table>
@@ -1948,7 +1949,7 @@
                                         <span style="font-family:'Courier New',monospace;font-weight:700;color:var(--c-primary);font-size:13px;">{{ row.bondCount }}<span style="font-size:10px;font-weight:400;color:var(--c-text-3);margin-left:2px;">只</span></span>
                                     </template>
                                 </el-table-column>
-                                <el-table-column prop="entryDate" label="最早入池日期" min-width="130">
+                                <el-table-column prop="entryDate" label="最早入池日期" min-width="130" align="center">
                                     <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
                                 </el-table-column>
                             </el-table>
@@ -2184,7 +2185,7 @@
                     <i :class="sectionExpanded.adjustReview ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
                 <div v-show="sectionExpanded.adjustReview" class="section-body" style="padding:0;">
-                    <el-table :data="adjustReviewList" size="small" stripe border style="width:100%;"
+                    <el-table ref="adjustReviewTable" :data="adjustReviewList" size="small" stripe border style="width:100%;"
                               :empty-text="'暂无数据'">
                         <el-table-column label="序号" width="50" align="center">
                             <template slot-scope="{ $index }">
@@ -2195,7 +2196,7 @@
                         <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center"></el-table-column>
                         <el-table-column prop="direction" label="调整方向" min-width="90" align="center">
                             <template slot-scope="{ row }">
-                                <el-tag size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
+                                <el-tag class="adjust-direction-tag" size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
                             </template>
                         </el-table-column>
                         <el-table-column prop="flowName" label="审批流程" min-width="170" show-overflow-tooltip>
@@ -3053,6 +3054,8 @@
                 const current = this.attachmentFiles[poolId] || [];
                 if (file.raw && !current.some(f => f.uid === file.uid)) {
                     this.$set(this.attachmentFiles, poolId, [...current, file]);
+                    // 同步校验结果固定列与主表行高
+                    this.refreshAdjustReviewTableLayout();
                 }
             },
             // 其他材料文件变更（el-upload on-change 回调），去重后追加到对应池
@@ -3060,6 +3063,8 @@
                 const current = this.materialFiles[poolId] || [];
                 if (file.raw && !current.some(f => f.uid === file.uid)) {
                     this.$set(this.materialFiles, poolId, [...current, file]);
+                    // 同步校验结果固定列与主表行高
+                    this.refreshAdjustReviewTableLayout();
                 }
             },
             // 移除指定池的附件文件
@@ -3067,16 +3072,34 @@
                 const files = [...(this.attachmentFiles[poolId] || [])];
                 files.splice(index, 1);
                 this.$set(this.attachmentFiles, poolId, files);
+                // 同步校验结果固定列与主表行高
+                this.refreshAdjustReviewTableLayout();
             },
             // 移除指定池的其他材料文件
             removeMaterialFile(poolId, index) {
                 const files = [...(this.materialFiles[poolId] || [])];
                 files.splice(index, 1);
                 this.$set(this.materialFiles, poolId, files);
+                // 同步校验结果固定列与主表行高
+                this.refreshAdjustReviewTableLayout();
             },
             // 折叠/展开区块
             toggleSection(key) {
                 this.$set(this.sectionExpanded, key, !this.sectionExpanded[key]);
+                if (key === 'adjustReview' && this.sectionExpanded[key]) {
+                    // 展开后同步校验结果固定列与主表行高
+                    this.refreshAdjustReviewTableLayout();
+                }
+            },
+
+            // 在动态内容渲染后重新同步校验结果表格的固定列行高
+            refreshAdjustReviewTableLayout() {
+                this.$nextTick(() => {
+                    window.requestAnimationFrame(() => {
+                        const table = this.$refs.adjustReviewTable;
+                        if (table) table.doLayout();
+                    });
+                });
             },
 
             // 审核状态样式
@@ -3415,6 +3438,8 @@
                     this.selectedFlowKey = recommended ? recommended.optionKey : '';
                     this.flowDialogVisible = false;
                     this.adjustStep = 2;
+                    // 校验结果渲染完成后同步固定列与主表行高
+                    this.refreshAdjustReviewTableLayout();
                 } finally {
                     if (currentSeq === this.adjustCheckSeq) {
                         this.adjustCheckLoading = false;
@@ -3765,6 +3790,8 @@
                     this.$set(this.otherMaterialSelections, poolId, [...allSelected]);
                 }
                 this.reportDialogVisible = false;
+                // 报告标签改变行高后同步校验结果固定列
+                this.refreshAdjustReviewTableLayout();
             },
 
             // 获取某池的信用报告选择
@@ -3780,12 +3807,16 @@
                 const arr = [...(this.creditReportSelections[poolId] || [])];
                 arr.splice(index, 1);
                 this.$set(this.creditReportSelections, poolId, arr);
+                // 报告标签改变行高后同步校验结果固定列
+                this.refreshAdjustReviewTableLayout();
             },
             // 移除其他材料报告选择
             removeOtherMaterialSelection(poolId, index) {
                 const arr = [...(this.otherMaterialSelections[poolId] || [])];
                 arr.splice(index, 1);
                 this.$set(this.otherMaterialSelections, poolId, arr);
+                // 报告标签改变行高后同步校验结果固定列
+                this.refreshAdjustReviewTableLayout();
             },
 
             // 解析报告JSON，返回报告标题数组
