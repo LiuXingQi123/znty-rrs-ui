@@ -869,22 +869,6 @@
         #security_pool_adjust .report-type-tag.type-macro   { background: var(--c-amber-l); color: var(--c-amber); border: 1px solid rgba(176,94,0,.15); }
         #security_pool_adjust .report-type-tag.type-default { background: #F0F2FA; color: var(--c-text-2); border: 1px solid var(--c-border); }
 
-        /* 评级徽章 (按评级着色) */
-        #security_pool_adjust .rating-badge {
-            display: inline-flex; align-items: center; justify-content: center;
-            padding: 2px 8px; min-width: 40px;
-            border-radius: var(--r-xs);
-            font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-            font-size: 11.5px; font-weight: 500;
-            letter-spacing: 0;
-        }
-        #security_pool_adjust .rating-badge.rating-aaa { background: var(--c-green); color: #fff; }
-        #security_pool_adjust .rating-badge.rating-aa  { background: var(--c-green-l); color: var(--c-green); border: 1px solid rgba(10,138,90,.2); }
-        #security_pool_adjust .rating-badge.rating-a   { background: var(--c-primary-l); color: var(--c-primary); border: 1px solid rgba(39,67,164,.15); }
-        #security_pool_adjust .rating-badge.rating-bbb { background: var(--c-amber-l); color: var(--c-amber); border: 1px solid rgba(176,94,0,.2); }
-        #security_pool_adjust .rating-badge.rating-low { background: var(--c-red-l); color: var(--c-red); border: 1px solid rgba(208,32,32,.15); }
-        #security_pool_adjust .rating-badge.rating-none{ background: #F0F2FA; color: var(--c-text-3); }
-
         /* 表格行 hover */
         #security_pool_adjust .report-dialog .el-table__body tr.current-row > td {
             background: var(--c-primary-l) !important;
@@ -1702,7 +1686,6 @@
                     <el-table-column prop="ratingBond" label="证券评级" min-width="90">
                         <template slot-scope="{ row }">
                             <el-tag v-if="row.ratingBond" size="mini" type="success">{{ row.ratingBond }}</el-tag>
-                            <span v-else style="color:var(--c-text-3);"></span>
                         </template>
                     </el-table-column>
                     <el-table-column prop="ratingBondissuer" label="主体评级" min-width="90">
@@ -2208,7 +2191,8 @@
                             </template>
                         </el-table-column>
                         <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
-                        <el-table-column prop="direction" label="调库方向" min-width="90" align="center">
+                        <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center"></el-table-column>
+                        <el-table-column prop="direction" label="调整方向" min-width="90" align="center">
                             <template slot-scope="{ row }">
                                 <el-tag size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
                             </template>
@@ -2277,7 +2261,7 @@
                             </template>
                         </el-table-column>
                         <el-table-column prop="adjustNote" label="调整说明" min-width="200" show-overflow-tooltip></el-table-column>
-                        <el-table-column label="校验结果" min-width="160" align="center">
+                        <el-table-column label="校验结果" width="160" fixed="right" align="center">
                             <template slot-scope="{ row }">
                                 <span style="display:inline-flex;align-items:center;gap:5px;">
                                     <span class="status-dot" :class="{ green: row.valid, red: !row.valid }"></span>
@@ -2458,7 +2442,7 @@
                         <el-table-column prop="industry" label="行业" min-width="90"></el-table-column>
                         <el-table-column prop="rating" label="评级" min-width="80" align="center">
                             <template slot-scope="{ row }">
-                                <span class="rating-badge" :class="getRatingClass(row.rating)">{{ row.rating }}</span>
+                                <el-tag v-if="row.rating" size="mini" type="success">{{ row.rating }}</el-tag>
                             </template>
                         </el-table-column>
                         <el-table-column label="作者 / 撰写时间" min-width="140">
@@ -2544,7 +2528,7 @@
                         <el-table-column prop="industry" label="行业" min-width="90"></el-table-column>
                         <el-table-column prop="rating" label="评级" min-width="80" align="center">
                             <template slot-scope="{ row }">
-                                <span class="rating-badge" :class="getRatingClass(row.rating)">{{ row.rating }}</span>
+                                <el-tag v-if="row.rating" size="mini" type="success">{{ row.rating }}</el-tag>
                             </template>
                         </el-table-column>
                         <el-table-column label="作者 / 撰写时间" min-width="140">
@@ -2647,6 +2631,7 @@
                 materialFiles: {},            // 各池其他材料文件映射 { poolId: [File, ...] }
                 adjustStep: 1,           // 调库步骤：1=选择池, 2=校验确认
                 adjustCheckLoading: false, // 下一步校验接口加载状态
+                adjustCheckSeq: 0,      // 调库校验请求序号，避免旧请求覆盖新结果
                 currentLoginUserId: '1001', // 当前默认登录用户 ID
                 currentLoginUserName: '管理员', // 当前默认登录用户名称
                 adjustReviewList: [],    // 步骤2校验结果列表
@@ -2983,8 +2968,8 @@
             handleInPoolSelect(selection, row) {
                 const id = row.id;
                 const wasSelected = this.selectedInPools.some(p => p.id === id);
-                const isNowSelected = selection.some(p => p.id === id);
-                if (!wasSelected && isNowSelected) {
+                const isNowSelected = !wasSelected;
+                if (isNowSelected) {
                     const mutexIds = this.inMutexMap[id] || [];
                     // 同面板：调入 vs 调入
                     const conflictIn = this.selectedInPools.filter(p => mutexIds.includes(p.id));
@@ -3003,14 +2988,16 @@
                         return;
                     }
                 }
-                this.selectedInPools = selection;
+                this.selectedInPools = isNowSelected
+                    ? this.normalizeSelectedPools([...this.selectedInPools, row])
+                    : this.selectedInPools.filter(p => p.id !== id);
             },
             // 调出池选择互斥校验
             handleOutPoolSelect(selection, row) {
                 const id = row.id;
                 const wasSelected = this.selectedOutPools.some(p => p.id === id);
-                const isNowSelected = selection.some(p => p.id === id);
-                if (!wasSelected && isNowSelected) {
+                const isNowSelected = !wasSelected;
+                if (isNowSelected) {
                     const mutexIds = this.outMutexMap[id] || [];
                     // 同面板：调出 vs 调出
                     const conflictOut = this.selectedOutPools.filter(p => mutexIds.includes(p.id));
@@ -3032,7 +3019,24 @@
                         return;
                     }
                 }
-                this.selectedOutPools = selection;
+                this.selectedOutPools = isNowSelected
+                    ? this.normalizeSelectedPools([...this.selectedOutPools, row])
+                    : this.selectedOutPools.filter(p => p.id !== id);
+            },
+            // 清理步骤1选择，避免树表格父节点或重复项参与校验
+            normalizeSelectedPools(selection) {
+                const map = {};
+                (selection || []).forEach(row => {
+                    if (row && (!row.children || row.children.length === 0)) {
+                        map[row.id] = row;
+                    }
+                });
+                return Object.keys(map).map(id => map[id]);
+            },
+            // 进入校验前只保留业务数组中的有效叶子节点，不再读取表格内部缓存
+            syncSelectedPoolsFromTables() {
+                this.selectedInPools = this.normalizeSelectedPools(this.selectedInPools);
+                this.selectedOutPools = this.normalizeSelectedPools(this.selectedOutPools);
             },
             // 获取指定池的信评报告附件文件列表
             getAttachmentFiles(poolId) { return this.attachmentFiles[poolId] || []; },
@@ -3324,6 +3328,12 @@
                 return typeLabel + '失败：' + failReason;
             },
 
+            // 调库校验结果中的调整类型展示
+            getAdjustTypeLabel(itemTag) {
+                const itemTagLabelMap = { manual: '手工调整', linkage: '联动调整', mutex: '互斥调整' };
+                return itemTagLabelMap[itemTag] || '手工调整';
+            },
+
             // 外层调库项卡片颜色样式
             getFlowRowColorClass(index) {
                 return 'flow-row-color-' + (index % 5);
@@ -3331,6 +3341,11 @@
 
             // 进入步骤2（调用后端校验接口）
             async goToStep2() {
+                this.syncSelectedPoolsFromTables();
+                this.adjustReviewList = [];
+                this.pendingAdjustReviewList = [];
+                this.flowOptions = [];
+                this.selectedFlowKey = '';
                 const items = [];
                 this.selectedInPools.forEach(p => {
                     items.push({ targetPoolId: p.id, targetPoolName: p.poolName, poolType: p.poolType || '', adjustMode: '调入' });
@@ -3338,60 +3353,72 @@
                 this.selectedOutPools.forEach(p => {
                     items.push({ targetPoolId: p.id, targetPoolName: p.poolName, poolType: p.poolType || '', adjustMode: '调出' });
                 });
+                if (items.length === 0) {
+                    this.$message.warning('请至少选择一个调入或调出投资池');
+                    return;
+                }
 
                 this.adjustCheckLoading = true;
-                const result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', {
-                    securityCode: this.bondDetail.windCode || '',
-                    securityShortName: this.bondDetail.shortName || '',
-                    securityType: this.bondDetail.securityType || '',
-                    items
-                });
-                this.adjustCheckLoading = false;
+                const currentSeq = ++this.adjustCheckSeq;
+                try {
+                    const result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', {
+                        securityCode: this.bondDetail.windCode || '',
+                        securityShortName: this.bondDetail.shortName || '',
+                        securityType: this.bondDetail.securityType || '',
+                        items
+                    });
+                    if (currentSeq !== this.adjustCheckSeq) return;
 
-                this.adjustReviewList = result.items.map((item, rowIndex) => {
-                    const failReasonStr = (item.failReasons || []).join('；')
-                    const rowFlowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex);
-                    const recommendedFlow = rowFlowOptions.find(option => option.recommended && option.selectable)
-                        || rowFlowOptions.find(option => option.selectable);
-                    return {
-                        poolId: item.targetPoolId,
-                        poolName: item.poolName,
-                        poolType: item.poolType,
-                        direction: item.adjustMode,
-                        itemTag: item.itemTag,
-                        adjustGroupKey: item.adjustGroupKey,
-                        valid: item.canAdjust,
-                        failReason: failReasonStr,
-                        adjustNote: this.buildAdjustNote(item, failReasonStr),
-                        attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
-                        materialFiles: this.getMaterialFiles(item.targetPoolId),
-                        creditReports: this.getCreditReportSelections(item.targetPoolId),
-                        otherMaterials: this.getOtherMaterialSelections(item.targetPoolId),
-                        flowOptions: rowFlowOptions,
-                        selectedFlowKey: recommendedFlow ? recommendedFlow.optionKey : '',
-                        flowId: recommendedFlow ? recommendedFlow.flowId : null,
-                        flowKey: recommendedFlow ? recommendedFlow.flowKey : '',
-                        flowType: recommendedFlow ? recommendedFlow.flowType : '',
-                        flowName: recommendedFlow ? recommendedFlow.flowName : ''
+                    this.adjustReviewList = result.items.map((item, rowIndex) => {
+                        const failReasonStr = (item.failReasons || []).join('；')
+                        const rowFlowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex);
+                        const recommendedFlow = rowFlowOptions.find(option => option.recommended && option.selectable)
+                            || rowFlowOptions.find(option => option.selectable);
+                        return {
+                            poolId: item.targetPoolId,
+                            poolName: item.poolName,
+                            poolType: item.poolType,
+                            adjustType: this.getAdjustTypeLabel(item.itemTag),
+                            direction: item.adjustMode,
+                            itemTag: item.itemTag,
+                            adjustGroupKey: item.adjustGroupKey,
+                            valid: item.canAdjust,
+                            failReason: failReasonStr,
+                            adjustNote: this.buildAdjustNote(item, failReasonStr),
+                            attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
+                            materialFiles: this.getMaterialFiles(item.targetPoolId),
+                            creditReports: this.getCreditReportSelections(item.targetPoolId),
+                            otherMaterials: this.getOtherMaterialSelections(item.targetPoolId),
+                            flowOptions: rowFlowOptions,
+                            selectedFlowKey: recommendedFlow ? recommendedFlow.optionKey : '',
+                            flowId: recommendedFlow ? recommendedFlow.flowId : null,
+                            flowKey: recommendedFlow ? recommendedFlow.flowKey : '',
+                            flowType: recommendedFlow ? recommendedFlow.flowType : '',
+                            flowName: recommendedFlow ? recommendedFlow.flowName : ''
+                        }
+                    });
+                    this.pendingAdjustReviewList = this.adjustReviewList;
+                    this.flowOptions = (result.flowOptions || []).map((option, index) => ({
+                        optionKey: (option.flowKey || option.flowType || 'flow') + '_' + index,
+                        flowType: option.flowType,
+                        flowName: option.flowName,
+                        flowId: option.flowId,
+                        flowKey: option.flowKey,
+                        matched: !!option.matched,
+                        selectable: option.selectable !== false,
+                        recommended: !!option.recommended,
+                        matchReasons: option.matchReasons || [],
+                        unmatchReasons: option.unmatchReasons || []
+                    }));
+                    const recommended = this.selectableFlowOptions.find(option => option.recommended) || this.selectableFlowOptions[0];
+                    this.selectedFlowKey = recommended ? recommended.optionKey : '';
+                    this.flowDialogVisible = false;
+                    this.adjustStep = 2;
+                } finally {
+                    if (currentSeq === this.adjustCheckSeq) {
+                        this.adjustCheckLoading = false;
                     }
-                });
-                this.pendingAdjustReviewList = this.adjustReviewList;
-                this.flowOptions = (result.flowOptions || []).map((option, index) => ({
-                    optionKey: (option.flowKey || option.flowType || 'flow') + '_' + index,
-                    flowType: option.flowType,
-                    flowName: option.flowName,
-                    flowId: option.flowId,
-                    flowKey: option.flowKey,
-                    matched: !!option.matched,
-                    selectable: option.selectable !== false,
-                    recommended: !!option.recommended,
-                    matchReasons: option.matchReasons || [],
-                    unmatchReasons: option.unmatchReasons || []
-                }));
-                const recommended = this.selectableFlowOptions.find(option => option.recommended) || this.selectableFlowOptions[0];
-                this.selectedFlowKey = recommended ? recommended.optionKey : '';
-                this.flowDialogVisible = false;
-                this.adjustStep = 2;
+                }
             },
 
             // 返回步骤1
@@ -3721,17 +3748,6 @@
                     '宏观经济报告':  'type-macro'
                 };
                 return map[type] || 'type-default';
-            },
-
-            // 评级对应的样式类
-            getRatingClass(rating) {
-                if (!rating) return 'rating-none';
-                const r = String(rating).toUpperCase();
-                if (r === 'AAA') return 'rating-aaa';
-                if (r.indexOf('AA') === 0) return 'rating-aa';
-                if (r.indexOf('A') === 0) return 'rating-a';
-                if (r.indexOf('BBB') === 0) return 'rating-bbb';
-                return 'rating-low';
             },
 
             // 确认选择

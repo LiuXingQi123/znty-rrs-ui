@@ -512,14 +512,19 @@
             justify-content: center;
             min-height: 22px;
             padding: 0 8px;
-            border: 1px solid rgba(39,67,164,.15);
+            border: 1px solid var(--c-primary);
             border-radius: var(--r-xs);
             background: var(--c-primary-l);
             color: var(--c-primary);
             font-size: 12px;
-            font-weight: 400;
+            font-weight: 500;
             line-height: 20px;
-            box-shadow: none;
+            box-shadow: 0 0 0 2px var(--c-primary-s);
+        }
+        #security_pool_adjust_approve .flow-current-handler i {
+            margin-right: 4px;
+            font-size: 12px;
+            line-height: 1;
         }
         #security_pool_adjust_approve .el-button--text {
             height: 22px;
@@ -937,22 +942,6 @@
         #security_pool_adjust_approve .report-type-tag.type-industry{ background: var(--c-green-l); color: var(--c-green); border: 1px solid rgba(10,138,90,.15); }
         #security_pool_adjust_approve .report-type-tag.type-macro   { background: var(--c-amber-l); color: var(--c-amber); border: 1px solid rgba(176,94,0,.15); }
         #security_pool_adjust_approve .report-type-tag.type-default { background: #F0F2FA; color: var(--c-text-2); border: 1px solid var(--c-border); }
-
-        /* 评级徽章 (按评级着色) */
-        #security_pool_adjust_approve .rating-badge {
-            display: inline-flex; align-items: center; justify-content: center;
-            padding: 2px 8px; min-width: 40px;
-            border-radius: var(--r-xs);
-            font-family: 'Courier New', monospace;
-            font-size: 11.5px; font-weight: 700;
-            letter-spacing: 0.04em;
-        }
-        #security_pool_adjust_approve .rating-badge.rating-aaa { background: var(--c-green); color: #fff; }
-        #security_pool_adjust_approve .rating-badge.rating-aa  { background: var(--c-green-l); color: var(--c-green); border: 1px solid rgba(10,138,90,.2); }
-        #security_pool_adjust_approve .rating-badge.rating-a   { background: var(--c-primary-l); color: var(--c-primary); border: 1px solid rgba(23,70,212,.15); }
-        #security_pool_adjust_approve .rating-badge.rating-bbb { background: var(--c-amber-l); color: var(--c-amber); border: 1px solid rgba(176,94,0,.2); }
-        #security_pool_adjust_approve .rating-badge.rating-low { background: var(--c-red-l); color: var(--c-red); border: 1px solid rgba(208,32,32,.15); }
-        #security_pool_adjust_approve .rating-badge.rating-none{ background: #F0F2FA; color: var(--c-text-3); }
 
         /* 表格行 hover */
         #security_pool_adjust_approve .report-dialog .el-table__body tr.current-row > td {
@@ -1518,7 +1507,6 @@
                     <el-table-column prop="ratingBond" label="证券评级" min-width="90">
                         <template slot-scope="{ row }">
                             <el-tag v-if="row.ratingBond" size="mini" type="success">{{ row.ratingBond }}</el-tag>
-                            <span v-else style="color:var(--c-text-3);"></span>
                         </template>
                     </el-table-column>
                     <el-table-column prop="ratingBondissuer" label="主体评级" min-width="90">
@@ -1708,8 +1696,23 @@
                         <el-table-column prop="poolPath" label="投资池名称" min-width="180">
                             <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.poolPath }}</span></template>
                         </el-table-column>
-                        <el-table-column prop="adjustType" label="调整类型" min-width="100"></el-table-column>
-                        <el-table-column prop="adjustMode" label="调整方向" min-width="90"></el-table-column>
+                        <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center"></el-table-column>
+                        <el-table-column label="调整方向" min-width="90" align="center">
+                            <template slot-scope="{ row }">
+                                <el-tag v-if="row.adjustMode === '调入'" type="success" size="mini">调入</el-tag>
+                                <el-tag v-else-if="row.adjustMode === '调出'" type="danger" size="mini">调出</el-tag>
+                                <span v-else>{{ row.adjustMode || '' }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="flowName" label="审批流程" min-width="170" show-overflow-tooltip>
+                            <template slot-scope="{ row }">
+                                <span v-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
+                                    <el-tag size="mini" type="info">{{ flowTypeLabel(row.flowType) }}</el-tag>
+                                    <span>{{ row.flowName }}</span>
+                                </span>
+                                <span v-else></span>
+                            </template>
+                        </el-table-column>
                         <el-table-column label="信评报告" min-width="260">
                             <template slot-scope="{ row }">
                                 <div class="upload-cell">
@@ -1776,7 +1779,8 @@
                                 </div>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="auditStatus" label="审核状态" min-width="100">
+                        <el-table-column prop="adjustmentNote" label="调整说明" min-width="200" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="auditStatus" label="审核状态" width="160" fixed="right" align="center">
                             <template slot-scope="{ row }">
                                 <span v-if="row.auditStatus" :style="{ display:'inline-flex',alignItems:'center',padding:'2px 9px',borderRadius:'12px',fontSize:'11px',fontWeight:500,background:getStatusStyle(row.auditStatus).bg,color:getStatusStyle(row.auditStatus).color }">{{ auditStatusLabel(row.auditStatus) }}</span>
                             </template>
@@ -1826,7 +1830,10 @@
                         </el-table-column>
                         <el-table-column prop="handlerName" label="处理人" min-width="100">
                             <template slot-scope="{ row }">
-                                <span :class="isCurrentHandler(row) ? 'flow-current-handler' : ''">{{ row.handlerName || '' }}</span>
+                                <span v-if="isCurrentHandler(row)" class="flow-current-handler" title="当前登录用户">
+                                    <i class="el-icon-user-solid"></i>{{ row.handlerName || '' }}
+                                </span>
+                                <span v-else>{{ row.handlerName || '' }}</span>
                             </template>
                         </el-table-column>
                         <el-table-column label="处理结果" min-width="100">
@@ -2473,7 +2480,7 @@
                         <el-table-column prop="industry" label="行业" min-width="90"></el-table-column>
                         <el-table-column prop="rating" label="评级" min-width="80" align="center">
                             <template slot-scope="{ row }">
-                                <span class="rating-badge" :class="getRatingClass(row.rating)">{{ row.rating }}</span>
+                                <el-tag v-if="row.rating" size="mini" type="success">{{ row.rating }}</el-tag>
                             </template>
                         </el-table-column>
                         <el-table-column label="作者 / 撰写时间" min-width="140">
@@ -2559,7 +2566,7 @@
                         <el-table-column prop="industry" label="行业" min-width="90"></el-table-column>
                         <el-table-column prop="rating" label="评级" min-width="80" align="center">
                             <template slot-scope="{ row }">
-                                <span class="rating-badge" :class="getRatingClass(row.rating)">{{ row.rating }}</span>
+                                <el-tag v-if="row.rating" size="mini" type="success">{{ row.rating }}</el-tag>
                             </template>
                         </el-table-column>
                         <el-table-column label="作者 / 撰写时间" min-width="140">
@@ -3910,17 +3917,6 @@
                     '宏观经济报告':  'type-macro'
                 };
                 return map[type] || 'type-default';
-            },
-
-            // 评级对应的样式类
-            getRatingClass(rating) {
-                if (!rating) return 'rating-none';
-                const r = String(rating).toUpperCase();
-                if (r === 'AAA') return 'rating-aaa';
-                if (r.indexOf('AA') === 0) return 'rating-aa';
-                if (r.indexOf('A') === 0) return 'rating-a';
-                if (r.indexOf('BBB') === 0) return 'rating-bbb';
-                return 'rating-low';
             },
 
             // 确认选择
