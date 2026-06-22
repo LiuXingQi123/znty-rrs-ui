@@ -90,7 +90,6 @@
         #batch_security_pool_adjust .el-tag--info { background:#F0F2FA; border-color:transparent; color:var(--c-text-3); }
         #batch_security_pool_adjust .el-tree { background:transparent; font-family:inherit; }
         @media (max-width: 760px) {
-            #batch_security_pool_adjust .list-body { padding:16px; }
             #batch_security_pool_adjust .total-badge { margin-left:0; }
             #batch_security_pool_adjust .pool-tag-row { max-width:100%; }
         }
@@ -193,6 +192,14 @@
             color:#FFFFFF;
         }
         #batch_security_pool_adjust .pool-adjust-action i { font-size:14px; line-height:1; }
+        #batch_security_pool_adjust .pool-trigger { height:32px; padding:0 12px; border:1px solid var(--c-border); border-radius:4px; background:var(--c-surface); color:var(--c-text-2); font-size:13px; font-weight:400; box-shadow:none; }
+        #batch_security_pool_adjust .pool-trigger:hover,
+        #batch_security_pool_adjust .pool-trigger.has-selection { border-color:var(--c-primary); background:var(--c-primary-l); color:var(--c-primary); box-shadow:none; }
+        #batch_security_pool_adjust .pool-tag-row { display:flex; flex-wrap:wrap; gap:8px; max-width:calc(100vw - 400px); }
+        #batch_security_pool_adjust .pool-tag { min-height:24px; max-width:none; padding:1px 8px; border:1px solid var(--c-primary-l); border-radius:4px; background:var(--c-primary-l); color:var(--c-primary); font-size:12px; font-weight:400; line-height:20px; }
+        #batch_security_pool_adjust .compact-clear-btn { height:22px; padding:0; border:0; border-radius:0; background:transparent; color:var(--c-red); font-family:inherit; font-size:12px; line-height:22px; cursor:pointer; }
+        #batch_security_pool_adjust .compact-clear-btn:hover { background:var(--c-red-l); color:var(--c-red); }
+        #batch_security_pool_adjust .compact-clear-btn i { font-size:14px; }
     </style>
 </head>
 <body>
@@ -211,7 +218,7 @@
         <div class="search-panel">
             <div class="search-row">
                 <span class="search-label"><i class="el-icon-search"></i>筛选</span>
-                <el-popover placement="bottom-start" width="360" v-model="poolTreeVisible" :append-to-body="false">
+                <el-popover placement="bottom-start" width="340" v-model="poolTreeVisible" :append-to-body="false">
                     <div class="pool-popover-content">
                         <el-tree
                             ref="poolTreeRef"
@@ -219,6 +226,7 @@
                             node-key="id"
                             :props="treeProps"
                             show-checkbox
+                            check-strictly
                             default-expand-all>
                         </el-tree>
                     </div>
@@ -248,6 +256,9 @@
                         <i class="el-icon-close" @click="removePoolTag(item.id)"></i>
                     </span>
                 </div>
+                <button type="button" class="compact-clear-btn" @click="clearPoolSelection">
+                    <i class="el-icon-delete"></i> 清空
+                </button>
             </div>
         </div>
 
@@ -443,6 +454,16 @@ new Vue({
             this.selectedPoolTags = this.selectedPoolTags.filter(item => item.id !== poolId)
             if (this.$refs.poolTreeRef) {
                 this.$refs.poolTreeRef.setCheckedKeys(this.searchForm.poolIds)
+            }
+            this.handleSearch()
+        },
+
+        // 清空全部已选投资池并同步取消树节点勾选
+        clearPoolSelection() {
+            this.searchForm.poolIds = []
+            this.selectedPoolTags = []
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.setCheckedKeys([])
             }
             this.handleSearch()
         },
