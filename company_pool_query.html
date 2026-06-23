@@ -277,9 +277,13 @@
         }
 
         #company_pool_query .pool-popover-content {
-            width: 320px;
-            max-height: 400px;
-            overflow-y: auto;
+            width: 100%;
+            min-width: 0;
+            overflow: hidden;
+        }
+        #company_pool_query .pool-tree-search { width: 100%; margin-bottom: 8px; }
+        #company_pool_query .pool-tree-scroll {
+            width: 100%; max-height: 300px; overflow-x: hidden; overflow-y: auto; padding-right: 4px;
         }
 
         #company_pool_query .el-table {
@@ -586,18 +590,31 @@
                     placement="bottom-start"
                     width="340"
                     v-model="poolTreeVisible"
-                    :append-to-body="false">
+                    :append-to-body="false"
+                    @hide="handlePoolTreeHide">
                     <div class="pool-popover-content">
+                        <el-input
+                            v-model="poolTreeKeyword"
+                            class="pool-tree-search"
+                            size="small"
+                            clearable
+                            prefix-icon="el-icon-search"
+                            placeholder="搜索投资池"
+                            @input="filterPoolTree">
+                        </el-input>
                         <!-- 投资池树：check-strictly 保证父子节点独立勾选，default-expand-all 默认全展开 -->
-                        <el-tree
-                            ref="poolTreeRef"
-                            :data="poolTreeData"
-                            node-key="id"
-                            :props="treeProps"
-                            show-checkbox
-                            check-strictly
-                            default-expand-all>
-                        </el-tree>
+                        <div class="pool-tree-scroll">
+                            <el-tree
+                                ref="poolTreeRef"
+                                :data="poolTreeData"
+                                node-key="id"
+                                :props="treeProps"
+                                show-checkbox
+                                check-strictly
+                                default-expand-all
+                                :filter-node-method="filterPoolTreeNode">
+                            </el-tree>
+                        </div>
                     </div>
                     <!-- 弹窗底部操作按钮：取消 / 确认 -->
                     <div style="margin-top:8px;text-align:right;">
@@ -711,6 +728,7 @@ new Vue({
             // 投资池树
             poolTreeData: [],           // 投资池树形数据（嵌套结构）
             poolTreeVisible: false,     // 投资池树弹窗是否显示
+            poolTreeKeyword: '',        // 投资池树搜索词
             selectedPoolTags: [],       // 已选池标签列表 [{id, poolName}]，用于标签行展示
             treeProps: {              // 投资池树字段配置
                 children: 'children',  // 子节点字段名
@@ -790,6 +808,28 @@ new Vue({
                 .map(function(n) { return { id: n.id, poolName: n.fullPath }; });
             this.poolTreeVisible = false;
             this.handleSearch();
+        },
+
+        // 按投资池名称过滤选择树
+        filterPoolTree(value) {
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.filter(value.trim());
+            }
+        },
+
+        // 判断投资池树节点是否匹配搜索词
+        filterPoolTreeNode(value, data) {
+            if (!value) return true;
+            const searchableText = data.fullPath || data.poolName || '';
+            return String(searchableText).toLowerCase().indexOf(value.toLowerCase()) !== -1;
+        },
+
+        // 关闭选择弹层后清空搜索条件
+        handlePoolTreeHide() {
+            this.poolTreeKeyword = '';
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.filter('');
+            }
         },
 
         // 移除已选池标签

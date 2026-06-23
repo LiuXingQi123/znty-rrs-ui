@@ -215,7 +215,11 @@
 
         /* 池树弹出层内容容器：限制宽高并允许内部滚动 */
         #security_pool_query .pool-popover-content {
-            width: 320px; max-height: 400px; overflow-y: auto;
+            width: 100%; min-width: 0; overflow: hidden;
+        }
+        #security_pool_query .pool-tree-search { width: 100%; margin-bottom: 8px; }
+        #security_pool_query .pool-tree-scroll {
+            width: 100%; max-height: 300px; overflow-x: hidden; overflow-y: auto; padding-right: 4px;
         }
 
         /* 证券状态标签 —— 存续（绿色） */
@@ -770,18 +774,30 @@
                     placement="bottom-start"
                     width="340"
                     v-model="poolTreeVisible"
-                    :append-to-body="false">
+                    :append-to-body="false"
+                    @hide="handlePoolTreeHide">
                     <div class="pool-popover-content">
-                        <el-tree
-                            ref="poolTreeRef"
-                            :data="poolTreeData"
-                            node-key="id"
-                            :props="treeProps"
-                            show-checkbox
-                            check-strictly
-                            default-expand-all
-                            :filter-node-method="filterPoolNode">
-                        </el-tree>
+                        <el-input
+                            v-model="poolTreeKeyword"
+                            class="pool-tree-search"
+                            size="small"
+                            clearable
+                            prefix-icon="el-icon-search"
+                            placeholder="搜索投资池"
+                            @input="filterPoolTree">
+                        </el-input>
+                        <div class="pool-tree-scroll">
+                            <el-tree
+                                ref="poolTreeRef"
+                                :data="poolTreeData"
+                                node-key="id"
+                                :props="treeProps"
+                                show-checkbox
+                                check-strictly
+                                default-expand-all
+                                :filter-node-method="filterPoolNode">
+                            </el-tree>
+                        </div>
                     </div>
                     <div style="margin-top:8px;text-align:right;">
                         <el-button size="mini" @click="poolTreeVisible = false">取消</el-button>
@@ -973,6 +989,7 @@ new Vue({
             // 投资池树相关
             poolTreeData: [],          // 树形结构数据（由扁平列表构建）
             poolTreeVisible: false,    // 投资池选择弹出层显隐状态
+            poolTreeKeyword: '',       // 投资池树搜索词
             selectedPoolTags: [],      // 已选池标签列表 [{id, poolName}]，用于标签行展示
             treeProps: {              // 投资池树字段配置
                 children: 'children',  // 子节点字段名
@@ -1051,7 +1068,23 @@ new Vue({
         // 树节点搜索过滤
         filterPoolNode(value, data) {
             if (!value) return true;
-            return data.poolName && data.poolName.indexOf(value) !== -1;
+            const searchableText = data.fullPath || data.poolName || '';
+            return String(searchableText).toLowerCase().indexOf(value.toLowerCase()) !== -1;
+        },
+
+        // 按投资池名称过滤选择树
+        filterPoolTree(value) {
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.filter(value.trim());
+            }
+        },
+
+        // 关闭选择弹层后清空搜索条件
+        handlePoolTreeHide() {
+            this.poolTreeKeyword = '';
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.filter('');
+            }
         },
 
         // 确认池树选择

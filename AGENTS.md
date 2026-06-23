@@ -175,6 +175,8 @@ el → data() → computed → watch → created / mounted → methods
 
 ### 标准页面模板
 
+以下为公司内网 / 离线环境的本地依赖写法；可连接外网时，可沿用项目现有公网 CDN 写法，不要求强制改成本地资源。
+
 ```html
 <!DOCTYPE html>
 <html lang="zh-CN">

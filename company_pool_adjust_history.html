@@ -32,7 +32,9 @@
         #company_pool_adjust_history .pool-trigger { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:var(--r); border:1px solid var(--c-border); background:var(--c-surface); color:var(--c-text-2); font-size:13px; font-weight:500; cursor:pointer; transition:all .18s; white-space:nowrap; }
         #company_pool_adjust_history .pool-trigger:hover,
         #company_pool_adjust_history .pool-trigger.has-selection { border-color:var(--c-primary); color:var(--c-primary); background:var(--c-primary-l); box-shadow:0 1px 4px var(--c-primary-s); }
-        #company_pool_adjust_history .pool-popover-content { width:320px; max-height:400px; overflow-y:auto; }
+        #company_pool_adjust_history .pool-popover-content { width:100%; min-width:0; overflow:hidden; }
+        #company_pool_adjust_history .pool-tree-search { width:100%; margin-bottom:8px; }
+        #company_pool_adjust_history .pool-tree-scroll { width:100%; max-height:300px; overflow-x:hidden; overflow-y:auto; padding-right:4px; }
         #company_pool_adjust_history .pool-tag-row { display:flex; flex-wrap:wrap; gap:6px; max-width:calc(100vw - 400px); }
         #company_pool_adjust_history .pool-tag { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:14px; background:var(--c-primary-l); border:1px solid rgba(39,67,164,.15); color:var(--c-primary); font-size:11.5px; font-weight:500; white-space:nowrap; }
         #company_pool_adjust_history .pool-tag .el-icon-close { cursor:pointer; font-size:11px; color:var(--c-primary); }
@@ -148,17 +150,24 @@
         <div class="search-panel">
             <div class="search-row search-row-main">
                 <span class="search-label"><i class="el-icon-search"></i>筛选</span>
-                <el-popover placement="bottom-start" width="340" v-model="poolTreeVisible" :append-to-body="false">
+                <el-popover placement="bottom-start" width="340" v-model="poolTreeVisible"
+                            :append-to-body="false" @hide="handlePoolTreeHide">
                     <div class="pool-popover-content">
-                        <el-tree
-                            ref="poolTreeRef"
-                            :data="poolTreeData"
-                            node-key="id"
-                            :props="treeProps"
-                            show-checkbox
-                            check-strictly
-                            default-expand-all>
-                        </el-tree>
+                        <el-input v-model="poolTreeKeyword" class="pool-tree-search" size="small" clearable
+                                  prefix-icon="el-icon-search" placeholder="搜索投资池"
+                                  @input="filterPoolTree"></el-input>
+                        <div class="pool-tree-scroll">
+                            <el-tree
+                                ref="poolTreeRef"
+                                :data="poolTreeData"
+                                node-key="id"
+                                :props="treeProps"
+                                show-checkbox
+                                check-strictly
+                                default-expand-all
+                                :filter-node-method="filterPoolTreeNode">
+                            </el-tree>
+                        </div>
                     </div>
                     <div style="margin-top:8px;text-align:right;">
                         <el-button size="mini" @click="poolTreeVisible = false">取消</el-button>
@@ -277,6 +286,7 @@ new Vue({
             },
             poolTreeData: [],          // 投资池树
             poolTreeVisible: false,    // 投资池弹层
+            poolTreeKeyword: '',       // 投资池树搜索词
             selectedPoolTags: [],      // 已选投资池标签
             treeProps: {
                 children: 'children',
@@ -404,6 +414,28 @@ new Vue({
                 .map(item => ({ id: item.id, poolName: item.fullPath }));
             this.poolTreeVisible = false;
             this.handleSearch();
+        },
+
+        // 按投资池名称过滤选择树
+        filterPoolTree(value) {
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.filter(value.trim());
+            }
+        },
+
+        // 判断投资池树节点是否匹配搜索词
+        filterPoolTreeNode(value, data) {
+            if (!value) return true;
+            const searchableText = data.fullPath || data.poolName || '';
+            return String(searchableText).toLowerCase().indexOf(value.toLowerCase()) !== -1;
+        },
+
+        // 关闭选择弹层后清空搜索条件
+        handlePoolTreeHide() {
+            this.poolTreeKeyword = '';
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.filter('');
+            }
         },
 
         // 移除投资池标签

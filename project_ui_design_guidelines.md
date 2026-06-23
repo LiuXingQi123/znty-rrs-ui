@@ -648,7 +648,7 @@ Tabs
 
 16. ElementUI覆盖重点
 
-当前项目通过 CDN 引入 ElementUI，暂无 Sass 构建流程。以下 `$--xxx` 变量仅作为未来接入 ElementUI 主题编译时的参考；当前实际落地应使用公共 CSS 或页面 CSS 覆盖，不应为了使用这些变量新增构建流程。
+当前项目通过 CDN 静态 HTML 方式引入 ElementUI，暂无 Sass 构建流程；这里的 CDN 静态 HTML 场景是指无构建流程、通过 `<link>` / `<script>` 直接引入依赖。公网 CDN 与公司内网 / 离线环境的本地依赖写法按运行环境选择，不强制二选一。以下 `$--xxx` 变量仅作为未来接入 ElementUI 主题编译时的参考；当前实际落地应使用公共 CSS 或页面 CSS 覆盖，不应为了使用这些变量新增构建流程。
 
 ```scss
 $--color-primary: #2743A4;
@@ -674,7 +674,7 @@ $--table-header-background-color: #F7F8FA;
 $--table-border-color: #E5E5E5;
 ```
 
-当前 CDN 静态 HTML 场景下，优先通过公共 CSS 覆盖以下高频项：
+当前静态 HTML 直接引入依赖的场景下，优先通过公共 CSS 覆盖以下高频项：
 
 - body 字体、页面背景、正文颜色。
 - Primary Button 主色、hover 色、文字按钮色、危险色。

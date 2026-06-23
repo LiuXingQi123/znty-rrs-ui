@@ -221,9 +221,16 @@
         }
 
         /* 树形区域可滚动容器 */
+        #investment_pool .sidebar-tree-search {
+            flex-shrink: 0;
+            padding: 10px 12px 0;
+        }
+        #investment_pool .sidebar-tree-search .el-input { width: 100%; }
         #investment_pool .tree-scroll {
             flex: 1;
-            overflow: auto;
+            min-height: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
             padding: 8px;
         }
 
@@ -2353,6 +2360,11 @@
                 </div>
             </div>
 
+            <div class="sidebar-tree-search">
+                <el-input v-model="poolTreeKeyword" size="small" clearable
+                          prefix-icon="el-icon-search" placeholder="搜索投资池"
+                          @input="handleMainPoolTreeSearch"></el-input>
+            </div>
             <div class="tree-scroll" v-loading="treeLoading">
                 <el-tree
                         ref="poolTree"
@@ -2361,6 +2373,7 @@
                         :props="treeProps"
                         highlight-current
                         default-expand-all
+                        :filter-node-method="filterMainPoolTreeNode"
                         @node-click="handlePoolClick">
           <span slot-scope="{ node, data }" class="tree-node" :class="{ 'is-parent': data.children && data.children.length }">
             <i :class="data.children && data.children.length ? 'el-icon-folder-opened tree-node-icon' : 'el-icon-document tree-node-icon'"></i>
@@ -3082,6 +3095,7 @@
             return {
                 today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
                 poolTree: [],           // 投资池树形结构数据
+                poolTreeKeyword: '',    // 左侧投资池树搜索词
                 flatPoolOptions: [],    // 投资池扁平列表（用于选择器和面包屑）
                 flowOptions: [],        // 审批流程下拉选项
                 currentPool: {},        // 当前选中的投资池详情对象
@@ -3224,6 +3238,17 @@
             getPoolLabel(id) {
                 const flat = this.flatPoolOptions.find(p => p.id === id)
                 return flat ? flat.fullName : String(id)
+            },
+            // 按名称或完整路径过滤左侧投资池树
+            handleMainPoolTreeSearch(value) {
+                if (this.$refs.poolTree) this.$refs.poolTree.filter(value.trim())
+            },
+            // 判断左侧投资池树节点是否匹配搜索词
+            filterMainPoolTreeNode(value, data) {
+                if (!value) return true
+                const info = this.poolParentMap[data.id]
+                const fullPath = info && info.parentPath ? info.parentPath + ' › ' + data.poolName : data.poolName
+                return String(fullPath || '').toLowerCase().indexOf(value.toLowerCase()) !== -1
             },
             // 打开配置模板选择弹窗，并恢复当前已选中的模板
             openTemplatePicker(target) {
@@ -3438,6 +3463,9 @@
                     this.flatPoolOptions = this.flattenPools(this.poolTree)
                     this.poolParentMap = {}
                     this.buildPoolParentMap(this.poolTree, '')
+                    this.$nextTick(() => {
+                        if (this.$refs.poolTree) this.$refs.poolTree.filter(this.poolTreeKeyword.trim())
+                    })
                     const targetId = selectId || this.currentPool.id || (this.flatPoolOptions[0] && this.flatPoolOptions[0].id)
                     const targetExists = this.flatPoolOptions.some(p => p.id === targetId)
                     if (targetExists) {
