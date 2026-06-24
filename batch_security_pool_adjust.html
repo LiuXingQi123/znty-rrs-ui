@@ -72,8 +72,13 @@
         }
         #batch_security_pool_adjust .pool-tag-row { display:flex; flex-wrap:wrap; gap:8px; max-width:calc(100vw - 400px); }
         #batch_security_pool_adjust .pool-tag span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        #batch_security_pool_adjust .pool-tag i { cursor:pointer; }
-        #batch_security_pool_adjust .pool-tag .el-icon-close:hover { color:var(--c-red); }
+        #batch_security_pool_adjust .pool-tag { cursor:pointer; }
+        #batch_security_pool_adjust .pool-tag i {
+            display:inline-flex; align-items:center; justify-content:center;
+            width:14px; height:14px; border-radius:50%; cursor:pointer;
+            transition:background-color .15s ease, color .15s ease;
+        }
+        #batch_security_pool_adjust .pool-tag .el-icon-close:hover { background:var(--c-red-l); color:var(--c-red); }
         #batch_security_pool_adjust .compact-clear-btn {
             height:22px; padding:0; border:0; border-radius:0; background:transparent; color:var(--c-red);
             font-family:inherit; font-size:12px; line-height:22px; cursor:pointer;
@@ -130,7 +135,7 @@
         #batch_security_pool_adjust .report-chip {
             display:inline-flex; align-items:center; gap:7px; max-width:320px; min-height:22px; padding:5px 9px;
             border:1px solid var(--c-primary-l); border-radius:2px; background:var(--c-primary-l);
-            color:var(--c-primary); font-size:12px; font-weight:400; line-height:20px; letter-spacing:0;
+            color:var(--c-primary); font-size:12px; font-weight:400; line-height:20px; letter-spacing:0; cursor:pointer;
         }
         #batch_security_pool_adjust .file-chip { border-color:var(--c-border); background:var(--c-bg); color:var(--c-text-2); }
         #batch_security_pool_adjust .report-chip.external { border-color:var(--c-amber-l); background:var(--c-amber-l); color:var(--c-amber); }
@@ -138,7 +143,14 @@
         #batch_security_pool_adjust .selected-chip span,
         #batch_security_pool_adjust .report-chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         #batch_security_pool_adjust .file-chip i,
-        #batch_security_pool_adjust .report-chip i { cursor:pointer; color:var(--c-text-3); }
+        #batch_security_pool_adjust .report-chip i {
+            display:inline-flex; align-items:center; justify-content:center;
+            width:14px; height:14px; border-radius:50%;
+            cursor:pointer; color:var(--c-text-3);
+            transition:background-color .15s ease, color .15s ease;
+        }
+        #batch_security_pool_adjust .file-chip i:hover,
+        #batch_security_pool_adjust .report-chip i:hover { background:var(--c-red-l); color:var(--c-red); }
         #batch_security_pool_adjust .selected-chip-remove {
             display:inline-flex; align-items:center; justify-content:center; flex:0 0 20px;
             width:20px; height:20px; padding:0; border:0; border-radius:2px;
@@ -315,10 +327,10 @@
         #batch_security_pool_adjust .report-selected-count { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:16px; padding:0 5px; border-radius:8px; background:var(--c-text-2); color:#fff; font-size:10px; font-weight:700; margin-left:4px; }
         #batch_security_pool_adjust .report-selected-count.is-empty { background:#DDE3F0; color:var(--c-text-3); }
         #batch_security_pool_adjust .report-selected-empty { font-size:11px; color:var(--c-text-3); }
-        #batch_security_pool_adjust .selected-tag { display:inline-flex; align-items:center; gap:5px; max-width:240px; padding:3px 5px 3px 10px; border-radius:4px; font-size:12px; font-weight:400; transition:all .15s; }
+        #batch_security_pool_adjust .selected-tag { display:inline-flex; align-items:center; gap:5px; max-width:240px; padding:3px 5px 3px 10px; border-radius:4px; font-size:12px; font-weight:400; cursor:pointer; transition:all .15s; }
         #batch_security_pool_adjust .selected-tag > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
         #batch_security_pool_adjust .selected-tag .el-icon-close { display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:14px; height:14px; border-radius:50%; cursor:pointer; font-size:11px; transition:all .15s; }
-        #batch_security_pool_adjust .selected-tag .el-icon-close:hover { background:rgba(0,0,0,.08); }
+        #batch_security_pool_adjust .selected-tag .el-icon-close:hover { background:var(--c-red-l); color:var(--c-red); }
         #batch_security_pool_adjust .selected-tag-internal { border:1px solid var(--c-primary-l); background:var(--c-primary-l); color:var(--c-primary); }
         #batch_security_pool_adjust .selected-tag-external { border:1px solid var(--c-amber-l); background:var(--c-amber-l); color:var(--c-amber); }
         #batch_security_pool_adjust .selected-clear-btn { margin-left:auto!important; }
@@ -542,7 +554,8 @@
                             <div class="material-row-head">
                                 <div class="material-row-title">附件</div>
                                 <div class="material-row-main inline-material-body">
-                                    <el-upload action="#" :auto-upload="false" multiple :show-file-list="false" :on-change="handleAttachmentChange" @click.native.stop>
+                                    <el-upload action="#" :auto-upload="false" accept=".xls,.xlsx,.docx,.doc,.pdf,.json"
+                                               multiple :show-file-list="false" :on-change="handleAttachmentChange" @click.native.stop>
                                         <el-button size="small" icon="el-icon-upload2">选择附件</el-button>
                                     </el-upload>
                                     <div v-if="attachmentFiles.length" class="file-list scrollable">
@@ -1153,8 +1166,9 @@
         },
         methods: {
             // 统一发送 POST 请求
-            async apiPost(path, body) {
-                const resp = await axios.post(path, body || {})
+            async apiPost(path, body, config) {
+                const resp = await axios.post(path, body || {}, config || {})
+                if (config && config.responseType === 'blob') return resp
                 const json = resp.data
                 if (json.code !== 0) {
                     this.$message.error(json.message || '接口异常')
@@ -1521,7 +1535,9 @@
                 }
                 this.submitLoading = true
                 try {
-                    await this.apiPost('/api/v1/batchSecurityPoolAdjust/addAdjustLog', {
+                    const submitFiles = this.attachmentFiles.map(file => file.raw)
+                    const creditReportFileIndexes = submitFiles.map((file, index) => index)
+                    const payload = {
                         currentUserId: this.currentUserId,
                         direction: this.direction,
                         adjusterId: this.currentUserId,
@@ -1545,36 +1561,17 @@
                             flowKey: item.flowKey,
                             flowType: item.flowType,
                             adjustmentNote: item.adjustNote,
-                            attachmentFiles: this.buildAttachmentJson(),
-                            materialFiles: this.buildMaterialJson()
+                            creditReportFileIndexes,
+                            materialFileIndexes: []
                         }))
-                    })
+                    }
+                    await this.submitAdjustMultipart('/api/v1/batchSecurityPoolAdjust/addAdjustLog', payload, submitFiles)
                     this.$message.success('批量' + this.directionLabel + '申请已成功提交')
                     this.backToPoolList()
                     this.initPage()
                 } finally {
                     this.submitLoading = false
                 }
-            },
-
-            // 构建信评报告及附件 JSON
-            buildAttachmentJson() {
-                const reports = this.selectedReports.map(item => ({
-                    id: item.id,
-                    title: item.title,
-                    reportType: item.reportType,
-                    source: item.source
-                }))
-                const files = this.attachmentFiles.map(item => ({
-                    name: item.name,
-                    fileName: item.name
-                }))
-                return JSON.stringify({ reports, files })
-            },
-
-            // 构建其他材料 JSON
-            buildMaterialJson() {
-                return JSON.stringify([])
             },
 
             // 调库校验结果中的调整类型展示
@@ -1880,16 +1877,23 @@
                 this.selectedReports = this.selectedReports.filter(item => !(item.id === report.id && item.source === report.source))
             },
 
-            // 选择附件并按文件名去重
+            // 选择附件并保存在前端待提交列表
             handleAttachmentChange(file) {
-                if (!this.attachmentFiles.some(item => item.name === file.name)) {
-                    this.attachmentFiles.push(file)
-                }
+                if (!file.raw || this.attachmentFiles.some(item => item.name === file.name)) return
+                this.attachmentFiles.push(file)
             },
 
             // 移除附件
             removeAttachment(index) {
                 this.attachmentFiles.splice(index, 1)
+            },
+
+            // 一次性提交业务数据和附件
+            async submitAdjustMultipart(path, payload, files) {
+                const formData = new FormData()
+                formData.append('request', new Blob([JSON.stringify(payload)], { type: 'application/json' }))
+                files.forEach(file => formData.append('files', file))
+                return this.apiPost(path, formData)
             },
 
             // 投资品种中文映射

@@ -478,16 +478,19 @@
             background: var(--c-primary-l); color: var(--c-primary);
             font-size: 11px; font-weight: 500;
             border: 1px solid rgba(23,70,212,.12);
-            max-width: 100%;
+            max-width: 100%; cursor: pointer;
         }
         #security_pool_adjust_detail .upload-file-tag span {
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
             max-width: 120px;
         }
         #security_pool_adjust_detail .upload-file-tag .el-icon-close {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 14px; height: 14px; border-radius: 50%;
             cursor: pointer; font-size: 10px; flex-shrink: 0; color: var(--c-text-3);
+            transition: background-color .15s ease, color .15s ease;
         }
-        #security_pool_adjust_detail .upload-file-tag .el-icon-close:hover { color: var(--c-red); }
+        #security_pool_adjust_detail .upload-file-tag .el-icon-close:hover { background: var(--c-red-l); color: var(--c-red); }
         #security_pool_adjust_detail .upload-btn { height: 22px; padding: 0; font-size: 13px; font-weight: 500; line-height: 22px; }
 
         /* 调库操作区：左右双栏等分布局（调入 / 调出各一列）*/
@@ -562,7 +565,7 @@
         #security_pool_adjust_detail .report-tag {
             display: inline-flex; align-items: center; gap: 4px;
             padding: 2px 8px; border-radius: var(--r-xs);
-            font-size: 11px; font-weight: 500; max-width: 200px;
+            font-size: 11px; font-weight: 500; max-width: 200px; cursor: pointer;
         }
         #security_pool_adjust_detail .report-tag-internal {
             background: var(--c-primary-l); color: var(--c-primary);
@@ -577,9 +580,12 @@
             max-width: 110px;
         }
         #security_pool_adjust_detail .report-tag .el-icon-close {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 14px; height: 14px; border-radius: 50%;
             cursor: pointer; font-size: 10px; flex-shrink: 0;
+            transition: background-color .15s ease, color .15s ease;
         }
-        #security_pool_adjust_detail .report-tag .el-icon-close:hover { opacity: .7; }
+        #security_pool_adjust_detail .report-tag .el-icon-close:hover { background: var(--c-red-l); color: var(--c-red); }
         #security_pool_adjust_detail .report-source-badge {
             display: inline-block; padding: 0 4px; border-radius: 2px;
             font-size: 9px; font-weight: 600; letter-spacing: 0.04em;
@@ -1581,7 +1587,7 @@
                                 <div class="upload-cell">
                                     <div v-if="showLogUploadActions" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                                         <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog(getLogRowKey(row), 'credit')">选择报告</el-button>
-                                        <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                        <el-upload action="#" :auto-upload="false" :accept="'.xls,.xlsx,.docx,.doc,.pdf,.json'"
                                                    :on-change="(f, fl) => handleAttachmentChange(getLogRowKey(row), f, fl)"
                                                    multiple :show-file-list="false">
                                             <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
@@ -1590,8 +1596,9 @@
                                     <div v-if="getReportNames(row.creditReports).length" class="upload-file-list">
                                         <span v-for="(name, i) in getReportNames(row.creditReports)" :key="'cr_'+i" class="report-tag report-tag-internal">{{ name }}</span>
                                     </div>
-                                    <div v-if="getFileNames(row.attachmentFiles).length" class="upload-file-list">
-                                        <span v-for="(name, i) in getFileNames(row.attachmentFiles)" :key="'af_'+i" class="upload-file-tag">{{ name }}</span>
+                                    <div v-if="row.attachmentFiles && row.attachmentFiles.length" class="upload-file-list">
+                                        <span v-for="file in row.attachmentFiles" :key="'af_'+file.id"
+                                              class="upload-file-tag" @click="downloadAttachment(file)">{{ file.originalFileName }}</span>
                                     </div>
                                     <div v-if="getCreditReportSelections(getLogRowKey(row)).length > 0" class="upload-file-list">
                                         <div v-for="(r, i) in getCreditReportSelections(getLogRowKey(row))" :key="'ncr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
@@ -1614,7 +1621,7 @@
                                 <div class="upload-cell">
                                     <div v-if="showLogUploadActions" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                                         <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog(getLogRowKey(row), 'material')">选择报告</el-button>
-                                        <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                        <el-upload action="#" :auto-upload="false" :accept="'.xls,.xlsx,.docx,.doc,.pdf,.json'"
                                                    :on-change="(f, fl) => handleMaterialChange(getLogRowKey(row), f, fl)"
                                                    multiple :show-file-list="false">
                                             <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
@@ -1623,8 +1630,9 @@
                                     <div v-if="getReportNames(row.otherMaterials).length" class="upload-file-list">
                                         <span v-for="(name, i) in getReportNames(row.otherMaterials)" :key="'om_'+i" class="report-tag report-tag-external">{{ name }}</span>
                                     </div>
-                                    <div v-if="getFileNames(row.materialFiles).length" class="upload-file-list">
-                                        <span v-for="(name, i) in getFileNames(row.materialFiles)" :key="'mf_'+i" class="upload-file-tag">{{ name }}</span>
+                                    <div v-if="row.materialFiles && row.materialFiles.length" class="upload-file-list">
+                                        <span v-for="file in row.materialFiles" :key="'mf_'+file.id"
+                                              class="upload-file-tag" @click="downloadAttachment(file)">{{ file.originalFileName }}</span>
                                     </div>
                                     <div v-if="getOtherMaterialSelections(getLogRowKey(row)).length > 0" class="upload-file-list">
                                         <div v-for="(r, i) in getOtherMaterialSelections(getLogRowKey(row))" :key="'nom_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
@@ -2706,8 +2714,9 @@
         },
         methods: {
             // 统一 POST 请求封装，后端返回 { code, data, message }，code≠0 时弹错误提示并抛异常
-            async apiPost(path, body) {
-                const resp = await axios.post(path, body || {});
+            async apiPost(path, body, config) {
+                const resp = await axios.post(path, body || {}, config || {});
+                if (config && config.responseType === 'blob') return resp;
                 const json = resp.data;
                 if (json.code !== 0) {
                     this.$message.error(json.message || '接口异常');
@@ -2847,6 +2856,8 @@
                     this.inMutexMap = inMap;
                     this.outMutexMap = outMap;
                     this.adjustLogList = logList || [];
+                    // 加载调库日志关联附件
+                    await this.loadLogAttachments(this.adjustLogList);
                     // 查找当前活跃的调库记录并加载流程步骤
                     this.loadFlowSteps(this.adjustLogList);
                     this.attachmentFiles = {};
@@ -2939,19 +2950,17 @@
                 const id = row.id != null ? row.id : (row.adjustLogId != null ? row.adjustLogId : (this.adjustLogList.indexOf(row)));
                 return 'log_' + id;
             },
-            // 信评报告附件文件变更（el-upload on-change 回调），去重后追加到对应池
+            // 信评报告附件文件变更（el-upload on-change 回调），仅保存在前端待提交列表
             handleAttachmentChange(poolId, file, fileList) {
                 const current = this.attachmentFiles[poolId] || [];
-                if (file.raw && !current.some(f => f.uid === file.uid)) {
-                    this.$set(this.attachmentFiles, poolId, [...current, file]);
-                }
+                if (!file.raw || current.some(f => f.name === file.name)) return;
+                this.$set(this.attachmentFiles, poolId, [...current, file]);
             },
-            // 其他材料文件变更（el-upload on-change 回调），去重后追加到对应池
+            // 其他材料文件变更（el-upload on-change 回调），仅保存在前端待提交列表
             handleMaterialChange(poolId, file, fileList) {
                 const current = this.materialFiles[poolId] || [];
-                if (file.raw && !current.some(f => f.uid === file.uid)) {
-                    this.$set(this.materialFiles, poolId, [...current, file]);
-                }
+                if (!file.raw || current.some(f => f.name === file.name)) return;
+                this.$set(this.materialFiles, poolId, [...current, file]);
             },
             // 移除指定池的附件文件
             removeAttachmentFile(poolId, index) {
@@ -3185,13 +3194,24 @@
                 row.flowName = flow ? flow.flowName : '';
             },
 
-            // 解析附件/材料JSON，返回文件名数组
-            getFileNames(jsonStr) {
-                if (!jsonStr) return [];
-                let arr = [];
-                try { arr = JSON.parse(jsonStr); } catch (e) { return []; }
-                if (!Array.isArray(arr) || arr.length === 0) return [];
-                return arr.map(f => f.name || f.fileName || '').filter(Boolean);
+            // 加载调库日志关联附件
+            async loadLogAttachments(logList) {
+                await Promise.all((logList || []).map(async log => {
+                    const files = await this.apiPost('/api/v1/attachments/queryAttachmentList', { adjustLogId: log.id });
+                    this.$set(log, 'attachmentFiles', (files || []).filter(file => file.attachmentCategory === 'credit_report'));
+                    this.$set(log, 'materialFiles', (files || []).filter(file => file.attachmentCategory === 'material'));
+                }));
+            },
+            // 下载附件
+            async downloadAttachment(file) {
+                const resp = await this.apiPost('/api/v1/attachments/downloadAttachment',
+                    { id: file.id }, { responseType: 'blob' });
+                const url = URL.createObjectURL(resp.data);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = file.originalFileName || '附件';
+                link.click();
+                URL.revokeObjectURL(url);
             },
 
             // 流程类型展示文案
@@ -3323,6 +3343,11 @@
                 if (this.submitLoading) return;
                 this.submitLoading = true;
                 const validItems = this.adjustReviewList.filter(r => r.valid);
+                const submitFiles = [];
+                validItems.forEach(item => {
+                    item.creditReportFileIndexes = this.collectSubmitFiles(item.attachmentFiles || [], submitFiles);
+                    item.materialFileIndexes = this.collectSubmitFiles(item.materialFiles || [], submitFiles);
+                });
                 const securityInfo = {
                     fullName: this.bondDetail.fullName,
                     shortName: this.bondDetail.shortName,
@@ -3374,14 +3399,12 @@
                         flowKey: r.flowKey,
                         flowType: r.flowType,
                         adjustmentNote: r.adjustNote,
-                        attachmentFiles: JSON.stringify(r.attachmentFiles || []),
-                        materialFiles: JSON.stringify(r.materialFiles || []),
-                        creditReports: JSON.stringify(r.creditReports || []),
-                        otherMaterials: JSON.stringify(r.otherMaterials || [])
+                        creditReportFileIndexes: r.creditReportFileIndexes || [],
+                        materialFileIndexes: r.materialFileIndexes || []
                     }))
                 };
                 try {
-                    await this.apiPost('/api/v1/securityPoolAdjust/addAdjustLog', payload);
+                    await this.submitAdjustMultipart('/api/v1/securityPoolAdjust/addAdjustLog', payload, submitFiles);
                     this.$message.success('调库申请已成功提交');
                     this.backToList();
                 } catch (e) {
@@ -3389,6 +3412,23 @@
                 } finally {
                     this.submitLoading = false;
                 }
+            },
+
+            // 收集当前提交文件并返回 multipart 文件数组下标
+            collectSubmitFiles(files, submitFiles) {
+                return files.map(file => {
+                    const existingIndex = submitFiles.indexOf(file.raw);
+                    if (existingIndex >= 0) return existingIndex;
+                    submitFiles.push(file.raw);
+                    return submitFiles.length - 1;
+                });
+            },
+            // 一次性提交业务数据和附件
+            async submitAdjustMultipart(path, payload, files) {
+                const formData = new FormData();
+                formData.append('request', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+                files.forEach(file => formData.append('files', file));
+                return this.apiPost(path, formData);
             },
 
             // ── 信评报告选择弹窗方法 ──
