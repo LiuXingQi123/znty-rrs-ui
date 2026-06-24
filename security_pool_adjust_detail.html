@@ -2266,7 +2266,7 @@
                               @click="setInternalReportTypeFilter('')">全部</span>
                         <span v-for="t in internalReportTypeOptions" :key="t" class="report-quick-chip"
                               :class="{ active: internalReportFilters.reportType === t }"
-                              @click="setInternalReportTypeFilter(t)">{{ t }}</span>
+                              @click="setInternalReportTypeFilter(t)">{{ reportTypeLabel(t) }}</span>
                     </div>
 
                     <!-- 筛选条件 -->
@@ -2300,23 +2300,25 @@
                                 <span style="font-weight:500;color:var(--c-text);">{{ row.title }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="reportType" label="类型" min-width="110">
+                        <el-table-column prop="reportType" label="报告类型" min-width="120">
                             <template slot-scope="{ row }">
-                                <span class="report-type-tag" :class="getReportTypeClass(row.reportType)">{{ row.reportType }}</span>
+                                <span class="report-type-tag" :class="getReportTypeClass(row.reportType)">{{ reportTypeLabel(row.reportType) }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="securityCode" label="证券代码" min-width="120">
+                        <el-table-column prop="securityCode" label="证券编码" min-width="120">
                             <template slot-scope="{ row }">
                                 <span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-primary);">{{ row.securityCode }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="industry" label="行业" min-width="90"></el-table-column>
-                        <el-table-column prop="rating" label="评级" min-width="80" align="center">
+                        <el-table-column prop="companyCode" label="主体编码" min-width="120">
                             <template slot-scope="{ row }">
-                                <el-tag v-if="row.rating" size="mini" type="success">{{ row.rating }}</el-tag>
+                                <span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text);">{{ row.companyCode }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column label="作者 / 撰写时间" min-width="140">
+                        <el-table-column prop="securityType" label="证券类型" min-width="120">
+                            <template slot-scope="{ row }">{{ reportSecurityTypeLabel(row.securityType) }}</template>
+                        </el-table-column>
+                        <el-table-column label="作者 / 创建时间" min-width="140">
                             <template slot-scope="{ row }">
                                 <div style="display:flex;flex-direction:column;line-height:1.4;">
                                     <span style="font-size:12px;color:var(--c-text);">{{ row.author }}</span>
@@ -2352,7 +2354,7 @@
                               @click="setExternalReportTypeFilter('')">全部</span>
                         <span v-for="t in externalReportTypeOptions" :key="t" class="report-quick-chip"
                               :class="{ active: externalReportFilters.reportType === t }"
-                              @click="setExternalReportTypeFilter(t)">{{ t }}</span>
+                              @click="setExternalReportTypeFilter(t)">{{ reportTypeLabel(t) }}</span>
                     </div>
 
                     <!-- 筛选条件 -->
@@ -2386,23 +2388,26 @@
                                 <span style="font-weight:500;color:var(--c-text);">{{ row.title }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="reportType" label="类型" min-width="110">
+                        <el-table-column prop="sourceOrgName" label="来源机构" min-width="120" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="reportType" label="报告类型" min-width="120">
                             <template slot-scope="{ row }">
-                                <span class="report-type-tag" :class="getReportTypeClass(row.reportType)">{{ row.reportType }}</span>
+                                <span class="report-type-tag" :class="getReportTypeClass(row.reportType)">{{ reportTypeLabel(row.reportType) }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="securityCode" label="证券代码" min-width="120">
+                        <el-table-column prop="securityCode" label="证券编码" min-width="120">
                             <template slot-scope="{ row }">
                                 <span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-primary);">{{ row.securityCode }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="industry" label="行业" min-width="90"></el-table-column>
-                        <el-table-column prop="rating" label="评级" min-width="80" align="center">
+                        <el-table-column prop="companyCode" label="主体编码" min-width="120">
                             <template slot-scope="{ row }">
-                                <el-tag v-if="row.rating" size="mini" type="success">{{ row.rating }}</el-tag>
+                                <span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text);">{{ row.companyCode }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column label="作者 / 撰写时间" min-width="140">
+                        <el-table-column prop="securityType" label="证券类型" min-width="120">
+                            <template slot-scope="{ row }">{{ reportSecurityTypeLabel(row.securityType) }}</template>
+                        </el-table-column>
+                        <el-table-column label="作者 / 创建时间" min-width="140">
                             <template slot-scope="{ row }">
                                 <div style="display:flex;flex-direction:column;line-height:1.4;">
                                     <span style="font-size:12px;color:var(--c-text);">{{ row.author }}</span>
@@ -2558,6 +2563,23 @@
                 externalReportLoading: false,      // 外部报告加载状态
                 selectedExternalReports: [],       // 本次弹窗会话中选中的外部报告
                 restoringReportSelection: false,   // 恢复选中状态时的防抖标志
+                reportTypeDict: { // 报告类型字典
+                    bond_in_report: '债券入库报告',
+                    bond_out_report: '债券出库报告',
+                    fund_in_report: '基金入库报告',
+                    fund_out_report: '基金出库报告',
+                    stock_in_report: '股票入库报告',
+                    stock_out_report: '股票出库报告',
+                    other_report: '其他报告'
+                },
+                reportSecurityTypeDict: { // 报告证券类型字典
+                    bond: '债券',
+                    fund: '基金',
+                    stock: '股票',
+                    company: '主体',
+                    other: '其他'
+                },
+                dataSourceDict: { migrated: '迁移数据', uploaded: '系统上传数据' }, // 数据来源字典
                 creditReportSelections: {},        // { poolId: [{ id, title, reportType, source }] }
                 otherMaterialSelections: {},       // { poolId: [{ id, title, reportType, source }] }
                 inMutexMap: {},                    // 调入互斥映射 { poolId: [mutexPoolId, ...] }
@@ -2640,63 +2662,25 @@
             selectableFlowOptions() {
                 return this.flowOptions.filter(option => option.selectable);
             },
-            // 内部报告当前页数据（客户端筛选+分页）
+            // 内部报告当前页数据
             internalReportPageData() {
-                let list = this.internalReportData;
-                const f = this.internalReportFilters;
-                if (f.title) {
-                    const kw = f.title.toLowerCase();
-                    list = list.filter(r => r.title.toLowerCase().indexOf(kw) !== -1);
-                }
-                if (f.securityCode) {
-                    const kw = f.securityCode.toLowerCase();
-                    list = list.filter(r => r.securityCode.toLowerCase().indexOf(kw) !== -1);
-                }
-                if (f.reportType) {
-                    list = list.filter(r => r.reportType === f.reportType);
-                }
-                if (f.writeDateRange && f.writeDateRange.length === 2) {
-                    const [start, end] = f.writeDateRange;
-                    list = list.filter(r => r.writeDate >= start && r.writeDate <= end);
-                }
-                this.internalReportPagination.total = list.length;
-                const start = (this.internalReportPagination.pageIndex - 1) * this.internalReportPagination.pageSize;
-                return list.slice(start, start + this.internalReportPagination.pageSize);
+                return this.internalReportData;
             },
-            // 外部报告当前页数据（客户端筛选+分页）
+            // 外部报告当前页数据
             externalReportPageData() {
-                let list = this.externalReportData;
-                const f = this.externalReportFilters;
-                if (f.title) {
-                    const kw = f.title.toLowerCase();
-                    list = list.filter(r => r.title.toLowerCase().indexOf(kw) !== -1);
-                }
-                if (f.securityCode) {
-                    const kw = f.securityCode.toLowerCase();
-                    list = list.filter(r => r.securityCode.toLowerCase().indexOf(kw) !== -1);
-                }
-                if (f.reportType) {
-                    list = list.filter(r => r.reportType === f.reportType);
-                }
-                if (f.writeDateRange && f.writeDateRange.length === 2) {
-                    const [start, end] = f.writeDateRange;
-                    list = list.filter(r => r.writeDate >= start && r.writeDate <= end);
-                }
-                this.externalReportPagination.total = list.length;
-                const start = (this.externalReportPagination.pageIndex - 1) * this.externalReportPagination.pageSize;
-                return list.slice(start, start + this.externalReportPagination.pageSize);
+                return this.externalReportData;
             },
-            // 内部报告所有可选类型（去重）
+            // 报告类型选项
+            reportTypeOptions() {
+                return Object.keys(this.reportTypeDict);
+            },
+            // 内部报告类型选项
             internalReportTypeOptions() {
-                const set = new Set();
-                this.internalReportData.forEach(r => { if (r.reportType) set.add(r.reportType); });
-                return Array.from(set);
+                return this.reportTypeOptions;
             },
-            // 外部报告所有可选类型（去重）
+            // 外部报告类型选项
             externalReportTypeOptions() {
-                const set = new Set();
-                this.externalReportData.forEach(r => { if (r.reportType) set.add(r.reportType); });
-                return Array.from(set);
+                return this.reportTypeOptions;
             },
             // 总选中数量
             totalSelectedReports() {
@@ -2864,7 +2848,6 @@
                     this.materialFiles = {};
                     this.creditReportSelections = {};
                     this.otherMaterialSelections = {};
-                    this.initMockReportData();
                 } catch (e) {}
                 this.detailLoading = false;
             },
@@ -3443,34 +3426,7 @@
 
             // ── 信评报告选择弹窗方法 ──
 
-            // 初始化模拟报告数据
-            initMockReportData() {
-                if (this.internalReportData.length > 0 && this.externalReportData.length > 0) return;
-                this.internalReportData = [
-                    { id: 'ir1', title: '万科企业2025年度信用评级报告', reportType: '评级报告', securityCode: '101900001.IB', industry: '房地产', rating: 'AA+', author: '张明远', writeDate: '2025-11-15' },
-                    { id: 'ir2', title: '中国石油2025年跟踪评级报告', reportType: '跟踪报告', securityCode: '102000002.IB', industry: '能源', rating: 'AAA', author: '李思涵', writeDate: '2025-10-20' },
-                    { id: 'ir3', title: '深圳地铁集团尽职调查报告', reportType: '尽调报告', securityCode: '102100003.IB', industry: '交通运输', rating: 'AAA', author: '王建强', writeDate: '2025-09-08' },
-                    { id: 'ir4', title: '华夏幸福2025年风险提示报告', reportType: '风险提示', securityCode: '101900004.IB', industry: '房地产', rating: 'BBB', author: '赵晓峰', writeDate: '2025-08-22' },
-                    { id: 'ir5', title: '中国平安2025年度评级更新报告', reportType: '评级报告', securityCode: '102200005.IB', industry: '金融', rating: 'AAA', author: '陈雨欣', writeDate: '2025-07-15' },
-                    { id: 'ir6', title: '比亚迪2025年跟踪评级报告', reportType: '跟踪报告', securityCode: '102100006.IB', industry: '制造业', rating: 'AA', author: '刘志伟', writeDate: '2025-06-30' },
-                    { id: 'ir7', title: '华为技术有限公司尽职调查', reportType: '尽调报告', securityCode: '102300007.IB', industry: '信息技术', rating: 'AAA', author: '周明华', writeDate: '2025-05-18' },
-                    { id: 'ir8', title: '碧桂园集团风险提示报告', reportType: '风险提示', securityCode: '101800008.IB', industry: '房地产', rating: 'A+', author: '吴建平', writeDate: '2025-04-12' },
-                    { id: 'ir9', title: '国家电网2025年度评级报告', reportType: '评级报告', securityCode: '102000009.IB', industry: '能源', rating: 'AAA', author: '张明远', writeDate: '2025-03-25' },
-                    { id: 'ir10', title: '三一重工跟踪评级更新', reportType: '跟踪报告', securityCode: '102100010.IB', industry: '制造业', rating: 'AA-', author: '李思涵', writeDate: '2025-02-10' },
-                ];
-                this.externalReportData = [
-                    { id: 'er1', title: '万科企业2025年券商研报：地产复苏展望', reportType: '券商研究报告', securityCode: '101900001.IB', industry: '房地产', rating: 'AA+', author: '中金证券', writeDate: '2025-12-01' },
-                    { id: 'er2', title: '中国石油行业分析报告2025', reportType: '行业分析报告', securityCode: '102000002.IB', industry: '能源', rating: 'AAA', author: '中信证券', writeDate: '2025-11-20' },
-                    { id: 'er3', title: '中国宏观经济展望2026年度', reportType: '宏观经济报告', securityCode: '', industry: '', rating: '', author: '华泰证券', writeDate: '2025-11-10' },
-                    { id: 'er4', title: '平安集团外部信用评级报告', reportType: '信用评级报告', securityCode: '102200005.IB', industry: '金融', rating: 'AAA', author: '穆迪评级', writeDate: '2025-10-05' },
-                    { id: 'er5', title: '比亚迪新能源汽车产业链研究', reportType: '券商研究报告', securityCode: '102100006.IB', industry: '制造业', rating: 'AA', author: '招商证券', writeDate: '2025-09-18' },
-                    { id: 'er6', title: '信息技术行业2025年度趋势分析', reportType: '行业分析报告', securityCode: '', industry: '信息技术', rating: '', author: '中泰证券', writeDate: '2025-08-25' },
-                    { id: 'er7', title: '华夏幸福债务重组评估报告', reportType: '信用评级报告', securityCode: '101900004.IB', industry: '房地产', rating: 'BBB', author: '标准普尔', writeDate: '2025-07-30' },
-                    { id: 'er8', title: '交通运输基础设施投资展望', reportType: '券商研究报告', securityCode: '102100003.IB', industry: '交通运输', rating: 'AAA', author: '国泰君安', writeDate: '2025-06-15' },
-                    { id: 'er9', title: '全球能源格局分析与展望', reportType: '宏观经济报告', securityCode: '', industry: '能源', rating: '', author: '申万宏源', writeDate: '2025-05-20' },
-                    { id: 'er10', title: '三一重工城投行业信用分析', reportType: '信用评级报告', securityCode: '102100010.IB', industry: '制造业', rating: 'AA-', author: '联合资信', writeDate: '2025-04-08' },
-                ];
-            },
+
 
             // 打开报告选择弹窗
             openReportDialog(poolId, column) {
@@ -3478,7 +3434,6 @@
                 this.reportDialogColumn = column;
                 this.reportActiveTab = 'internal';
                 this.reportDialogVisible = true;
-                this.initMockReportData();
                 const existing = column === 'credit'
                     ? (this.creditReportSelections[poolId] || [])
                     : (this.otherMaterialSelections[poolId] || []);
@@ -3488,10 +3443,8 @@
                 this.resetExternalReportFiltersSilent();
                 this.internalReportPagination.pageIndex = 1;
                 this.externalReportPagination.pageIndex = 1;
-                this.$nextTick(() => {
-                    this.restoreInternalReportSelection();
-                    this.restoreExternalReportSelection();
-                });
+                this.queryInternalReports();
+                this.queryExternalReports();
             },
 
             // 弹窗关闭回调
@@ -3506,24 +3459,79 @@
                 this.resetExternalReportFiltersSilent();
             },
 
+            // 查询报告分页数据
+            async queryReportListPage(source) {
+                const isInternal = source === 'internal';
+                const filters = isInternal ? this.internalReportFilters : this.externalReportFilters;
+                const pagination = isInternal ? this.internalReportPagination : this.externalReportPagination;
+                if (isInternal) {
+                    this.internalReportLoading = true;
+                } else {
+                    this.externalReportLoading = true;
+                }
+                this.restoringReportSelection = true;
+                try {
+                    const range = filters.writeDateRange || [];
+                    const path = isInternal ? '/api/v1/reports/queryInReportPage' : '/api/v1/reports/queryOutReportPage';
+                    const data = await this.apiPost(path, {
+                        pageIndex: pagination.pageIndex,
+                        pageSize: pagination.pageSize,
+                        reportTitle: filters.title,
+                        securityCode: filters.securityCode,
+                        reportType: filters.reportType,
+                        crteTimeStart: range.length === 2 ? range[0] : '',
+                        crteTimeEnd: range.length === 2 ? range[1] : ''
+                    });
+                    const records = (data && data.records) || [];
+                    const list = records.map(item => this.normalizeReportRecord(item, source));
+                    pagination.total = (data && data.total) || 0;
+                    if (isInternal) {
+                        this.internalReportData = list;
+                    } else {
+                        this.externalReportData = list;
+                    }
+                    this.$nextTick(() => {
+                        if (isInternal) {
+                            this.restoreInternalReportSelection();
+                        } else {
+                            this.restoreExternalReportSelection();
+                        }
+                    });
+                } catch (e) {
+                    pagination.total = 0;
+                    if (isInternal) {
+                        this.internalReportData = [];
+                    } else {
+                        this.externalReportData = [];
+                    }
+                    this.restoringReportSelection = false;
+                }
+                if (isInternal) {
+                    this.internalReportLoading = false;
+                } else {
+                    this.externalReportLoading = false;
+                }
+            },
+
+            // 转换报告接口字段为弹窗使用字段
+            normalizeReportRecord(item, source) {
+                const crteTime = item.crteTime || '';
+                return Object.assign({}, item, {
+                    title: item.reportTitle || '',
+                    author: item.authorName || '',
+                    writeDate: crteTime ? crteTime.substring(0, 10) : '',
+                    source: source
+                });
+            },
+
             // 内部报告筛选查询
             queryInternalReports() {
-                this.internalReportLoading = true;
-                this.restoringReportSelection = true;
-                this.$nextTick(() => {
-                    this.internalReportLoading = false;
-                    this.restoreInternalReportSelection();
-                });
+                return this.queryReportListPage('internal');
             },
 
             // 外部报告筛选查询
             queryExternalReports() {
-                this.externalReportLoading = true;
-                this.restoringReportSelection = true;
-                this.$nextTick(() => {
-                    this.externalReportLoading = false;
-                    this.restoreExternalReportSelection();
-                });
+                return this.queryReportListPage('external');
             },
 
             // 内部报告选中变化（合并可见+不可见）
@@ -3651,17 +3659,31 @@
                 this.$nextTick(() => this.restoreExternalReportSelection());
             },
 
+            // 报告类型中文名称
+            reportTypeLabel(type) {
+                return this.reportTypeDict[type] || type || '';
+            },
+
+            // 报告证券类型中文名称
+            reportSecurityTypeLabel(type) {
+                return this.reportSecurityTypeDict[type] || type || '';
+            },
+
+            // 数据来源中文名称
+            dataSourceLabel(source) {
+                return this.dataSourceDict[source] || source || '';
+            },
+
             // 报告类型对应的样式类
             getReportTypeClass(type) {
                 const map = {
-                    '评级报告':      'type-rating',
-                    '信用评级报告':  'type-rating',
-                    '跟踪报告':      'type-track',
-                    '尽调报告':      'type-research',
-                    '券商研究报告':  'type-research',
-                    '风险提示':      'type-risk',
-                    '行业分析报告':  'type-industry',
-                    '宏观经济报告':  'type-macro'
+                    bond_in_report: 'type-rating',
+                    bond_out_report: 'type-risk',
+                    fund_in_report: 'type-research',
+                    fund_out_report: 'type-risk',
+                    stock_in_report: 'type-rating',
+                    stock_out_report: 'type-risk',
+                    other_report: 'type-default'
                 };
                 return map[type] || 'type-default';
             },
