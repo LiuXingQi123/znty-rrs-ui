@@ -2223,7 +2223,7 @@
             // 加载规则分类列表
             async loadCategories() {
                 try {
-                    this.categories = await this.apiPost('/api/v1/rules/options/queryCategoryList');
+                    this.categories = await this.apiPost('/api/v1/rules/options/queryCategoryList', {});
                     this.ensureFormCategory();
                 } catch (e) {
                     console.error('加载分类失败:', e);
@@ -2232,7 +2232,7 @@
             // 加载预设选项集列表
             async loadPresetSets() {
                 try {
-                    this.presetOptionSets = await this.apiPost('/api/v1/rules/options/queryPresetSetList');
+                    this.presetOptionSets = await this.apiPost('/api/v1/rules/options/queryPresetSetList', {});
                 } catch (e) {
                     console.error('加载预设选项集失败:', e);
                 }
@@ -2629,7 +2629,8 @@
                     script: this.form.script.trim()
                 };
                 try {
-                    await this.apiPost('/api/v1/rules/addOrEditRule', body);
+                    const path = this.editingRule ? '/api/v1/rules/editRule' : '/api/v1/rules/addRule';
+                    await this.apiPost(path, body);
                     this.$notify({ title: this.editingRule ? '修改成功' : '创建成功',
                         message: `规则「${this.form.name}」已${this.editingRule ? '更新' : '创建'}`,
                         type: 'success', duration: 2000 });
@@ -2677,7 +2678,7 @@
             async runTest() {
                 this.testOutput = [];
                 try {
-                    const result = await this.apiPost('/api/v1/rules/ruleRuns/executeRule', {
+                    const result = await this.apiPost('/api/v1/rules/executeRule', {
                         id: this.testingRule.id,
                         runParams: this.collectTestingParams()
                     });
@@ -2697,7 +2698,7 @@
                 const name = this.testCaseName.trim();
                 if (!name) { this.$message.warning('请输入测试用例名称'); return; }
                 try {
-                    await this.apiPost('/api/v1/testCases/addOrEditTestCase', {
+                    await this.apiPost('/api/v1/testCases/addTestCase', {
                         id: null,
                         name,
                         ruleId: this.testingRule.id,
@@ -2748,7 +2749,7 @@
                 this.testCases.forEach(tc => { tc.lastResult = 'running'; tc.lastOutput = null; });
                 this.$forceUpdate();
                 try {
-                    const results = await this.apiPost('/api/v1/testCases/runAllTestCases');
+                    const results = await this.apiPost('/api/v1/testCases/runAllTestCases', {});
                     this.runProgress = 100;
                     const total = results.length;
                     const pass = results.filter(item => item.lastResult === 'pass').length;
