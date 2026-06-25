@@ -3423,7 +3423,9 @@
                         flowType: r.flowType,
                         adjustmentNote: r.adjustNote,
                         creditReportFileIndexes: r.creditReportFileIndexes || [],
-                        materialFileIndexes: r.materialFileIndexes || []
+                        materialFileIndexes: r.materialFileIndexes || [],
+                        creditReportSourceAttachmentIds: this.collectReportAttachmentIds(r.creditReports || []),
+                        materialSourceAttachmentIds: this.collectReportAttachmentIds(r.otherMaterials || [])
                     }))
                 };
                 try {
@@ -3445,6 +3447,18 @@
                     submitFiles.push(file.raw);
                     return submitFiles.length - 1;
                 });
+            },
+            // 收集已选报告库附件 ID
+            collectReportAttachmentIds(reports) {
+                const ids = [];
+                (reports || []).forEach(report => {
+                    (report.attachments || []).forEach(file => {
+                        if (file && file.id != null && ids.indexOf(file.id) === -1) {
+                            ids.push(file.id);
+                        }
+                    });
+                });
+                return ids;
             },
             // 一次性提交业务数据和附件
             async submitAdjustMultipart(path, payload, files) {
@@ -3573,7 +3587,13 @@
                     if (visibleIds.indexOf(r.id) === -1) mergeMap[r.id] = r;
                 });
                 rows.forEach(row => {
-                    mergeMap[row.id] = { id: row.id, title: row.title, reportType: row.reportType, source: 'internal' };
+                    mergeMap[row.id] = {
+                        id: row.id,
+                        title: row.title,
+                        reportType: row.reportType,
+                        source: 'internal',
+                        attachments: row.attachments || []
+                    };
                 });
                 this.selectedInternalReports = Object.keys(mergeMap).map(k => mergeMap[k]);
             },
@@ -3587,7 +3607,13 @@
                     if (visibleIds.indexOf(r.id) === -1) mergeMap[r.id] = r;
                 });
                 rows.forEach(row => {
-                    mergeMap[row.id] = { id: row.id, title: row.title, reportType: row.reportType, source: 'external' };
+                    mergeMap[row.id] = {
+                        id: row.id,
+                        title: row.title,
+                        reportType: row.reportType,
+                        source: 'external',
+                        attachments: row.attachments || []
+                    };
                 });
                 this.selectedExternalReports = Object.keys(mergeMap).map(k => mergeMap[k]);
             },
@@ -3731,9 +3757,21 @@
                 } else if (column === 'material') {
                     this.$set(this.otherMaterialSelections, poolId, [...allSelected]);
                 }
+                this.syncAdjustReviewReportSelections(poolId, column, allSelected);
                 this.reportDialogVisible = false;
                 // 报告标签改变行高后同步校验结果固定列
                 this.refreshAdjustReviewTableLayout();
+            },
+            // 同步已确认报告到当前调库行快照
+            syncAdjustReviewReportSelections(poolId, column, reports) {
+                (this.adjustReviewList || []).forEach(row => {
+                    if (row.poolId !== poolId) return;
+                    if (column === 'credit') {
+                        this.$set(row, 'creditReports', [...reports]);
+                    } else if (column === 'material') {
+                        this.$set(row, 'otherMaterials', [...reports]);
+                    }
+                });
             },
 
             // 获取某池的信用报告选择
