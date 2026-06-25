@@ -1748,8 +1748,11 @@
                                         <span v-for="(name, i) in getReportNames(row.creditReports)" :key="'cr_'+i" class="report-tag report-tag-internal">{{ name }}</span>
                                     </div>
                                     <div v-if="row.attachmentFiles && row.attachmentFiles.length" class="upload-file-list">
-                                        <span v-for="file in row.attachmentFiles" :key="'af_'+file.id"
-                                              class="upload-file-tag" @click="downloadAttachment(file)">{{ file.originalFileName }}</span>
+                                        <span v-for="(file, i) in row.attachmentFiles" :key="'af_'+file.id"
+                                              class="upload-file-tag" @click="downloadAttachment(file)">
+                                            <span :title="file.originalFileName">{{ file.originalFileName }}</span>
+                                            <i v-if="showLogUploadActions" class="el-icon-close" @click.stop="removeExistingAttachmentFile(row, 'credit', i)"></i>
+                                        </span>
                                     </div>
                                     <div v-if="getCreditReportSelections(getLogRowKey(row)).length > 0" class="upload-file-list">
                                         <div v-for="(r, i) in getCreditReportSelections(getLogRowKey(row))" :key="'ncr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
@@ -1782,8 +1785,11 @@
                                         <span v-for="(name, i) in getReportNames(row.otherMaterials)" :key="'om_'+i" class="report-tag report-tag-external">{{ name }}</span>
                                     </div>
                                     <div v-if="row.materialFiles && row.materialFiles.length" class="upload-file-list">
-                                        <span v-for="file in row.materialFiles" :key="'mf_'+file.id"
-                                              class="upload-file-tag" @click="downloadAttachment(file)">{{ file.originalFileName }}</span>
+                                        <span v-for="(file, i) in row.materialFiles" :key="'mf_'+file.id"
+                                              class="upload-file-tag" @click="downloadAttachment(file)">
+                                            <span :title="file.originalFileName">{{ file.originalFileName }}</span>
+                                            <i v-if="showLogUploadActions" class="el-icon-close" @click.stop="removeExistingAttachmentFile(row, 'material', i)"></i>
+                                        </span>
                                     </div>
                                     <div v-if="getOtherMaterialSelections(getLogRowKey(row)).length > 0" class="upload-file-list">
                                         <div v-for="(r, i) in getOtherMaterialSelections(getLogRowKey(row))" :key="'nom_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
@@ -2721,6 +2727,7 @@
                 submitLoading: false,         // 调库提交防重复点击状态
                 attachmentFiles: {},          // 各池附件文件映射 { poolId: [File, ...] }
                 materialFiles: {},            // 各池其他材料文件映射 { poolId: [File, ...] }
+                deletedAttachmentIds: {},      // 各调库记录待删除附件 ID 映射 { logKey: [id, ...] }
                 adjustStep: 2,           // 调库步骤：1=选择池, 2=校验确认
                 adjustCheckLoading: false, // 下一步校验接口加载状态
                 currentLoginUserId: '1001', // 当前默认登录用户 ID
@@ -2852,7 +2859,7 @@
             },
             // 调库记录及材料区域是否允许新增/删除报告附件
             showLogUploadActions() {
-                return this.isNextMode;
+                return this.isNextMode || (this.isProcessMode && this.isModifyAuditStage && !!this.currentPendingStep);
             },
             // 通过校验的数量
             validCount() {
@@ -3140,6 +3147,7 @@
                     this.loadFlowSteps(this.adjustLogList);
                     this.attachmentFiles = {};
                     this.materialFiles = {};
+                    this.deletedAttachmentIds = {};
                     this.creditReportSelections = {};
                     this.otherMaterialSelections = {};
                 } catch (e) {}
@@ -3250,6 +3258,21 @@
                 const files = [...(this.materialFiles[poolId] || [])];
                 files.splice(index, 1);
                 this.$set(this.materialFiles, poolId, files);
+            },
+            // 移除调库记录中已存在的附件，提交修改节点时统一落库
+            removeExistingAttachmentFile(row, column, index) {
+                const logKey = this.getLogRowKey(row);
+                const fieldName = column === 'material' ? 'materialFiles' : 'attachmentFiles';
+                const files = [...(row[fieldName] || [])];
+                const removed = files.splice(index, 1)[0];
+                this.$set(row, fieldName, files);
+                if (removed && removed.id != null) {
+                    const ids = [...(this.deletedAttachmentIds[logKey] || [])];
+                    if (ids.indexOf(removed.id) === -1) {
+                        ids.push(removed.id);
+                    }
+                    this.$set(this.deletedAttachmentIds, logKey, ids);
+                }
             },
             // 折叠/展开区块
             toggleSection(key) {
@@ -3435,6 +3458,59 @@
                 return String(this.currentLoginUserId) === '1001';
             },
 
+            // 是否需要随修改节点提交附件变更
+            shouldSubmitAuditAttachments() {
+                return this.isProcessMode && this.isModifyAuditStage
+                    && this.auditAction === 'approve' && !!this.currentPendingStep;
+            },
+
+            // 收集所选报告下的报告库附件 ID
+            collectReportAttachmentIds(reports) {
+                const ids = [];
+                (reports || []).forEach(report => {
+                    (report.attachments || []).forEach(file => {
+                        if (file && file.id != null && ids.indexOf(file.id) === -1) {
+                            ids.push(file.id);
+                        }
+                    });
+                });
+                return ids;
+            },
+
+            // 构建修改节点附件变更请求
+            buildAuditAttachmentChanges(submitFiles) {
+                const changes = [];
+                (this.adjustLogList || []).forEach(log => {
+                    const logKey = this.getLogRowKey(log);
+                    const creditReportFileIndexes = this.collectSubmitFiles(this.getAttachmentFiles(logKey), submitFiles);
+                    const materialFileIndexes = this.collectSubmitFiles(this.getMaterialFiles(logKey), submitFiles);
+                    const creditReportSourceAttachmentIds = this.collectReportAttachmentIds(this.getCreditReportSelections(logKey));
+                    const materialSourceAttachmentIds = this.collectReportAttachmentIds(this.getOtherMaterialSelections(logKey));
+                    const deleteAttachmentIds = this.deletedAttachmentIds[logKey] || [];
+                    if (creditReportFileIndexes.length || materialFileIndexes.length
+                        || creditReportSourceAttachmentIds.length || materialSourceAttachmentIds.length
+                        || deleteAttachmentIds.length) {
+                        changes.push({
+                            adjustLogId: log.id,
+                            creditReportFileIndexes,
+                            materialFileIndexes,
+                            creditReportSourceAttachmentIds,
+                            materialSourceAttachmentIds,
+                            deleteAttachmentIds
+                        });
+                    }
+                });
+                return changes;
+            },
+
+            // 以 multipart 方式提交审批和附件变更
+            async submitAdjustAuditMultipart(payload, files) {
+                const formData = new FormData();
+                formData.append('request', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+                files.forEach(file => formData.append('files', file));
+                return this.apiPost('/api/v1/securityPoolAdjustFlow/submitAdjustAudit', formData);
+            },
+
             // 提交当前流程步骤审批意见
             async submitAdjustAudit() {
                 if (this.auditSubmitLoading) return;
@@ -3450,7 +3526,7 @@
                 try {
                     const step = this.currentPendingStep;
                     const activeLog = this.activeAdjustLog || {};
-                    const result = await this.apiPost('/api/v1/securityPoolAdjustFlow/submitAdjustAudit', {
+                    const payload = {
                         adjustLogId: activeLog.id || step.adjustLogId || this.selectedAdjustLogId,
                         adjustBatchNo: activeLog.adjustBatchNo || step.adjustBatchNo || this.selectedAdjustBatchNo,
                         stepId: step.id,
@@ -3458,7 +3534,15 @@
                         processComment: this.auditComment,
                         handlerId: this.currentLoginUserId,
                         handlerName: this.currentLoginUserName
-                    });
+                    };
+                    let result = null;
+                    if (this.shouldSubmitAuditAttachments()) {
+                        const submitFiles = [];
+                        payload.attachmentChanges = this.buildAuditAttachmentChanges(submitFiles);
+                        result = await this.submitAdjustAuditMultipart(payload, submitFiles);
+                    } else {
+                        result = await this.apiPost('/api/v1/securityPoolAdjustFlow/submitAdjustAudit', payload);
+                    }
                     this.$message.success((result && result.message) || '审批处理成功');
                     this.auditAction = 'approve';
                     this.auditComment = '';
@@ -3886,7 +3970,13 @@
                     if (visibleIds.indexOf(r.id) === -1) mergeMap[r.id] = r;
                 });
                 rows.forEach(row => {
-                    mergeMap[row.id] = { id: row.id, title: row.title, reportType: row.reportType, source: 'internal' };
+                    mergeMap[row.id] = {
+                        id: row.id,
+                        title: row.title,
+                        reportType: row.reportType,
+                        source: 'internal',
+                        attachments: row.attachments || []
+                    };
                 });
                 this.selectedInternalReports = Object.keys(mergeMap).map(k => mergeMap[k]);
             },
@@ -3900,7 +3990,13 @@
                     if (visibleIds.indexOf(r.id) === -1) mergeMap[r.id] = r;
                 });
                 rows.forEach(row => {
-                    mergeMap[row.id] = { id: row.id, title: row.title, reportType: row.reportType, source: 'external' };
+                    mergeMap[row.id] = {
+                        id: row.id,
+                        title: row.title,
+                        reportType: row.reportType,
+                        source: 'external',
+                        attachments: row.attachments || []
+                    };
                 });
                 this.selectedExternalReports = Object.keys(mergeMap).map(k => mergeMap[k]);
             },
@@ -4099,6 +4195,7 @@
                 this.selectedOutPools = [];       // 清空已选调出池
                 this.attachmentFiles = {};        // 清空附件文件
                 this.materialFiles = {};          // 清空其他材料文件
+                this.deletedAttachmentIds = {};    // 清空待删除附件
                 this.creditReportSelections = {}; // 清空信评报告选择
                 this.otherMaterialSelections = {}; // 清空其他材料报告选择
                 this.inMutexMap = {};             // 清空调入互斥映射
