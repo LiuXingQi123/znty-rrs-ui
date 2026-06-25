@@ -509,8 +509,8 @@
                 </div>
                 <div class="summary-row">
                     <span class="summary-chip">证券 {{ selectedSecurities.length }} 条</span>
-                    <span class="summary-chip">报告 {{ selectedReports.length }} 篇</span>
-                    <span class="summary-chip">附件 {{ attachmentFiles.length }} 个</span>
+                    <span class="summary-chip">信评报告 {{ creditMaterialCount }} 个</span>
+                    <span class="summary-chip">其他附件 {{ otherMaterialCount }} 个</span>
                     <span class="summary-chip">步骤 {{ adjustStep }}/2</span>
                 </div>
             </div>
@@ -521,13 +521,13 @@
                         <div class="section-dot"></div>
                         <div class="section-title">调整材料</div>
                         <div class="summary-chips">
-                            <span class="summary-chip" :class="{ muted: selectedReports.length === 0 }">
-                                <span class="summary-chip-label">报告</span>
-                                <span class="summary-chip-value">{{ selectedReports.length }} 篇</span>
+                            <span class="summary-chip" :class="{ muted: creditMaterialCount === 0 }">
+                                <span class="summary-chip-label">信评报告</span>
+                                <span class="summary-chip-value">{{ creditMaterialCount }} 个</span>
                             </span>
-                            <span class="summary-chip" :class="{ muted: attachmentFiles.length === 0 }">
-                                <span class="summary-chip-label">附件</span>
-                                <span class="summary-chip-value">{{ attachmentFiles.length }} 个</span>
+                            <span class="summary-chip" :class="{ muted: otherMaterialCount === 0 }">
+                                <span class="summary-chip-label">其他附件</span>
+                                <span class="summary-chip-value">{{ otherMaterialCount }} 个</span>
                             </span>
                             <span class="summary-chip is-rule" :class="{ muted: releaseRules === 'no' }">
                                 <span class="summary-chip-label">放开规则</span>
@@ -543,12 +543,21 @@
                     <div v-show="materialCardExpanded" class="material-card-body">
                         <div class="material-row">
                             <div class="material-row-head">
-                                <div class="material-row-title">报告</div>
+                                <div class="material-row-title">信评报告</div>
                                 <div class="material-row-main inline-material-body">
-                                    <el-button size="small" icon="el-icon-document" @click.stop="openReportDialog">选择信评报告</el-button>
-                                    <div v-if="selectedReports.length" class="report-list scrollable">
-                                        <span v-for="item in selectedReports" :key="item.source + item.id" class="report-chip" :class="item.source">
-                                            <span>{{ item.title }}</span><i class="el-icon-close" @click.stop="removeReport(item)"></i>
+                                    <el-button size="small" icon="el-icon-document" @click.stop="openReportDialog('credit')">选择报告</el-button>
+                                    <el-upload action="#" :auto-upload="false" accept=".xls,.xlsx,.docx,.doc,.pdf,.json"
+                                               multiple :show-file-list="false" :on-change="handleCreditReportFileChange" @click.native.stop>
+                                        <el-button size="small" icon="el-icon-upload2">上传附件</el-button>
+                                    </el-upload>
+                                    <div v-if="selectedCreditReports.length" class="report-list scrollable">
+                                        <span v-for="item in selectedCreditReports" :key="item.source + item.id" class="report-chip" :class="item.source">
+                                            <span>{{ item.title }}</span><i class="el-icon-close" @click.stop="removeCreditReport(item)"></i>
+                                        </span>
+                                    </div>
+                                    <div v-if="creditReportFiles.length" class="file-list scrollable">
+                                        <span v-for="(item,index) in creditReportFiles" :key="item.uid || item.name" class="file-chip" @click="downloadLocalFile(item)">
+                                            <span>{{ item.name }}</span><i class="el-icon-close" @click.stop="removeCreditReportFile(index)"></i>
                                         </span>
                                     </div>
                                 </div>
@@ -557,15 +566,21 @@
 
                         <div class="material-row">
                             <div class="material-row-head">
-                                <div class="material-row-title">附件</div>
+                                <div class="material-row-title">其他附件</div>
                                 <div class="material-row-main inline-material-body">
+                                    <el-button size="small" icon="el-icon-document" @click.stop="openReportDialog('material')">选择报告</el-button>
                                     <el-upload action="#" :auto-upload="false" accept=".xls,.xlsx,.docx,.doc,.pdf,.json"
-                                               multiple :show-file-list="false" :on-change="handleAttachmentChange" @click.native.stop>
-                                        <el-button size="small" icon="el-icon-upload2">选择附件</el-button>
+                                               multiple :show-file-list="false" :on-change="handleMaterialFileChange" @click.native.stop>
+                                        <el-button size="small" icon="el-icon-upload2">上传附件</el-button>
                                     </el-upload>
-                                    <div v-if="attachmentFiles.length" class="file-list scrollable">
-                                        <span v-for="(item,index) in attachmentFiles" :key="item.uid || item.name" class="file-chip" @click="downloadLocalFile(item)">
-                                            <span>{{ item.name }}</span><i class="el-icon-close" @click.stop="removeAttachment(index)"></i>
+                                    <div v-if="selectedMaterialReports.length" class="report-list scrollable">
+                                        <span v-for="item in selectedMaterialReports" :key="item.source + item.id" class="report-chip" :class="item.source">
+                                            <span>{{ item.title }}</span><i class="el-icon-close" @click.stop="removeMaterialReport(item)"></i>
+                                        </span>
+                                    </div>
+                                    <div v-if="materialFiles.length" class="file-list scrollable">
+                                        <span v-for="(item,index) in materialFiles" :key="item.uid || item.name" class="file-chip" @click="downloadLocalFile(item)">
+                                            <span>{{ item.name }}</span><i class="el-icon-close" @click.stop="removeMaterialFile(index)"></i>
                                         </span>
                                     </div>
                                 </div>
@@ -695,7 +710,7 @@
                     </el-table-column>
                     <el-table-column label="材料" min-width="150" align="center">
                         <template slot-scope="{ row }">
-                            <span>报告 {{ row.reportCount }} 篇 / 附件 {{ row.fileCount }} 个</span>
+                            <span>信评报告 {{ row.creditMaterialCount }} 个 / 其他附件 {{ row.otherMaterialCount }} 个</span>
                         </template>
                     </el-table-column>
                     <el-table-column prop="adjustNote" label="调整说明" min-width="210" show-overflow-tooltip></el-table-column>
@@ -746,7 +761,7 @@
         <div class="report-stats-bar">
             <div class="report-stats-info">
                 <i class="el-icon-collection-tag"></i>
-                <span>正在为 <strong>信评报告</strong> 选择参考材料，可在内部 / 外部报告之间切换</span>
+                <span>正在为 <strong>{{ reportDialogColumn === 'material' ? '其他附件' : '信评报告' }}</strong> 选择参考材料，可在内部 / 外部报告之间切换</span>
             </div>
             <div class="report-stats-count">
                 已选 <strong>{{ totalSelectedReports }}</strong> 条
@@ -1036,10 +1051,12 @@
                 securityPagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 候选证券分页
                 selectedSecurityMap: {},                 // 跨页已选证券映射
                 selectionSyncing: false,                 // 恢复勾选状态标记
-                selectedReports: [],                     // 已确认报告
+                selectedCreditReports: [],               // 已确认信评报告
+                selectedMaterialReports: [],             // 已确认其他附件报告
                 selectedInternalReports: [],             // 弹窗内部报告选择
                 selectedExternalReports: [],             // 弹窗外部报告选择
-                attachmentFiles: [],                     // 整批附件
+                creditReportFiles: [],                   // 整批信评报告上传附件
+                materialFiles: [],                       // 整批其他附件上传附件
                 releaseRules: 'no',                      // 是否放开规则
                 adjustReason: '',                        // 调整原因
                 adjustAdvice: '',                        // 调整建议
@@ -1158,10 +1175,18 @@
             totalSelectedReports() {
                 return this.selectedInternalReports.length + this.selectedExternalReports.length
             },
+            // 信评报告材料总数
+            creditMaterialCount() {
+                return this.selectedCreditReports.length + this.creditReportFiles.length
+            },
+            // 其他附件材料总数
+            otherMaterialCount() {
+                return this.selectedMaterialReports.length + this.materialFiles.length
+            },
 
             // 报告弹窗标题
             reportDialogTitle() {
-                return '选择信评报告'
+                return this.reportDialogColumn === 'material' ? '选择其他附件' : '选择信评报告'
             }
         },
         mounted() {
@@ -1343,8 +1368,10 @@
                 this.securityPagination = { pageIndex: 1, pageSize: 20, total: 0 }
                 this.securityTableData = []
                 this.selectedSecurityMap = {}
-                this.attachmentFiles = []
-                this.selectedReports = []
+                this.creditReportFiles = []
+                this.materialFiles = []
+                this.selectedCreditReports = []
+                this.selectedMaterialReports = []
                 this.selectedInternalReports = []
                 this.selectedExternalReports = []
                 this.releaseRules = 'no'
@@ -1492,8 +1519,8 @@
                     flowKey: recommended ? recommended.flowKey : '',
                     flowType: recommended ? recommended.flowType : '',
                     flowName: recommended ? recommended.flowName : '',
-                    reportCount: this.selectedReports.length,
-                    fileCount: this.attachmentFiles.length
+                    creditMaterialCount: this.creditMaterialCount,
+                    otherMaterialCount: this.otherMaterialCount
                 }
             },
 
@@ -1539,8 +1566,11 @@
                 }
                 this.submitLoading = true
                 try {
-                    const submitFiles = this.attachmentFiles.map(file => file.raw)
-                    const creditReportFileIndexes = submitFiles.map((file, index) => index)
+                    const submitFiles = []
+                    const creditReportFileIndexes = this.collectSubmitFiles(this.creditReportFiles, submitFiles)
+                    const materialFileIndexes = this.collectSubmitFiles(this.materialFiles, submitFiles)
+                    const creditReportSourceAttachmentIds = this.collectReportAttachmentIds(this.selectedCreditReports)
+                    const materialSourceAttachmentIds = this.collectReportAttachmentIds(this.selectedMaterialReports)
                     const payload = {
                         currentUserId: this.currentUserId,
                         direction: this.direction,
@@ -1566,7 +1596,9 @@
                             flowType: item.flowType,
                             adjustmentNote: item.adjustNote,
                             creditReportFileIndexes,
-                            materialFileIndexes: []
+                            materialFileIndexes,
+                            creditReportSourceAttachmentIds,
+                            materialSourceAttachmentIds
                         }))
                     }
                     await this.submitAdjustMultipart('/api/v1/batchSecurityPoolAdjust/addAdjustLog', payload, submitFiles)
@@ -1620,11 +1652,14 @@
 
 
             // 打开报告选择弹窗并恢复已确认选中
-            openReportDialog() {
-                this.reportDialogColumn = 'credit'
+            openReportDialog(column) {
+                this.reportDialogColumn = column || 'credit'
                 this.reportActiveTab = 'internal'
-                this.selectedInternalReports = this.selectedReports.filter(item => item.source === 'internal')
-                this.selectedExternalReports = this.selectedReports.filter(item => item.source === 'external')
+                const selectedReports = this.reportDialogColumn === 'material'
+                    ? this.selectedMaterialReports
+                    : this.selectedCreditReports
+                this.selectedInternalReports = selectedReports.filter(item => item.source === 'internal')
+                this.selectedExternalReports = selectedReports.filter(item => item.source === 'external')
                 this.resetInternalReportFiltersSilent()
                 this.resetExternalReportFiltersSilent()
                 this.internalReportPagination.pageIndex = 1
@@ -1729,7 +1764,13 @@
                     if (visibleIds.indexOf(item.id) === -1) mergeMap[item.id] = item
                 })
                 rows.forEach(row => {
-                    mergeMap[row.id] = { id: row.id, title: row.title, reportType: row.reportType, source: 'internal' }
+                    mergeMap[row.id] = {
+                        id: row.id,
+                        title: row.title,
+                        reportType: row.reportType,
+                        source: 'internal',
+                        attachments: row.attachments || []
+                    }
                 })
                 this.selectedInternalReports = Object.keys(mergeMap).map(key => mergeMap[key])
             },
@@ -1743,7 +1784,13 @@
                     if (visibleIds.indexOf(item.id) === -1) mergeMap[item.id] = item
                 })
                 rows.forEach(row => {
-                    mergeMap[row.id] = { id: row.id, title: row.title, reportType: row.reportType, source: 'external' }
+                    mergeMap[row.id] = {
+                        id: row.id,
+                        title: row.title,
+                        reportType: row.reportType,
+                        source: 'external',
+                        attachments: row.attachments || []
+                    }
                 })
                 this.selectedExternalReports = Object.keys(mergeMap).map(key => mergeMap[key])
             },
@@ -1910,24 +1957,74 @@
 
             // 确认报告选择
             handleConfirmReportDialog() {
-                this.selectedReports = this.selectedInternalReports.concat(this.selectedExternalReports)
+                const selectedReports = this.selectedInternalReports.concat(this.selectedExternalReports)
+                if (this.reportDialogColumn === 'material') {
+                    this.selectedMaterialReports = selectedReports
+                } else {
+                    this.selectedCreditReports = selectedReports
+                }
                 this.reportDialogVisible = false
             },
 
-            // 移除已确认报告
-            removeReport(report) {
-                this.selectedReports = this.selectedReports.filter(item => !(item.id === report.id && item.source === report.source))
+            // 移除已确认信评报告
+            removeCreditReport(report) {
+                this.selectedCreditReports = this.selectedCreditReports.filter(item => !(item.id === report.id && item.source === report.source))
             },
 
-            // 选择附件并保存在前端待提交列表
-            handleAttachmentChange(file) {
-                if (!file.raw || this.attachmentFiles.some(item => item.name === file.name)) return
-                this.attachmentFiles.push(file)
+            // 移除已确认其他附件报告
+            removeMaterialReport(report) {
+                this.selectedMaterialReports = this.selectedMaterialReports.filter(item => !(item.id === report.id && item.source === report.source))
             },
 
-            // 移除附件
-            removeAttachment(index) {
-                this.attachmentFiles.splice(index, 1)
+            // 选择信评报告附件并保存在前端待提交列表
+            handleCreditReportFileChange(file) {
+                this.addSubmitFile(file, this.creditReportFiles)
+            },
+
+            // 选择其他附件并保存在前端待提交列表
+            handleMaterialFileChange(file) {
+                this.addSubmitFile(file, this.materialFiles)
+            },
+
+            // 添加待提交附件
+            addSubmitFile(file, files) {
+                if (!file.raw || files.some(item => item.name === file.name)) return
+                files.push(file)
+            },
+
+            // 移除信评报告附件
+            removeCreditReportFile(index) {
+                this.creditReportFiles.splice(index, 1)
+            },
+
+            // 移除其他附件
+            removeMaterialFile(index) {
+                this.materialFiles.splice(index, 1)
+            },
+
+            // 收集当前提交文件并返回 multipart 文件数组下标
+            collectSubmitFiles(files, submitFiles) {
+                return (files || []).map(file => {
+                    const existingIndex = submitFiles.indexOf(file.raw)
+                    if (existingIndex >= 0) return existingIndex
+                    submitFiles.push(file.raw)
+                    return submitFiles.length - 1
+                })
+            },
+
+            // 收集已选报告库附件 ID
+            collectReportAttachmentIds(reports) {
+                const ids = []
+                const reportList = reports || []
+                reportList.forEach(report => {
+                    const fileList = report.attachments || []
+                    fileList.forEach(file => {
+                        if (file && file.id != null && ids.indexOf(file.id) === -1) {
+                            ids.push(file.id)
+                        }
+                    })
+                })
+                return ids
             },
 
             // 下载本地待提交附件
