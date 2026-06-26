@@ -708,7 +708,7 @@
                     </el-table-column>
                     <el-table-column label="审批流程" min-width="210">
                         <template slot-scope="{ row }">
-                            <el-select v-if="row.valid" v-model="row.selectedFlowKey" size="small" placeholder="请选择流程"
+                            <el-select v-if="row.valid && row.itemTag === 'manual'" v-model="row.selectedFlowKey" size="small" placeholder="请选择流程"
                                        popper-class="batch-flow-select-dropdown" style="width:190px;" @change="handleRowFlowChange(row)">
                                 <el-option v-for="option in row.flowOptions" :key="option.optionKey" :label="option.flowName" :value="option.optionKey" :disabled="!option.selectable">
                                     <span class="batch-flow-option-name">{{ option.flowName }}</span>
@@ -1155,11 +1155,15 @@
                 return this.adjustReviewList.filter(item => item.valid).length
             },
 
-            // 有效行是否都已选择审批流程
+            // 可提交的手工调整项（联动/互斥项共用同组手工项的流程，无需单独选流程）
+            validManualAdjustReviewList() {
+                return this.adjustReviewList.filter(item => item.valid && item.itemTag === 'manual')
+            },
+
+            // 有效手工调整项是否都已选择审批流程（仅手工项需要选流程）
             allValidRowsHaveFlow() {
-                return this.adjustReviewList
-                    .filter(item => item.valid)
-                    .every(item => item.flowId || item.flowKey)
+                return this.validManualAdjustReviewList.length > 0
+                    && this.validManualAdjustReviewList.every(item => item.flowId || item.flowKey)
             },
 
             // 内部报告当前页数据
@@ -1572,7 +1576,7 @@
                     return
                 }
                 if (!this.allValidRowsHaveFlow) {
-                    this.$message.warning('请为所有可提交' + this.directionLabel + '项选择审批流程')
+                    this.$message.warning('请为所有可提交的手工调整项选择审批流程')
                     return
                 }
                 this.submitLoading = true
