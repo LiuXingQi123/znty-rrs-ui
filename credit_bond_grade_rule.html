@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <title>主体内评分档规则</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css" />
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            min-height: 100%;
+            background: #F7F8FA;
+            color: #3F485A;
+            font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        [v-cloak] { display: none; }
+
+        #credit_bond_grade_rule.app-shell {
+            --c-primary: #2743A4;
+            --c-primary-hover: #1F3683;
+            --c-primary-light: #E9ECF6;
+            --c-bg: #F7F8FA;
+            --c-surface: #FFFFFF;
+            --c-text: #242933;
+            --c-text-2: #3F485A;
+            --c-text-3: #707783;
+            --c-placeholder: #9199BD;
+            --c-disabled: #CCCCCC;
+            --c-border: #E5E5E5;
+            --c-border-hover: #CCCCCC;
+            --c-success: #06C687;
+            --c-success-light: #E7F9F3;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #credit_bond_grade_rule .topbar {
+            height: 52px;
+            background: var(--c-surface);
+            border-bottom: 1px solid var(--c-border);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        #credit_bond_grade_rule .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #credit_bond_grade_rule .topbar-icon {
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--c-primary-light);
+            border-radius: 4px;
+            background: var(--c-primary-light);
+            color: var(--c-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #credit_bond_grade_rule .topbar h2 {
+            color: var(--c-text);
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 28px;
+            letter-spacing: 0;
+        }
+
+        #credit_bond_grade_rule .topbar-sep {
+            width: 1px;
+            height: 18px;
+            background: var(--c-border);
+        }
+
+        #credit_bond_grade_rule .topbar-sys,
+        #credit_bond_grade_rule .topbar-date {
+            color: var(--c-text-3);
+            font-size: 12px;
+            line-height: 20px;
+        }
+
+        #credit_bond_grade_rule .topbar-date {
+            margin-left: auto;
+            height: 24px;
+            padding: 0 10px;
+            border-radius: 4px;
+            border: 1px solid var(--c-border);
+            background: var(--c-bg);
+            display: flex;
+            align-items: center;
+        }
+
+        #credit_bond_grade_rule .page-body {
+            flex: 1;
+            padding: 24px;
+            min-width: 0;
+        }
+
+        #credit_bond_grade_rule .toolbar {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: 4px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        #credit_bond_grade_rule .toolbar-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        #credit_bond_grade_rule .toolbar-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            color: var(--c-text);
+            font-size: 15px;
+        }
+
+        #credit_bond_grade_rule .title-line {
+            width: 3px;
+            height: 16px;
+            border-radius: 3px;
+            background: var(--c-primary);
+        }
+
+        #credit_bond_grade_rule .matrix-wrap {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #credit_bond_grade_rule .matrix-scroll {
+            width: 100%;
+            overflow: auto;
+        }
+
+        #credit_bond_grade_rule .rule-matrix {
+            width: 100%;
+            min-width: 980px;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+        }
+
+        #credit_bond_grade_rule .rule-matrix th,
+        #credit_bond_grade_rule .rule-matrix td {
+            border-right: 1px solid var(--c-border);
+            border-bottom: 1px solid var(--c-border);
+            vertical-align: middle;
+        }
+
+        #credit_bond_grade_rule .rule-matrix th {
+            background: var(--c-bg);
+            color: var(--c-text);
+            font-weight: 700;
+            padding: 12px;
+            text-align: center;
+        }
+
+        #credit_bond_grade_rule .rule-matrix td {
+            padding: 10px;
+            background: var(--c-surface);
+        }
+
+        #credit_bond_grade_rule .rule-matrix tr:hover td {
+            background: var(--c-bg);
+        }
+
+        #credit_bond_grade_rule .grade-col {
+            width: 136px;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            background: var(--c-bg) !important;
+        }
+
+        #credit_bond_grade_rule td.grade-col {
+            background: var(--c-surface) !important;
+        }
+
+        #credit_bond_grade_rule .head-grade-col {
+            vertical-align: middle !important;
+        }
+
+        #credit_bond_grade_rule .term-group-col {
+            height: 38px;
+            vertical-align: middle !important;
+            background: var(--c-bg);
+        }
+
+        #credit_bond_grade_rule .grade-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 32px;
+            font-weight: 700;
+        }
+
+        #credit_bond_grade_rule .grade-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--c-success);
+        }
+
+        #credit_bond_grade_rule .term-name {
+            display: block;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        #credit_bond_grade_rule .cell-count {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
+            color: var(--c-placeholder);
+            font-size: 12px;
+            line-height: 22px;
+            min-height: 32px;
+        }
+
+        #credit_bond_grade_rule .pool-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            height: 22px;
+            padding: 0 8px;
+            border-radius: 4px;
+            background: var(--c-success-light);
+            color: var(--c-success);
+            font-weight: 600;
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        #credit_bond_grade_rule .pool-tag.is-editable {
+            padding-right: 6px;
+        }
+
+        #credit_bond_grade_rule .pool-tag-close {
+            color: var(--c-placeholder);
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+        }
+
+        #credit_bond_grade_rule .pool-tag-close:hover {
+            color: var(--c-primary);
+        }
+
+        #credit_bond_grade_rule .empty-cell {
+            color: var(--c-placeholder);
+        }
+
+        #credit_bond_grade_rule .cell-picker-trigger {
+            width: 100%;
+            min-height: 32px;
+            border: 1px solid var(--c-border);
+            border-radius: 4px;
+            background: var(--c-surface);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s;
+        }
+
+        #credit_bond_grade_rule .cell-picker-trigger:hover {
+            border-color: var(--c-border-hover);
+        }
+
+        #credit_bond_grade_rule .cell-picker-trigger.is-active {
+            border-color: var(--c-primary);
+            box-shadow: 0 0 0 2px rgba(39, 67, 164, .08);
+        }
+
+        #credit_bond_grade_rule .cell-picker-tags {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        #credit_bond_grade_rule .cell-picker-placeholder {
+            color: var(--c-placeholder);
+            font-size: 12px;
+        }
+
+        #credit_bond_grade_rule .cell-picker-arrow {
+            color: var(--c-placeholder);
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        #credit_bond_grade_rule .pool-popover-content {
+            width: 100%;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        #credit_bond_grade_rule .pool-tree-search {
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        #credit_bond_grade_rule .pool-tree-scroll {
+            width: 100%;
+            max-height: 220px;
+            overflow-x: hidden;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        #credit_bond_grade_rule .pool-popover-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--c-border);
+        }
+
+        #credit_bond_grade_rule .el-tree {
+            font-family: inherit;
+            background: transparent;
+        }
+
+        #credit_bond_grade_rule .el-tree-node__content {
+            height: 32px;
+            border-radius: 4px;
+        }
+
+        #credit_bond_grade_rule .el-tree-node__content:hover {
+            background: var(--c-bg);
+        }
+
+        #credit_bond_grade_rule .el-checkbox__input.is-checked .el-checkbox__inner,
+        #credit_bond_grade_rule .el-checkbox__input.is-indeterminate .el-checkbox__inner {
+            border-color: var(--c-primary);
+            background-color: var(--c-primary);
+        }
+
+        #credit_bond_grade_rule .el-checkbox__input.is-disabled .el-checkbox__inner {
+            background-color: #F6F6F6;
+            border-color: var(--c-border);
+        }
+
+        #credit_bond_grade_rule .summary-bar {
+            padding: 12px 16px;
+            border-top: 1px solid var(--c-border);
+            background: var(--c-bg);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--c-text-3);
+        }
+
+        #credit_bond_grade_rule .summary-items {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        #credit_bond_grade_rule .el-button {
+            height: 32px;
+            padding: 0 12px;
+            border-radius: 4px !important;
+        }
+
+        #credit_bond_grade_rule .toolbar .el-button {
+            min-width: 72px;
+            font-size: 13px;
+        }
+
+        #credit_bond_grade_rule .el-button--primary {
+            background: var(--c-primary) !important;
+            border-color: var(--c-primary) !important;
+        }
+
+        #credit_bond_grade_rule .el-button--primary:hover,
+        #credit_bond_grade_rule .el-button--primary:focus {
+            background: var(--c-primary-hover) !important;
+            border-color: var(--c-primary-hover) !important;
+        }
+
+        #credit_bond_grade_rule .el-button--default:hover,
+        #credit_bond_grade_rule .el-button--default:focus {
+            color: var(--c-primary);
+            border-color: var(--c-primary);
+            background: var(--c-surface);
+        }
+
+        #credit_bond_grade_rule .el-tag {
+            border-radius: 4px;
+            border-color: transparent;
+            font-weight: 400;
+        }
+
+        #credit_bond_grade_rule .el-tag--small {
+            height: 24px;
+            line-height: 22px;
+        }
+
+        #credit_bond_grade_rule .el-tag--success {
+            color: var(--c-success);
+            background: var(--c-success-light);
+        }
+
+        #credit_bond_grade_rule .el-tag--warning {
+            color: #F5822E;
+            background: #FDE6D5;
+        }
+
+        #credit_bond_grade_rule .el-tag:not(.el-tag--success):not(.el-tag--warning) {
+            color: var(--c-primary);
+            background: var(--c-primary-light);
+        }
+    </style>
+</head>
+<body>
+<div id="credit_bond_grade_rule" class="app-shell" v-cloak>
+    <header class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon"><i class="el-icon-s-operation"></i></div>
+            <h2>主体内评分档规则</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <span class="topbar-date">{{ today }}</span>
+    </header>
+
+    <main class="page-body">
+        <section class="toolbar">
+            <div class="toolbar-main">
+                <div class="toolbar-title"><span class="title-line"></span>信用债大库评级准入矩阵</div>
+            </div>
+            <el-button v-if="!editing" size="small" icon="el-icon-refresh" :loading="loading" @click="loadMatrix">刷新</el-button>
+            <el-button v-if="!editing" size="small" type="primary" icon="el-icon-edit" @click="startEdit">修改</el-button>
+            <el-button v-if="editing" size="small" icon="el-icon-close" @click="cancelEdit">取消</el-button>
+            <el-button v-if="editing" size="small" type="primary" icon="el-icon-check" :loading="saving" @click="saveMatrix">保存</el-button>
+        </section>
+
+        <section class="matrix-wrap" v-loading="loading">
+            <div class="matrix-scroll">
+                <table class="rule-matrix">
+                    <thead>
+                    <tr>
+                        <th class="grade-col head-grade-col" rowspan="2">主体内评分档</th>
+                        <th class="term-group-col" :colspan="termBuckets.length">债券期限（年）</th>
+                    </tr>
+                    <tr>
+                        <th v-for="bucket in termBuckets" :key="bucket.id">
+                            <span class="term-name">{{ bucket.bucketName }}</span>
+                        </th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="grade in ratingGrades" :key="grade.id">
+                        <td class="grade-col">
+                            <div class="grade-name">
+                                <span class="grade-dot"></span>
+                                <span>{{ grade.gradeName }}</span>
+                            </div>
+                        </td>
+                        <td v-for="bucket in termBuckets" :key="bucket.id">
+                            <el-popover
+                                v-if="editing"
+                                placement="bottom-start"
+                                width="300"
+                                trigger="click"
+                                :append-to-body="false"
+                                v-model="poolPickerVisibleMap[cellKey(bucket.id, grade.id)]"
+                                @show="openPoolPicker(bucket.id, grade.id)"
+                                @hide="handlePoolPickerHide(bucket.id, grade.id)">
+                                <div class="pool-popover-content">
+                                    <el-input
+                                        v-model="poolTreeKeyword"
+                                        class="pool-tree-search"
+                                        size="small"
+                                        clearable
+                                        prefix-icon="el-icon-search"
+                                        placeholder="搜索投资池"
+                                        @input="filterPoolTree(bucket.id, grade.id)">
+                                    </el-input>
+                                    <div class="pool-tree-scroll">
+                                        <el-tree
+                                            :ref="'poolTree_' + cellKey(bucket.id, grade.id)"
+                                            :data="poolTreeData"
+                                            node-key="id"
+                                            :props="poolTreeProps"
+                                            show-checkbox
+                                            check-strictly
+                                            default-expand-all
+                                            :filter-node-method="filterPoolNode"
+                                            @check-change="handlePoolTreeCheckChange(bucket.id, grade.id)">
+                                        </el-tree>
+                                    </div>
+                                </div>
+                                <div class="pool-popover-actions">
+                                    <el-button size="mini" @click="cancelPoolPicker(bucket.id, grade.id)">取消</el-button>
+                                    <el-button type="primary" size="mini" @click="confirmPoolPicker(bucket.id, grade.id)">确认</el-button>
+                                </div>
+                                <div
+                                    slot="reference"
+                                    class="cell-picker-trigger"
+                                    :class="{ 'is-active': poolPickerVisibleMap[cellKey(bucket.id, grade.id)] }">
+                                    <div class="cell-picker-tags">
+                                        <template v-if="getCellPools(bucket.id, grade.id).length">
+                                            <span
+                                                v-for="pool in getCellPools(bucket.id, grade.id)"
+                                                :key="pool.poolId"
+                                                class="pool-tag is-editable">
+                                                {{ pool.poolName }}
+                                                <i
+                                                    class="el-icon-close pool-tag-close"
+                                                    @click.stop="removeCellPool(bucket.id, grade.id, pool.poolId)">
+                                                </i>
+                                            </span>
+                                        </template>
+                                        <span v-else class="cell-picker-placeholder">请选择投资池</span>
+                                    </div>
+                                    <i class="el-icon-arrow-down cell-picker-arrow"></i>
+                                </div>
+                            </el-popover>
+                            <div v-if="!editing" class="cell-count">
+                                <span v-if="getCellPools(bucket.id, grade.id).length">
+                                    <span
+                                        v-for="pool in getCellPools(bucket.id, grade.id)"
+                                        :key="pool.poolId"
+                                        class="pool-tag">{{ pool.poolName }}</span>
+                                </span>
+                                <span v-else class="empty-cell">未配置</span>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="summary-bar">
+                <div class="summary-items">
+                    <el-tag size="small">期限 {{ termBuckets.length }} 档</el-tag>
+                    <el-tag size="small" type="success">主体内评分档 {{ ratingGrades.length }} 档</el-tag>
+                    <el-tag size="small" type="warning">关系 {{ totalRuleCount }} 条</el-tag>
+                </div>
+                <div>最后刷新：{{ lastLoadedAt }}</div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+    axios.defaults.baseURL = 'http://localhost:18090'
+
+    Vue.prototype.apiPost = async function(path, body) {
+        const resp = await axios.post(path, body || {})
+        const json = resp.data
+        if (!json.success) {
+            this.$message.error(json.message || '接口异常')
+            throw new Error(json.message || '接口异常')
+        }
+        return json.data
+    }
+
+    new Vue({
+        el: '#credit_bond_grade_rule',
+        data() {
+            return {
+                today: moment().format('YYYY年MM月DD日'),
+                loading: false,
+                saving: false,
+                editing: false,
+                termBuckets: [],
+                ratingGrades: [],
+                poolOptions: [],
+                poolTreeData: [],
+                poolTreeKeyword: '',
+                poolPickerVisibleMap: {},
+                poolPickerOriginalIdsMap: {},
+                poolTreeProps: {
+                    children: 'children',
+                    label: 'poolName',
+                    disabled(data) {
+                        return data.disabled
+                    }
+                },
+                matrixMap: {},
+                originalMatrixMap: {},
+                lastLoadedAt: ''
+            }
+        },
+        computed: {
+            totalRuleCount() {
+                return Object.keys(this.matrixMap).reduce((total, key) => {
+                    const list = this.matrixMap[key] || []
+                    return total + list.length
+                }, 0)
+            }
+        },
+        created() {
+            this.loadMatrix()
+        },
+        methods: {
+            // 生成矩阵单元格键
+            cellKey(termBucketId, ratingGradeId) {
+                return String(termBucketId) + '_' + String(ratingGradeId)
+            },
+            // 复制矩阵映射，避免取消编辑时引用同一个数组
+            cloneMatrixMap(source) {
+                const target = {}
+                Object.keys(source || {}).forEach(key => {
+                    target[key] = (source[key] || []).slice()
+                })
+                return target
+            },
+            // 查询矩阵配置并填充页面
+            async loadMatrix() {
+                this.loading = true
+                try {
+                    const data = await this.apiPost('/api/v1/creditBondGradeRule/queryGradeRuleMatrix', {})
+                    this.termBuckets = data.termBuckets || []
+                    this.ratingGrades = data.ratingGrades || []
+                    this.poolOptions = data.poolOptions || []
+                    this.poolTreeData = this.buildPoolTreeData(this.poolOptions)
+                    this.fillMatrixMap(data.rules || [])
+                    this.originalMatrixMap = this.cloneMatrixMap(this.matrixMap)
+                    this.editing = false
+                    this.lastLoadedAt = moment().format('YYYY-MM-DD HH:mm:ss')
+                } catch (e) {
+                    this.termBuckets = []
+                    this.ratingGrades = []
+                    this.poolOptions = []
+                    this.poolTreeData = []
+                    this.matrixMap = {}
+                    this.originalMatrixMap = {}
+                    this.editing = false
+                }
+                this.loading = false
+            },
+            // 将后端关系列表填充为单元格映射
+            fillMatrixMap(rules) {
+                const map = {}
+                const visibleMap = {}
+                const originalIdsMap = {}
+                this.ratingGrades.forEach(grade => {
+                    this.termBuckets.forEach(bucket => {
+                        const key = this.cellKey(bucket.id, grade.id)
+                        map[key] = []
+                        visibleMap[key] = false
+                        originalIdsMap[key] = []
+                    })
+                })
+                rules.forEach(rule => {
+                    const key = this.cellKey(rule.termBucketId, rule.innerRatingGradeId)
+                    if (!map[key]) {
+                        map[key] = []
+                    }
+                    if (map[key].indexOf(rule.poolId) === -1) {
+                        map[key].push(rule.poolId)
+                    }
+                })
+                this.matrixMap = map
+                this.poolPickerVisibleMap = visibleMap
+                this.poolPickerOriginalIdsMap = originalIdsMap
+            },
+            // 构建信用债大库树，根节点只展示不可选
+            buildPoolTreeData(pools) {
+                return [{
+                    id: 'credit_bond_root',
+                    poolName: '信用债大库',
+                    disabled: true,
+                    children: (pools || []).map(pool => {
+                        return {
+                            id: pool.poolId,
+                            poolName: pool.poolName,
+                            poolFullName: pool.poolFullName || ('信用债大库/' + pool.poolName),
+                            disabled: false,
+                            children: []
+                        }
+                    })
+                }]
+            },
+            // 获取当前单元格树组件引用
+            getPoolTreeRef(key) {
+                const ref = this.$refs['poolTree_' + key]
+                return Array.isArray(ref) ? ref[0] : ref
+            },
+            // 进入矩阵编辑状态
+            startEdit() {
+                this.originalMatrixMap = this.cloneMatrixMap(this.matrixMap)
+                this.editing = true
+            },
+            // 取消编辑并恢复原矩阵
+            cancelEdit() {
+                this.matrixMap = this.cloneMatrixMap(this.originalMatrixMap)
+                this.editing = false
+            },
+            // 打开单元格投资池树选择器
+            openPoolPicker(termBucketId, ratingGradeId) {
+                const key = this.cellKey(termBucketId, ratingGradeId)
+                this.poolTreeKeyword = ''
+                this.$set(this.poolPickerOriginalIdsMap, key, (this.matrixMap[key] || []).slice())
+                this.$nextTick(() => {
+                    const tree = this.getPoolTreeRef(key)
+                    if (tree) {
+                        tree.filter('')
+                        tree.setCheckedKeys(this.matrixMap[key] || [])
+                    }
+                })
+            },
+            // 关闭单元格投资池树选择器后清空搜索
+            handlePoolPickerHide(termBucketId, ratingGradeId) {
+                const key = this.cellKey(termBucketId, ratingGradeId)
+                this.poolTreeKeyword = ''
+                const tree = this.getPoolTreeRef(key)
+                if (tree) {
+                    tree.filter('')
+                }
+            },
+            // 按投资池名称过滤当前树
+            filterPoolTree(termBucketId, ratingGradeId) {
+                const key = this.cellKey(termBucketId, ratingGradeId)
+                const tree = this.getPoolTreeRef(key)
+                if (tree) {
+                    tree.filter(this.poolTreeKeyword.trim())
+                }
+            },
+            // 树节点搜索过滤
+            filterPoolNode(value, data) {
+                if (!value) {
+                    return true
+                }
+                const text = data.poolFullName || data.poolName || ''
+                return String(text).toLowerCase().indexOf(value.toLowerCase()) !== -1
+            },
+            // 取消单元格投资池选择
+            cancelPoolPicker(termBucketId, ratingGradeId) {
+                const key = this.cellKey(termBucketId, ratingGradeId)
+                const originalIds = (this.poolPickerOriginalIdsMap[key] || []).slice()
+                this.$set(this.matrixMap, key, originalIds)
+                this.syncCellTreeCheckedKeys(key)
+                this.$set(this.poolPickerVisibleMap, key, false)
+            },
+            // 确认单元格投资池选择
+            confirmPoolPicker(termBucketId, ratingGradeId) {
+                const key = this.cellKey(termBucketId, ratingGradeId)
+                this.$set(this.poolPickerOriginalIdsMap, key, (this.matrixMap[key] || []).slice())
+                this.$set(this.poolPickerVisibleMap, key, false)
+            },
+            // 树勾选变化时即时同步单元格选择
+            handlePoolTreeCheckChange(termBucketId, ratingGradeId) {
+                const key = this.cellKey(termBucketId, ratingGradeId)
+                const tree = this.getPoolTreeRef(key)
+                const checkedKeys = tree ? this.filterValidPoolIds(tree.getCheckedKeys()) : []
+                this.$set(this.matrixMap, key, checkedKeys)
+            },
+            // 从单元格标签直接移除投资池
+            removeCellPool(termBucketId, ratingGradeId, poolId) {
+                const key = this.cellKey(termBucketId, ratingGradeId)
+                const nextIds = (this.matrixMap[key] || []).filter(id => id !== poolId)
+                this.$set(this.matrixMap, key, nextIds)
+                this.syncCellTreeCheckedKeys(key)
+            },
+            // 同步当前单元格树的勾选状态
+            syncCellTreeCheckedKeys(key) {
+                this.$nextTick(() => {
+                    const tree = this.getPoolTreeRef(key)
+                    if (tree) {
+                        tree.setCheckedKeys(this.matrixMap[key] || [])
+                    }
+                })
+            },
+            // 过滤掉根节点等不可保存的 ID
+            filterValidPoolIds(ids) {
+                const validPoolIds = this.poolOptions.map(pool => pool.poolId)
+                return (ids || []).filter(id => validPoolIds.indexOf(id) !== -1)
+            },
+            // 获取单元格已选择的投资池对象
+            getCellPools(termBucketId, ratingGradeId) {
+                const ids = this.matrixMap[this.cellKey(termBucketId, ratingGradeId)] || []
+                return this.poolOptions.filter(pool => ids.indexOf(pool.poolId) !== -1)
+            },
+            // 展开矩阵映射为接口保存参数
+            collectRules() {
+                const rules = []
+                this.ratingGrades.forEach(grade => {
+                    this.termBuckets.forEach(bucket => {
+                        const ids = this.matrixMap[this.cellKey(bucket.id, grade.id)] || []
+                        ids.forEach(poolId => {
+                            rules.push({
+                                termBucketId: bucket.id,
+                                innerRatingGradeId: grade.id,
+                                poolId
+                            })
+                        })
+                    })
+                })
+                return rules
+            },
+            // 保存矩阵配置
+            async saveMatrix() {
+                this.saving = true
+                try {
+                    const data = await this.apiPost('/api/v1/creditBondGradeRule/editGradeRuleMatrix', {
+                        rules: this.collectRules(),
+                        operatorId: 'system'
+                    })
+                    this.termBuckets = data.termBuckets || []
+                    this.ratingGrades = data.ratingGrades || []
+                    this.poolOptions = data.poolOptions || []
+                    this.poolTreeData = this.buildPoolTreeData(this.poolOptions)
+                    this.fillMatrixMap(data.rules || [])
+                    this.originalMatrixMap = this.cloneMatrixMap(this.matrixMap)
+                    this.editing = false
+                    this.lastLoadedAt = moment().format('YYYY-MM-DD HH:mm:ss')
+                    this.$message.success('主体内评分档规则已保存')
+                } catch (e) {
+                    this.$message.error('保存主体内评分档规则失败')
+                }
+                this.saving = false
+            }
+        }
+    })
+</script>
+</body>
+</html>
