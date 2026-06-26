@@ -123,12 +123,13 @@
         #batch_security_pool_adjust .inline-material-body .el-upload { flex-shrink:0; }
         #batch_security_pool_adjust .selected-list,
         #batch_security_pool_adjust .file-list,
-        #batch_security_pool_adjust .report-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-        #batch_security_pool_adjust .inline-material-body .file-list,
-        #batch_security_pool_adjust .inline-material-body .report-list { flex:1; min-width:180px; margin-top:0; }
+        #batch_security_pool_adjust .report-list,
+        #batch_security_pool_adjust .material-chip-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+        #batch_security_pool_adjust .material-chip-list { flex:1 1 100%; min-width:0; margin-top:0; }
         #batch_security_pool_adjust .selected-list.scrollable,
         #batch_security_pool_adjust .file-list.scrollable,
-        #batch_security_pool_adjust .report-list.scrollable { max-height:132px; overflow-y:auto; padding-right:4px; }
+        #batch_security_pool_adjust .report-list.scrollable,
+        #batch_security_pool_adjust .material-chip-list.scrollable { max-height:132px; overflow-y:auto; padding-right:4px; }
         #batch_security_pool_adjust .selected-list.scrollable { max-height:170px; }
         #batch_security_pool_adjust .file-chip,
         #batch_security_pool_adjust .selected-chip,
@@ -139,9 +140,15 @@
         }
         #batch_security_pool_adjust .file-chip { border-color:var(--c-border); background:var(--c-bg); color:var(--c-text-2); }
         #batch_security_pool_adjust .report-chip.external { border-color:var(--c-amber-l); background:var(--c-amber-l); color:var(--c-amber); }
-        #batch_security_pool_adjust .file-chip span,
+        #batch_security_pool_adjust .file-chip .chip-title,
         #batch_security_pool_adjust .selected-chip span,
-        #batch_security_pool_adjust .report-chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        #batch_security_pool_adjust .report-chip .chip-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        #batch_security_pool_adjust .source-badge {
+            flex:0 0 auto; min-width:18px; height:18px; padding:0 5px; border-radius:2px;
+            display:inline-flex; align-items:center; justify-content:center;
+            background:rgba(255,255,255,.7); color:inherit; font-size:12px; line-height:18px;
+        }
+        #batch_security_pool_adjust .file-chip .source-badge { background:#eef2f7; color:var(--c-text-2); }
         #batch_security_pool_adjust .file-chip i,
         #batch_security_pool_adjust .report-chip i {
             display:inline-flex; align-items:center; justify-content:center;
@@ -550,14 +557,16 @@
                                                multiple :show-file-list="false" :on-change="handleCreditReportFileChange" @click.native.stop>
                                         <el-button size="small" icon="el-icon-upload2">上传附件</el-button>
                                     </el-upload>
-                                    <div v-if="selectedCreditReports.length" class="report-list scrollable">
+                                    <div v-if="selectedCreditReports.length || creditReportFiles.length" class="material-chip-list scrollable">
                                         <span v-for="item in selectedCreditReports" :key="item.source + item.id" class="report-chip" :class="item.source">
-                                            <span>{{ item.title }}</span><i class="el-icon-close" @click.stop="removeCreditReport(item)"></i>
+                                            <span class="chip-title">{{ item.title }}</span>
+                                            <span class="source-badge" :title="item.source === 'internal' ? '内部报告' : '外部报告'">{{ item.source === 'internal' ? '内' : '外' }}</span>
+                                            <i class="el-icon-close" @click.stop="removeCreditReport(item)"></i>
                                         </span>
-                                    </div>
-                                    <div v-if="creditReportFiles.length" class="file-list scrollable">
                                         <span v-for="(item,index) in creditReportFiles" :key="item.uid || item.name" class="file-chip" @click="downloadLocalFile(item)">
-                                            <span>{{ item.name }}</span><i class="el-icon-close" @click.stop="removeCreditReportFile(index)"></i>
+                                            <span class="chip-title">{{ item.name }}</span>
+                                            <span class="source-badge" title="手工上传">手</span>
+                                            <i class="el-icon-close" @click.stop="removeCreditReportFile(index)"></i>
                                         </span>
                                     </div>
                                 </div>
@@ -573,14 +582,16 @@
                                                multiple :show-file-list="false" :on-change="handleMaterialFileChange" @click.native.stop>
                                         <el-button size="small" icon="el-icon-upload2">上传附件</el-button>
                                     </el-upload>
-                                    <div v-if="selectedMaterialReports.length" class="report-list scrollable">
+                                    <div v-if="selectedMaterialReports.length || materialFiles.length" class="material-chip-list scrollable">
                                         <span v-for="item in selectedMaterialReports" :key="item.source + item.id" class="report-chip" :class="item.source">
-                                            <span>{{ item.title }}</span><i class="el-icon-close" @click.stop="removeMaterialReport(item)"></i>
+                                            <span class="chip-title">{{ item.title }}</span>
+                                            <span class="source-badge" :title="item.source === 'internal' ? '内部报告' : '外部报告'">{{ item.source === 'internal' ? '内' : '外' }}</span>
+                                            <i class="el-icon-close" @click.stop="removeMaterialReport(item)"></i>
                                         </span>
-                                    </div>
-                                    <div v-if="materialFiles.length" class="file-list scrollable">
                                         <span v-for="(item,index) in materialFiles" :key="item.uid || item.name" class="file-chip" @click="downloadLocalFile(item)">
-                                            <span>{{ item.name }}</span><i class="el-icon-close" @click.stop="removeMaterialFile(index)"></i>
+                                            <span class="chip-title">{{ item.name }}</span>
+                                            <span class="source-badge" title="手工上传">手</span>
+                                            <i class="el-icon-close" @click.stop="removeMaterialFile(index)"></i>
                                         </span>
                                     </div>
                                 </div>
