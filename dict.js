@@ -35,13 +35,13 @@ const DICT_AUDIT_STATUS = {
     '11': '驳回待修改',   // 一级审核驳回，发起人可修改后重新提交
     '20': '审批通过',     // 二级审批通过，证券已入池/已生效
     '21': '审批驳回',     // 二级审批驳回，流程终止
-    '32': 'O32自动审批',  // 审批通过后进入 O32 自动审批节点
+    '32': 'O32自动审批',  // 预留：当前自动审批节点通过后落地为 '20'，此 code 运行时不直接写入
     '99': '发起人已撤回', // 发起人主动撤回，流程终止
 };
 
 // audit_status → el-tag type（用于 <el-tag :type="...">）
 const DICT_AUDIT_STATUS_TAG_TYPE = {
-    '-1': 'info',
+    '-1': 'danger',
     '00': 'warning',
     '10': 'success',
     '11': 'warning',
@@ -159,8 +159,8 @@ const DICT_REPORT_RESTRICTION = {
 
 // ── 12. 证券存续状态（bond_status）───────────────────────
 // 前端查询条件，根据到期日与当前日期比较计算
-// 注意：security_pool_adjust_history/forbidden_pool_query 使用中文值，
-//       security_pool_query 使用英文值，建议统一为英文值
+// 注意：forbidden_pool_query 使用中文值（存续/到期），
+//       security_pool_query 使用英文值（active/matured），建议统一为英文值
 const DICT_BOND_STATUS = {
     'active':  '存续',
     'matured': '到期',
@@ -362,14 +362,15 @@ const DICT_CURRENCY = {
     'EUR': '欧元',
 };
 
-// ── 27. 交易场所（市场代码）──────────────────────────────
+// ── 27. 交易场所（市场代码，与后端 MarketCode 枚举一致）──────────────────────────────
 // 前端规则参数选项、证券信息查询筛选
 const DICT_EXCHANGE = {
-    '银行间': '银行间市场（CIBM）',
-    '上交所': '上海证券交易所（SSE）',
-    '深交所': '深圳证券交易所（SZSE）',
-    '北交所': '北京证券交易所（BSE）',
-    'OTC':    '场外柜台（OTC）',
+    'SSE':     '上海证券交易所',
+    'SZSE':    '深圳证券交易所',
+    'CIBM':    '银行间市场',
+    'OTC':     '场外市场',
+    'JWCW':    'JWCW 市场',
+    'UNKNOWN': '未知市场',
 };
 
 
@@ -378,18 +379,20 @@ const DICT_EXCHANGE = {
 // ════════════════════════════════════════════════════════════
 
 // ── 28. 流程状态（status）────────────────────────────────
-// 表：wf_flow_definition, wf_flow_version
+// 表：wf_flow_definition, wf_flow_version（与 flow_definition.html 实际用法对齐）
 const DICT_FLOW_STATUS = {
-    'draft':    '草稿',   // 新建未发布
-    'active':   '已发布', // 当前生效版本
-    'disabled': '已停用', // 停止使用
+    'draft':    '未发布',   // 新建未发布
+    'active':   '已发布',   // 当前生效版本
+    'disabled': '已停用',   // 停止使用
+    'archived': '已归档',   // 历史版本归档（页面使用，后端枚举无）
 };
 
 // flow_status → el-tag type
 const DICT_FLOW_STATUS_TAG_TYPE = {
-    'draft':    'info',
+    'draft':    'warning',
     'active':   'success',
-    'disabled': 'danger',
+    'disabled': 'info',
+    'archived': 'info',
 };
 
 // ── 29. 流程业务分类（category）──────────────────────────
