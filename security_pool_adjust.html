@@ -582,6 +582,9 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 4px;
         }
         #security_pool_adjust .flow-option-card {
             display: block;
@@ -1468,6 +1471,29 @@
         .project-date-range-picker .el-date-table td.end-date span { background-color:#2743A4; color:#FFFFFF; }
         .project-date-range-picker .el-picker-panel__icon-btn:hover,
         .project-date-range-picker .el-date-range-picker__header div:hover { color:#2743A4; }
+
+        /* 审批流程下拉框选项（对齐批量调库） */
+        .batch-flow-select-dropdown .el-select-dropdown__item {
+            display:flex; align-items:center; justify-content:space-between; gap:12px; height:36px;
+            padding:0 12px; color:#3F485A; font-size:13px;
+        }
+        .batch-flow-select-dropdown .el-select-dropdown__item.hover,
+        .batch-flow-select-dropdown .el-select-dropdown__item:hover { background:#F7F8FA; }
+        .batch-flow-select-dropdown .el-select-dropdown__item.selected { color:#2743A4; font-weight:600; }
+        .batch-flow-select-dropdown .el-select-dropdown__item.is-disabled { background:#FFFFFF; color:#CCCCCC; cursor:not-allowed; }
+        .batch-flow-select-dropdown .batch-flow-option-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .batch-flow-select-dropdown .batch-flow-type-tag {
+            display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+            min-width:38px; height:20px; padding:0 6px; border:1px solid #E5E5E5; border-radius:2px;
+            background:#F7F8FA; color:#707783; font-size:11px; font-weight:400; line-height:18px;
+        }
+        .batch-flow-select-dropdown .batch-flow-type-tag.is-whitelist { border-color:#CDEFE3; background:#E7F9F3; color:#07865F; }
+        .batch-flow-select-dropdown .batch-flow-type-tag.is-simple { border-color:#D8DEF2; background:#E9ECF6; color:#2743A4; }
+        .batch-flow-select-dropdown .batch-flow-type-tag.is-normal { border-color:#DDE3F0; background:#F1F3F8; color:#4D6CA0; }
+        .batch-flow-select-dropdown .batch-flow-type-tag.is-upgrade { border-color:#EADAC7; background:#FFF7ED; color:#A7865F; }
+        .batch-flow-select-dropdown .batch-flow-type-tag.is-downgrade { border-color:#F8D9C1; background:#FDE6D5; color:#C86520; }
+        .batch-flow-select-dropdown .batch-flow-type-tag.is-outbound { border-color:#FFD2D1; background:#FFEDEC; color:#D93633; }
+        .batch-flow-select-dropdown .el-select-dropdown__item.is-disabled .batch-flow-type-tag { border-color:#E5E5E5; background:#F7F8FA; color:#CCCCCC; }
     </style>
 </head>
 <body style="margin:0;padding:0;">
@@ -2083,9 +2109,16 @@
                                 <el-tag class="adjust-direction-tag" size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="flowName" label="审批流程" min-width="170" show-overflow-tooltip>
+                        <el-table-column label="审批流程" min-width="210">
                             <template slot-scope="{ row }">
-                                <span v-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
+                                <el-select v-if="row.valid && row.itemTag === 'manual'" v-model="row.selectedFlowKey" size="small" placeholder="请选择流程"
+                                           popper-class="batch-flow-select-dropdown" style="width:190px;" @change="handleRowFlowChange(row)">
+                                    <el-option v-for="option in row.flowOptions" :key="option.optionKey" :label="option.flowName" :value="option.optionKey" :disabled="!option.selectable">
+                                        <span class="batch-flow-option-name">{{ option.flowName }}</span>
+                                        <span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">{{ flowTypeLabel(option.flowType) }}</span>
+                                    </el-option>
+                                </el-select>
+                                <span v-else-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
                                     <el-tag v-if="row.flowType" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
                                     <span>{{ row.flowName }}</span>
                                 </span>
@@ -3258,6 +3291,19 @@
                 if (type === 'downgradeInbound') return 'warning';
                 if (type === 'normalOutbound') return 'danger';
                 return 'info';
+            },
+
+            // 流程类型下拉框配色 class
+            flowTypeClass(type) {
+                const map = {
+                    whitelistInbound: 'whitelist',
+                    simpleInbound: 'simple',
+                    normalInbound: 'normal',
+                    upgradeInbound: 'upgrade',
+                    downgradeInbound: 'downgrade',
+                    normalOutbound: 'outbound'
+                };
+                return map[type] || 'standard';
             },
 
             // 流程候选标签样式

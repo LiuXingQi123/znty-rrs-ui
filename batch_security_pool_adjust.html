@@ -403,6 +403,33 @@
             #batch_security_pool_adjust .candidate-filters { margin-left:0; }
             #batch_security_pool_adjust .total-badge { margin-left:0; }
         }
+
+        /* 调库流程确认弹窗（与证券池调库一致） */
+        #batch_security_pool_adjust .flow-dialog .el-dialog__header { padding:14px 24px; border-bottom:1px solid var(--c-border); background:var(--c-surface); }
+        #batch_security_pool_adjust .flow-dialog .el-dialog__title { font-size:15px; font-weight:700; color:var(--c-text); }
+        #batch_security_pool_adjust .flow-dialog .el-dialog__body { padding:20px 24px; }
+        #batch_security_pool_adjust .flow-dialog .el-dialog__footer { padding:12px 24px 20px; border-top:1px solid var(--c-border); background:var(--c-surface); }
+        #batch_security_pool_adjust .flow-option-list { display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px; }
+        #batch_security_pool_adjust .flow-option-card { display:block; margin-right:0; padding:12px 14px; border:1px solid var(--c-border); border-radius:var(--r); background:var(--c-surface); transition:border-color .18s, box-shadow .18s, background .18s; }
+        #batch_security_pool_adjust .flow-option-card:hover { border-color:var(--c-primary); background:var(--c-surface); box-shadow:none; }
+        #batch_security_pool_adjust .flow-option-card.is-selected { border-color:var(--c-primary); background:var(--c-surface); box-shadow:none; }
+        #batch_security_pool_adjust .flow-row-card { border-width:1.5px; border-color:var(--c-border); background:var(--c-surface); }
+        #batch_security_pool_adjust .flow-row-card.flow-row-color-0 { border-color:rgba(39,67,164,.34); background:var(--c-surface); }
+        #batch_security_pool_adjust .flow-row-card.flow-row-color-1 { border-color:rgba(10,138,90,.30); background:var(--c-surface); }
+        #batch_security_pool_adjust .flow-row-card.flow-row-color-2 { border-color:rgba(176,94,0,.30); background:var(--c-surface); }
+        #batch_security_pool_adjust .flow-row-card.flow-row-color-3 { border-color:rgba(123,77,214,.30); background:var(--c-surface); }
+        #batch_security_pool_adjust .flow-row-card.flow-row-color-4 { border-color:rgba(0,142,163,.28); background:var(--c-surface); }
+        #batch_security_pool_adjust .flow-choice-card { margin-top:8px; border-left-width:3px; background:#FFFFFF; }
+        #batch_security_pool_adjust .flow-choice-card.is-selected { border-color:var(--c-primary); background:var(--c-primary-l); box-shadow:none; }
+        #batch_security_pool_adjust .flow-choice-card.is-disabled { opacity:.76; background:var(--c-bg); }
+        #batch_security_pool_adjust .flow-option-card .el-radio__label { display:inline-block; width:calc(100% - 22px); vertical-align:top; padding-left:8px; }
+        #batch_security_pool_adjust .flow-option-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-height:22px; }
+        #batch_security_pool_adjust .flow-option-name { font-size:13px; font-weight:600; color:#242933; line-height:22px; letter-spacing:0; }
+        #batch_security_pool_adjust .flow-pool-name { color:#242933; font-size:13px; font-weight:600; line-height:22px; letter-spacing:0; }
+        #batch_security_pool_adjust .flow-option-reasons { margin-top:7px; display:flex; flex-direction:column; gap:3px; }
+        #batch_security_pool_adjust .flow-option-reason { font-size:11.5px; line-height:1.5; color:var(--c-text-3); white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+        #batch_security_pool_adjust .flow-option-reason.ok { color:var(--c-green); }
+        #batch_security_pool_adjust .flow-option-reason.warn { color:var(--c-amber); }
     </style>
 </head>
 <body>
@@ -771,6 +798,53 @@
         </template>
     </div>
 
+    <!-- 选择调库流程确认弹窗（与证券池调库保持一致） -->
+    <el-dialog title="选择调库流程" :visible.sync="flowDialogVisible" width="760px"
+               custom-class="flow-dialog" :close-on-click-modal="false" :show-close="false">
+        <div class="flow-option-list">
+            <div v-for="(row, rowIndex) in validManualAdjustReviewList" :key="row.securityCode + '_' + row.poolId + '_' + rowIndex"
+                 class="flow-option-card flow-row-card"
+                 :class="getFlowRowColorClass(rowIndex)">
+                <div class="flow-option-head">
+                    <span class="flow-option-name flow-pool-name">{{ row.securityShortName }}（{{ row.securityCode }}）</span>
+                    <el-tag size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
+                </div>
+                <el-radio-group v-model="row.selectedFlowKey" style="width:100%;margin-top:10px;" @change="handleRowFlowChange(row)">
+                    <el-radio v-for="option in row.flowOptions" :key="option.optionKey"
+                              :label="option.optionKey"
+                              :disabled="!option.selectable"
+                              class="flow-option-card flow-choice-card"
+                              :class="{ 'is-selected': row.selectedFlowKey === option.optionKey, 'is-disabled': !option.selectable }">
+                        <div class="flow-option-head">
+                            <span class="flow-option-name">{{ option.flowName }}</span>
+                            <el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag>
+                            <el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag>
+                            <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
+                        </div>
+                        <div class="flow-option-reasons">
+                            <div v-for="(reason, idx) in option.matchReasons"
+                                 :key="'m_' + option.optionKey + '_' + idx"
+                                 class="flow-option-reason ok">{{ reason }}</div>
+                            <div v-for="(reason, idx) in option.unmatchReasons"
+                                 :key="'u_' + option.optionKey + '_' + idx"
+                                 class="flow-option-reason warn">{{ reason }}</div>
+                        </div>
+                    </el-radio>
+                </el-radio-group>
+            </div>
+            <div v-if="validManualAdjustReviewList.length === 0" style="color:var(--c-text-3);font-size:13px;">
+                暂无可选择流程的手工调库项
+            </div>
+        </div>
+        <span slot="footer">
+            <el-button size="small" :disabled="submitLoading" @click="flowDialogVisible = false">取消</el-button>
+            <el-button type="primary" size="small"
+                       :disabled="!allValidRowsHaveFlow || submitLoading"
+                       :loading="submitLoading"
+                       @click="confirmFlowSelection">确认</el-button>
+        </span>
+    </el-dialog>
+
     <el-dialog :title="reportDialogTitle" :visible.sync="reportDialogVisible" width="960px"
                custom-class="report-dialog" top="6vh" @closed="handleReportDialogClosed">
         <div class="report-stats-bar">
@@ -1055,6 +1129,7 @@
                 materialCardExpanded: true,              // 调整材料展开状态
                 checkLoading: false,                     // 下一步校验加载状态
                 submitLoading: false,                    // 提交加载状态
+                flowDialogVisible: false,                // 调库流程确认弹窗显示状态
                 searchForm: { poolIds: [] },             // 投资池筛选条件
                 pagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 投资池分页
                 treeProps: {
@@ -1583,7 +1658,7 @@
                 this.adjustStep = 1
             },
 
-            // 提交批量调库申请
+            // 提交批量调库申请：先弹窗确认调库流程，再执行提交
             async submitAdjust() {
                 if (this.validCount === 0) {
                     this.$message.warning('没有可提交的' + this.directionLabel + '申请，请检查校验结果')
@@ -1593,6 +1668,17 @@
                     this.$message.warning('请为所有可提交的手工调整项选择审批流程')
                     return
                 }
+                this.flowDialogVisible = true
+            },
+
+            // 确认调库流程后执行提交
+            async confirmFlowSelection() {
+                if (this.submitLoading) return
+                if (!this.allValidRowsHaveFlow) {
+                    this.$message.warning('请为所有可提交的手工调整项选择审批流程')
+                    return
+                }
+                this.flowDialogVisible = false
                 this.submitLoading = true
                 try {
                     const submitFiles = []
@@ -1677,6 +1763,19 @@
                     normalOutbound: 'outbound'
                 }
                 return map[type] || 'standard'
+            },
+
+            // 流程弹窗行配色 class（循环 5 色）
+            getFlowRowColorClass(index) {
+                return 'flow-row-color-' + (index % 5)
+            },
+
+            // 流程候选项 el-tag type
+            getFlowOptionTagType(option) {
+                if (!option) return 'info'
+                if (option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound') return 'success'
+                if (option.flowType === 'downgradeInbound') return 'warning'
+                return 'info'
             },
 
 
