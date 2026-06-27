@@ -2073,7 +2073,11 @@
                             </template>
                         </el-table-column>
                         <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
-                        <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center"></el-table-column>
+                        <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.adjustType" size="mini" :type="adjustTypeTagType(row.adjustType)">{{ row.adjustType }}</el-tag>
+                    </template>
+                </el-table-column>
                         <el-table-column prop="direction" label="调整方向" min-width="90" align="center">
                             <template slot-scope="{ row }">
                                 <el-tag class="adjust-direction-tag" size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
@@ -2082,7 +2086,7 @@
                         <el-table-column prop="flowName" label="审批流程" min-width="170" show-overflow-tooltip>
                             <template slot-scope="{ row }">
                                 <span v-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
-                                    <el-tag size="mini" type="info">{{ flowTypeLabel(row.flowType) }}</el-tag>
+                                    <el-tag v-if="row.flowType" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
                                     <span>{{ row.flowName }}</span>
                                 </span>
                                 <span v-else></span>
@@ -2295,7 +2299,7 @@
                         </el-table-column>
                         <el-table-column prop="reportType" label="报告类型" min-width="120">
                             <template slot-scope="{ row }">
-                                <span class="report-type-tag" :class="getReportTypeClass(row.reportType)">{{ reportTypeLabel(row.reportType) }}</span>
+                                <el-tag v-if="row.reportType" size="mini" :type="reportTypeTagType(row.reportType)">{{ reportTypeLabel(row.reportType) }}</el-tag>
                             </template>
                         </el-table-column>
                         <el-table-column prop="securityCode" label="证券编码" min-width="120">
@@ -2309,7 +2313,9 @@
                             </template>
                         </el-table-column>
                         <el-table-column prop="securityType" label="证券类型" min-width="120">
-                            <template slot-scope="{ row }">{{ reportSecurityTypeLabel(row.securityType) }}</template>
+                            <template slot-scope="{ row }">
+                                <el-tag v-if="row.securityType" size="mini" type="info">{{ reportSecurityTypeLabel(row.securityType) }}</el-tag>
+                            </template>
                         </el-table-column>
                         <el-table-column label="附件" min-width="150">
                             <template slot-scope="{ row }">
@@ -2397,7 +2403,7 @@
                         <el-table-column prop="sourceOrgName" label="来源机构" min-width="120" show-overflow-tooltip></el-table-column>
                         <el-table-column prop="reportType" label="报告类型" min-width="120">
                             <template slot-scope="{ row }">
-                                <span class="report-type-tag" :class="getReportTypeClass(row.reportType)">{{ reportTypeLabel(row.reportType) }}</span>
+                                <el-tag v-if="row.reportType" size="mini" :type="reportTypeTagType(row.reportType)">{{ reportTypeLabel(row.reportType) }}</el-tag>
                             </template>
                         </el-table-column>
                         <el-table-column prop="securityCode" label="证券编码" min-width="120">
@@ -2411,7 +2417,9 @@
                             </template>
                         </el-table-column>
                         <el-table-column prop="securityType" label="证券类型" min-width="120">
-                            <template slot-scope="{ row }">{{ reportSecurityTypeLabel(row.securityType) }}</template>
+                            <template slot-scope="{ row }">
+                                <el-tag v-if="row.securityType" size="mini" type="info">{{ reportSecurityTypeLabel(row.securityType) }}</el-tag>
+                            </template>
                         </el-table-column>
                         <el-table-column label="附件" min-width="150">
                             <template slot-scope="{ row }">
@@ -2683,6 +2691,13 @@
             this.loadList();
         },
         methods: {
+            // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
+            adjustTypeTagType(adjustType) {
+                if (adjustType === '联动调整') return 'warning'
+                if (adjustType === '互斥调整') return 'danger'
+                return 'info'
+            },
+
             // 统一 POST 请求封装，后端返回 { code, data, message }，code≠0 时弹错误提示并抛异常
             async apiPost(path, body, config) {
                 const resp = await axios.post(path, body || {}, config || {});
@@ -3237,6 +3252,14 @@
                 return map[type] || '标准';
             },
 
+            // 流程类型对应的 el-tag type：白名单/简易 success、下调 warning、调出 danger、其他 info
+            flowTypeTagType(type) {
+                if (type === 'whitelistInbound' || type === 'simpleInbound') return 'success';
+                if (type === 'downgradeInbound') return 'warning';
+                if (type === 'normalOutbound') return 'danger';
+                return 'info';
+            },
+
             // 流程候选标签样式
             getFlowOptionTagType(option) {
                 if (!option) return 'info';
@@ -3763,6 +3786,15 @@
                     other_report: 'type-default'
                 };
                 return map[type] || 'type-default';
+            },
+
+            // 报告类型对应的 el-tag type：评级 success / 风险 danger / 研究 warning / 其他 info
+            reportTypeTagType(type) {
+                const cls = this.getReportTypeClass(type);
+                if (cls === 'type-rating') return 'success';
+                if (cls === 'type-risk') return 'danger';
+                if (cls === 'type-research') return 'warning';
+                return 'info';
             },
 
             // 确认选择

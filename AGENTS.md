@@ -467,12 +467,47 @@ methods: {
 | 16 | 把原有业务效果改成低配版本 | 降低页面信息完整性和交互质量 |
 | 17 | 复制切图导出的绝对定位 DOM 作为业务页面实现 | 不符合 Vue2 + ElementUI 落地方式 |
 | 18 | 为逐像素复刻设计稿而大量改写 ElementUI 复杂组件内部结构 | 维护成本高，容易破坏组件稳定性 |
+| 19 | 表格中状态、类型、方向、评级等枚举字段不使用 el-tag，改用纯文本或自定义 span class | 破坏同类字段一致性，无法统一配色，偏离 ElementUI 落地原则 |
 
 ---
 
 ## 显示规范
 
 - 字段、表格单元格、详情项为空时直接显示空白，不使用 `-`、`--` 等占位符；空列表/空表格的 `empty-text` 可继续使用“暂无数据”等文案。
+
+### 表格枚举字段（状态 / 类型 / 方向 / 评级）
+
+表格中**枚举类字段**（证券状态、证券类型、调整方向、审核/步骤状态、评级、市场、报告类型、业务分类等有限可数取值）一律使用 `<el-tag size="mini">` 展示，**禁止**用纯文本 `{{ }}` 或自定义 `span class` 模拟标签。自由文本字段（名称、代码、日期、原因、描述、数值等）不套 tag，保持原样。
+
+**配色原则（复用各页既有 helper，不新造配色）：**
+
+| 字段类别 | 配色（el-tag type） | 说明 |
+|---|---|---|
+| 状态类（审核/步骤/执行结果） | 通过 `success` / 待审 `warning` / 驳回 `danger` / 其他 `info` | 走 `auditStatusType()` / `stepStatusType()` 等helper |
+| 调整类型 | 手工调整 `info` / 联动调整 `warning` / 互斥调整 `danger` | 走 `adjustTypeTagType()`，按语义差异化 |
+| 流程类型 | 白名单/简易 `success` / 下调 `warning` / 调出 `danger` / 默认调入 `info` | 走 `flowTypeTagType()`，按值差异化 |
+| 报告类型 | 评级/行业 `success` / 研究/宏观 `warning` / 风险 `danger` / 跟踪/其他 `info` | 走 `reportTypeTagType()`，按值差异化 |
+| 类型/分类/市场（证券类型、规则分类、市场） | `info`（主色浅底） | 中性分类，统一 info |
+| 方向（调入/调出） | 调入 `success` / 调出 `danger` | 项目基准配色 |
+| 评级（证券评级/主体评级） | 证券评级 `success` / 主体评级 默认 | 沿用既有写法 |
+
+**约定：**
+- 空值不显示 tag，用 `v-if` 守卫：`<el-tag v-if="row.xxx" size="mini" :type="xxxType(row.xxx)">{{ xxxLabel(row.xxx) }}</el-tag>`。
+- 标签文案统一走前端字典 helper（`xxxLabel` / `xxxName`），后端只返回 code。
+- 同一字段在全站表格中配色必须一致，新增枚举值时同步更新 helper。
+
+```html
+<!-- ✅ -->
+<el-table-column label="审核状态" min-width="110" align="center">
+  <template slot-scope="{ row }">
+    <el-tag v-if="row.auditStatus" size="mini" :type="auditStatusType(row.auditStatus)">{{ auditStatusLabel(row.auditStatus) }}</el-tag>
+  </template>
+</el-table-column>
+
+<!-- ❌ 纯文本或自定义 span -->
+<template slot-scope="{ row }">{{ auditStatusLabel(row.auditStatus) }}</template>
+<span class="status-badge" :class="'is-' + row.auditStatus">{{ ... }}</span>
+```
 
 ---
 
