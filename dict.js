@@ -88,6 +88,7 @@ const DICT_POOL_TYPE = {
     'offshore_bond':     '境外债',   // 境外债库
     'convertible_bond':  '转债',     // 可转债/可交换债库
     'special_account':   '专户产品', // 专户产品库及子库
+    'crmw':              'CRMW库',
     'forbidden':         '禁投池',   // 禁止交易池
     'research':          '研究池',
     'fund':              '基金池',
