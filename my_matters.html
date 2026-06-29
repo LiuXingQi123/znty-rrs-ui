@@ -204,7 +204,7 @@
                 <el-tab-pane label="待处理" name="pending"></el-tab-pane>
                 <el-tab-pane label="已完成" name="completed"></el-tab-pane>
             </el-tabs>
-            <el-table :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无事宜">
+            <el-table ref="mattersTableRef" :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无事宜">
                 <el-table-column label="序号" width="50" align="center">
                     <template slot-scope="{ $index }">
                         {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
@@ -303,6 +303,18 @@ new Vue({
         axios.defaults.baseURL = 'http://localhost:18090';
         this.loadFlowOptions();
         this.loadList();
+        this.handleWindowResize = () => {
+            window.clearTimeout(this.resizeLayoutTimer);
+            this.resizeLayoutTimer = window.setTimeout(() => {
+                // 窗口尺寸变化后同步所有表格固定列布局
+                this.refreshAllTableLayout();
+            }, 120);
+        };
+        window.addEventListener('resize', this.handleWindowResize);
+    },
+    beforeDestroy() {
+        window.removeEventListener('resize', this.handleWindowResize);
+        window.clearTimeout(this.resizeLayoutTimer);
     },
     methods: {
         // API 请求封装
@@ -402,6 +414,39 @@ new Vue({
                 this.pagination.total = data.total || 0;
             } catch (e) {}
             this.loading = false;
+            // 数据渲染后同步列表固定列布局
+            this.refreshTableLayout('mattersTableRef');
+        },
+
+        // 重新计算指定表格固定列布局
+        refreshTableLayout(refName) {
+            this.$nextTick(() => {
+                window.requestAnimationFrame(() => {
+                    const table = this.$refs[refName];
+                    if (table) {
+                        table.doLayout();
+                        window.setTimeout(() => table.doLayout(), 80);
+                        window.setTimeout(() => table.doLayout(), 180);
+                    }
+                });
+            });
+        },
+
+        // 重新计算当前页面所有表格固定列布局
+        refreshAllTableLayout() {
+            this.$nextTick(() => {
+                window.requestAnimationFrame(() => {
+                    Object.keys(this.$refs).forEach(refName => {
+                        const ref = this.$refs[refName];
+                        const table = Array.isArray(ref) ? ref[0] : ref;
+                        if (table && typeof table.doLayout === 'function') {
+                            table.doLayout();
+                            window.setTimeout(() => table.doLayout(), 80);
+                            window.setTimeout(() => table.doLayout(), 180);
+                        }
+                    });
+                });
+            });
         },
 
         // 触发查询

@@ -2210,6 +2210,18 @@
             this.loadPresetSets();
             this.loadRules();
             this.loadTestCases();
+            this.handleWindowResize = () => {
+                window.clearTimeout(this.resizeLayoutTimer);
+                this.resizeLayoutTimer = window.setTimeout(() => {
+                    // 窗口尺寸变化后同步所有表格固定列布局
+                    this.refreshAllTableLayout();
+                }, 120);
+            };
+            window.addEventListener('resize', this.handleWindowResize);
+        },
+        beforeDestroy() {
+            window.removeEventListener('resize', this.handleWindowResize);
+            window.clearTimeout(this.resizeLayoutTimer);
         },
         methods: {
             // ==================== API 请求基础方法 ====================
@@ -2255,13 +2267,47 @@
                     console.error('加载规则失败:', e);
                 }
                 this.ruleLoading = false;
+                // 数据渲染后同步规则列表固定列布局
+                this.refreshTableLayout('ruleTable');
             },
             // 切换到规则列表
             showRuleList() {
                 this.currentPage = 'rules';
                 // 在浏览器绘制前重新计算当前表格列宽
-                this.$nextTick(() => this.$refs.ruleTable.doLayout());
+                this.refreshTableLayout('ruleTable');
             },
+
+            // 重新计算指定表格固定列布局
+            refreshTableLayout(refName) {
+                this.$nextTick(() => {
+                    window.requestAnimationFrame(() => {
+                        const table = this.$refs[refName];
+                        if (table) {
+                            table.doLayout();
+                            window.setTimeout(() => table.doLayout(), 80);
+                            window.setTimeout(() => table.doLayout(), 180);
+                        }
+                    });
+                });
+            },
+
+            // 重新计算当前页面所有表格固定列布局
+            refreshAllTableLayout() {
+                this.$nextTick(() => {
+                    window.requestAnimationFrame(() => {
+                        Object.keys(this.$refs).forEach(refName => {
+                            const ref = this.$refs[refName];
+                            const table = Array.isArray(ref) ? ref[0] : ref;
+                            if (table && typeof table.doLayout === 'function') {
+                                table.doLayout();
+                                window.setTimeout(() => table.doLayout(), 80);
+                                window.setTimeout(() => table.doLayout(), 180);
+                            }
+                        });
+                    });
+                });
+            },
+
             // 查询规则列表
             handleRuleSearch() {
                 this.rulePagination.pageIndex = 1;
@@ -2301,12 +2347,14 @@
                     console.error('加载测试用例失败:', e);
                 }
                 this.testLoading = false;
+                // 数据渲染后同步测试用例列表固定列布局
+                this.refreshTableLayout('testTable');
             },
             // 切换到测试脚本列表
             showTestList() {
                 this.currentPage = 'tests';
                 // 在浏览器绘制前重新计算当前表格列宽
-                this.$nextTick(() => this.$refs.testTable.doLayout());
+                this.refreshTableLayout('testTable');
             },
             // 查询测试用例列表
             handleTestSearch() {

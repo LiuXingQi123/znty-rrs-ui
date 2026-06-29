@@ -1516,7 +1516,7 @@
 
             <!-- 数据列表 -->
             <div class="table-card">
-                <el-table :data="tableData" v-loading="loading" stripe border size="small"
+                <el-table ref="listTable" :data="tableData" v-loading="loading" stripe border size="small"
                           style="width:100%;" :empty-text="'暂无数据'">
                     <el-table-column label="序号" width="50" fixed="left" align="center">
                         <template slot-scope="{ $index }">
@@ -1733,7 +1733,7 @@
                     <i :class="sectionExpanded.adjustLog ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
                 <div v-show="sectionExpanded.adjustLog" class="section-body">
-                    <el-table :data="adjustLogList" size="small" stripe border style="width:100%;border-radius:var(--r-sm);overflow:hidden;" :empty-text="'暂无调库记录'">
+                    <el-table ref="adjustLogTable" :data="adjustLogList" size="small" stripe border style="width:100%;border-radius:var(--r-sm);overflow:hidden;" :empty-text="'暂无调库记录'">
                         <el-table-column label="序号" width="50" align="center">
                             <template slot-scope="{ $index }">
                                 {{ $index + 1 }}
@@ -3010,6 +3010,20 @@
             axios.defaults.baseURL = 'http://localhost:18090';
             this.initStandaloneReviewPage();
         },
+        mounted() {
+            this.handleWindowResize = () => {
+                window.clearTimeout(this.resizeLayoutTimer);
+                this.resizeLayoutTimer = window.setTimeout(() => {
+                    // 窗口尺寸变化后同步所有表格固定列布局
+                    this.refreshAllTableLayout();
+                }, 120);
+            };
+            window.addEventListener('resize', this.handleWindowResize);
+        },
+        beforeDestroy() {
+            window.removeEventListener('resize', this.handleWindowResize);
+            window.clearTimeout(this.resizeLayoutTimer);
+        },
         methods: {
             // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
             adjustTypeTagType(adjustType) {
@@ -3086,6 +3100,8 @@
                     this.pagination.total = data.total || 0;
                 } catch (e) {}
                 this.loading = false;
+                // 数据渲染后同步列表固定列布局
+                this.refreshTableLayout('listTable');
             },
             // 触发查询（重置到第一页）
             handleSearch() { this.pagination.pageIndex = 1; this.loadList(); },
@@ -3184,6 +3200,8 @@
                     this.inMutexMap = inMap;
                     this.outMutexMap = outMap;
                     this.adjustLogList = logList || [];
+                    // 调库记录渲染后同步审核状态固定列
+                    this.refreshTableLayout('adjustLogTable');
                     // 加载调库日志关联附件
                     await this.loadLogAttachments(this.adjustLogList);
                     // 查找当前活跃的调库记录并加载流程步骤
@@ -3320,6 +3338,41 @@
             // 折叠/展开区块
             toggleSection(key) {
                 this.$set(this.sectionExpanded, key, !this.sectionExpanded[key]);
+                if (key === 'adjustLog' && this.sectionExpanded[key]) {
+                    // 展开调库记录后同步审核状态固定列
+                    this.refreshTableLayout('adjustLogTable');
+                }
+            },
+
+            // 重新计算指定表格固定列布局
+            refreshTableLayout(refName) {
+                this.$nextTick(() => {
+                    window.requestAnimationFrame(() => {
+                        const table = this.$refs[refName];
+                        if (table) {
+                            table.doLayout();
+                            window.setTimeout(() => table.doLayout(), 80);
+                            window.setTimeout(() => table.doLayout(), 180);
+                        }
+                    });
+                });
+            },
+
+            // 重新计算当前页面所有表格固定列布局
+            refreshAllTableLayout() {
+                this.$nextTick(() => {
+                    window.requestAnimationFrame(() => {
+                        Object.keys(this.$refs).forEach(refName => {
+                            const ref = this.$refs[refName];
+                            const table = Array.isArray(ref) ? ref[0] : ref;
+                            if (table && typeof table.doLayout === 'function') {
+                                table.doLayout();
+                                window.setTimeout(() => table.doLayout(), 80);
+                                window.setTimeout(() => table.doLayout(), 180);
+                            }
+                        });
+                    });
+                });
             },
 
             // 审核状态样式

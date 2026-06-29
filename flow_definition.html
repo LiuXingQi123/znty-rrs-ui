@@ -1952,7 +1952,7 @@
 
             <!-- 流程列表表格 -->
             <div class="table-card">
-                <el-table class="flow-table" :data="tableData" v-loading="loading" style="width:100%" stripe border size="small">
+                <el-table ref="flowTableRef" class="flow-table" :data="tableData" v-loading="loading" style="width:100%" stripe border size="small">
                     <el-table-column label="序号" width="50" align="center">
                         <template slot-scope="{ $index }">
                             {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
@@ -2761,7 +2761,7 @@
             </div>
         </div>
         <div class="history-table-wrap">
-            <el-table :data="historyRows" style="width:100%" stripe border size="small">
+            <el-table ref="historyTableRef" :data="historyRows" style="width:100%" stripe border size="small">
                 <el-table-column label="序号" width="50" align="center">
                     <template slot-scope="{ $index }">
                         {{ $index + 1 }}
@@ -3043,6 +3043,14 @@
             // 在 window 上注册全局鼠标事件
             window.addEventListener('mousemove', this.globalMousemove);
             window.addEventListener('mouseup', this.globalMouseup);
+            this.handleWindowResize = () => {
+                window.clearTimeout(this.resizeLayoutTimer);
+                this.resizeLayoutTimer = window.setTimeout(() => {
+                    // 窗口尺寸变化后同步所有表格固定列布局
+                    this.refreshAllTableLayout();
+                }, 120);
+            };
+            window.addEventListener('resize', this.handleWindowResize);
             document.addEventListener('click', this.hideCtx);
 
             // 加载字典和列表数据
@@ -3053,6 +3061,8 @@
         beforeDestroy() {
             window.removeEventListener('mousemove', this.globalMousemove);
             window.removeEventListener('mouseup', this.globalMouseup);
+            window.removeEventListener('resize', this.handleWindowResize);
+            window.clearTimeout(this.resizeLayoutTimer);
             document.removeEventListener('click', this.hideCtx);
         },
         methods: {
@@ -3101,7 +3111,41 @@
                     this.$message.error(e.message || '请求异常');
                 }
                 this.loading = false;
+                // 数据渲染后同步列表固定列布局
+                this.refreshTableLayout('flowTableRef');
             },
+
+            // 重新计算指定表格固定列布局
+            refreshTableLayout(refName) {
+                this.$nextTick(() => {
+                    window.requestAnimationFrame(() => {
+                        const table = this.$refs[refName];
+                        if (table) {
+                            table.doLayout();
+                            window.setTimeout(() => table.doLayout(), 80);
+                            window.setTimeout(() => table.doLayout(), 180);
+                        }
+                    });
+                });
+            },
+
+            // 重新计算当前页面所有表格固定列布局
+            refreshAllTableLayout() {
+                this.$nextTick(() => {
+                    window.requestAnimationFrame(() => {
+                        Object.keys(this.$refs).forEach(refName => {
+                            const ref = this.$refs[refName];
+                            const table = Array.isArray(ref) ? ref[0] : ref;
+                            if (table && typeof table.doLayout === 'function') {
+                                table.doLayout();
+                                window.setTimeout(() => table.doLayout(), 80);
+                                window.setTimeout(() => table.doLayout(), 180);
+                            }
+                        });
+                    });
+                });
+            },
+
             // 翻页
             handlePageChange(page) { this.pagination.pageIndex = page; this.loadList(); },
             // 每页条数变化
@@ -3440,6 +3484,8 @@
                         return vb - va;
                     });
                     this.historyVisible = true;
+                    // 历史版本弹窗显示后同步右侧固定列
+                    this.refreshTableLayout('historyTableRef');
                 } catch (e) {
                     this.$message.error(e.message || '请求异常');
                 }

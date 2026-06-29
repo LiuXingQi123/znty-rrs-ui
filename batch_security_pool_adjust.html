@@ -489,7 +489,7 @@
             </div>
 
             <div class="table-card">
-                <el-table :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无可调整投资池">
+                <el-table ref="poolTableRef" :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无可调整投资池">
                     <el-table-column label="序号" width="50" align="center">
                         <template slot-scope="{ $index }">{{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}</template>
                     </el-table-column>
@@ -716,7 +716,7 @@
                     <div class="section-title">调库校验结果</div>
                     <span class="summary-chip" style="margin-left:8px;">共 {{ adjustReviewList.length }} 条</span>
                 </div>
-                <el-table :data="adjustReviewList" stripe border size="small" style="width:100%;" empty-text="暂无校验结果">
+                <el-table ref="adjustReviewTableRef" :data="adjustReviewList" stripe border size="small" style="width:100%;" empty-text="暂无校验结果">
                     <el-table-column label="序号" width="50" align="center">
                         <template slot-scope="{ $index }">{{ $index + 1 }}</template>
                     </el-table-column>
@@ -1291,6 +1291,18 @@
         mounted() {
             axios.defaults.baseURL = 'http://localhost:18090'
             this.initPage()
+            this.handleWindowResize = () => {
+                window.clearTimeout(this.resizeLayoutTimer)
+                this.resizeLayoutTimer = window.setTimeout(() => {
+                    // 窗口尺寸变化后同步所有表格固定列布局
+                    this.refreshAllTableLayout()
+                }, 120)
+            }
+            window.addEventListener('resize', this.handleWindowResize)
+        },
+        beforeDestroy() {
+            window.removeEventListener('resize', this.handleWindowResize)
+            window.clearTimeout(this.resizeLayoutTimer)
         },
         methods: {
             // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
@@ -1321,6 +1333,8 @@
                     await this.loadPoolPage()
                 } finally {
                     this.loading = false
+                    // 数据渲染后同步投资池列表固定列
+                    this.refreshTableLayout('poolTableRef')
                 }
             },
 
@@ -1464,6 +1478,8 @@
             backToPoolList() {
                 this.pageMode = 'poolList'
                 this.resetWorkbench()
+                // 返回列表后同步投资池列表固定列
+                this.refreshTableLayout('poolTableRef')
             },
 
             // 重置工作台状态
@@ -1593,9 +1609,42 @@
                     })
                     this.adjustReviewList = (data.items || []).map((item, index) => this.buildReviewRow(item, index))
                     this.adjustStep = 2
+                    // 校验结果显示后同步右侧固定列
+                    this.refreshTableLayout('adjustReviewTableRef')
                 } finally {
                     this.checkLoading = false
                 }
+            },
+
+            // 重新计算指定表格固定列布局
+            refreshTableLayout(refName) {
+                this.$nextTick(() => {
+                    window.requestAnimationFrame(() => {
+                        const table = this.$refs[refName]
+                        if (table) {
+                            table.doLayout()
+                            window.setTimeout(() => table.doLayout(), 80)
+                            window.setTimeout(() => table.doLayout(), 180)
+                        }
+                    })
+                })
+            },
+
+            // 重新计算当前页面所有表格固定列布局
+            refreshAllTableLayout() {
+                this.$nextTick(() => {
+                    window.requestAnimationFrame(() => {
+                        Object.keys(this.$refs).forEach(refName => {
+                            const ref = this.$refs[refName]
+                            const table = Array.isArray(ref) ? ref[0] : ref
+                            if (table && typeof table.doLayout === 'function') {
+                                table.doLayout()
+                                window.setTimeout(() => table.doLayout(), 80)
+                                window.setTimeout(() => table.doLayout(), 180)
+                            }
+                        })
+                    })
+                })
             },
 
             // 构建校验结果行
