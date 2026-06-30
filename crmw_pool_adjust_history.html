@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRMW池调整历史查询</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        #crmw_pool_adjust_history {
+            --c-bg: #F7F8FA;
+            --c-surface: #FFFFFF;
+            --c-border: #E5E5E5;
+            --c-text: #3F485A;
+            --c-text-2: #707783;
+            --c-text-3: #9199BD;
+            --c-primary: #2743A4;
+            --c-primary-h: #1F3683;
+            --c-primary-l: #E9ECF6;
+            --r: 4px;
+            --topbar-h: 52px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background: var(--c-bg);
+            color: var(--c-text);
+            font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+            font-size: 13px;
+        }
+
+        #crmw_pool_adjust_history .topbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            height: var(--topbar-h);
+            padding: 0 24px;
+            border-bottom: 1px solid var(--c-border);
+            background: var(--c-surface);
+            flex-shrink: 0;
+        }
+        #crmw_pool_adjust_history .topbar-brand { display: flex; align-items: center; gap: 8px; }
+        #crmw_pool_adjust_history .topbar-icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--c-primary-l);
+            border-radius: var(--r);
+            background: var(--c-primary-l);
+            color: var(--c-primary);
+        }
+        #crmw_pool_adjust_history .topbar-icon svg { width: 16px; height: 16px; fill: currentColor; }
+        #crmw_pool_adjust_history .topbar h2 {
+            color: #242933;
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 28px;
+        }
+        #crmw_pool_adjust_history .topbar-sep { width: 1px; height: 18px; background: var(--c-border); }
+        #crmw_pool_adjust_history .topbar-sys,
+        #crmw_pool_adjust_history .topbar-meta {
+            color: var(--c-text-2);
+            font-size: 12px;
+            line-height: 20px;
+        }
+        #crmw_pool_adjust_history .topbar-meta { margin-left: auto; display: flex; align-items: center; }
+        #crmw_pool_adjust_history .topbar-date-badge {
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 0 8px;
+            border: 1px solid var(--c-border);
+            border-radius: var(--r);
+            background: var(--c-bg);
+        }
+
+        #crmw_pool_adjust_history .list-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+        #crmw_pool_adjust_history .search-panel,
+        #crmw_pool_adjust_history .table-card {
+            border: 1px solid var(--c-border);
+            border-radius: var(--r);
+            background: var(--c-surface);
+        }
+        #crmw_pool_adjust_history .search-panel { padding: 16px 20px; margin-bottom: 12px; }
+        #crmw_pool_adjust_history .search-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+        #crmw_pool_adjust_history .search-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            min-width: 54px;
+            height: 32px;
+            color: var(--c-text);
+            font-size: 13px;
+        }
+        #crmw_pool_adjust_history .search-label .el-icon-search { color: var(--c-text-3); font-size: 14px; }
+        #crmw_pool_adjust_history .total-badge {
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            padding: 0 8px;
+            border: 1px solid var(--c-primary-l);
+            border-radius: var(--r);
+            background: var(--c-primary-l);
+            color: var(--c-primary);
+            font-size: 12px;
+        }
+        #crmw_pool_adjust_history .desc-link {
+            color: var(--c-primary);
+            font-weight: 500;
+        }
+        #crmw_pool_adjust_history .desc-link:hover { text-decoration: underline; }
+        #crmw_pool_adjust_history .table-card { overflow: hidden; }
+
+        #crmw_pool_adjust_history .el-input--small .el-input__inner,
+        #crmw_pool_adjust_history .el-select .el-input__inner,
+        #crmw_pool_adjust_history .el-date-editor--daterange.el-input__inner {
+            height: 32px;
+            border-color: var(--c-border);
+            border-radius: var(--r);
+            color: var(--c-text);
+            font-size: 13px;
+            line-height: 32px;
+            box-shadow: none;
+        }
+        #crmw_pool_adjust_history .el-input--small .el-input__inner:hover,
+        #crmw_pool_adjust_history .el-select .el-input__inner:hover,
+        #crmw_pool_adjust_history .el-date-editor--daterange.el-input__inner:hover { border-color: #CCCCCC; }
+        #crmw_pool_adjust_history .el-input--small .el-input__inner:focus,
+        #crmw_pool_adjust_history .el-select .el-input.is-focus .el-input__inner,
+        #crmw_pool_adjust_history .el-date-editor--daterange.el-input__inner.is-active { border-color: var(--c-primary); }
+        #crmw_pool_adjust_history .el-date-editor.el-range-editor .el-range-separator {
+            min-width: 24px;
+            width: 24px;
+            padding: 0;
+            text-align: center;
+        }
+        #crmw_pool_adjust_history .el-button {
+            height: 32px;
+            padding: 0 12px;
+            border-radius: var(--r);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        #crmw_pool_adjust_history .el-button--primary,
+        #crmw_pool_adjust_history .el-button--primary:hover,
+        #crmw_pool_adjust_history .el-button--primary:focus {
+            border-color: var(--c-primary);
+            background: var(--c-primary);
+            color: #FFFFFF;
+        }
+        #crmw_pool_adjust_history .el-button--primary:hover,
+        #crmw_pool_adjust_history .el-button--primary:focus {
+            border-color: var(--c-primary-h);
+            background: var(--c-primary-h);
+        }
+        #crmw_pool_adjust_history .el-table { color: var(--c-text); font-size: 13px; }
+        #crmw_pool_adjust_history .el-table th.el-table__cell {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--c-border);
+            background: var(--c-bg);
+            color: #242933;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 22px;
+        }
+        #crmw_pool_adjust_history .el-table td.el-table__cell {
+            padding: 8px 0;
+            border-bottom-color: var(--c-border);
+            color: var(--c-text);
+            font-size: 13px;
+            line-height: 22px;
+        }
+        #crmw_pool_adjust_history .el-tag--mini {
+            height: 22px;
+            padding: 0 8px;
+            border-radius: 2px;
+            font-size: 12px;
+            line-height: 20px;
+        }
+        #crmw_pool_adjust_history .pagination-wrap {
+            display: flex;
+            justify-content: flex-end;
+            padding: 12px 16px;
+            border-top: 1px solid var(--c-border);
+            background: var(--c-surface);
+        }
+        #crmw_pool_adjust_history .el-pagination.is-background .el-pager li:not(.disabled).active,
+        #crmw_pool_adjust_history .el-pagination .el-pager li.active {
+            background: var(--c-primary);
+            color: #FFFFFF;
+        }
+
+        .project-date-range-picker .el-date-table td.today span { color:#2743A4; font-weight:600; }
+        .project-date-range-picker .el-date-table td.available:hover { color:#2743A4; }
+        .project-date-range-picker .el-date-table td.in-range div,
+        .project-date-range-picker .el-date-table td.in-range div:hover { background-color:#E9ECF6; }
+        .project-date-range-picker .el-date-table td.start-date span,
+        .project-date-range-picker .el-date-table td.end-date span { background-color:#2743A4; color:#FFFFFF; }
+        .project-date-range-picker .el-picker-panel__icon-btn:hover,
+        .project-date-range-picker .el-date-range-picker__header div:hover { color:#2743A4; }
+    </style>
+</head>
+<body>
+<div id="crmw_pool_adjust_history">
+    <div class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon">
+                <svg viewBox="0 0 24 24"><path d="M4 6h16v3H4V6zm0 5h16v3H4v-3zm0 5h16v3H4v-3z"/></svg>
+            </div>
+            <h2>CRMW池调整历史查询</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <div class="topbar-sys">证券投资管理系统</div>
+        <div class="topbar-meta">
+            <span class="topbar-date-badge"><i class="el-icon-time"></i>{{ today }}</span>
+        </div>
+    </div>
+
+    <div class="list-body">
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+                <el-input v-model="searchForm.crmwScode" placeholder="CRMW代码" clearable size="small" style="width:150px;">
+                    <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                </el-input>
+                <el-input v-model="searchForm.crmwName" placeholder="CRMW名称" clearable size="small" style="width:170px;">
+                    <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
+                </el-input>
+                <el-date-picker
+                    v-model="searchForm.adjustTimeRange"
+                    type="daterange"
+                    range-separator="至"
+                    start-placeholder="调整开始日期"
+                    end-placeholder="调整结束日期"
+                    value-format="yyyy-MM-dd"
+                    popper-class="project-date-range-picker"
+                    size="small"
+                    style="width:260px;">
+                </el-date-picker>
+                <el-input v-model="searchForm.adjusterName" placeholder="调整人" clearable size="small" style="width:120px;">
+                    <i slot="prefix" class="el-input__icon el-icon-user"></i>
+                </el-input>
+                <el-select v-model="searchForm.adjustMode" placeholder="调整方向" clearable size="small" style="width:110px;">
+                    <el-option v-for="m in adjustModeOptions" :key="m.value" :label="m.label" :value="m.value"></el-option>
+                </el-select>
+                <el-select v-model="searchForm.auditStatus" placeholder="调整状态" clearable size="small" style="width:130px;">
+                    <el-option v-for="a in auditStatusOptions" :key="a.value" :label="a.label" :value="a.value"></el-option>
+                </el-select>
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <div class="total-badge">
+                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <el-table ref="historyTableRef" :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;">
+                <el-table-column label="序号" width="60" align="center">
+                    <template slot-scope="{ $index }">
+                        {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
+                    </template>
+                </el-table-column>
+                <el-table-column prop="adjusterName" label="调整人" min-width="90"></el-table-column>
+                <el-table-column label="提交时间" min-width="150" align="center">
+                    <template slot-scope="{ row }">
+                        {{ row.submitTime ? moment(row.submitTime).format('YYYY-MM-DD HH:mm') : '' }}
+                    </template>
+                </el-table-column>
+                <el-table-column prop="crmwName" label="CRMW名称" min-width="160" show-overflow-tooltip>
+                    <template slot-scope="{ row }">
+                        <span class="desc-link">{{ row.crmwName || '' }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="crmwScode" label="CRMW代码" min-width="130">
+                    <template slot-scope="{ row }">
+                        <span class="desc-link">{{ row.crmwScode || '' }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="securityShortName" label="证券名称" min-width="150" show-overflow-tooltip>
+                    <template slot-scope="{ row }">{{ row.securityShortName || '' }}</template>
+                </el-table-column>
+                <el-table-column prop="securityCode" label="证券代码" min-width="130">
+                    <template slot-scope="{ row }">{{ row.securityCode || '' }}</template>
+                </el-table-column>
+                <el-table-column prop="adjustType" label="调整类型" min-width="110" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.adjustType" size="mini" :type="adjustTypeTagType(row.adjustType)">{{ row.adjustType }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="调整方向" min-width="90" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.adjustMode === '调入'" type="success" size="mini">调入</el-tag>
+                        <el-tag v-else-if="row.adjustMode === '调出'" type="danger" size="mini">调出</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="targetPoolName" label="投资池名称" min-width="180" show-overflow-tooltip></el-table-column>
+                <el-table-column label="审核状态" min-width="120" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.auditStatus != null" :type="auditStatusType(row.auditStatus)" size="mini">
+                            {{ auditStatusLabel(row.auditStatus) }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+                <el-pagination
+                    :total="pagination.total"
+                    :current-page="pagination.pageIndex"
+                    :page-size="pagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    small
+                    @current-change="handlePageChange"
+                    @size-change="handleSizeChange">
+                </el-pagination>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+new Vue({
+    el: '#crmw_pool_adjust_history',
+    data() {
+        return {
+            today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
+            searchForm: {
+                crmwScode: '',         // CRMW代码关键词
+                crmwName: '',          // CRMW名称关键词
+                adjustTimeRange: null, // 调整时间范围
+                adjusterName: '',      // 调整人姓名关键词
+                adjustMode: '',        // 调整方向
+                auditStatus: '',       // 审核状态
+            },
+            adjustModeOptions: [
+                { value: '调入', label: '调入' },
+                { value: '调出', label: '调出' },
+            ],
+            auditStatusOptions: [
+                { value: '-1', label: '无效调整' },
+                { value: '00', label: '已提交待审核' },
+                { value: '10', label: '审核通过待审批' },
+                { value: '11', label: '驳回待修改' },
+                { value: '20', label: '审批通过' },
+                { value: '21', label: '审批驳回' },
+                { value: '32', label: 'O32自动审批' },
+                { value: '99', label: '发起人已撤回' },
+            ],
+            tableData: [],             // 当前页表格数据
+            loading: false,            // 表格加载状态
+            pagination: {
+                pageIndex: 1,          // 当前页码
+                pageSize: 20,          // 每页条数
+                total: 0,              // 总记录数
+            },
+        };
+    },
+    mounted() {
+        axios.defaults.baseURL = 'http://localhost:18090';
+        this.loadList();
+        this.handleWindowResize = () => {
+            window.clearTimeout(this.resizeLayoutTimer);
+            this.resizeLayoutTimer = window.setTimeout(() => {
+                // 窗口尺寸变化后同步表格布局
+                this.refreshTableLayout();
+            }, 120);
+        };
+        window.addEventListener('resize', this.handleWindowResize);
+    },
+    beforeDestroy() {
+        window.removeEventListener('resize', this.handleWindowResize);
+        window.clearTimeout(this.resizeLayoutTimer);
+    },
+    methods: {
+        // 调整类型对应的 el-tag type
+        adjustTypeTagType(adjustType) {
+            if (adjustType === '联动调整') return 'warning';
+            if (adjustType === '互斥调整') return 'danger';
+            return 'info';
+        },
+
+        // API 请求封装
+        async apiPost(path, body) {
+            const resp = await axios.post(path, body || {});
+            const json = resp.data;
+            if (!json.success) {
+                this.$message.error(json.message || '接口异常');
+                throw new Error(json.message || '接口异常');
+            }
+            return json.data;
+        },
+
+        // 审核状态码转中文
+        auditStatusLabel(code) {
+            const map = {
+                '-1': '无效调整', '00': '已提交待审核', '10': '审核通过待审批',
+                '11': '驳回待修改', '20': '审批通过', '21': '审批驳回',
+                '32': 'O32自动审批', '99': '发起人已撤回',
+            };
+            return map[String(code)] || code || '';
+        },
+
+        // 审核状态对应的 el-tag type
+        auditStatusType(code) {
+            const map = {
+                '20': 'success', '10': 'success', '32': 'success',
+                '-1': 'danger', '21': 'danger',
+                '11': 'warning', '00': 'warning', '99': 'info',
+            };
+            return map[String(code)] || 'info';
+        },
+
+        // 加载列表
+        async loadList() {
+            this.loading = true;
+            try {
+                const params = {
+                    crmwScode: this.searchForm.crmwScode || null,
+                    crmwName: this.searchForm.crmwName || null,
+                    adjustTimeStart: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[0] : null,
+                    adjustTimeEnd: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[1] : null,
+                    adjusterName: this.searchForm.adjusterName || null,
+                    adjustMode: this.searchForm.adjustMode || null,
+                    auditStatus: this.searchForm.auditStatus || null,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                };
+                const data = await this.apiPost('/api/v1/crmwPoolAdjustHistory/queryCrmwPoolAdjustHistoryPage', params);
+                this.tableData = data.records || [];
+                this.pagination.total = data.total || 0;
+            } catch (e) {}
+            this.loading = false;
+            // 数据渲染后同步表格布局
+            this.refreshTableLayout();
+        },
+
+        // 重新计算表格布局
+        refreshTableLayout() {
+            this.$nextTick(() => {
+                window.requestAnimationFrame(() => {
+                    const table = this.$refs.historyTableRef;
+                    if (table) {
+                        table.doLayout();
+                        window.setTimeout(() => table.doLayout(), 80);
+                    }
+                });
+            });
+        },
+
+        // 触发查询
+        handleSearch() {
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 重置查询条件
+        handleReset() {
+            this.searchForm = {
+                crmwScode: '',
+                crmwName: '',
+                adjustTimeRange: null,
+                adjusterName: '',
+                adjustMode: '',
+                auditStatus: '',
+            };
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 翻页
+        handlePageChange(page) {
+            this.pagination.pageIndex = page;
+            this.loadList();
+        },
+
+        // 切换每页条数
+        handleSizeChange(size) {
+            this.pagination.pageSize = size;
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+    }
+});
+</script>
+</body>
+</html>
