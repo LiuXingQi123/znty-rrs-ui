@@ -41,7 +41,7 @@
             <div class="search-panel">
                 <div class="search-row">
                     <span class="search-label"><i class="el-icon-search"></i>筛选</span>
-                    <el-input v-model="searchText" placeholder="搜索名称 / Key" prefix-icon="el-icon-search" size="small" style="width:220px" clearable></el-input>
+                    <el-input v-model="searchText" placeholder="搜索名称 / Key" prefix-icon="el-icon-search" size="small" style="width:220px" clearable @keyup.enter.native="handleSearch"></el-input>
                     <el-select v-model="statusFilter" placeholder="全部状态" size="small" style="width:120px" clearable>
                         <el-option label="已发布" value="active"></el-option>
                         <el-option label="未发布" value="draft"></el-option>
@@ -54,6 +54,8 @@
                         <el-option label="主体" value="company"></el-option>
                         <el-option label="其他" value="other"></el-option>
                     </el-select>
+                    <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                    <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
                     <div class="search-actions">
                         <div class="total-badge">
                             <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录
@@ -985,7 +987,6 @@
                 selectedApprovalUsers: [], // 已选择的审批人员
                 restoringApprovalSelection: false, // 是否正在恢复人员选择状态
                 // 列表搜索与筛选
-                _searchTimer: null,             // 搜索防抖定时器
                 searchText: '',                 // 搜索关键字
                 statusFilter: '',               // 状态筛选：'' | 'active' | 'draft' | 'disabled'
                 categoryFilter: '',             // 分类筛选：'' | 'bond' | 'fund' | 'stock' | 'company' | 'other'
@@ -1125,12 +1126,6 @@
             },
         },
         watch: {
-            // 筛选条件变化时重新加载列表（300ms 防抖）
-            searchText() { clearTimeout(this._searchTimer); this._searchTimer = setTimeout(() => { this.pagination.pageIndex = 1; this.loadList(); }, 300); },
-            // 状态筛选变化时重置页码并重新加载列表
-            statusFilter() { this.pagination.pageIndex = 1; this.loadList(); },
-            // 分类筛选变化时重置页码并重新加载列表
-            categoryFilter() { this.pagination.pageIndex = 1; this.loadList(); },
             // 选中 ID 变化时，更新属性面板标题和状态栏
             selId(val, oldVal) {
                 // 从已编辑节点/连线切换走时，保存当前快照以便撤销
@@ -1214,6 +1209,19 @@
             // 返回当前时间的格式化字符串（YYYY-MM-DD HH:mm:ss），用于本地更新时间字段
             nowStr() {
                 return moment().format('YYYY-MM-DD HH:mm:ss');
+            },
+            // 按当前筛选条件查询流程列表
+            handleSearch() {
+                this.pagination.pageIndex = 1;
+                this.loadList();
+            },
+            // 清空筛选条件并重新查询流程列表
+            handleReset() {
+                this.searchText = '';
+                this.statusFilter = '';
+                this.categoryFilter = '';
+                this.pagination.pageIndex = 1;
+                this.loadList();
             },
             // 加载流程列表（服务端分页+搜索）
             async loadList() {
