@@ -70,7 +70,7 @@
             </div>
 
             <div class="table-card">
-                <el-table ref="poolTableRef" :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无可调整投资池">
+                <el-table key="pool-list-table" ref="poolTableRef" :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无可调整投资池">
                     <el-table-column label="序号" width="50" align="center">
                         <template slot-scope="{ $index }">{{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}</template>
                     </el-table-column>
@@ -116,25 +116,15 @@
         </template>
 
         <template v-else>
-            <div class="workbench-head">
-                <div class="workbench-title">
-                    <el-button size="small" icon="el-icon-arrow-left" @click="backToPoolList">返回</el-button>
-                    <span>{{ currentPool.poolFullName || currentPool.poolName || '' }}</span>
-                    <el-tag size="mini" :type="isInbound ? 'success' : 'danger'">{{ directionLabel }}</el-tag>
-                </div>
-                <div class="summary-row">
-                    <span class="summary-chip">证券 {{ selectedSecurities.length }} 条</span>
-                    <span class="summary-chip">信评报告 {{ creditMaterialCount }} 个</span>
-                    <span class="summary-chip">其他附件 {{ otherMaterialCount }} 个</span>
-                    <span class="summary-chip">步骤 {{ adjustStep }}/2</span>
-                </div>
-            </div>
-
             <div class="materials-stack" v-show="adjustStep === 1">
                 <div class="section-card">
-                    <div class="section-header" @click="materialCardExpanded = !materialCardExpanded">
+                    <div class="section-header contextual-section-header" @click="materialCardExpanded = !materialCardExpanded">
                         <div class="section-dot"></div>
                         <div class="section-title">调整材料</div>
+                        <div class="section-context">
+                            <span class="section-context-name">{{ currentPool.poolFullName || currentPool.poolName || '' }}</span>
+                            <el-tag size="mini" :type="isInbound ? 'success' : 'danger'">{{ directionLabel }}</el-tag>
+                        </div>
                         <div class="summary-chips">
                             <span class="summary-chip" :class="{ muted: creditMaterialCount === 0 }">
                                 <span class="summary-chip-label">信评报告</span>
@@ -152,6 +142,7 @@
                                 <span class="summary-chip-label">已选证券</span>
                                 <span class="summary-chip-value">{{ selectedSecurities.length }} 条</span>
                             </span>
+                            <span class="summary-chip">步骤 {{ adjustStep }}/2</span>
                             <i class="summary-arrow" :class="materialCardExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
                         </div>
                     </div>
@@ -236,6 +227,7 @@
                                 </div>
                             </div>
                             <div class="selected-confirm-row">
+                                <el-button size="small" icon="el-icon-arrow-left" @click.stop="backToPoolList">返回</el-button>
                                 <el-button type="primary" size="small" icon="el-icon-arrow-right" :loading="checkLoading"
                                            :disabled="selectedSecurities.length === 0" @click.stop="goToStep2">
                                     下一步
@@ -261,7 +253,7 @@
                     </div>
                     <div class="total-badge"><i class="el-icon-data-line"></i> 共 {{ securityPagination.total }} 条</div>
                 </div>
-                <el-table ref="securityTableRef" :data="securityTableData" v-loading="securityLoading" stripe border size="small"
+                <el-table key="security-candidate-table" ref="securityTableRef" :data="securityTableData" v-loading="securityLoading" stripe border size="small"
                           row-key="securityCode" style="width:100%;" empty-text="暂无符合条件的证券" @selection-change="handleSecuritySelectionChange">
                     <el-table-column type="selection" width="46" align="center" fixed="left" :reserve-selection="true"></el-table-column>
                     <el-table-column label="序号" width="50" align="center" fixed="left">
@@ -292,10 +284,17 @@
             </div>
 
             <div class="section-card" v-show="adjustStep === 2">
-                <div class="section-header">
+                <div class="section-header contextual-section-header">
                     <div class="section-dot"></div>
                     <div class="section-title">调库校验结果</div>
-                    <span class="summary-chip" style="margin-left:8px;">共 {{ adjustReviewList.length }} 条</span>
+                    <div class="section-context">
+                        <span class="section-context-name">{{ currentPool.poolFullName || currentPool.poolName || '' }}</span>
+                        <el-tag size="mini" :type="isInbound ? 'success' : 'danger'">{{ directionLabel }}</el-tag>
+                    </div>
+                    <div class="summary-chips">
+                        <span class="summary-chip">共 {{ adjustReviewList.length }} 条</span>
+                        <span class="summary-chip">步骤 {{ adjustStep }}/2</span>
+                    </div>
                 </div>
                 <el-table ref="adjustReviewTableRef" :data="adjustReviewList" stripe border size="small" style="width:100%;" empty-text="暂无校验结果">
                     <el-table-column label="序号" width="50" align="center">
@@ -368,6 +367,7 @@
                     </div>
                 </div>
                 <div class="action-footer">
+                    <el-button size="small" icon="el-icon-arrow-left" @click="backToPoolList">返回</el-button>
                     <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
                     <el-button type="primary" size="small" icon="el-icon-check" :disabled="validCount === 0 || !allValidRowsHaveFlow || submitLoading"
                                :loading="submitLoading" @click="submitAdjust">
