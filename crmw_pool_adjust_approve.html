@@ -1670,13 +1670,14 @@
             async loadList() {
                 this.loading = true;
                 try {
-                    const data = await this.apiPost('/api/v1/crmwPoolAdjust/queryBindableSecurityPage', {
+                    const queryParams = {
                         securityCode: this.searchForm.securityCode,
                         securityShortName: this.searchForm.securityShortName,
                         issuer: this.searchForm.issuer,
                         pageIndex: this.pagination.pageIndex,
                         pageSize: this.pagination.pageSize
-                    });
+                    };
+                    const data = await this.apiPost('/api/v1/crmwPoolAdjust/queryBindableSecurityPage', queryParams);
                     this.tableData = data.records || [];
                     this.pagination.total = data.total || 0;
                 } catch (e) {}
@@ -1730,11 +1731,13 @@
             async loadDetailData(securityCode) {
                 this.detailLoading = true;
                 try {
+                    const inPoolParams = { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
+                    const outPoolParams = { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
                     const [detail, crmwDetail, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/crmwPoolAdjust/querySecurityDetail',     { securityCode: securityCode }),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwDetail', { securityCode: this.selectedCrmwCode }),
-                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId }),
-                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId }),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', inPoolParams),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', outPoolParams),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', { securityCode: securityCode }),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
@@ -2378,12 +2381,13 @@
                 });
 
                 this.adjustCheckLoading = true;
-                const result = await this.apiPost('/api/v1/crmwPoolAdjust/checkCrmwAdjust', {
+                const checkParams = {
                     securityCode: this.bondDetail.windCode || '',
                     securityShortName: this.bondDetail.shortName || '',
                     securityType: this.bondDetail.securityType || '',
                     items
-                });
+                };
+                const result = await this.apiPost('/api/v1/crmwPoolAdjust/checkCrmwAdjust', checkParams);
                 this.adjustCheckLoading = false;
 
                 const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' }
@@ -2611,7 +2615,7 @@
                 try {
                     const range = filters.writeDateRange || [];
                     const path = isInternal ? '/api/v1/reports/queryInReportPage' : '/api/v1/reports/queryOutReportPage';
-                    const data = await this.apiPost(path, {
+                    const params = {
                         pageIndex: pagination.pageIndex,
                         pageSize: pagination.pageSize,
                         reportTitle: filters.title,
@@ -2619,7 +2623,8 @@
                         reportType: filters.reportType,
                         crteTimeStart: range.length === 2 ? range[0] : '',
                         crteTimeEnd: range.length === 2 ? range[1] : ''
-                    });
+                    };
+                    const data = await this.apiPost(path, params);
                     const records = (data && data.records) || [];
                     const list = records.map(item => this.normalizeReportRecord(item, source));
                     pagination.total = (data && data.total) || 0;

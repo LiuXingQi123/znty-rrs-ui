@@ -1281,13 +1281,14 @@
             async loadList() {
                 this.loading = true;
                 try {
-                    const data = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityPage', {
+                    const queryParams = {
                         securityCode: this.searchForm.securityCode,
                         securityShortName: this.searchForm.securityShortName,
                         issuer: this.searchForm.issuer,
                         pageIndex: this.pagination.pageIndex,
                         pageSize: this.pagination.pageSize
-                    });
+                    };
+                    const data = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityPage', queryParams);
                     this.tableData = data.records || [];
                     this.pagination.total = data.total || 0;
                 } catch (e) {}
@@ -1341,10 +1342,12 @@
             async loadDetailData(securityCode) {
                 this.detailLoading = true;
                 try {
+                    const inPoolParams = { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
+                    const outPoolParams = { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
                     const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail',     { securityCode: securityCode }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', inPoolParams),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', outPoolParams),
                         this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode }),
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
@@ -1968,12 +1971,13 @@
                 this.adjustCheckLoading = true;
                 const currentSeq = ++this.adjustCheckSeq;
                 try {
-                    const result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', {
+                    const checkParams = {
                         securityCode: this.bondDetail.windCode || '',
                         securityShortName: this.bondDetail.shortName || '',
                         securityType: this.bondDetail.securityType || '',
                         items
-                    });
+                    };
+                    const result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', checkParams);
                     if (currentSeq !== this.adjustCheckSeq) return;
 
                     this.adjustReviewList = result.items.map((item, rowIndex) => {
@@ -2217,7 +2221,7 @@
                 try {
                     const range = filters.writeDateRange || [];
                     const path = isInternal ? '/api/v1/reports/queryInReportPage' : '/api/v1/reports/queryOutReportPage';
-                    const data = await this.apiPost(path, {
+                    const params = {
                         pageIndex: pagination.pageIndex,
                         pageSize: pagination.pageSize,
                         reportTitle: filters.title,
@@ -2225,7 +2229,8 @@
                         reportType: filters.reportType,
                         crteTimeStart: range.length === 2 ? range[0] : '',
                         crteTimeEnd: range.length === 2 ? range[1] : ''
-                    });
+                    };
+                    const data = await this.apiPost(path, params);
                     const records = (data && data.records) || [];
                     const list = records.map(item => this.normalizeReportRecord(item, source));
                     pagination.total = (data && data.total) || 0;

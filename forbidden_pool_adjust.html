@@ -1259,11 +1259,12 @@
             async loadList() {
                 this.loading = true;
                 try {
-                    const data = await this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyPage', {
+                    const queryParams = {
                         ...this.searchForm,
                         pageIndex: this.pagination.pageIndex,
                         pageSize: this.pagination.pageSize
-                    });
+                    };
+                    const data = await this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyPage', queryParams);
                     this.tableData = data.records || [];
                     this.pagination.total = data.total || 0;
                 } catch (e) {}
@@ -1326,10 +1327,12 @@
             async loadDetailData(companyCode) {
                 this.detailLoading = true;
                 try {
+                    const inPoolParams = { companyCode: companyCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
+                    const outPoolParams = { companyCode: companyCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
                     const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyDetail', { companyCode: companyCode }),
-                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustPoolList', { companyCode: companyCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId }),
-                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustPoolList', { companyCode: companyCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId }),
+                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustPoolList', inPoolParams),
+                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustPoolList', outPoolParams),
                         this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyPoolStatus', { companyCode: companyCode }),
                         this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustLogList', { companyCode: companyCode, adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
@@ -1953,12 +1956,13 @@
                 this.adjustCheckLoading = true;
                 const currentSeq = ++this.adjustCheckSeq;
                 try {
-                    const result = await this.apiPost('/api/v1/forbiddenPoolAdjust/checkAdjust', {
+                    const checkParams = {
                         companyCode: this.companyDetail.companyCode || '',
                         companyShortName: this.companyDetail.companyShortName || '',
                         securityType: this.companyDetail.securityType || '',
                         items
-                    });
+                    };
+                    const result = await this.apiPost('/api/v1/forbiddenPoolAdjust/checkAdjust', checkParams);
                     if (currentSeq !== this.adjustCheckSeq) return;
 
                     this.adjustReviewList = result.items.map((item, rowIndex) => {
@@ -2171,7 +2175,7 @@
                 try {
                     const range = filters.writeDateRange || [];
                     const path = isInternal ? '/api/v1/reports/queryInReportPage' : '/api/v1/reports/queryOutReportPage';
-                    const data = await this.apiPost(path, {
+                    const params = {
                         pageIndex: pagination.pageIndex,
                         pageSize: pagination.pageSize,
                         reportTitle: filters.title,
@@ -2179,7 +2183,8 @@
                         reportType: filters.reportType,
                         crteTimeStart: range.length === 2 ? range[0] : '',
                         crteTimeEnd: range.length === 2 ? range[1] : ''
-                    });
+                    };
+                    const data = await this.apiPost(path, params);
                     const records = (data && data.records) || [];
                     const list = records.map(item => this.normalizeReportRecord(item, source));
                     pagination.total = (data && data.total) || 0;

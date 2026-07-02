@@ -1383,13 +1383,14 @@
             async loadCrmwList() {
                 this.crmwLoading = true;
                 try {
-                    const data = await this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPage', {
+                    const queryParams = {
                         securityCode: this.crmwSearchForm.securityCode,
                         securityShortName: this.crmwSearchForm.securityShortName,
                         issuer: this.crmwSearchForm.issuer,
                         pageIndex: this.crmwPagination.pageIndex,
                         pageSize: this.crmwPagination.pageSize
-                    });
+                    };
+                    const data = await this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPage', queryParams);
                     this.crmwTableData = data.records || [];
                     this.crmwPagination.total = data.total || 0;
                 } catch (e) {}
@@ -1424,13 +1425,14 @@
             async loadList() {
                 this.loading = true;
                 try {
-                    const data = await this.apiPost('/api/v1/crmwPoolAdjust/queryBindableSecurityPage', {
+                    const bindableSecurityParams = {
                         securityCode: this.searchForm.securityCode,
                         securityShortName: this.searchForm.securityShortName,
                         issuer: this.searchForm.issuer,
                         pageIndex: this.pagination.pageIndex,
                         pageSize: this.pagination.pageSize
-                    });
+                    };
+                    const data = await this.apiPost('/api/v1/crmwPoolAdjust/queryBindableSecurityPage', bindableSecurityParams);
                     this.tableData = data.records || [];
                     this.pagination.total = data.total || 0;
                 } catch (e) {}
@@ -1493,10 +1495,12 @@
                             securityCode: this.selectedCrmw.windCode || this.selectedCrmw.securityCode
                         });
                     }
+                    const inPoolParams = { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
+                    const outPoolParams = { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
                     const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/crmwPoolAdjust/querySecurityDetail',     { securityCode: securityCode }),
-                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId }),
-                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId }),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', inPoolParams),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', outPoolParams),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', { securityCode: securityCode }),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
@@ -2120,12 +2124,13 @@
                 this.adjustCheckLoading = true;
                 const currentSeq = ++this.adjustCheckSeq;
                 try {
-                    const result = await this.apiPost('/api/v1/crmwPoolAdjust/checkCrmwAdjust', {
+                    const checkParams = {
                         securityCode: this.bondDetail.windCode || '',
                         securityShortName: this.bondDetail.shortName || '',
                         securityType: this.bondDetail.securityType || '',
                         items
-                    });
+                    };
+                    const result = await this.apiPost('/api/v1/crmwPoolAdjust/checkCrmwAdjust', checkParams);
                     if (currentSeq !== this.adjustCheckSeq) return;
 
                     this.adjustReviewList = result.items.map((item, rowIndex) => {
@@ -2373,7 +2378,7 @@
                 try {
                     const range = filters.writeDateRange || [];
                     const path = isInternal ? '/api/v1/reports/queryInReportPage' : '/api/v1/reports/queryOutReportPage';
-                    const data = await this.apiPost(path, {
+                    const params = {
                         pageIndex: pagination.pageIndex,
                         pageSize: pagination.pageSize,
                         reportTitle: filters.title,
@@ -2381,7 +2386,8 @@
                         reportType: filters.reportType,
                         crteTimeStart: range.length === 2 ? range[0] : '',
                         crteTimeEnd: range.length === 2 ? range[1] : ''
-                    });
+                    };
+                    const data = await this.apiPost(path, params);
                     const records = (data && data.records) || [];
                     const list = records.map(item => this.normalizeReportRecord(item, source));
                     pagination.total = (data && data.total) || 0;
