@@ -1481,9 +1481,17 @@
                 return 'info'
             },
 
-            // 获取 URL 查询参数
+            // 获取普通 Query 或 Hash 路由中的 URL 参数
             getUrlParam(name) {
-                return new URLSearchParams(window.location.search).get(name) || '';
+                // 优先读取普通 Query，参数存在时不再使用 Hash 中的同名值
+                const searchParams = new URLSearchParams(window.location.search);
+                if (searchParams.has(name)) return searchParams.get(name) || '';
+
+                // 普通 Query 未命中时，读取 Hash 路由问号后的查询参数
+                const hash = window.location.hash || '';
+                const hashQueryIndex = hash.indexOf('?');
+                if (hashQueryIndex < 0) return '';
+                return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
             },
             // 初始化独立调库详情页
             async initStandaloneDetailPage() {
