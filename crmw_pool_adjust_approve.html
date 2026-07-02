@@ -306,6 +306,105 @@
                 </div>
             </div>
 
+            <!-- 当前所在池 -->
+            <div class="section-card section-current-pools">
+                <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">当前所在池</div>
+                    <i :class="sectionExpanded.currentPools ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.currentPools" style="padding:0 0 4px;">
+
+                    <!-- ① 当前证券所在池 -->
+                    <div class="pool-sub-block block-bond">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': securityPoolExpanded }">
+                            <div class="pool-inline-label">
+                                <span class="pool-sub-label">当前证券所在池</span>
+                                <span class="pool-sub-count type-bond">{{ securityCurrentPools.length }}</span>
+                            </div>
+                            <div class="pool-inline-content">
+                                <template v-if="!securityPoolExpanded">
+                                    <span v-if="securityCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
+                                    <span v-for="(p, idx) in securityCurrentPools" :key="p.poolName" class="pool-name-chip">{{ p.poolName }}</span>
+                                    <span v-if="securityCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                </template>
+                            </div>
+                            <button class="pool-toggle-btn" @click.stop="securityPoolExpanded = !securityPoolExpanded">
+                                <i :class="securityPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                                {{ securityPoolExpanded ? '收起' : '展开' }}
+                            </button>
+                        </div>
+                        <div v-if="securityPoolExpanded" class="pool-expand-table">
+                            <el-table :data="securityCurrentPools" size="small" stripe border style="width:100%;" :empty-text="'暂无'">
+                                <el-table-column label="序号" width="50" align="center">
+                                    <template slot-scope="{ $index }">
+                                        {{ $index + 1 }}
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="poolName" label="投资池名称" min-width="200">
+                                    <template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template>
+                                </el-table-column>
+                                <el-table-column prop="poolType" label="池类型" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ poolTypeLabel(row.poolType) }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="entryDate" label="入池日期" min-width="130" align="center">
+                                    <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                    </div>
+
+                    <!-- ② 当前证券主体所在池 -->
+                    <div class="pool-sub-block block-issuer">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': issuerPoolExpanded }">
+                            <div class="pool-inline-label">
+                                <span class="pool-sub-label">当前证券主体所在池</span>
+                                <span class="pool-sub-count type-issuer">{{ issuerCurrentPools.length }}</span>
+                            </div>
+                            <div class="pool-inline-content">
+                                <template v-if="!issuerPoolExpanded">
+                                    <span v-if="issuerCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
+                                    <span v-for="(p, idx) in issuerCurrentPools" :key="p.poolName+idx" class="pool-name-chip pool-name-chip--green">{{ p.poolName }}</span>
+                                    <span v-if="issuerCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                </template>
+                            </div>
+                            <button class="pool-toggle-btn" @click.stop="issuerPoolExpanded = !issuerPoolExpanded">
+                                <i :class="issuerPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                                {{ issuerPoolExpanded ? '收起' : '展开' }}
+                            </button>
+                        </div>
+                        <div v-if="issuerPoolExpanded" class="pool-expand-table">
+                            <el-table :data="issuerCurrentPools" size="small" stripe border style="width:100%;" max-height="280" :empty-text="'暂无'">
+                                <el-table-column label="序号" width="50" align="center">
+                                    <template slot-scope="{ $index }">
+                                        {{ $index + 1 }}
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="poolName" label="投资池名称" min-width="200">
+                                    <template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template>
+                                </el-table-column>
+                                <el-table-column prop="poolType" label="池类型" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ poolTypeLabel(row.poolType) }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="bondCount" label="主体在该池证券数" min-width="140" align="center">
+                                    <template slot-scope="{ row }">
+                                        <span style="font-family:'Courier New',monospace;font-weight:700;color:var(--c-primary);font-size:13px;">{{ row.bondCount }}<span style="font-size:10px;font-weight:400;color:var(--c-text-3);margin-left:2px;">只</span></span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="entryDate" label="最早入池日期" min-width="130" align="center">
+                                    <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
             <!-- 调库记录 -->
             <div class="section-card section-adjust-log">
                 <div class="section-header" @click="toggleSection('adjustLog')" style="cursor:pointer;user-select:none;">
@@ -428,6 +527,44 @@
                 </div>
             </div>
 
+            <!-- 原因和建议 -->
+            <div class="section-card section-reason-advice" v-show="showReasonSection" style="animation-delay:.06s;">
+                <div class="section-header" @click="toggleSection('reasonAdvice')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">原因和建议</div>
+                    <i :class="sectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.reasonAdvice" style="padding:20px 22px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div>
+                            <el-input type="textarea" :rows="4" v-model="adjustReason" :disabled="isReasonReadonly"
+                                      size="small" placeholder="请输入调整原因" maxlength="500" show-word-limit></el-input>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div>
+                            <el-input type="textarea" :rows="4" v-model="adjustAdvice" :disabled="isReasonReadonly"
+                                      size="small" placeholder="请输入调整建议" maxlength="500" show-word-limit></el-input>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 步骤2操作按钮 -->
+                <div class="action-footer" v-if="showReasonActionButtons">
+                    <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
+                    <el-button type="primary" size="small" icon="el-icon-check"
+                               :disabled="validCount === 0 || submitLoading"
+                               :loading="submitLoading"
+                               @click="handleSubmit">
+                        提交
+                        <span v-if="validCount > 0"
+                              style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">
+                            {{ validCount }}
+                        </span>
+                    </el-button>
+                </div>
+            </div>
+
             <!-- 当前流程状态 -->
             <div class="section-card section-flow-status" v-show="showFlowStatusSection">
                 <div class="section-header" @click="toggleSection('flowStatus')" style="cursor:pointer;user-select:none;">
@@ -524,106 +661,6 @@
                                @click="submitAdjustAudit">
                         {{ auditSubmitButtonText }}
                     </el-button>
-                </div>
-            </div>
-            <!-- /审核审批 -->
-
-            <!-- 当前所在池 -->
-            <div class="section-card section-current-pools">
-                <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
-                    <div class="section-dot"></div>
-                    <div class="section-title">当前所在池</div>
-                    <i :class="sectionExpanded.currentPools ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
-                </div>
-                <div v-show="sectionExpanded.currentPools" style="padding:0 0 4px;">
-
-                    <!-- ① 当前证券所在池 -->
-                    <div class="pool-sub-block block-bond">
-                        <div class="pool-inline-row" :class="{ 'is-expanded': securityPoolExpanded }">
-                            <div class="pool-inline-label">
-                                <span class="pool-sub-label">当前证券所在池</span>
-                                <span class="pool-sub-count type-bond">{{ securityCurrentPools.length }}</span>
-                            </div>
-                            <div class="pool-inline-content">
-                                <template v-if="!securityPoolExpanded">
-                                    <span v-if="securityCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
-                                    <span v-for="(p, idx) in securityCurrentPools" :key="p.poolName" class="pool-name-chip">{{ p.poolName }}</span>
-                                    <span v-if="securityCurrentPools.length > 0" class="pool-overflow-hint">···</span>
-                                </template>
-                            </div>
-                            <button class="pool-toggle-btn" @click.stop="securityPoolExpanded = !securityPoolExpanded">
-                                <i :class="securityPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
-                                {{ securityPoolExpanded ? '收起' : '展开' }}
-                            </button>
-                        </div>
-                        <div v-if="securityPoolExpanded" class="pool-expand-table">
-                            <el-table :data="securityCurrentPools" size="small" stripe border style="width:100%;" :empty-text="'暂无'">
-                                <el-table-column label="序号" width="50" align="center">
-                                    <template slot-scope="{ $index }">
-                                        {{ $index + 1 }}
-                                    </template>
-                                </el-table-column>
-                                <el-table-column prop="poolName" label="投资池名称" min-width="200">
-                                    <template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template>
-                                </el-table-column>
-                                <el-table-column prop="poolType" label="池类型" min-width="110">
-                                    <template slot-scope="{ row }">
-                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ poolTypeLabel(row.poolType) }}</span>
-                                    </template>
-                                </el-table-column>
-                                <el-table-column prop="entryDate" label="入池日期" min-width="130" align="center">
-                                    <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
-                                </el-table-column>
-                            </el-table>
-                        </div>
-                    </div>
-
-                    <!-- ② 当前证券主体所在池 -->
-                    <div class="pool-sub-block block-issuer">
-                        <div class="pool-inline-row" :class="{ 'is-expanded': issuerPoolExpanded }">
-                            <div class="pool-inline-label">
-                                <span class="pool-sub-label">当前证券主体所在池</span>
-                                <span class="pool-sub-count type-issuer">{{ issuerCurrentPools.length }}</span>
-                            </div>
-                            <div class="pool-inline-content">
-                                <template v-if="!issuerPoolExpanded">
-                                    <span v-if="issuerCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
-                                    <span v-for="(p, idx) in issuerCurrentPools" :key="p.poolName+idx" class="pool-name-chip pool-name-chip--green">{{ p.poolName }}</span>
-                                    <span v-if="issuerCurrentPools.length > 0" class="pool-overflow-hint">···</span>
-                                </template>
-                            </div>
-                            <button class="pool-toggle-btn" @click.stop="issuerPoolExpanded = !issuerPoolExpanded">
-                                <i :class="issuerPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
-                                {{ issuerPoolExpanded ? '收起' : '展开' }}
-                            </button>
-                        </div>
-                        <div v-if="issuerPoolExpanded" class="pool-expand-table">
-                            <el-table :data="issuerCurrentPools" size="small" stripe border style="width:100%;" max-height="280" :empty-text="'暂无'">
-                                <el-table-column label="序号" width="50" align="center">
-                                    <template slot-scope="{ $index }">
-                                        {{ $index + 1 }}
-                                    </template>
-                                </el-table-column>
-                                <el-table-column prop="poolName" label="投资池名称" min-width="200">
-                                    <template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template>
-                                </el-table-column>
-                                <el-table-column prop="poolType" label="池类型" min-width="110">
-                                    <template slot-scope="{ row }">
-                                        <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ poolTypeLabel(row.poolType) }}</span>
-                                    </template>
-                                </el-table-column>
-                                <el-table-column prop="bondCount" label="主体在该池证券数" min-width="140" align="center">
-                                    <template slot-scope="{ row }">
-                                        <span style="font-family:'Courier New',monospace;font-weight:700;color:var(--c-primary);font-size:13px;">{{ row.bondCount }}<span style="font-size:10px;font-weight:400;color:var(--c-text-3);margin-left:2px;">只</span></span>
-                                    </template>
-                                </el-table-column>
-                                <el-table-column prop="entryDate" label="最早入池日期" min-width="130" align="center">
-                                    <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
-                                </el-table-column>
-                            </el-table>
-                        </div>
-                    </div>
-
                 </div>
             </div>
 
@@ -852,7 +889,6 @@
                     <!-- /步骤1 -->
                 </div>
             </div>
-            <!-- /调库操作 -->
 
             <!-- 步骤2：调库校验结果 -->
             <div class="section-card section-adjust-review" v-show="showCheckResultSection" style="animation-delay:.03s;">
@@ -953,48 +989,6 @@
                     </el-table>
                 </div>
             </div>
-            <!-- /调库校验结果 -->
-
-            <!-- 原因和建议 -->
-            <div class="section-card section-reason-advice" v-show="showReasonSection" style="animation-delay:.06s;">
-                <div class="section-header" @click="toggleSection('reasonAdvice')" style="cursor:pointer;user-select:none;">
-                    <div class="section-dot"></div>
-                    <div class="section-title">原因和建议</div>
-                    <i :class="sectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
-                </div>
-                <div v-show="sectionExpanded.reasonAdvice" style="padding:20px 22px;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                        <div>
-                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div>
-                            <el-input type="textarea" :rows="4" v-model="adjustReason" :disabled="isReasonReadonly"
-                                      size="small" placeholder="请输入调整原因" maxlength="500" show-word-limit></el-input>
-                        </div>
-                        <div>
-                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div>
-                            <el-input type="textarea" :rows="4" v-model="adjustAdvice" :disabled="isReasonReadonly"
-                                      size="small" placeholder="请输入调整建议" maxlength="500" show-word-limit></el-input>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 步骤2操作按钮 -->
-                <div class="action-footer" v-if="showReasonActionButtons">
-                    <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
-                    <el-button type="primary" size="small" icon="el-icon-check"
-                               :disabled="validCount === 0 || submitLoading"
-                               :loading="submitLoading"
-                               @click="handleSubmit">
-                        提交
-                        <span v-if="validCount > 0"
-                              style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">
-                            {{ validCount }}
-                        </span>
-                    </el-button>
-                </div>
-            </div>
-            <!-- /原因和建议 -->
-
-            <!-- /步骤2 -->
 
         </div>
     </div>
