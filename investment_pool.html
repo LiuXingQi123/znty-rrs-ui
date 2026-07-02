@@ -1207,7 +1207,7 @@
                     this.$message.success('顶级投资池已新增')
                     this.rootDialogVisible = false
                     await this.loadPoolTree(data.id)
-                } catch (e) { this.$message.error('新增顶级投资池失败') }
+                } catch (e) { this.$message.error(e.message || '操作失败') }
                 this.rootSubmitLoading = false
             },
             // 打开新增子节点弹窗，预填父节点信息并以父节点作为默认模板
@@ -1230,7 +1230,7 @@
                     this.$message.success('子节点已新增')
                     this.childDialogVisible = false
                     await this.loadPoolTree(data.id)
-                } catch (e) { this.$message.error('新增子节点失败') }
+                } catch (e) { this.$message.error(e.message || '操作失败') }
                 this.childSubmitLoading = false
             },
             // 删除投资池节点（级联删除子节点及关系配置，需二次确认）
@@ -1243,7 +1243,10 @@
                     this.$message.success('节点已删除')
                     this.currentPool = {}
                     await this.loadPoolTree()
-                } catch (e) { if (e !== 'cancel') this.$message.error('删除节点失败') }
+                } catch (e) {
+                    if (e === 'cancel' || e === 'close') return
+                    this.$message.error(e.message || '操作失败')
+                }
             },
             // 加载投资池详情并填充基础/关系/权限三个表单
             async loadPoolDetail(id) {
@@ -1315,7 +1318,7 @@
                     const data = await this.apiPost('/api/v1/investmentPool/editPoolConfig', body)
                     this.$message.success('基础配置已保存')
                     this.currentPool = data; this.fillBaseForm(data); this.loadPoolTree()
-                } catch (e) { this.$message.error('保存基础配置失败') }
+                } catch (e) { this.$message.error(e.message || '操作失败') }
                 this.baseSubmitLoading = false
             },
             // 保存关系配置（关系池 + 自动规则）
@@ -1330,7 +1333,7 @@
                     const data = await this.apiPost('/api/v1/investmentPool/editPoolRelation', relationParams)
                     this.$message.success('关系配置已保存')
                     this.currentPool = data; this.fillRelationForm(data)
-                } catch (e) { this.$message.error('保存关系配置失败') }
+                } catch (e) { this.$message.error(e.message || '操作失败') }
                 this.relationSubmitLoading = false
             },
             // 将接口返回的权限列表按类型分类填充到 permissionForm
@@ -1477,7 +1480,7 @@
                     const data = await this.apiPost('/api/v1/investmentPool/editPoolPermission', permissionParams)
                     this.$message.success('权限配置已保存')
                     this.currentPool = data; this.fillPermissionForm(data)
-                } catch (e) { this.$message.error('保存权限配置失败') }
+                } catch (e) { this.$message.error(e.message || '操作失败') }
                 this.permissionSubmitLoading = false
             },
 

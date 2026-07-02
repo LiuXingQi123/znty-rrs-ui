@@ -2200,7 +2200,9 @@
                     if (companyCode) {
                         await this.loadDetailData(companyCode);
                     }
-                } catch (e) {}
+                } catch (e) {
+                    this.$message.error(e.message || '操作失败');
+                }
                 this.auditSubmitLoading = false;
             },
 
@@ -2337,8 +2339,15 @@
                     securityType: this.companyDetail.securityType || '',
                     items
                 };
-                const result = await this.apiPost('/api/v1/forbiddenPoolAdjust/checkAdjust', checkParams);
-                this.adjustCheckLoading = false;
+                let result = null;
+                try {
+                    result = await this.apiPost('/api/v1/forbiddenPoolAdjust/checkAdjust', checkParams);
+                } catch (e) {
+                    this.$message.error(e.message || '操作失败');
+                    return;
+                } finally {
+                    this.adjustCheckLoading = false;
+                }
 
                 const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' }
                 this.adjustReviewList = result.items.map((item, rowIndex) => {
@@ -2461,7 +2470,7 @@
                     this.$message.success('调库申请已成功提交');
                     this.backToList();
                 } catch (e) {
-                    // apiPost 已弹出错误提示
+                    this.$message.error(e.message || '操作失败');
                 } finally {
                     this.submitLoading = false;
                 }
