@@ -110,12 +110,12 @@
                 <!-- 证券简称：固定左侧，超长截断显示 tooltip -->
                 <el-table-column prop="securityShortName" label="证券简称" min-width="140" show-overflow-tooltip>
                     <template slot-scope="{ row }">
-                        <span class="desc-link" @click="openSecurityAdjustDetail(row)">{{ row.securityShortName || '' }}</span>
+                        <span class="desc-link" @click="openPoolAdjustDetail(row)">{{ row.securityShortName || '' }}</span>
                     </template>
                 </el-table-column>
                 <el-table-column prop="securityCode" label="证券代码" min-width="130">
                     <template slot-scope="{ row }">
-                        <span class="desc-link" @click="openSecurityAdjustDetail(row)">{{ row.securityCode || '' }}</span>
+                        <span class="desc-link" @click="openPoolAdjustDetail(row)">{{ row.securityCode || '' }}</span>
                     </template>
                 </el-table-column>
                 <!-- 发行主体：空值显示空字符串 -->
@@ -305,14 +305,22 @@ new Vue({
             this.loadList();
         },
 
-        // 打开证券调库详情页
-        openSecurityAdjustDetail(row) {
+        // 判断当前记录是否为公司主体禁投池记录
+        isCompanySubject(row) {
+            return row.categoryType === 'company';
+        },
+
+        // 打开禁投池对应的调库详情页
+        openPoolAdjustDetail(row) {
             const params = new URLSearchParams();
-            if (row.securityCode || row.windCode) params.set('securityCode', row.securityCode || row.windCode);
+            const isCompanySubject = this.isCompanySubject(row);
+            const targetCode = row.securityCode || row.windCode;
+            if (targetCode) params.set(isCompanySubject ? 'companyCode' : 'securityCode', targetCode);
             if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
             if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
             params.set('entryMode', 'view');
-            window.location.href = 'security_pool_adjust_detail.html?' + params.toString();
+            const page = isCompanySubject ? 'forbidden_pool_adjust_detail.html' : 'security_pool_adjust_detail.html';
+            window.location.href = page + '?' + params.toString();
         },
     }
 });

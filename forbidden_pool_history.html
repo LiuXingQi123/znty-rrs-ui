@@ -71,12 +71,12 @@
                 </el-table-column>
                 <el-table-column prop="securityShortName" label="证券名称" min-width="150" show-overflow-tooltip>
                     <template slot-scope="{ row }">
-                        <span class="desc-link">{{ row.securityShortName || '' }}</span>
+                        <span class="desc-link" @click="openPoolAdjustDetail(row)">{{ row.securityShortName || '' }}</span>
                     </template>
                 </el-table-column>
                 <el-table-column prop="securityCode" label="证券代码" min-width="120">
                     <template slot-scope="{ row }">
-                        <span class="desc-link">{{ row.securityCode || '' }}</span>
+                        <span class="desc-link" @click="openPoolAdjustDetail(row)">{{ row.securityCode || '' }}</span>
                     </template>
                 </el-table-column>
                 <el-table-column prop="issuer" label="发行主体" min-width="180" show-overflow-tooltip></el-table-column>
@@ -177,6 +177,24 @@ new Vue({
                 throw new Error(json.message || '接口异常');
             }
             return json.data;
+        },
+
+        // 判断当前记录是否为公司主体禁投池记录
+        isCompanySubject(row) {
+            return row.categoryType === 'company';
+        },
+
+        // 打开禁投池对应的调库详情页
+        openPoolAdjustDetail(row) {
+            const params = new URLSearchParams();
+            const isCompanySubject = this.isCompanySubject(row);
+            const targetCode = row.securityCode || row.windCode;
+            if (targetCode) params.set(isCompanySubject ? 'companyCode' : 'securityCode', targetCode);
+            if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
+            if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
+            params.set('entryMode', 'view');
+            const page = isCompanySubject ? 'forbidden_pool_adjust_detail.html' : 'security_pool_adjust_detail.html';
+            window.location.href = page + '?' + params.toString();
         },
 
         // 审批状态名称
