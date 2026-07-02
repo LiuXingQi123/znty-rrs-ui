@@ -449,12 +449,12 @@
                                             <div v-else class="handler-tag-list">
                                                 <el-tag
                                                         v-for="item in selNode.approvalPersons"
-                                                        :key="item.subjectType + '_' + item.subjectId"
+                                                        :key="item.handlerType + '_' + item.handlerId"
                                                         size="mini"
-                                                        :type="item.subjectType === 'role' ? 'warning' : 'success'"
+                                                        :type="item.handlerType === 'role' ? 'warning' : 'success'"
                                                         :closable="!viewMode"
                                                         @close="removeApprovalPerson(item)">
-                                                    {{ item.subjectType === 'role' ? '角色' : '人员' }} · {{ item.subjectName }}
+                                                    {{ item.handlerType === 'role' ? '角色' : '人员' }} · {{ item.handlerName }}
                                                 </el-tag>
                                             </div>
                                             <el-button v-if="!viewMode" size="mini" type="primary" plain icon="el-icon-user" @click="openApprovalPersonDialog">选择处理人</el-button>
@@ -1341,20 +1341,20 @@
                 return normalized
             },
 
-            // 将处理人配置统一为 { subjectType, subjectId, subjectName } 结构
+            // 将处理人配置统一为 { handlerType, handlerId, handlerName } 结构
             normalizeApprovalPersons(list) {
                 if (!list || !list.length) return []
                 return list.map(item => {
                     if (typeof item === 'string') {
                         const role = this.roleOptions.find(r => String(r.value) === item)
-                        return { subjectType: 'role', subjectId: item, subjectName: role ? role.label : item }
+                        return { handlerType: 'role', handlerId: item, handlerName: role ? role.label : item }
                     }
                     return {
-                        subjectType: item.subjectType,
-                        subjectId: item.subjectId,
-                        subjectName: item.subjectName
+                        handlerType: item.handlerType,
+                        handlerId: item.handlerId,
+                        handlerName: item.handlerName
                     }
-                }).filter(item => item.subjectType && item.subjectId != null)
+                }).filter(item => item.handlerType && item.handlerId != null)
             },
 
             // 将扁平角色列表组装为角色树
@@ -1392,11 +1392,11 @@
                 if (!this.selNode) return
                 this.selNode.approvalPersons = this.normalizeApprovalPersons(this.selNode.approvalPersons)
                 this.selectedApprovalRoles = this.selNode.approvalPersons
-                    .filter(item => item.subjectType === 'role')
-                    .map(item => ({ id: item.subjectId, roleName: item.subjectName }))
+                    .filter(item => item.handlerType === 'role')
+                    .map(item => ({ id: item.handlerId, roleName: item.handlerName }))
                 this.selectedApprovalUsers = this.selNode.approvalPersons
-                    .filter(item => item.subjectType === 'user')
-                    .map(item => ({ id: item.subjectId, userName: item.subjectName, roleName: item.roleName || '' }))
+                    .filter(item => item.handlerType === 'user')
+                    .map(item => ({ id: item.handlerId, userName: item.handlerName, roleName: item.roleName || '' }))
                 this.approvalUserKeyword = ''
                 this.currentApprovalRoleId = '__all__'
                 this.approvalPersonDialogVisible = true
@@ -1510,10 +1510,10 @@
                 this.pushH()
                 const list = []
                 this.selectedApprovalRoles.forEach(role => {
-                    list.push({ subjectType: 'role', subjectId: role.id, subjectName: role.roleName || role.name || role.label || '' })
+                    list.push({ handlerType: 'role', handlerId: role.id, handlerName: role.roleName || role.name || role.label || '' })
                 })
                 this.selectedApprovalUsers.forEach(user => {
-                    list.push({ subjectType: 'user', subjectId: user.id, subjectName: user.userName })
+                    list.push({ handlerType: 'user', handlerId: user.id, handlerName: user.userName })
                 })
                 this.selNode.approvalPersons = list
                 this.pushH()
@@ -1526,7 +1526,7 @@
                 if (!this.selNode || !this.selNode.approvalPersons) return
                 this.pushH()
                 this.selNode.approvalPersons = this.selNode.approvalPersons
-                    .filter(p => !(p.subjectType === item.subjectType && String(p.subjectId) === String(item.subjectId)))
+                    .filter(p => !(p.handlerType === item.handlerType && String(p.handlerId) === String(item.handlerId)))
                 this.pushH()
             },
 

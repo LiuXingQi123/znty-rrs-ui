@@ -143,9 +143,9 @@ const DICT_POOL_PERMISSION_TYPE = {
     'excel_importable': '可Excel导入',
 };
 
-// ── 10. 权限主体类型（subject_type）──────────────────────
+// ── 10. 权限处理人类型（handler_type）──────────────────────
 // 表：ip_pool_permission
-const DICT_PERMISSION_SUBJECT_TYPE = {
+const DICT_PERMISSION_HANDLER_TYPE = {
     'role': '角色',
     'user': '人员',
 };
