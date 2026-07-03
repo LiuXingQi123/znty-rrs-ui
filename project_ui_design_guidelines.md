@@ -2,7 +2,7 @@
 
 1. 文档定位
 
-- 本文档用于约束 znty-sirm-ui 后续页面开发、页面重构、AI生成页面和UI走查。
+- 本文档用于约束 znty-rrs-ui 后续页面开发、页面重构、AI生成页面和UI走查。
 - 本规范基于以下三份文件合并精简：
   - project_ui_design_guidelines_deepseek.md
   - project_ui_design_guidelines_gemini.md

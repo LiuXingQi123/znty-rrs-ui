@@ -1,6 +1,6 @@
 # 兴业基金智能投研平台-前端视觉规范报告
 
-> 本报告基于 `D:\my-project-all\znty-rrs-slice` 下的核心规范包与业务页面切图整理，面向 `znty-sirm-ui` 后续 Vue2 + ElementUI 页面改造、组件复用和 AI 批量生成。实现时应优先遵循本文档，不再引入新的视觉语言。
+> 本报告基于 `D:\my-project-all\znty-rrs-slice` 下的核心规范包与业务页面切图整理，面向 `znty-rrs-ui` 后续 Vue2 + ElementUI 页面改造、组件复用和 AI 批量生成。实现时应优先遵循本文档，不再引入新的视觉语言。
 
 ## 1. 分析范围与整体结论
 

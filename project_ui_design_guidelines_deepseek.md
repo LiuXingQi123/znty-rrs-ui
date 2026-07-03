@@ -1,6 +1,6 @@
 # 项目整体风格总结
 
-本文档基于 `D:\my-project-all\znty-rrs-slice` 下 6 个切图模块的根目录 `index.html` 分析整理，用于后续统一 `znty-sirm-ui` 前端页面视觉风格。
+本文档基于 `D:\my-project-all\znty-rrs-slice` 下 6 个切图模块的根目录 `index.html` 分析整理，用于后续统一 `znty-rrs-ui` 前端页面视觉风格。
 
 ## 1. 整体视觉定位
 
