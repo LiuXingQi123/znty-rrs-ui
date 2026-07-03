@@ -940,30 +940,33 @@
 </div>
 
 <script>
-    // ─── 节点类型配置：定义六种流程节点的外观与默认文本 ───
-    const NCfg = {
-        start:    { label: '开始',    fill: '#dcfce7', stroke: '#16a34a', tc: '#15803d', badge: 'START',    shape: 'circle' },
-        end:      { label: '结束',    fill: '#fee2e2', stroke: '#dc2626', tc: '#dc2626', badge: 'END',      shape: 'circle' },
-        approval: { label: '审批节点',fill: '#dbeafe', stroke: '#3b82f6', tc: '#1d4ed8', badge: 'APPROVAL', shape: 'rect' },
-        condition:{ label: '条件判断',fill: '#fef3c7', stroke: '#d97706', tc: '#b45309', badge: 'CONDITION',shape: 'diamond' },
-        auto:     { label: '自动执行',fill: '#ede9fe', stroke: '#7c3aed', tc: '#6d28d9', badge: 'AUTO',     shape: 'rect' },
-        notify:   { label: '消息通知',fill: '#cffafe', stroke: '#0891b2', tc: '#0e7490', badge: 'NOTIFY',   shape: 'rect' },
-    };
-    // 节点尺寸常量：NW=矩形宽 NH=矩形高 CR=圆形半径 DH=菱形半高 DW=菱形半宽
-    const NW = 148, NH = 60, CR = 38, DH = 38, DW = 52;
-    // SVG 命名空间 URI（XML 标识符，非网络请求）
-    const SVG_NS = 'http://www.w3.org/2000/svg';
-    // 创建 SVG 元素的工具函数
-    const mkEl = (tag, attrs = {}) => {
-        const e = document.createElementNS(SVG_NS, tag);
-        Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
-        return e;
-    };
-
     new Vue({
         el: '#flow_definition',
         data() {
             return {
+                // ─── 节点类型配置：定义六种流程节点的外观与默认文本 ───
+                NCfg: {
+                    start:    { label: '开始',    fill: '#dcfce7', stroke: '#16a34a', tc: '#15803d', badge: 'START',    shape: 'circle' },
+                    end:      { label: '结束',    fill: '#fee2e2', stroke: '#dc2626', tc: '#dc2626', badge: 'END',      shape: 'circle' },
+                    approval: { label: '审批节点',fill: '#dbeafe', stroke: '#3b82f6', tc: '#1d4ed8', badge: 'APPROVAL', shape: 'rect' },
+                    condition:{ label: '条件判断',fill: '#fef3c7', stroke: '#d97706', tc: '#b45309', badge: 'CONDITION',shape: 'diamond' },
+                    auto:     { label: '自动执行',fill: '#ede9fe', stroke: '#7c3aed', tc: '#6d28d9', badge: 'AUTO',     shape: 'rect' },
+                    notify:   { label: '消息通知',fill: '#cffafe', stroke: '#0891b2', tc: '#0e7490', badge: 'NOTIFY',   shape: 'rect' },
+                },
+                // 节点尺寸常量：NW=矩形宽 NH=矩形高 CR=圆形半径 DH=菱形半高 DW=菱形半宽
+                NW: 148,
+                NH: 60,
+                CR: 38,
+                DH: 38,
+                DW: 52,
+                // SVG 命名空间 URI（XML 标识符，非网络请求）
+                SVG_NS: 'http://www.w3.org/2000/svg',
+                // 创建 SVG 元素的工具函数
+                mkEl(tag, attrs = {}) {
+                    const e = document.createElementNS(this.SVG_NS, tag);
+                    Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
+                    return e;
+                },
                 moment: moment, // 日期处理工具
                 // ── 页面路由 ──
                 currentPage: 'list',            // 当前页面：'list' | 'designer'
@@ -1135,7 +1138,7 @@
                     this.propsSub = this.viewMode ? '点击节点查看属性' : '点击节点编辑';
                     this.statusbarSel = '未选中';
                 } else if (this.selNode) {
-                    const cfg = NCfg[this.selNode.type] || NCfg.approval;
+                    const cfg = this.NCfg[this.selNode.type] || this.NCfg.approval;
                     this.propsTitle = this.viewMode ? '节点详情' : '节点属性';
                     this.propsSub = (this.selNode.label || cfg.label) + ' · ' + this.selNode.type.toUpperCase();
                     this.statusbarSel = this.selNode.label || cfg.label;
@@ -1934,8 +1937,8 @@
                 const rect = cw.getBoundingClientRect();
                 const pad = 96;
                 const bounds = this.nodes.reduce((acc, n) => {
-                    const width = n.shape === 'circle' ? CR * 2 : n.shape === 'diamond' ? DW * 2 : NW;
-                    const height = n.shape === 'circle' ? CR * 2 : n.shape === 'diamond' ? DH * 2 : NH;
+                    const width = n.shape === 'circle' ? this.CR * 2 : n.shape === 'diamond' ? this.DW * 2 : this.NW;
+                    const height = n.shape === 'circle' ? this.CR * 2 : n.shape === 'diamond' ? this.DH * 2 : this.NH;
                     acc.minX = Math.min(acc.minX, n.x);
                     acc.minY = Math.min(acc.minY, n.y);
                     acc.maxX = Math.max(acc.maxX, n.x + width);
@@ -1991,20 +1994,20 @@
             },
             // 获取节点几何中心坐标
             nc(n) {
-                if (n.shape === 'circle')  return { x: n.x + CR, y: n.y + CR };
-                if (n.shape === 'diamond') return { x: n.x + DW, y: n.y + DH };
-                return { x: n.x + NW / 2, y: n.y + NH / 2 };
+                if (n.shape === 'circle')  return { x: n.x + this.CR, y: n.y + this.CR };
+                if (n.shape === 'diamond') return { x: n.x + this.DW, y: n.y + this.DH };
+                return { x: n.x + this.NW / 2, y: n.y + this.NH / 2 };
             },
             // 计算连线与节点边界的交点（支持圆形/菱形/矩形三种形状）
             edgePt(n, tx, ty) {
                 const c = this.nc(n), dx = tx - c.x, dy = ty - c.y, ang = Math.atan2(dy, dx);
-                if (n.shape === 'circle') return { x: c.x + Math.cos(ang) * CR, y: c.y + Math.sin(ang) * CR };
+                if (n.shape === 'circle') return { x: c.x + Math.cos(ang) * this.CR, y: c.y + Math.sin(ang) * this.CR };
                 if (n.shape === 'diamond') {
                     const ca = Math.abs(Math.cos(ang)) || .001, sa = Math.abs(Math.sin(ang)) || .001;
-                    const r = Math.min(DW / ca, DH / sa);
+                    const r = Math.min(this.DW / ca, this.DH / sa);
                     return { x: c.x + Math.cos(ang) * r, y: c.y + Math.sin(ang) * r };
                 }
-                const hw = NW / 2, hh = NH / 2, aDx = Math.abs(dx), aDy = Math.abs(dy);
+                const hw = this.NW / 2, hh = this.NH / 2, aDx = Math.abs(dx), aDy = Math.abs(dy);
                 let r;
                 if (aDx * hh > aDy * hw) r = hw / Math.abs(Math.cos(ang) || .001);
                 else r = hh / Math.abs(Math.sin(ang) || .001);
@@ -2041,29 +2044,29 @@
                     const lmx = 0.125*fp.x + 0.375*cx1 + 0.375*cx2 + 0.125*tp.x + perpX * offset * 0.5;
                     const lmy = 0.125*fp.y + 0.375*cy1 + 0.375*cy2 + 0.125*tp.y + perpY * offset * 0.5;
 
-                    const g = mkEl('g');
+                    const g = this.mkEl('g');
                     // 透明宽路径提升点击热区
-                    const hit = mkEl('path', { d, fill: 'none', stroke: 'transparent', 'stroke-width': '14' });
+                    const hit = this.mkEl('path', { d, fill: 'none', stroke: 'transparent', 'stroke-width': '14' });
                     hit.style.cursor = 'pointer';
                     hit.addEventListener('click', ev => { ev.stopPropagation(); this.selId = e.id; this.renderAll(); });
                     hit.addEventListener('dblclick', ev => { ev.stopPropagation(); this.editEdgeLbl(e.id); });
                     // 实际可见的连线路径
-                    const path = mkEl('path', { d, fill: 'none', stroke: isSel ? '#3b6bff' : '#a0a8c8', 'stroke-width': isSel ? 2.5 : 1.8, 'marker-end': isSel ? 'url(#arr-sel)' : 'url(#arr)' });
+                    const path = this.mkEl('path', { d, fill: 'none', stroke: isSel ? '#3b6bff' : '#a0a8c8', 'stroke-width': isSel ? 2.5 : 1.8, 'marker-end': isSel ? 'url(#arr-sel)' : 'url(#arr)' });
                     path.style.pointerEvents = 'none';
                     g.appendChild(hit); g.appendChild(path);
                     // 如果有标签文本则渲染
                     if (e.label) {
-                        const bg = mkEl('rect', { x: lmx - 22, y: lmy - 10, width: 44, height: 19, rx: 4, fill: isSel ? '#eef2ff' : '#fff', stroke: isSel ? '#3b6bff' : '#e2e5ee', 'stroke-width': 1 });
-                        const lt = mkEl('text', { x: lmx, y: lmy + 4, 'text-anchor': 'middle', 'font-size': 11, fill: isSel ? '#3b6bff' : '#5c6282', 'font-family': 'sans-serif', 'font-weight': 500 });
+                        const bg = this.mkEl('rect', { x: lmx - 22, y: lmy - 10, width: 44, height: 19, rx: 4, fill: isSel ? '#eef2ff' : '#fff', stroke: isSel ? '#3b6bff' : '#e2e5ee', 'stroke-width': 1 });
+                        const lt = this.mkEl('text', { x: lmx, y: lmy + 4, 'text-anchor': 'middle', 'font-size': 11, fill: isSel ? '#3b6bff' : '#5c6282', 'font-family': 'sans-serif', 'font-weight': 500 });
                         lt.textContent = e.label; lt.style.pointerEvents = 'none';
                         g.appendChild(bg); g.appendChild(lt);
                     }
                     // 选中态：显示删除按钮
                     if (isSel) {
-                        const dc = mkEl('circle', { cx: lmx, cy: lmy - 20, r: 9, fill: '#fee2e2', stroke: 'rgba(220,38,38,.4)', 'stroke-width': 1 });
-                        const dt = mkEl('text', { x: lmx, y: lmy - 16, 'text-anchor': 'middle', 'font-size': 13, fill: '#dc2626' });
+                        const dc = this.mkEl('circle', { cx: lmx, cy: lmy - 20, r: 9, fill: '#fee2e2', stroke: 'rgba(220,38,38,.4)', 'stroke-width': 1 });
+                        const dt = this.mkEl('text', { x: lmx, y: lmy - 16, 'text-anchor': 'middle', 'font-size': 13, fill: '#dc2626' });
                         dt.textContent = '✕'; dt.style.pointerEvents = 'none';
-                        const dg = mkEl('g'); dg.style.cursor = 'pointer';
+                        const dg = this.mkEl('g'); dg.style.cursor = 'pointer';
                         dg.appendChild(dc); dg.appendChild(dt);
                         dg.addEventListener('click', ev => { ev.stopPropagation(); this.edges = this.edges.filter(x => x.id !== e.id); this.selId = null; this.renderAll(); });
                         g.appendChild(dg);
@@ -2075,35 +2078,35 @@
             renderNodes() {
                 const L = document.getElementById('ng'); if (!L) return; L.innerHTML = '';
                 this.nodes.forEach(n => {
-                    const cfg = NCfg[n.type] || NCfg.approval;
+                    const cfg = this.NCfg[n.type] || this.NCfg.approval;
                     const isSel = n.id === this.selId;
-                    const g = mkEl('g'); g.style.cursor = 'pointer';
+                    const g = this.mkEl('g'); g.style.cursor = 'pointer';
                     // 圆形节点：开始/结束
                     if (cfg.shape === 'circle') {
-                        const cx = n.x + CR, cy = n.y + CR;
-                        if (isSel) { const d = mkEl('circle', { cx, cy, r: CR + 5, fill: 'none', stroke: cfg.stroke, 'stroke-width': 1, 'stroke-dasharray': '5 3' }); d.style.pointerEvents = 'none'; g.appendChild(d); }
-                        const out = mkEl('circle', { cx, cy, r: CR, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': isSel ? 2.5 : 1.5 });
-                        const inn = mkEl('circle', { cx, cy, r: 26, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': 1 });
+                        const cx = n.x + this.CR, cy = n.y + this.CR;
+                        if (isSel) { const d = this.mkEl('circle', { cx, cy, r: this.CR + 5, fill: 'none', stroke: cfg.stroke, 'stroke-width': 1, 'stroke-dasharray': '5 3' }); d.style.pointerEvents = 'none'; g.appendChild(d); }
+                        const out = this.mkEl('circle', { cx, cy, r: this.CR, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': isSel ? 2.5 : 1.5 });
+                        const inn = this.mkEl('circle', { cx, cy, r: 26, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': 1 });
                         inn.style.pointerEvents = 'none';
                         const t1 = this.mkTxt(cx, cy - 4, n.label || cfg.label, 12, cfg.tc, 600);
                         const t2 = this.mkTxt(cx, cy + 11, cfg.badge, 9.5, cfg.stroke + '90', 400, 'monospace');
                         g.appendChild(out); g.appendChild(inn); g.appendChild(t1); g.appendChild(t2);
                         // 菱形节点：条件判断
                     } else if (cfg.shape === 'diamond') {
-                        const cx = n.x + DW, cy = n.y + DH;
-                        const pts = `${cx},${cy - DH} ${cx + DW},${cy} ${cx},${cy + DH} ${cx - DW},${cy}`;
-                        if (isSel) { const dp = mkEl('polygon', { points: `${cx},${cy - DH - 5} ${cx + DW + 5},${cy} ${cx},${cy + DH + 5} ${cx - DW - 5},${cy}`, fill: 'none', stroke: cfg.stroke, 'stroke-width': 1, 'stroke-dasharray': '5 3' }); dp.style.pointerEvents = 'none'; g.appendChild(dp); }
-                        const poly = mkEl('polygon', { points: pts, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': isSel ? 2.5 : 1.5 });
+                        const cx = n.x + this.DW, cy = n.y + this.DH;
+                        const pts = `${cx},${cy - this.DH} ${cx + this.DW},${cy} ${cx},${cy + this.DH} ${cx - this.DW},${cy}`;
+                        if (isSel) { const dp = this.mkEl('polygon', { points: `${cx},${cy - this.DH - 5} ${cx + this.DW + 5},${cy} ${cx},${cy + this.DH + 5} ${cx - this.DW - 5},${cy}`, fill: 'none', stroke: cfg.stroke, 'stroke-width': 1, 'stroke-dasharray': '5 3' }); dp.style.pointerEvents = 'none'; g.appendChild(dp); }
+                        const poly = this.mkEl('polygon', { points: pts, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': isSel ? 2.5 : 1.5 });
                         const t1 = this.mkTxt(cx, cy - 3, n.label || cfg.label, 12, cfg.tc, 600);
                         const t2 = this.mkTxt(cx, cy + 11, cfg.badge, 9.5, cfg.stroke + '90', 400, 'monospace');
                         g.appendChild(poly); g.appendChild(t1); g.appendChild(t2);
                         // 矩形节点：审批/自动/通知（带顶栏装饰条）
                     } else {
-                        if (isSel) { const dr = mkEl('rect', { x: n.x - 4, y: n.y - 4, width: NW + 8, height: NH + 8, rx: 13, fill: 'none', stroke: cfg.stroke, 'stroke-width': 1, 'stroke-dasharray': '5 3' }); dr.style.pointerEvents = 'none'; g.appendChild(dr); }
-                        const rect = mkEl('rect', { x: n.x, y: n.y, width: NW, height: NH, rx: 10, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': isSel ? 2.5 : 1.5 });
-                        const bar = mkEl('rect', { x: n.x, y: n.y, width: NW, height: 5, rx: 10, fill: cfg.stroke });
+                        if (isSel) { const dr = this.mkEl('rect', { x: n.x - 4, y: n.y - 4, width: this.NW + 8, height: this.NH + 8, rx: 13, fill: 'none', stroke: cfg.stroke, 'stroke-width': 1, 'stroke-dasharray': '5 3' }); dr.style.pointerEvents = 'none'; g.appendChild(dr); }
+                        const rect = this.mkEl('rect', { x: n.x, y: n.y, width: this.NW, height: this.NH, rx: 10, fill: cfg.fill, stroke: cfg.stroke, 'stroke-width': isSel ? 2.5 : 1.5 });
+                        const bar = this.mkEl('rect', { x: n.x, y: n.y, width: this.NW, height: 5, rx: 10, fill: cfg.stroke });
                         bar.style.pointerEvents = 'none';
-                        const cx = n.x + NW / 2;
+                        const cx = n.x + this.NW / 2;
                         const t1 = this.mkTxt(cx, n.y + 28, n.label || cfg.label, 13, cfg.tc, 600);
                         const t2 = this.mkTxt(cx, n.y + 44, cfg.badge, 9.5, cfg.stroke + 'aa', 400, 'monospace');
                         const t3 = n.sub ? this.mkTxt(cx, n.y + 56, n.sub, 9, cfg.stroke + '80', 400, 'monospace') : null;
@@ -2131,7 +2134,7 @@
             },
             // 创建 SVG 文本元素
             mkTxt(x, y, text, size, fill, weight, family) {
-                const t = mkEl('text', { x, y, 'text-anchor': 'middle', 'font-size': size, fill, 'font-weight': weight || 400, 'font-family': family || 'sans-serif' });
+                const t = this.mkEl('text', { x, y, 'text-anchor': 'middle', 'font-size': size, fill, 'font-weight': weight || 400, 'font-family': family || 'sans-serif' });
                 t.textContent = text; t.style.pointerEvents = 'none'; return t;
             },
             // 从节点面板开始拖拽
@@ -2146,12 +2149,12 @@
                 if (this.viewMode) return;
                 const type = ev.dataTransfer.getData('text/plain') || this.dragType; if (!type) return;
                 const pt = this.svgPt(ev.clientX, ev.clientY);
-                const cfg = NCfg[type] || NCfg.approval;
+                const cfg = this.NCfg[type] || this.NCfg.approval;
                 this.pushH();
                 const id = 'n' + (++this.seq);
                 const sh = cfg.shape;
-                const ox = sh === 'circle' ? CR : sh === 'diamond' ? DW : NW / 2;
-                const oy = sh === 'circle' ? CR : sh === 'diamond' ? DH : NH / 2;
+                const ox = sh === 'circle' ? this.CR : sh === 'diamond' ? this.DW : this.NW / 2;
+                const oy = sh === 'circle' ? this.CR : sh === 'diamond' ? this.DH : this.NH / 2;
                 const n = { id, type, label: cfg.label, x: pt.x - ox, y: pt.y - oy, shape: sh, ...this.nodeDefaults(type) };
                 this.nodes.push(n); this.selId = n.id; this.dragType = null; this.pushH(); this.renderAll();
             },
@@ -2377,7 +2380,7 @@
                 // 创建节点辅助函数
                 const a = (type, label, x, y, sub) => {
                     const id = 'n' + (++this.seq);
-                    this.nodes.push({ id, type, label, x, y, shape: NCfg[type].shape, sub, ...this.nodeDefaults(type) });
+                    this.nodes.push({ id, type, label, x, y, shape: this.NCfg[type].shape, sub, ...this.nodeDefaults(type) });
                     return id;
                 };
                 // 创建演示流程节点：开始 → HR审批 → 条件判断 → 上级审批(通过) / 驳回通知(驳回) → 自动执行 → 结束
