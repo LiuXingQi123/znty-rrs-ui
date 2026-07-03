@@ -233,7 +233,7 @@ const DICT_BOND_STATUS = {
 // ════════════════════════════════════════════════════════════
 
 // ── 17. 证券类型——整数码（d_security_type）────────────────
-// 表：sirm_securityinfo（字段 d_security_type）
+// 表：rrs_securityinfo（字段 d_security_type）
 // 说明：证券基础信息表中的整数类型码（无独立后端枚举）
 const DICT_SECURITY_TYPE_INT = {
     1: '中期票据',
@@ -247,7 +247,7 @@ const DICT_SECURITY_TYPE_INT = {
 
 // ── 18. 证券类型——字符串码（security_type）───────────────
 // 表：dict_security_type（字段 security_type / security_type_name）
-// 说明：与 sql/sirm_dict_demo_data.sql 中 dict_security_type 演示数据逐项核对；
+// 说明：与 sql/rrs_dict_demo_data.sql 中 dict_security_type 演示数据逐项核对；
 //      页面实际从后端 /queryTempSecurityCodeOptions 等接口动态加载，本字典仅作参考。
 //      大类 bond=债券 / stock=股票 / fund=基金 / company=公司主体 / 其他
 const DICT_SECURITY_TYPE_STR = {
@@ -323,7 +323,7 @@ const DICT_SECURITY_CATEGORY = {
 };
 
 // ── 20. 利率类型（interest_type）───────────────────
-// 表：sirm_securityinfo（无独立后端枚举）
+// 表：rrs_securityinfo（无独立后端枚举）
 const DICT_INTEREST_TYPE = {
     '固定利率': '固定利率',
     '浮动利率': '浮动利率', // 基准利率 + 固定利差，如 SHIBOR+spread
@@ -332,7 +332,7 @@ const DICT_INTEREST_TYPE = {
 };
 
 // ── 21. 付息频率（interest_frequency）──────────────
-// 表：sirm_securityinfo（无独立后端枚举）
+// 表：rrs_securityinfo（无独立后端枚举）
 const DICT_INTEREST_FREQUENCY = {
     '按年付息':         '按年付息',
     '按半年付息':       '按半年付息',
@@ -342,7 +342,7 @@ const DICT_INTEREST_FREQUENCY = {
 };
 
 // ── 22. 发行方式（issue_type）──────────────────────
-// 表：sirm_securityinfo（无独立后端枚举）
+// 表：rrs_securityinfo（无独立后端枚举）
 const DICT_ISSUE_TYPE = {
     '公开发行':   '公开发行',
     '非公开发行': '非公开发行', // PPN、私募债等
@@ -350,7 +350,7 @@ const DICT_ISSUE_TYPE = {
 };
 
 // ── 23. 主体类型/公司性质（comp_type）──────────────
-// 表：sirm_securityinfo（无独立后端枚举）
+// 表：rrs_securityinfo（无独立后端枚举）
 const DICT_COMPANY_TYPE = {
     '央企':     '央企',
     '地方国企': '地方国企',
@@ -365,7 +365,7 @@ const DICT_COMPANY_TYPE = {
 };
 
 // ── 24. 外部评级（rating_bond / rating_bondissuer）
-// 表：sirm_securityinfo（无独立后端枚举）
+// 表：rrs_securityinfo（无独立后端枚举）
 // 长期评级：AAA+ > AAA > AA+ > ... > D
 // 短期评级：A-1（短融/超短融专用）
 const DICT_RATING_LONG = [
@@ -378,7 +378,7 @@ const DICT_RATING_LONG = [
 const DICT_RATING_SHORT = ['A-1', 'A-2', 'A-3', 'B', 'C', 'D']; // 短期评级（CP/SCP）
 
 // ── 25. 评级展望（rating_outlook）────────────────────────
-// 表：sirm_securityinfo（无独立后端枚举）
+// 表：rrs_securityinfo（无独立后端枚举）
 const DICT_RATING_OUTLOOK = {
     '稳定': '稳定',
     '正面': '正面',
@@ -387,7 +387,7 @@ const DICT_RATING_OUTLOOK = {
 };
 
 // ── 26. 外部评级机构（rating_bond_agency）────────────
-// 表：sirm_securityinfo（无独立后端枚举）
+// 表：rrs_securityinfo（无独立后端枚举）
 const DICT_RATING_AGENCY = {
     '中诚信国际': '中诚信国际',
     '联合资信':   '联合资信',
@@ -400,7 +400,7 @@ const DICT_RATING_AGENCY = {
 };
 
 // ── 27. 主体内部评级（inner_issuer_rating）───────────────
-// 表：sirm_securityinfo（无独立后端枚举）
+// 表：rrs_securityinfo（无独立后端枚举）
 // 1级最优，10级最差（对应外评 AAA → D）
 const DICT_INNER_RATING = {
     '1级': '1级（对应外评 AAA+/AAA）',
@@ -416,7 +416,7 @@ const DICT_INNER_RATING = {
 };
 
 // ── 28. 证券内部分类（inner_class）─────────────────
-// 表：sirm_securityinfo（无独立后端枚举）
+// 表：rrs_securityinfo（无独立后端枚举）
 const DICT_INNER_CLASS = {
     '央企债': '央企债',
     '国企债': '国企债',
@@ -429,7 +429,7 @@ const DICT_INNER_CLASS = {
 };
 
 // ── 29. 行业分类（industry_name）───────────────────
-// 表：sirm_securityinfo（一级行业，无独立后端枚举）
+// 表：rrs_securityinfo（一级行业，无独立后端枚举）
 const DICT_INDUSTRY = {
     '金融':     '金融',
     '地产':     '地产',
@@ -450,7 +450,7 @@ const DICT_INDUSTRY = {
 };
 
 // ── 30. 货币（crncy_code）────────────────────────────────
-// 表：sirm_securityinfo（无独立后端枚举）
+// 表：rrs_securityinfo（无独立后端枚举）
 const DICT_CURRENCY = {
     'CNY': '人民币',
     'USD': '美元',
@@ -658,7 +658,7 @@ const DICT_LOG_TYPE = {
 
 // ── 48. 临时代码状态（status）────────────────────────────
 // 枚举：TempStatus
-// 表：sirm_temp_security_code.status
+// 表：rrs_temp_security_code.status
 const DICT_TEMP_STATUS = {
     'temporary': '临时',
     'updated':   '已更新',
@@ -668,7 +668,7 @@ const DICT_TEMP_STATUS = {
 
 // ── 49. 临时代码操作类型（operation_type）────────────────
 // 枚举：TempOperationType
-// 表：sirm_temp_security_code.operation_type
+// 表：rrs_temp_security_code.operation_type
 const DICT_TEMP_OPERATION_TYPE = {
     'add':          '新增',
     'update':       '更新',
@@ -705,7 +705,7 @@ const DICT_ATTACHMENT_PURPOSE = {
 
 // ── 52. 报告类型（report_type）───────────────────────────
 // 枚举：ReportType
-// 表：sirm_report_in.report_type
+// 表：rrs_report_in.report_type
 const DICT_REPORT_TYPE = {
     'bond_in_report':  '债券入库报告',
     'bond_out_report': '债券出库报告',
