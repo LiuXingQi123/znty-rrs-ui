@@ -21,7 +21,9 @@
 | `forbidden_pool_adjust_detail.html` | 禁投池调整详情 | `css/forbidden_pool_adjust_detail.css`、`css/common.css` |
 | `forbidden_pool_history.html` | 禁投池历史查询 | `css/forbidden_pool_history.css`、`css/common.css` |
 | `forbidden_pool_query.html` | 禁投池查询 | `css/forbidden_pool_query.css`、`css/common.css` |
+| `index.html` | RRS 菜单工作台 | `css/index.css` |
 | `investment_pool.html` | 投资池维护 | `css/investment_pool.css`、`css/common.css` |
+| `login.html` | 前端演示登录 | `css/login.css` |
 | `my_matters.html` | 我的事宜 | `css/my_matters.css`、`css/common.css` |
 | `rule_manager.html` | 规则管理中心 | `css/rule_manager.css`、`css/common.css` |
 | `security_pool_adjust.html` | 证券池调库 | `css/security_pool_adjust.css`、`css/common.css` |
@@ -51,7 +53,9 @@
 | `css/forbidden_pool_adjust_detail.css` | 禁投池调整详情页面样式 | `forbidden_pool_adjust_detail.html` |
 | `css/forbidden_pool_history.css` | 禁投池历史查询页面样式 | `forbidden_pool_history.html` |
 | `css/forbidden_pool_query.css` | 禁投池查询页面样式 | `forbidden_pool_query.html` |
+| `css/index.css` | RRS 菜单工作台样式 | `index.html` |
 | `css/investment_pool.css` | 投资池维护页面样式 | `investment_pool.html` |
+| `css/login.css` | 前端演示登录页面样式 | `login.html` |
 | `css/my_matters.css` | 我的事宜页面样式 | `my_matters.html` |
 | `css/rule_manager.css` | 规则管理中心页面样式 | `rule_manager.html` |
 | `css/security_pool_adjust.css` | 证券池调库页面样式 | `security_pool_adjust.html` |

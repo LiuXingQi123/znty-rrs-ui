@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 智慧风控平台</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="js/api.js"></script>
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body class="rrs-login-page">
+<div id="rrs_login">
+    <section class="login-brand-panel">
+        <div class="brand-mark">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+                <path d="M8 11h32v7H8zM8 21h22v7H8zM8 31h14v7H8z"></path>
+                <circle cx="37" cy="34" r="6"></circle>
+            </svg>
+        </div>
+        <div class="brand-copy">
+            <p class="brand-kicker">RISK RESEARCH SYSTEM</p>
+            <h1>智慧风控平台</h1>
+            <p class="brand-subtitle">证券投资管理系统 · 研究、审核与配置一体化工作台</p>
+        </div>
+        <div class="network-visual" aria-hidden="true">
+            <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid meet">
+                <g class="network-lines">
+                    <path d="M70 245L185 150L300 215L415 100L555 170"></path>
+                    <path d="M95 85L185 150L270 70L415 100L500 55"></path>
+                    <path d="M185 150L205 285L300 215L455 280L555 170"></path>
+                </g>
+                <g class="network-nodes">
+                    <circle cx="70" cy="245" r="8"></circle>
+                    <circle cx="95" cy="85" r="6"></circle>
+                    <circle cx="185" cy="150" r="11"></circle>
+                    <circle cx="205" cy="285" r="7"></circle>
+                    <circle cx="270" cy="70" r="7"></circle>
+                    <circle cx="300" cy="215" r="10"></circle>
+                    <circle cx="415" cy="100" r="9"></circle>
+                    <circle cx="455" cy="280" r="7"></circle>
+                    <circle cx="500" cy="55" r="6"></circle>
+                    <circle cx="555" cy="170" r="10"></circle>
+                </g>
+            </svg>
+        </div>
+        <div class="brand-footnote">RRS · 专业、审慎、可追溯</div>
+    </section>
+
+    <main class="login-form-panel">
+        <div class="login-card">
+            <div class="login-heading">
+                <span class="login-badge">RRS</span>
+                <h2>欢迎登录</h2>
+                <p>请输入用户名和密码进入工作台</p>
+            </div>
+            <el-form ref="loginForm" :model="loginForm" :rules="loginRules" label-position="top">
+                <el-form-item label="用户名" prop="username">
+                    <el-input
+                            v-model="loginForm.username"
+                            prefix-icon="el-icon-user"
+                            placeholder="请输入用户名"
+                            autocomplete="username"
+                            clearable>
+                    </el-input>
+                </el-form-item>
+                <el-form-item label="密码" prop="password">
+                    <el-input
+                            v-model="loginForm.password"
+                            prefix-icon="el-icon-lock"
+                            placeholder="请输入密码"
+                            type="password"
+                            autocomplete="current-password"
+                            show-password
+                            @keyup.enter.native="handleLogin">
+                    </el-input>
+                </el-form-item>
+                <el-button class="login-submit" type="primary" :loading="submitting" @click="handleLogin">
+                    进入工作台<i class="el-icon-right"></i>
+                </el-button>
+            </el-form>
+            <div class="login-notice">
+                <i class="el-icon-info"></i>
+                当前为前端演示登录，任意非空用户名和密码均可进入
+            </div>
+        </div>
+        <div class="login-copyright">© 2026 智慧风控平台</div>
+    </main>
+</div>
+
+<script>
+new Vue({
+    el: '#rrs_login',
+    data() {
+        return {
+            loginForm: {
+                username: '1001', // 登录用户名
+                password: '123456', // 登录密码（仅用于非空校验）
+            },
+            loginRules: {
+                username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+                password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+            },
+            submitting: false, // 登录按钮加载状态
+        }
+    },
+    methods: {
+        // 校验登录信息并进入菜单工作台
+        handleLogin() {
+            this.$refs.loginForm.validate(valid => {
+                if (!valid || this.submitting) return
+                this.submitting = true
+                const user = window.RrsAuth.authenticate(this.loginForm.username, this.loginForm.password)
+                if (!user) {
+                    this.submitting = false
+                    this.$message.error('用户名和密码不能为空')
+                    return
+                }
+                window.location.replace(window.RrsAuth.buildPageUrl('index.html', user))
+            })
+        },
+    },
+})
+</script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RRS 工作台</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="js/api.js"></script>
+    <link rel="stylesheet" href="css/index.css">
+</head>
+<body class="rrs-workbench-page">
+<div id="rrs_workbench" v-cloak>
+    <el-container class="workbench-shell">
+        <el-aside class="workbench-aside" :width="isCollapse ? '64px' : '224px'">
+            <div class="workbench-brand" :class="{ 'is-collapsed': isCollapse }">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 32 32" aria-hidden="true">
+                        <path d="M5 6h22v5H5zM5 14h15v5H5zM5 22h10v5H5z"></path>
+                        <circle cx="25" cy="24" r="4"></circle>
+                    </svg>
+                </div>
+                <div v-show="!isCollapse" class="brand-text">
+                    <strong>智慧风控平台</strong>
+                    <span>RRS WORKBENCH</span>
+                </div>
+            </div>
+
+            <el-menu
+                    class="workbench-menu"
+                    :default-active="activeMenu"
+                    :collapse="isCollapse"
+                    :collapse-transition="false"
+                    :unique-opened="false"
+                    background-color="#1F3683"
+                    text-color="#DDE4FF"
+                    active-text-color="#FFFFFF"
+                    @select="handleMenuSelect">
+                <el-submenu v-for="group in menuGroups" :key="group.index" :index="group.index">
+                    <template slot="title">
+                        <i :class="group.icon"></i>
+                        <span>{{ group.title }}</span>
+                    </template>
+                    <el-menu-item v-for="item in group.items" :key="item.index" :index="item.index">
+                        <i :class="item.icon"></i>
+                        <span slot="title">{{ item.title }}</span>
+                    </el-menu-item>
+                </el-submenu>
+            </el-menu>
+
+            <button class="aside-collapse" type="button" @click="isCollapse = !isCollapse">
+                <i :class="isCollapse ? 'el-icon-s-unfold' : 'el-icon-s-fold'"></i>
+                <span v-show="!isCollapse">收起菜单</span>
+            </button>
+        </el-aside>
+
+        <el-container class="workbench-main">
+            <el-header class="workbench-header" height="56px">
+                <div class="header-page-info">
+                    <span class="header-category">{{ currentGroupTitle }}</span>
+                    <i class="el-icon-arrow-right"></i>
+                    <strong>{{ currentTitle }}</strong>
+                </div>
+                <div class="header-actions">
+                    <el-tooltip content="刷新当前页面" placement="bottom">
+                        <el-button class="header-icon-button" icon="el-icon-refresh-right" circle @click="refreshCurrentPage"></el-button>
+                    </el-tooltip>
+                    <span class="header-separator"></span>
+                    <el-dropdown trigger="click" @command="handleUserCommand">
+                        <div class="user-entry">
+                            <span class="user-avatar">{{ userInitial }}</span>
+                            <span class="user-name">{{ loginUser ? loginUser.userName : '' }}</span>
+                            <i class="el-icon-arrow-down"></i>
+                        </div>
+                        <el-dropdown-menu slot="dropdown">
+                            <el-dropdown-item icon="el-icon-user" disabled>用户ID：{{ loginUser ? loginUser.userId : '' }}</el-dropdown-item>
+                            <el-dropdown-item command="logout" icon="el-icon-switch-button" divided>退出登录</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </el-dropdown>
+                </div>
+            </el-header>
+
+            <el-main class="workbench-content">
+                <div class="content-frame-wrap">
+                    <iframe
+                            v-if="currentUrl"
+                            :key="frameKey"
+                            class="content-frame"
+                            :src="currentUrl"
+                            :title="currentTitle">
+                    </iframe>
+                </div>
+            </el-main>
+        </el-container>
+    </el-container>
+</div>
+
+<script>
+new Vue({
+    el: '#rrs_workbench',
+    data() {
+        return {
+            loginUser: window.RrsAuth.getCurrentUser(false), // 当前登录用户
+            isCollapse: false, // 左侧菜单折叠状态
+            activeMenu: 'security-adjust', // 当前激活菜单
+            currentTitle: '证券池调整', // 当前页面标题
+            currentGroupTitle: '债券研究', // 当前菜单分组标题
+            currentUrl: '', // 当前 iframe 页面地址
+            frameKey: 1, // iframe 刷新序号
+            menuGroups: [
+                {
+                    index: 'bond-research', title: '债券研究', icon: 'el-icon-document',
+                    items: [
+                        { index: 'security-adjust', title: '证券池调整', icon: 'el-icon-sort', page: 'security_pool_adjust.html' },
+                        { index: 'security-batch-adjust', title: '证券池批量调整', icon: 'el-icon-s-grid', page: 'batch_security_pool_adjust.html' },
+                        { index: 'security-query', title: '证券池查询', icon: 'el-icon-search', page: 'security_pool_query.html' },
+                        { index: 'security-history', title: '证券池调整历史', icon: 'el-icon-time', page: 'security_pool_adjust_history.html' },
+                        { index: 'temp-security-code', title: '临时代码管理', icon: 'el-icon-tickets', page: 'temp_security_code.html' },
+                    ],
+                },
+                {
+                    index: 'forbidden-pool', title: '主体禁投池', icon: 'el-icon-lock',
+                    items: [
+                        { index: 'forbidden-adjust', title: '禁投池调整', icon: 'el-icon-sort', page: 'forbidden_pool_adjust.html' },
+                        { index: 'forbidden-query', title: '禁投池查询', icon: 'el-icon-search', page: 'forbidden_pool_query.html' },
+                        { index: 'forbidden-history', title: '禁投池历史', icon: 'el-icon-time', page: 'forbidden_pool_history.html' },
+                        { index: 'company-query', title: '主体池查询', icon: 'el-icon-office-building', page: 'company_pool_query.html' },
+                        { index: 'company-history', title: '主体池调整历史', icon: 'el-icon-notebook-2', page: 'company_pool_adjust_history.html' },
+                    ],
+                },
+                {
+                    index: 'crmw-pool', title: 'CRMW池', icon: 'el-icon-connection',
+                    items: [
+                        { index: 'crmw-adjust', title: 'CRMW池调整', icon: 'el-icon-sort', page: 'crmw_pool_adjust.html' },
+                        { index: 'crmw-query', title: 'CRMW池查询', icon: 'el-icon-search', page: 'crmw_pool_query.html' },
+                        { index: 'crmw-history', title: 'CRMW池调整历史', icon: 'el-icon-time', page: 'crmw_pool_adjust_history.html' },
+                    ],
+                },
+                {
+                    index: 'review-detail', title: '审核详情', icon: 'el-icon-s-check',
+                    items: [
+                        { index: 'my-matters', title: '我的事宜', icon: 'el-icon-bell', page: 'my_matters.html' },
+                        { index: 'security-approve', title: '证券池调库审核', icon: 'el-icon-circle-check', page: 'security_pool_adjust_approve.html' },
+                        { index: 'security-detail', title: '证券池调库详情', icon: 'el-icon-view', page: 'security_pool_adjust_detail.html' },
+                        { index: 'forbidden-approve', title: '禁投池调整审核', icon: 'el-icon-circle-check', page: 'forbidden_pool_adjust_approve.html' },
+                        { index: 'forbidden-detail', title: '禁投池调整详情', icon: 'el-icon-view', page: 'forbidden_pool_adjust_detail.html' },
+                        { index: 'crmw-approve', title: 'CRMW池调库审核', icon: 'el-icon-circle-check', page: 'crmw_pool_adjust_approve.html' },
+                        { index: 'crmw-detail', title: 'CRMW池调库详情', icon: 'el-icon-view', page: 'crmw_pool_adjust_detail.html' },
+                    ],
+                },
+                {
+                    index: 'rrs-config', title: 'RRS配置', icon: 'el-icon-setting',
+                    items: [
+                        { index: 'investment-pool', title: '投资池维护', icon: 'el-icon-s-management', page: 'investment_pool.html' },
+                        { index: 'flow-definition', title: '流程定义', icon: 'el-icon-share', page: 'flow_definition.html' },
+                        { index: 'rule-manager', title: '规则管理中心', icon: 'el-icon-set-up', page: 'rule_manager.html' },
+                        { index: 'credit-grade-rule', title: '主体内评分档规则', icon: 'el-icon-data-analysis', page: 'credit_bond_grade_rule.html' },
+                    ],
+                },
+            ],
+        }
+    },
+    computed: {
+        // 当前登录用户头像文字
+        userInitial() {
+            const name = this.loginUser ? this.loginUser.userName : ''
+            return name ? name.slice(0, 1).toUpperCase() : 'U'
+        },
+        // 扁平化菜单项，便于按索引检索
+        flatMenuItems() {
+            const items = []
+            this.menuGroups.forEach(group => {
+                group.items.forEach(item => items.push({ ...item, groupTitle: group.title }))
+            })
+            return items
+        },
+    },
+    created() {
+        if (!this.loginUser) {
+            window.location.replace('login.html')
+            return
+        }
+        this.openMenuItem('security-adjust')
+    },
+    methods: {
+        // 响应菜单选择
+        handleMenuSelect(index) {
+            this.openMenuItem(index)
+        },
+        // 打开指定菜单页面
+        openMenuItem(index) {
+            const item = this.flatMenuItems.find(menuItem => menuItem.index === index)
+            if (!item) return
+            this.activeMenu = item.index
+            this.currentTitle = item.title
+            this.currentGroupTitle = item.groupTitle
+            this.currentUrl = window.RrsAuth.buildPageUrl(item.page, this.loginUser)
+            document.title = item.title + ' - RRS 工作台'
+        },
+        // 刷新当前 iframe 页面
+        refreshCurrentPage() {
+            this.frameKey += 1
+        },
+        // 处理用户菜单命令
+        handleUserCommand(command) {
+            if (command !== 'logout') return
+            window.RrsAuth.clearCurrentUser()
+            window.location.replace('login.html')
+        },
+    },
+})
+</script>
+</body>
+</html>
