@@ -1,6 +1,6 @@
 # 兴业基金智能投研平台-前端视觉规范报告
 
-> 本报告基于 `D:\my-project-all\znty-sirm-slice` 下的核心规范包与业务页面切图整理，面向 `znty-sirm-ui` 后续 Vue2 + ElementUI 页面改造、组件复用和 AI 批量生成。实现时应优先遵循本文档，不再引入新的视觉语言。
+> 本报告基于 `D:\my-project-all\znty-rrs-slice` 下的核心规范包与业务页面切图整理，面向 `znty-sirm-ui` 后续 Vue2 + ElementUI 页面改造、组件复用和 AI 批量生成。实现时应优先遵循本文档，不再引入新的视觉语言。
 
 ## 1. 分析范围与整体结论
 
@@ -380,22 +380,22 @@ $--tag-danger-color: #FF4542;
 $--tag-danger-fill: #FFEDEC;
 
 // 项目自定义间距
-$sirm-spacing-xs: 4px;
-$sirm-spacing-sm: 8px;
-$sirm-spacing-md: 12px;
-$sirm-spacing-lg: 16px;
-$sirm-spacing-xl: 20px;
-$sirm-spacing-xxl: 24px;
-$sirm-spacing-xxxl: 32px;
+$rrs-spacing-xs: 4px;
+$rrs-spacing-sm: 8px;
+$rrs-spacing-md: 12px;
+$rrs-spacing-lg: 16px;
+$rrs-spacing-xl: 20px;
+$rrs-spacing-xxl: 24px;
+$rrs-spacing-xxxl: 32px;
 
 // 项目自定义尺寸
-$sirm-page-padding: 16px;
-$sirm-filter-height: 32px;
-$sirm-table-row-height: 32px;
-$sirm-panel-radius: 4px;
-$sirm-card-radius: 8px;
-$sirm-icon-size-sm: 14px;
-$sirm-icon-size-md: 16px;
+$rrs-page-padding: 16px;
+$rrs-filter-height: 32px;
+$rrs-table-row-height: 32px;
+$rrs-panel-radius: 4px;
+$rrs-card-radius: 8px;
+$rrs-icon-size-sm: 14px;
+$rrs-icon-size-md: 16px;
 ```
 
 ## 9. 推荐 CSS 覆盖片段
