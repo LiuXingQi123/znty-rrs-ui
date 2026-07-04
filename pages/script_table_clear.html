@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>表数据清空</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/theme-chalk/index.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.16/vue.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/script_table_clear.css">
+</head>
+<body class="script-table-clear-page">
+<div id="script_table_clear">
+    <section class="clear-hero">
+        <div>
+            <p class="clear-kicker">RRS SCRIPT TOOL</p>
+            <h1>表数据清空</h1>
+            <p class="clear-desc">按业务分组自主选择需要清空的表。后端只执行白名单表，不接受前端传任意 SQL 或任意表名。</p>
+        </div>
+        <div class="hero-actions">
+            <span class="selected-count">已选择 {{ selectedTableCount }} 张表</span>
+            <el-button size="small" icon="el-icon-refresh" :loading="loadingTableGroups" @click="loadTableGroups">刷新表清单</el-button>
+        </div>
+    </section>
+
+    <el-alert
+        class="danger-alert"
+        title="危险操作提示"
+        type="warning"
+        :closable="false"
+        show-icon>
+        <div slot="description">
+            清空操作会真实执行 TRUNCATE。建议优先只清空“证券池调库运行表”；证券主数据、投资池配置、流程定义、规则配置等基础表请谨慎选择。
+        </div>
+    </el-alert>
+
+    <section class="operation-panel">
+        <div class="operation-left">
+            <div class="confirm-box">
+                <span>清空确认文本</span>
+                <code>CLEAR_SELECTED_TABLES</code>
+                <span>重置确认文本</span>
+                <code>RESET_SELECTED_TABLES</code>
+            </div>
+            <p>“清空选中表”只清空数据；“重置选中表数据”会先清空，再按 demo SQL 恢复选中表的初始数据。</p>
+        </div>
+        <div class="operation-actions">
+            <el-button size="small" icon="el-icon-refresh-left" @click="restoreRecommendedSelection">恢复推荐选择</el-button>
+            <el-button size="small" @click="selectAllTables">全选全部</el-button>
+            <el-button size="small" @click="clearSelectedTables">清空选择</el-button>
+            <el-button
+                type="warning"
+                size="small"
+                icon="el-icon-refresh"
+                :loading="runningAction === 'reset'"
+                :disabled="selectedTableCount === 0 || !!runningAction"
+                @click="confirmAndExecuteReset">
+                重置选中表数据
+            </el-button>
+            <el-button
+                type="danger"
+                size="small"
+                icon="el-icon-delete"
+                :loading="runningAction === 'clear'"
+                :disabled="selectedTableCount === 0 || !!runningAction"
+                @click="confirmAndExecuteClear">
+                清空选中表
+            </el-button>
+        </div>
+    </section>
+
+    <section class="table-group-grid" v-loading="loadingTableGroups">
+        <article v-for="group in tableGroups" :key="group.groupCode" class="table-group-card">
+            <div class="table-group-head">
+                <div>
+                    <h2>{{ group.groupName }}</h2>
+                    <span>{{ group.databaseName }}</span>
+                </div>
+                <div class="table-group-actions">
+                    <el-button type="text" size="mini" @click="toggleGroup(group, true)">全选</el-button>
+                    <el-button type="text" size="mini" @click="toggleGroup(group, false)">清空</el-button>
+                </div>
+            </div>
+            <el-checkbox-group v-model="selectedTableKeys" class="table-checkbox-list">
+                <el-checkbox
+                    v-for="table in group.tables"
+                    :key="table.tableKey"
+                    :label="table.tableKey">
+                    <span class="table-name">{{ table.tableName }}</span>
+                    <span class="table-desc">{{ table.tableDesc }}</span>
+                </el-checkbox>
+            </el-checkbox-group>
+        </article>
+    </section>
+
+    <section v-if="executeResult" class="result-panel" :class="'is-' + executeResult.status">
+        <div class="result-title">
+            <span>{{ resultTitle }}</span>
+            <small>{{ executeResult.costMillis }} ms</small>
+        </div>
+        <div class="result-meta">
+            <span>开始：{{ executeResult.startTime }}</span>
+            <span>结束：{{ executeResult.endTime }}</span>
+        </div>
+        <div v-if="executeResult.errorMessage" class="result-error">
+            {{ executeResult.errorMessage }}
+        </div>
+        <div v-if="executeResult.executedItems && executeResult.executedItems.length" class="executed-list">
+            <span v-for="item in executeResult.executedItems" :key="'clear-done-' + item">{{ item }}</span>
+        </div>
+    </section>
+</div>
+
+<script>
+new Vue({
+    el: '#script_table_clear',
+    data() {
+        return {
+            tableGroups: [],          // 可清空表分组列表
+            selectedTableKeys: [],    // 已选择的清空表 key 列表
+            executeResult: null,      // 清空执行结果
+            loadingTableGroups: false, // 表清单加载状态
+            runningAction: '',        // 当前执行动作
+            loginUser: RrsAuth.getCurrentUser(), // 当前登录用户
+        }
+    },
+    computed: {
+        // 获取已选择表数量
+        selectedTableCount() {
+            return this.selectedTableKeys.length
+        },
+
+        // 获取执行结果标题
+        resultTitle() {
+            if (!this.executeResult) return ''
+            const actionName = this.executeResult.taskCode === 'RESET_SELECTED_TABLES' ? '重置' : '清空'
+            return actionName + (this.executeResult.status === 'success' ? '成功' : '失败')
+        },
+    },
+    created() {
+        // 初始化加载可清空表清单
+        this.loadTableGroups()
+    },
+    methods: {
+        // 加载可清空表分组列表
+        async loadTableGroups() {
+            this.loadingTableGroups = true
+            try {
+                const data = await this.apiPost('/api/v1/scriptTool/queryClearTableGroupList', {})
+                this.tableGroups = data || []
+                // 移除服务端白名单中已不存在的选中项
+                this.removeInvalidSelectedTables()
+            } finally {
+                this.loadingTableGroups = false
+            }
+        },
+
+        // 移除无效选中表
+        removeInvalidSelectedTables() {
+            const tableKeySet = new Set()
+            this.tableGroups.forEach(group => {
+                const tables = group.tables || []
+                tables.forEach(table => tableKeySet.add(table.tableKey))
+            })
+            this.selectedTableKeys = this.selectedTableKeys.filter(tableKey => tableKeySet.has(tableKey))
+        },
+
+        // 获取全部表 key 列表
+        allTableKeys() {
+            const tableKeys = []
+            this.tableGroups.forEach(group => {
+                tableKeys.push.apply(tableKeys, this.groupTableKeys(group))
+            })
+            return tableKeys
+        },
+
+        // 获取分组下的表 key 列表
+        groupTableKeys(group) {
+            return (group.tables || []).map(table => table.tableKey)
+        },
+
+        // 全选全部表
+        selectAllTables() {
+            this.selectedTableKeys = this.allTableKeys()
+        },
+
+        // 恢复推荐清空范围
+        restoreRecommendedSelection() {
+            const recommendGroup = this.tableGroups.find(group => group.groupCode === 'security-adjust')
+            if (!recommendGroup) {
+                this.$message.warning('未找到推荐清空表分组')
+                return
+            }
+            this.selectedTableKeys = this.groupTableKeys(recommendGroup)
+            this.$message.success('已恢复推荐选择')
+        },
+
+        // 清空当前选择
+        clearSelectedTables() {
+            this.selectedTableKeys = []
+        },
+
+        // 切换分组全选或清空
+        toggleGroup(group, checked) {
+            const tableKeySet = new Set(this.selectedTableKeys)
+            this.groupTableKeys(group).forEach(tableKey => {
+                if (checked) {
+                    tableKeySet.add(tableKey)
+                } else {
+                    tableKeySet.delete(tableKey)
+                }
+            })
+            this.selectedTableKeys = Array.from(tableKeySet)
+        },
+
+        // 确认并执行清空
+        async confirmAndExecuteClear() {
+            if (this.selectedTableCount === 0) {
+                this.$message.warning('请至少选择一张需要清空的表')
+                return
+            }
+            const confirmText = 'CLEAR_SELECTED_TABLES'
+            let value = ''
+            try {
+                const res = await this.$prompt(
+                    '将清空已选择的 ' + this.selectedTableCount + ' 张表。请输入确认文本：' + confirmText,
+                    '清空表数据确认',
+                    {
+                        confirmButtonText: '确认清空',
+                        cancelButtonText: '取消',
+                        inputPlaceholder: confirmText,
+                        inputValidator: text => text === confirmText || '确认文本不正确',
+                    }
+                )
+                value = res.value
+            } catch (e) {
+                return
+            }
+            if (value !== confirmText) {
+                this.$message.warning('确认文本不正确')
+                return
+            }
+            // 提交后端清空选中的白名单表
+            await this.executeClearSelectedTables(confirmText)
+        },
+
+        // 确认并执行重置
+        async confirmAndExecuteReset() {
+            if (this.selectedTableCount === 0) {
+                this.$message.warning('请至少选择一张需要重置的表')
+                return
+            }
+            const confirmText = 'RESET_SELECTED_TABLES'
+            let value = ''
+            try {
+                const res = await this.$prompt(
+                    '将清空并恢复已选择的 ' + this.selectedTableCount + ' 张表的 demo 数据。请输入确认文本：' + confirmText,
+                    '重置表数据确认',
+                    {
+                        confirmButtonText: '确认重置',
+                        cancelButtonText: '取消',
+                        inputPlaceholder: confirmText,
+                        inputValidator: text => text === confirmText || '确认文本不正确',
+                    }
+                )
+                value = res.value
+            } catch (e) {
+                return
+            }
+            if (value !== confirmText) {
+                this.$message.warning('确认文本不正确')
+                return
+            }
+            // 提交后端重置选中的白名单表
+            await this.executeResetSelectedTables(confirmText)
+        },
+
+        // 执行清空选中表
+        async executeClearSelectedTables(confirmText) {
+            this.runningAction = 'clear'
+            try {
+                const result = await this.apiPost('/api/v1/scriptTool/executeClearSelectedTables', {
+                    confirmText: confirmText,
+                    tableKeys: this.selectedTableKeys,
+                    currentUserId: this.loginUser.userId,
+                    currentUserName: this.loginUser.userName,
+                })
+                this.executeResult = result
+                if (result && result.status === 'success') {
+                    this.$message.success('选中表数据清空成功')
+                } else {
+                    this.$message.error((result && result.errorMessage) || '选中表数据清空失败')
+                }
+            } finally {
+                this.runningAction = ''
+            }
+        },
+
+        // 执行重置选中表
+        async executeResetSelectedTables(confirmText) {
+            this.runningAction = 'reset'
+            try {
+                const result = await this.apiPost('/api/v1/scriptTool/executeResetSelectedTables', {
+                    confirmText: confirmText,
+                    tableKeys: this.selectedTableKeys,
+                    currentUserId: this.loginUser.userId,
+                    currentUserName: this.loginUser.userName,
+                })
+                this.executeResult = result
+                if (result && result.status === 'success') {
+                    this.$message.success('选中表数据重置成功')
+                } else {
+                    this.$message.error((result && result.errorMessage) || '选中表数据重置失败')
+                }
+            } finally {
+                this.runningAction = ''
+            }
+        },
+    },
+})
+</script>
+</body>
+</html>

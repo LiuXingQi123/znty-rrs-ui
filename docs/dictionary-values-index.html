@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>业务字典总览</title>
+    <style>
+        #dictionary_values {
+            --c-bg: #F7F8FA;
+            --c-surface: #FFFFFF;
+            --c-surface-2: #F7F8FA;
+            --c-primary: #2743A4;
+            --c-primary-dark: #1F3683;
+            --c-primary-soft: #E9ECF6;
+            --c-gold: #D1A777;
+            --c-gold-text: #A7865F;
+            --c-border: #E5E5E5;
+            --c-border-strong: #DCE3F0;
+            --c-text: #242933;
+            --c-subtext: #707783;
+            --c-muted: #9199BD;
+            --c-success: #06C687;
+            --c-danger: #FF4542;
+            min-height: 100vh;
+            box-sizing: border-box;
+            padding: 20px;
+            background: var(--c-bg);
+            color: var(--c-text);
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+
+        #dictionary_values * {
+            box-sizing: border-box;
+        }
+
+        #dictionary_values .dict-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+            gap: 18px;
+            padding: 22px;
+            border: 1px solid var(--c-border-strong);
+            border-radius: 4px;
+            background: linear-gradient(135deg, #FFFFFF 0%, #F4F7FF 100%);
+            box-shadow: 0 8px 20px rgba(31, 42, 68, 0.06);
+        }
+
+        #dictionary_values .dict-kicker {
+            margin: 0 0 6px;
+            color: var(--c-primary);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+        }
+
+        #dictionary_values h1 {
+            margin: 0;
+            font-size: 26px;
+            line-height: 1.35;
+        }
+
+        #dictionary_values .dict-desc {
+            max-width: 860px;
+            margin: 10px 0 0;
+            color: var(--c-subtext);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        #dictionary_values .hero-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        #dictionary_values .metric-card {
+            padding: 14px;
+            border: 1px solid #D8E1F2;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.78);
+        }
+
+        #dictionary_values .metric-card strong {
+            display: block;
+            color: var(--c-primary);
+            font-size: 24px;
+            line-height: 1.2;
+        }
+
+        #dictionary_values .metric-card span {
+            display: block;
+            margin-top: 4px;
+            color: var(--c-subtext);
+            font-size: 12px;
+        }
+
+        #dictionary_values .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 14px 0;
+            padding: 12px;
+            border: 1px solid var(--c-border);
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 4px 12px rgba(31, 42, 68, 0.05);
+            backdrop-filter: blur(8px);
+        }
+
+        #dictionary_values .search-box {
+            position: relative;
+            flex: 1;
+            min-width: 240px;
+        }
+
+        #dictionary_values .search-box input {
+            width: 100%;
+            height: 34px;
+            padding: 0 12px 0 34px;
+            border: 1px solid var(--c-border);
+            border-radius: 4px;
+            color: var(--c-text);
+            font-size: 13px;
+            outline: none;
+        }
+
+        #dictionary_values .search-box input:focus {
+            border-color: var(--c-primary);
+        }
+
+        #dictionary_values .search-box::before {
+            position: absolute;
+            top: 8px;
+            left: 12px;
+            color: var(--c-muted);
+            font-size: 14px;
+            content: "⌕";
+        }
+
+        #dictionary_values .filter-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        #dictionary_values .filter-tab {
+            height: 30px;
+            padding: 0 11px;
+            border: 1px solid var(--c-border);
+            border-radius: 4px;
+            background: var(--c-surface);
+            color: var(--c-subtext);
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        #dictionary_values .filter-tab.is-active {
+            border-color: var(--c-primary);
+            background: var(--c-primary);
+            color: #FFFFFF;
+        }
+
+        #dictionary_values .section-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        #dictionary_values .dict-card {
+            overflow: hidden;
+            border: 1px solid var(--c-border);
+            border-top: 3px solid var(--c-primary);
+            border-radius: 4px;
+            background: var(--c-surface);
+            box-shadow: 0 8px 20px rgba(31, 42, 68, 0.04);
+        }
+
+        #dictionary_values .dict-card.is-db {
+            border-top-color: var(--c-gold);
+        }
+
+        #dictionary_values .card-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--c-border);
+            background: var(--c-surface-2);
+        }
+
+        #dictionary_values .card-title h2 {
+            margin: 0;
+            color: var(--c-text);
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        #dictionary_values .card-title p {
+            margin: 4px 0 0;
+            color: var(--c-subtext);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        #dictionary_values .source-tag {
+            flex: 0 0 auto;
+            padding: 3px 7px;
+            border: 1px solid #C8D1EA;
+            border-radius: 4px;
+            background: #FFFFFF;
+            color: var(--c-primary);
+            font-family: Consolas, Menlo, monospace;
+            font-size: 12px;
+        }
+
+        #dictionary_values .dict-table-wrap {
+            max-height: 360px;
+            overflow: auto;
+        }
+
+        #dictionary_values table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        #dictionary_values th,
+        #dictionary_values td {
+            padding: 9px 10px;
+            border-bottom: 1px solid var(--c-border);
+            color: var(--c-subtext);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        #dictionary_values th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #F1F3F7;
+            color: var(--c-text);
+            font-weight: 600;
+        }
+
+        #dictionary_values .code {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--c-primary-soft);
+            color: var(--c-primary);
+            font-family: Consolas, Menlo, monospace;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        #dictionary_values .name {
+            color: var(--c-text);
+            font-weight: 600;
+        }
+
+        #dictionary_values .muted {
+            color: var(--c-muted);
+        }
+
+        #dictionary_values .empty {
+            display: none;
+            padding: 54px 16px;
+            border: 1px dashed var(--c-border-strong);
+            border-radius: 4px;
+            background: var(--c-surface);
+            color: var(--c-muted);
+            text-align: center;
+        }
+
+        #dictionary_values .empty.is-visible {
+            display: block;
+        }
+
+        #dictionary_values .module-title {
+            grid-column: 1 / -1;
+            margin: 10px 0 -2px;
+            color: var(--c-text);
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        @media (max-width: 1100px) {
+            #dictionary_values .dict-hero,
+            #dictionary_values .section-grid {
+                grid-template-columns: 1fr;
+            }
+
+            #dictionary_values .toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="dictionary_values">
+    <header class="dict-hero">
+        <div>
+            <p class="dict-kicker">ZNTY RRS · DICTIONARY MAP</p>
+            <h1>业务字典值总览</h1>
+            <p class="dict-desc">
+                汇总项目中类似字典值的数据来源：后端枚举、数据库字典表、流程角色、规则配置选项和信用债评分档配置。
+                页面用于快速定位 code 与含义，避免在 Java 枚举、SQL 脚本和前端页面之间来回翻。
+            </p>
+        </div>
+        <div class="hero-metrics">
+            <div class="metric-card"><strong id="metricEnumCount">29</strong><span>后端枚举类</span></div>
+            <div class="metric-card"><strong id="metricEnumItemCount">0</strong><span>枚举值</span></div>
+            <div class="metric-card"><strong id="metricDbDictCount">6</strong><span>数据库字典/配置类</span></div>
+            <div class="metric-card"><strong id="metricSecurityTypeCount">55</strong><span>证券类型记录</span></div>
+        </div>
+    </header>
+
+    <section class="toolbar">
+        <div class="search-box">
+            <input id="dictSearch" type="search" placeholder="搜索字典名、code、中文含义、来源表，例如：审批 / 00 / credit_bond / wf_role_dict">
+        </div>
+        <div class="filter-tabs" id="dictFilters"></div>
+    </section>
+
+    <main class="section-grid" id="dictContent"></main>
+    <div class="empty" id="emptyState">没有匹配的字典项，可以换一个关键词试试。</div>
+</div>
+
+<script>
+const enumDictionaries = [
+    { group: '调库流程', name: '调整方向', source: 'AdjustMode.java', field: 'ip_adjust_log.adjust_mode / ip_pool_status.adjust_mode', items: [['IN', '调入', '调入'], ['OUT', '调出', '调出']] },
+    { group: '调库流程', name: '审核状态', source: 'AuditStatus.java', field: 'ip_adjust_log.audit_status / ip_pool_status.audit_status', items: [['INVALID', '-1', '无效调整'], ['SUBMITTED', '00', '已提交待审核'], ['REVIEWED', '10', '审核通过待审批'], ['REJECT_MODIFY', '11', '驳回待修改'], ['APPROVED', '20', '审批通过'], ['REJECTED', '21', '审批驳回'], ['O32', '32', 'O32 自动审批预留'], ['REVOKED', '99', '发起人已撤回']] },
+    { group: '调库流程', name: '调库项标签', source: 'ItemType.java', field: 'item_tag 业务字段', items: [['MANUAL', 'manual', '手工项'], ['LINKAGE', 'linkage', '联动项'], ['MUTEX', 'mutex', '互斥项']] },
+    { group: '调库流程', name: '步骤处理动作', source: 'ProcessAction.java', field: 'ip_adjust_step.process_action', items: [['SUBMIT', 'submit', '提交'], ['APPROVE', 'approve', '通过'], ['REJECT', 'reject', '驳回'], ['AUTO_PROCESS', 'auto_process', '自动处理'], ['SKIPPED', 'skipped', '被跳过']] },
+    { group: '调库流程', name: '流程步骤状态', source: 'StepStatus.java', field: 'ip_adjust_step.step_status', items: [['PENDING', 'pending', '待处理'], ['APPROVE', 'approve', '通过'], ['REJECT', 'reject', '驳回'], ['SUBMIT', 'submit', '提交'], ['AUTO_PROCESS', 'auto_process', '自动处理'], ['CANCELED', 'canceled', '已撤回']] },
+    { group: '流程定义', name: '审批策略', source: 'ApprovalStrategy.java', field: 'wf_node_approval_config.approval_strategy', items: [['PREEMPT', 'preempt', '抢占审批'], ['ALL', 'all', '全部处理/会签'], ['INITIATOR', 'initiator', '流程发起人处理']] },
+    { group: '流程定义', name: '流程状态', source: 'FlowStatus.java', field: 'wf_flow_definition.status / wf_flow_version.status', items: [['DRAFT', 'draft', '草稿'], ['ACTIVE', 'active', '已发布'], ['DISABLED', 'disabled', '已停用']] },
+    { group: '流程定义', name: '调库流程类型', source: 'FlowType.java', field: 'flow_type 业务字段', items: [['WHITELIST_INBOUND', 'whitelistInbound', '白名单调入'], ['SIMPLE_INBOUND', 'simpleInbound', '简易调入'], ['NORMAL_INBOUND', 'normalInbound', '默认调入'], ['UPGRADE_INBOUND', 'upgradeInbound', '上调'], ['DOWNGRADE_INBOUND', 'downgradeInbound', '下调'], ['NORMAL_OUTBOUND', 'normalOutbound', '默认调出']] },
+    { group: '流程定义', name: '处理人类型', source: 'HandlerType.java', field: 'ip_pool_permission.handler_type / wf_node_approval_handler.handler_type', items: [['ROLE', 'role', '角色'], ['USER', 'user', '人员']] },
+    { group: '流程定义', name: '流程节点类型', source: 'NodeType.java', field: 'wf_flow_node.node_type', items: [['START', 'start', '开始节点'], ['END', 'end', '结束节点'], ['APPROVAL', 'approval', '审批节点'], ['CONDITION', 'condition', '条件判断节点'], ['AUTO', 'auto', '自动执行节点'], ['NOTIFY', 'notify', '消息通知节点']] },
+    { group: '证券与投资池', name: '证券状态', source: 'BondStatus.java', field: '前端按到期日计算', items: [['ACTIVE', 'active', '存续'], ['MATURED', 'matured', '到期']] },
+    { group: '证券与投资池', name: '证券大类', source: 'CategoryType.java', field: 'dict_security_type.category_type', items: [['BOND', 'bond', '债券'], ['FUND', 'fund', '基金'], ['STOCK', 'stock', '股票'], ['COMPANY', 'company', '公司主体']] },
+    { group: '证券与投资池', name: '证券市场编码', source: 'MarketCode.java', field: 'market_codes / 交易市场', items: [['SSE', 'SSE', '上海证券交易所'], ['SZSE', 'SZSE', '深圳证券交易所'], ['CIBM', 'CIBM', '银行间市场'], ['OTC', 'OTC', '场外市场'], ['JWCW', 'JWCW', 'JWCW 市场'], ['UNKNOWN', 'UNKNOWN', '未知市场']] },
+    { group: '证券与投资池', name: '投资池权限类型', source: 'PermissionType.java', field: 'ip_pool_permission.permission_type', items: [['VIEWABLE', 'viewable', '可查看'], ['ADJUSTABLE', 'adjustable', '可调整'], ['EXCEL_IMPORTABLE', 'excel_importable', '可 Excel 导入']] },
+    { group: '证券与投资池', name: '投资池启用状态', source: 'PoolStatus.java', field: 'ip_investment_pool.status', items: [['ENABLED', 'enabled', '启用'], ['DISABLED', 'disabled', '停用']] },
+    { group: '证券与投资池', name: '投资池类型', source: 'PoolType.java', field: 'ip_investment_pool.pool_type', items: [['CREDIT_BOND', 'credit_bond', '信用债'], ['OFFSHORE_BOND', 'offshore_bond', '境外债'], ['CONVERTIBLE_BOND', 'convertible_bond', '转债'], ['SPECIAL_ACCOUNT', 'special_account', '专户产品'], ['CRMW', 'crmw', 'CRMW库'], ['FORBIDDEN', 'forbidden', '禁投池'], ['OBSERVE', 'observe', '观察池'], ['RESEARCH', 'research', '研究池'], ['FUND', 'fund', '基金池'], ['RESTRICTED', 'restricted', '限制池'], ['INDUSTRY', 'industry', '行业池'], ['WHITELIST', 'whitelist', '白名单'], ['BLACKLIST', 'blacklist', '黑名单'], ['PRIVATE_PLACEMENT', 'private_placement', '私募'], ['OTHER', 'other', '其他']] },
+    { group: '证券与投资池', name: '池关系类型', source: 'RelationType.java', field: 'ip_pool_relation.relation_type', items: [['SOURCE', 'source', '来源池'], ['IN_RESTRICT', 'in_restrict', '调入限制池'], ['OUT_RESTRICT', 'out_restrict', '调出限制池'], ['IN_LINKED', 'in_linked', '调入联动池'], ['OUT_LINKED', 'out_linked', '调出联动池'], ['IN_MUTEX', 'in_mutex', '调入互斥池'], ['OUT_MUTEX', 'out_mutex', '调出互斥池'], ['IN_SOFT_RESTRICT', 'in_soft_restrict', '调入弹性禁投池'], ['OUT_SOFT_RESTRICT', 'out_soft_restrict', '调出弹性禁投池']] },
+    { group: '报告附件', name: '附件分类', source: 'AttachmentCategory.java', field: 'sys_attachment.attachment_category', items: [['CREDIT_REPORT_HAND', 'credit_report_hand', '手工上传信评报告'], ['CREDIT_REPORT_IN', 'credit_report_in', '内部报告库信评报告'], ['CREDIT_REPORT_OUT', 'credit_report_out', '外部报告库信评报告'], ['MATERIAL_HAND', 'material_hand', '手工上传其他材料'], ['MATERIAL_IN', 'material_in', '内部报告库其他材料'], ['MATERIAL_OUT', 'material_out', '外部报告库其他材料'], ['REPORT_IN', 'report_in', '内部报告库附件'], ['REPORT_OUT', 'report_out', '外部报告库附件']] },
+    { group: '报告附件', name: '附件逻辑用途', source: 'AttachmentPurpose.java', field: '由 sys_attachment.attachment_category 派生', items: [['CREDIT_REPORT', 'credit_report', '信评报告'], ['MATERIAL', 'material', '其他材料']] },
+    { group: '报告附件', name: '报告类型', source: 'ReportType.java', field: 'rrs_report_in.report_type / rrs_report_out.report_type', items: [['BOND_IN_REPORT', 'bond_in_report', '债券入库报告'], ['BOND_OUT_REPORT', 'bond_out_report', '债券出库报告'], ['FUND_IN_REPORT', 'fund_in_report', '基金入库报告'], ['FUND_OUT_REPORT', 'fund_out_report', '基金出库报告'], ['STOCK_IN_REPORT', 'stock_in_report', '股票入库报告'], ['STOCK_OUT_REPORT', 'stock_out_report', '股票出库报告'], ['OTHER_REPORT', 'other_report', '其他报告']] },
+    { group: '规则引擎', name: '规则参数类型', source: 'ParamType.java', field: 'rule_param.param_type', items: [['STRING', 'string', '字符串'], ['NUMBER', 'number', '数值'], ['SELECT', 'select', '单选'], ['MULTISELECT', 'multiselect', '多选']] },
+    { group: '规则引擎', name: '规则状态', source: 'RuleStatus.java', field: 'rule_definition.status', items: [['ACTIVE', 'active', '已启用'], ['DISABLED', 'disabled', '已禁用']] },
+    { group: '规则引擎', name: '自动规则类型', source: 'RuleType.java', field: 'ip_pool_auto_rule.rule_type', items: [['AUTO_IN', 'auto_in', '自动调入'], ['AUTO_OUT', 'auto_out', '自动调出']] },
+    { group: '规则引擎', name: '规则执行状态', source: 'RunStatus.java', field: 'rule_test_run.run_status', items: [['RUNNING', 'running', '执行中'], ['PASS', 'pass', '通过'], ['FAIL', 'fail', '失败']] },
+    { group: '规则引擎', name: '规则日志类型', source: 'LogType.java', field: 'rule_test_run_log.log_type', items: [['INFO', 'info', '信息'], ['SUCCESS', 'success', '成功'], ['ERROR', 'error', '错误']] },
+    { group: '规则引擎', name: '测试用例结果', source: 'TestResult.java', field: 'rule_test_case.last_result', items: [['PENDING', 'pending', '未执行'], ['RUNNING', 'running', '执行中'], ['PASS', 'pass', '通过'], ['FAIL', 'fail', '失败']] },
+    { group: '临时代码与审计', name: '临时代码操作类型', source: 'TempOperationType.java', field: 'rrs_temp_security_code.operation_type', items: [['ADD', 'add', '新增'], ['UPDATE', 'update', '更新'], ['CANCEL_ISSUE', 'cancel_issue', '取消发行'], ['DELETE', 'delete', '删除']] },
+    { group: '临时代码与审计', name: '临时代码状态', source: 'TempStatus.java', field: 'rrs_temp_security_code.status', items: [['TEMPORARY', 'temporary', '临时'], ['UPDATED', 'updated', '已更新'], ['CANCELLED', 'cancelled', '已取消'], ['DELETED', 'deleted', '已删除']] },
+    { group: '临时代码与审计', name: '审计事件操作类型', source: 'EventType.java', field: '各 _evt 表.oprt_type', items: [['INSERT', 'INSERT', '新增（英文）'], ['UPDATE', 'UPDATE', '修改（英文）'], ['DELETE', 'DELETE', '删除（英文）'], ['ADD_CN', '新增', '新增（中文）'], ['EDIT_CN', '修改', '修改（中文）'], ['DELETE_CN', '删除', '删除（中文）'], ['AUDIT_CN', '审核', '审核（中文）']] },
+];
+
+const dbDictionaries = [
+    { group: '数据库字典', name: '证券类型字典', source: 'dict_security_type', field: 'rrs_dict_demo_data.sql', items: [
+        ['index', '指数', 'index / 指数'], ['a_share', 'A股', 'stock / 股票'], ['b_share', 'B股', 'stock / 股票'], ['h_share', 'H股', 'stock / 股票'], ['net_staq_share', 'NET/STAQ股', 'stock / 股票'], ['third_board_share', '三板股', 'stock / 股票'], ['third_board_b', '三板B', 'stock / 股票'], ['s_share', 'S股', 'stock / 股票'], ['hk_share', '港股', 'stock / 股票'],
+        ['closed_fund', '封闭式基金', 'fund / 基金'], ['open_fund', '开放式基金', 'fund / 基金'], ['qdii_fund', 'QDII基金类型', 'fund / 基金'], ['lof_fund', 'LOF基金类型', 'fund / 基金'], ['etf_fund', 'ETF基金类型', 'fund / 基金'],
+        ['treasury_bond', '国债', 'bond / 债券'], ['corporate_bond', '企业债', 'bond / 债券'], ['financial_bond', '金融债', 'bond / 债券'], ['convertible_bond', '可转债', 'bond / 债券'], ['treasury_repo', '国债回购', 'bond / 债券'], ['corp_repo', '企债回购', 'bond / 债券'], ['outright_repo', '买断式回购', 'bond / 债券'], ['central_bank_bill', '央行票据', 'bond / 债券'], ['local_gov_bond', '地方政府债券', 'bond / 债券'], ['exchangeable_bond', '可交换公司债券', 'bond / 债券'], ['policy_financial_bond', '政策性金融债', 'bond / 债券'], ['gov_institution_bond', '政府支持机构债', 'bond / 债券'], ['intl_dev_bond', '国际开发机构债券', 'bond / 债券'], ['abs', '资产证券化', 'bond / 债券'], ['broker_asset_management', '券商专项资产管理', 'bond / 债券'], ['interbank_subordinated_bond', '银行间次级债', 'bond / 债券'], ['scp', '短期融资券', 'bond / 债券'], ['credit_bond', '信用债', 'bond / 债券'], ['fmcp', '超短期融资券', 'bond / 债券'], ['abn', '资产支持票据', 'bond / 债券'], ['debt_right', '债权', 'bond / 债券'], ['ncd', '同业存单', 'bond / 债券'], ['cd', '大额存单', 'bond / 债券'], ['project_revenue_note', '项目收益票据', 'bond / 债券'], ['mtn', '中期票据', 'bond / 债券'], ['detachable_convertible_bond', '可分离转债存债', 'bond / 债券'], ['ppn', '定向工具', 'bond / 债券'], ['company_bond', '公司债', 'bond / 债券'], ['crmw', '信用风险缓释凭证', 'bond / 债券'], ['corp_bond_intl', 'Corp债券', 'bond / 债券'], ['govt_bond_intl', 'Govt债券', 'bond / 债券'], ['bank_bond', '商业银行债', 'bond / 债券'], ['cp', '短期融资券', 'bond / 债券'],
+        ['sector_index', '板块指数', 'index / 指数'], ['warrant', '权证', 'warrant / 权证'], ['private_wealth_management', '私募理财产品', 'private_wealth / 私募理财'], ['trust', '信托', 'trust / 信托'], ['unknown', '未知', 'unknown / 未知'], ['company', '公司主体', 'company / 公司主体'], ['legacy_bond', '历史债券类型', 'bond / 债券，逻辑删除样本']
+    ] },
+    { group: '数据库字典', name: '流程角色字典', source: 'wf_role_dict', field: 'rrs_flow_definition_demo_data.sql', items: [['fund-manager', '基金经理', '流程审批角色'], ['credit-research', '信用研究组', '流程审批角色'], ['risk-officer', '风险管理部', '流程审批角色'], ['fixed-income', '固收部', '流程审批角色'], ['invest-director', '投资总监', '流程审批角色'], ['operations', '运营管理部', '流程审批角色'], ['researcher-a', '研究员A（发起人）', '流程审批角色'], ['researcher-b', '研究员B（复核人）', '流程审批角色'], ['research-director', '研究总监', '流程审批角色'], ['o32-system', 'O32系统自动审批', '系统角色']] },
+    { group: '数据库字典', name: '规则分类', source: 'rule_category', field: 'rrs_rule_demo_data.sql', items: [['risk', '风控规则', 'sort=10'], ['credit', '信用评估', 'sort=20'], ['pricing', '定价规则', 'sort=30'], ['admission', '准入规则', 'sort=40'], ['warning', '预警规则', 'sort=50'], ['other', '其他', 'sort=99']] },
+    { group: '数据库字典', name: '规则预设选项集', source: 'rule_preset_option_set', field: 'rrs_rule_demo_data.sql', items: [['主体评级', 'AAA+ / AAA / AA+ / ... / D', '评级参数'], ['主体内评', '1级 / 2级 / ... / 10级', '内评参数'], ['外评机构', '中诚信国际 / 联合资信 / 大公国际 / ...', '机构参数'], ['债券期限', '1年以内 / 1-3年 / 3-5年 / ...', '期限参数'], ['证券类型', '国债 / 地方政府债 / 金融债 / ...', '证券类型参数'], ['行业分类', '金融 / 地产 / 城投 / 制造业 / ...', '行业参数'], ['是否/布尔', '是 / 否', '布尔参数'], ['风险等级', '低风险 / 中风险 / 高风险 / ...', '风险参数'], ['审批状态', '待审批 / 审批中 / 已通过 / ...', '审批参数'], ['交易场所', '银行间 / 上交所 / 深交所 / ...', '市场参数'], ['主体类型', '央企 / 地方国企 / 城投平台 / ...', '主体参数'], ['ABS基础资产类型', '消费金融 / 供应链应收款 / ...', 'ABS参数']] },
+    { group: '数据库字典', name: '信用债期限分组', source: 'credit_bond_term_bucket', field: 'rrs_credit_bond_grade_rule_demo_data.sql', items: [['GT_5', '期限>5', 'term_year > 5'], ['GT_3_LE_5', '5>=期限>3', 'term_year > 3 AND term_year <= 5'], ['GT_1_LE_3', '3>=期限>1', 'term_year > 1 AND term_year <= 3'], ['LE_1', '1>=期限', 'term_year <= 1']] },
+    { group: '数据库字典', name: '主体内评分档', source: 'credit_bond_inner_rating_grade', field: 'rrs_credit_bond_grade_rule_demo_data.sql', items: [['1', '1', '最高档'], ['2+', '2+', '评分档'], ['2', '2', '评分档'], ['2-', '2-', '评分档'], ['3+', '3+', '评分档'], ['3', '3', '评分档'], ['3-', '3-', '评分档'], ['4', '4', '最低档']] },
+];
+
+const dictionaries = enumDictionaries.concat(dbDictionaries);
+const groups = ['全部'].concat(Array.from(new Set(dictionaries.map(item => item.group))));
+let currentGroup = '全部';
+
+function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+function dictionaryMatches(dict, keyword) {
+    if (!keyword) return true;
+    const text = [dict.group, dict.name, dict.source, dict.field]
+        .concat(dict.items.flat())
+        .join(' ')
+        .toLowerCase();
+    return text.indexOf(keyword) !== -1;
+}
+
+function renderFilters() {
+    const box = document.getElementById('dictFilters');
+    box.innerHTML = groups.map(group => `<button class="filter-tab ${group === currentGroup ? 'is-active' : ''}" data-group="${escapeHtml(group)}">${escapeHtml(group)}</button>`).join('');
+    box.querySelectorAll('.filter-tab').forEach(button => {
+        button.addEventListener('click', () => {
+            currentGroup = button.dataset.group;
+            render();
+        });
+    });
+}
+
+function renderCard(dict) {
+    const rows = dict.items.map(item => `
+        <tr>
+            <td><span class="code">${escapeHtml(item[0])}</span></td>
+            <td><span class="name">${escapeHtml(item[1])}</span></td>
+            <td>${escapeHtml(item[2])}</td>
+        </tr>
+    `).join('');
+    return `
+        <article class="dict-card ${dict.group === '数据库字典' ? 'is-db' : ''}">
+            <div class="card-head">
+                <div class="card-title">
+                    <h2>${escapeHtml(dict.name)}</h2>
+                    <p>${escapeHtml(dict.field)}</p>
+                </div>
+                <span class="source-tag">${escapeHtml(dict.source)}</span>
+            </div>
+            <div class="dict-table-wrap">
+                <table>
+                    <thead>
+                    <tr><th>Code / Key</th><th>名称 / 含义</th><th>说明</th></tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        </article>
+    `;
+}
+
+function render() {
+    renderFilters();
+    const keyword = document.getElementById('dictSearch').value.trim().toLowerCase();
+    const filtered = dictionaries.filter(dict => (currentGroup === '全部' || dict.group === currentGroup) && dictionaryMatches(dict, keyword));
+    document.getElementById('dictContent').innerHTML = filtered.map(renderCard).join('');
+    document.getElementById('emptyState').classList.toggle('is-visible', filtered.length === 0);
+    document.getElementById('metricEnumItemCount').textContent = enumDictionaries.reduce((sum, dict) => sum + dict.items.length, 0);
+}
+
+document.getElementById('dictSearch').addEventListener('input', render);
+render();
+</script>
+</body>
+</html>

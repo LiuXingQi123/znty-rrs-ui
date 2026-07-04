@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据初始化</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/theme-chalk/index.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.16/vue.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/script_tool.css">
+</head>
+<body class="script-tool-page">
+<div id="script_tool">
+    <section class="tool-hero">
+        <div>
+            <p class="tool-kicker">RRS SCRIPT TOOL</p>
+            <h1>数据初始化</h1>
+            <p class="tool-desc">用于开发和演示环境快速执行建表、Demo 数据初始化、完整重建和调库运行态数据清理。</p>
+        </div>
+        <el-button size="small" icon="el-icon-refresh" :loading="loadingTasks" @click="loadTasks">刷新任务</el-button>
+    </section>
+
+    <el-alert
+        class="danger-alert"
+        title="危险操作提示"
+        type="warning"
+        :closable="false"
+        show-icon>
+        <div slot="description">
+            本页面会真实调用后端执行数据库脚本。执行前必须输入卡片上的确认文本，避免误点导致数据被重置。
+        </div>
+    </el-alert>
+
+    <section class="task-grid" v-loading="loadingTasks">
+        <article v-for="task in tasks" :key="task.taskCode" class="task-card" :class="'risk-' + task.riskLevel">
+            <div class="task-card-head">
+                <div>
+                    <h2>{{ task.taskName }}</h2>
+                    <p>{{ task.description }}</p>
+                </div>
+                <el-tag size="mini" :type="riskTagType(task.riskLevel)">{{ riskLabel(task.riskLevel) }}</el-tag>
+            </div>
+
+            <div class="task-info">
+                <span class="info-label">影响范围</span>
+                <span class="info-text">{{ task.affectScope }}</span>
+            </div>
+
+            <div class="confirm-box">
+                <span>确认文本</span>
+                <code>{{ task.confirmText }}</code>
+            </div>
+
+            <div class="item-list">
+                <div class="item-list-title">包含脚本 / 表</div>
+                <div class="item-chip-wrap">
+                    <span v-for="item in task.items" :key="task.taskCode + '-' + item" class="item-chip">{{ item }}</span>
+                </div>
+            </div>
+
+            <div class="task-actions">
+                <el-button
+                    type="primary"
+                    size="small"
+                    icon="el-icon-video-play"
+                    :loading="runningTaskCode === task.taskCode"
+                    :disabled="!!runningTaskCode && runningTaskCode !== task.taskCode"
+                    @click="confirmAndExecute(task)">
+                    执行任务
+                </el-button>
+            </div>
+
+            <div v-if="resultMap[task.taskCode]" class="result-panel" :class="'is-' + resultMap[task.taskCode].status">
+                <div class="result-title">
+                    <span>{{ resultMap[task.taskCode].status === 'success' ? '执行成功' : '执行失败' }}</span>
+                    <small>{{ resultMap[task.taskCode].costMillis }} ms</small>
+                </div>
+                <div class="result-meta">
+                    <span>开始：{{ resultMap[task.taskCode].startTime }}</span>
+                    <span>结束：{{ resultMap[task.taskCode].endTime }}</span>
+                </div>
+                <div v-if="resultMap[task.taskCode].errorMessage" class="result-error">
+                    {{ resultMap[task.taskCode].errorMessage }}
+                </div>
+                <div v-if="resultMap[task.taskCode].executedItems && resultMap[task.taskCode].executedItems.length" class="executed-list">
+                    <span v-for="item in resultMap[task.taskCode].executedItems" :key="task.taskCode + '-done-' + item">{{ item }}</span>
+                </div>
+            </div>
+        </article>
+    </section>
+</div>
+
+<script>
+new Vue({
+    el: '#script_tool',
+    data() {
+        return {
+            tasks: [],              // 脚本任务列表
+            resultMap: {},          // 任务执行结果缓存
+            loadingTasks: false,    // 任务列表加载状态
+            runningTaskCode: '',    // 当前执行中的任务编码
+            loginUser: RrsAuth.getCurrentUser(), // 当前登录用户
+        }
+    },
+    created() {
+        // 初始化加载任务列表
+        this.loadTasks()
+    },
+    methods: {
+        // 加载脚本任务列表
+        async loadTasks() {
+            this.loadingTasks = true
+            try {
+                const data = await this.apiPost('/api/v1/scriptTool/queryScriptTaskList', {})
+                this.tasks = data || []
+            } finally {
+                this.loadingTasks = false
+            }
+        },
+
+        // 获取风险等级标签类型
+        riskTagType(riskLevel) {
+            if (riskLevel === 'danger') return 'danger'
+            if (riskLevel === 'high') return 'warning'
+            return 'info'
+        },
+
+        // 获取风险等级中文名称
+        riskLabel(riskLevel) {
+            if (riskLevel === 'danger') return '高危'
+            if (riskLevel === 'high') return '高风险'
+            return '中风险'
+        },
+
+        // 确认并执行脚本任务
+        async confirmAndExecute(task) {
+            let value = ''
+            try {
+                const res = await this.$prompt(
+                    '此操作会真实修改数据库。请输入确认文本：' + task.confirmText,
+                    '执行确认',
+                    {
+                        confirmButtonText: '确认执行',
+                        cancelButtonText: '取消',
+                        inputPlaceholder: task.confirmText,
+                        inputValidator: text => text === task.confirmText || '确认文本不正确',
+                    }
+                )
+                value = res.value
+            } catch (e) {
+                return
+            }
+            if (value !== task.confirmText) {
+                this.$message.warning('确认文本不正确')
+                return
+            }
+            // 提交后端执行脚本任务
+            await this.executeTask(task)
+        },
+
+        // 执行脚本任务
+        async executeTask(task) {
+            this.runningTaskCode = task.taskCode
+            try {
+                const result = await this.apiPost('/api/v1/scriptTool/executeScriptTask', {
+                    taskCode: task.taskCode,
+                    confirmText: task.confirmText,
+                    currentUserId: this.loginUser.userId,
+                    currentUserName: this.loginUser.userName,
+                })
+                this.$set(this.resultMap, task.taskCode, result)
+                if (result && result.status === 'success') {
+                    this.$message.success('脚本任务执行成功')
+                } else {
+                    this.$message.error((result && result.errorMessage) || '脚本任务执行失败')
+                }
+            } finally {
+                this.runningTaskCode = ''
+            }
+        },
+    },
+})
+</script>
+</body>
+</html>
