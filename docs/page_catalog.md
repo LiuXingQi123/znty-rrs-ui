@@ -64,3 +64,35 @@
 | `css/security_pool_adjust_history.css` | 证券池调整历史页面样式 | `security_pool_adjust_history.html` |
 | `css/security_pool_query.css` | 证券池查询页面样式 | `security_pool_query.html` |
 | `css/temp_security_code.css` | 临时代码管理页面样式 | `temp_security_code.html` |
+
+## 业务文档页面
+
+业务文档按用户要求将 CSS 内联在各 HTML 中，不引用独立页面样式文件。
+
+| HTML 文件 | 功能名称 | 对应 CSS |
+| --- | --- | --- |
+| `docs/module-tables-index.html` | 业务文档总览 | HTML 内联样式 |
+| `docs/security-pool-adjust-flow-tables.html` | 证券池调整文档 | HTML 内联样式 |
+| `docs/batch-security-pool-adjust-tables.html` | 证券池批量调整文档 | HTML 内联样式 |
+| `docs/security-pool-query-tables.html` | 证券池查询文档 | HTML 内联样式 |
+| `docs/security-pool-adjust-history-tables.html` | 证券池调整历史文档 | HTML 内联样式 |
+| `docs/temp-security-code-tables.html` | 临时代码管理文档 | HTML 内联样式 |
+| `docs/forbidden-pool-adjust-tables.html` | 禁投池调整文档 | HTML 内联样式 |
+| `docs/forbidden-pool-query-tables.html` | 禁投池查询文档 | HTML 内联样式 |
+| `docs/forbidden-pool-history-tables.html` | 禁投池历史文档 | HTML 内联样式 |
+| `docs/company-pool-query-tables.html` | 主体池查询文档 | HTML 内联样式 |
+| `docs/company-pool-adjust-history-tables.html` | 主体池调整历史文档 | HTML 内联样式 |
+| `docs/crmw-pool-adjust-tables.html` | CRMW池调整文档 | HTML 内联样式 |
+| `docs/crmw-pool-query-tables.html` | CRMW池查询文档 | HTML 内联样式 |
+| `docs/crmw-pool-adjust-history-tables.html` | CRMW池调整历史文档 | HTML 内联样式 |
+| `docs/my-matters-tables.html` | 我的事宜文档 | HTML 内联样式 |
+| `docs/security-pool-adjust-approve-tables.html` | 证券池调库审核文档 | HTML 内联样式 |
+| `docs/security-pool-adjust-detail-tables.html` | 证券池调库详情文档 | HTML 内联样式 |
+| `docs/forbidden-pool-adjust-approve-tables.html` | 禁投池调整审核文档 | HTML 内联样式 |
+| `docs/forbidden-pool-adjust-detail-tables.html` | 禁投池调整详情文档 | HTML 内联样式 |
+| `docs/crmw-pool-adjust-approve-tables.html` | CRMW池调库审核文档 | HTML 内联样式 |
+| `docs/crmw-pool-adjust-detail-tables.html` | CRMW池调库详情文档 | HTML 内联样式 |
+| `docs/investment-pool-tables.html` | 投资池维护文档 | HTML 内联样式 |
+| `docs/flow-definition-tables.html` | 流程定义文档 | HTML 内联样式 |
+| `docs/rule-manager-tables.html` | 规则管理中心文档 | HTML 内联样式 |
+| `docs/credit-bond-grade-rule-tables.html` | 主体内评分档规则文档 | HTML 内联样式 |

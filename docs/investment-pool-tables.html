@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>投资池维护｜表与业务逻辑</title>
+    <style>
+        :root {
+            --primary: #155eef;
+            --primary-light: #eaf1ff;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #0f3d91 0%, #155eef 58%, #4788ff 100%);
+            border: 0
+        }
+
+        .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        main {
+            padding: 28px 0 56px
+        }
+
+        .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        .step span {
+            color: var(--regular)
+        }
+
+        .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        .card ul, .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .card li + li {
+            margin-top: 6px
+        }
+
+        .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        th, td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        tr:last-child td {
+            border-bottom: 0
+        }
+
+        tbody tr:hover {
+            background: #f8fbff
+        }
+
+        code, .name {
+            font-family: Consolas, monospace
+        }
+
+        .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .notes li + li {
+            margin-top: 5px
+        }
+
+        .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            .flow, .logic {
+                grid-template-columns: 1fr
+            }
+
+            .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            .wrap {
+                width: calc(100% - 24px)
+            }
+
+            header {
+                padding: 24px 0 20px
+            }
+
+            .stats {
+                grid-template-columns: 1fr
+            }
+
+            .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            .nav {
+                display: none
+            }
+
+            .panel {
+                break-inside: avoid
+            }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>投资池维护</h1>
+        <p class="desc">维护投资池树、基础配置、审批流程快照、池间关系、自动规则和人员权限，并为所有调库模块提供业务边界。</p>
+        <div class="stats"><span class="stat">12 项表/表组</span><span class="stat">12 个主要接口</span><span
+                class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">池树、详情与基础配置</a><a href="#logic-2">关系、规则、权限与删除</a><a
+            href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
+    <section class="panel" id="overview"><h2>业务流程总览</h2>
+        <p class="sub">从页面操作到数据库读写的主要路径。</p>
+        <div class="flow">
+            <div class="step"><b>1. 加载池树</b><span>查询未删除投资池和启用流程。</span></div>
+            <div class="step"><b>2. 查看详情</b><span>加载基础配置、关系、自动规则和权限。</span></div>
+            <div class="step"><b>3. 新增/编辑</b><span>新增顶级或子池，或保存基础配置。</span></div>
+            <div class="step"><b>4. 关系与权限</b><span>全量替换池关系、自动规则和权限。</span></div>
+            <div class="step"><b>5. 删除节点</b><span>递归逻辑删除节点、后代及关联配置并记事件。</span></div>
+        </div>
+    </section>
+    <section class="panel" id="logic-1"><h2>池树、详情与基础配置</h2>
+        <p class="sub">主表维护树结构和六类审批流程快照。</p><span class="api">POST /api/v1/investmentPool/queryPoolList · queryPoolDetail · editPoolConfig</span>
+        <div class="logic">
+            <article class="card"><h3>查询与详情</h3>
+                <ul>
+                    <li>树查询读取全部未删除池并按外部/内部排序。</li>
+                    <li>详情附加九类池关系、自动调入/调出规则和三类权限。</li>
+                    <li>流程下拉来自 active 的 <code>wf_flow_definition</code>。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>新增与编辑</h3>
+                <ul>
+                    <li>顶级池可复制模板；子池强制继承父池类型并可复制模板/父配置。</li>
+                    <li>基础编辑只更新指定字段和六组 flowId/flowKey/flowName 快照。</li>
+                    <li>新增、修改均写 <code>ip_investment_pool_evt</code>。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-2"><h2>关系、规则、权限与删除</h2>
+        <p class="sub">配置保存采用先记录删除事件、逻辑删除旧数据、再新增新数据的全量替换方式。</p><span class="api">POST /api/v1/investmentPool/editPoolRelation · editPoolPermission · deletePoolNode</span>
+        <div class="logic">
+            <article class="card"><h3>关系与自动规则</h3>
+                <ul>
+                    <li>关系覆盖 source、限制、联动、互斥和弹性禁投。</li>
+                    <li>自动规则保存 rule_id 与描述，一期配置备注但不在调库运行时自动执行。</li>
+                    <li>页面规则选择器读取规则分类、定义、参数和选项。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>权限与递归删除</h3>
+                <ul>
+                    <li>权限支持 viewable、adjustable、excel_importable，处理人可为用户或角色。</li>
+                    <li>删除节点递归收集全部后代，并清理其关系、被引用关系、规则和权限。</li>
+                    <li>所有删除为逻辑删除，同时写对应事件表。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables"><h2>涉及表、用途与触发场景</h2>
+        <p class="sub">读写口径包含页面初始化、主业务接口及其正常后续流程。</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>表名</th>
+                    <th>用途</th>
+                    <th>读写</th>
+                    <th>触发场景</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="name">ip_investment_pool</span></td>
+                    <td>投资池树和基础/流程配置主表</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span
+                            class='tag u'>更新/逻辑删除</span></td>
+                    <td>树、详情、新增、编辑、删除</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_investment_pool_evt</span></td>
+                    <td>投资池变更事件</td>
+                    <td><span class='tag w'>新增</span></td>
+                    <td>新增、修改、删除审计</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_relation</span></td>
+                    <td>来源、限制、联动、互斥关系</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span
+                            class='tag u'>逻辑删除</span></td>
+                    <td>详情、全量替换、模板复制</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_relation_evt</span></td>
+                    <td>池关系事件</td>
+                    <td><span class='tag w'>新增</span></td>
+                    <td>关系新增和删除审计</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_auto_rule</span></td>
+                    <td>自动调入/调出规则引用与描述</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span
+                            class='tag u'>逻辑删除</span></td>
+                    <td>详情、全量替换、模板复制</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_auto_rule_evt</span></td>
+                    <td>自动规则事件</td>
+                    <td><span class='tag w'>新增</span></td>
+                    <td>规则新增和删除审计</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_permission</span></td>
+                    <td>查看、调整、Excel导入权限</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span
+                            class='tag u'>逻辑删除</span></td>
+                    <td>详情、权限保存、模板复制</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_permission_evt</span></td>
+                    <td>权限配置事件</td>
+                    <td><span class='tag w'>新增</span></td>
+                    <td>权限新增和删除审计</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_definition</span></td>
+                    <td>可绑定的 active 审批流程</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>六类流程下拉和快照保存</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ais_inv_analysis.t_sys_role / t_sys_user / t_sys_user_role</span></td>
+                    <td>权限配置的角色、用户和关联</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>人员选择器与子角色展开</td>
+                </tr>
+                <tr>
+                    <td><span class="name">rule_category / rule_definition</span></td>
+                    <td>自动规则分类和启用规则</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>规则选择器初始化</td>
+                </tr>
+                <tr>
+                    <td><span class="name">rule_param / rule_param_option</span></td>
+                    <td>规则参数和选项</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>规则选择器展示完整参数</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>投资池表没有物理外键，所有父子和配置引用由业务代码维护。</li>
+            <li>删除节点没有运行中流程/当前池状态引用拦截，当前实现直接递归逻辑删除配置。</li>
+            <li>页面没有启停入口；编辑基础配置不会更新 status。</li>
+            <li>自动规则一期只保存 rule_id 和描述，调库 Service 当前主要消费池关系而非自动执行这些规则。</li>
+            <li>流程名称、Key在池表保存快照，流程后续改名不会自动刷新旧池配置。</li>
+        </ul>
+        <div class="note">本页依据当前 Controller、Service、Mapper
+            XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
+        </div>
+    </section>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p></main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
+</body>
+</html>

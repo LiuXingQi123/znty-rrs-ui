@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>证券池调库｜表与业务逻辑</title>
+    <style>
+        :root {
+            --bg: #f4f7fb;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --text: #1f2937;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --primary: #155eef;
+            --primary-soft: #eaf1ff;
+            --green: #15803d;
+            --green-soft: #eaf8ef;
+            --orange: #b45309;
+            --orange-soft: #fff4df;
+            --red: #b42318;
+            --red-soft: #fff0ee;
+            --purple: #6941c6;
+            --purple-soft: #f2edff;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            color: var(--text);
+            background: var(--bg);
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.65;
+        }
+
+        .hero {
+            color: #fff;
+            background: linear-gradient(125deg, #0f3d91 0%, #155eef 58%, #4788ff 100%);
+        }
+
+        .hero-inner,
+        .page {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+
+        .hero-inner {
+            padding: 28px 0 24px;
+        }
+
+        .eyebrow {
+            margin: 0 0 4px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            opacity: 0.82;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25;
+        }
+
+        .hero-description {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, 0.86);
+            font-size: 14px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px;
+        }
+
+        .summary-item {
+            padding: 10px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+        }
+
+        .summary-value {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.65;
+        }
+
+        .page {
+            padding: 28px 0 56px;
+        }
+
+        .quick-nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 6px 18px rgba(31, 42, 68, 0.07);
+        }
+
+        .quick-nav a {
+            flex: 0 0 auto;
+            padding: 7px 12px;
+            color: #344054;
+            border-radius: 8px;
+            font-size: 14px;
+            text-decoration: none;
+        }
+
+        .quick-nav a:hover {
+            color: var(--primary);
+            background: var(--primary-soft);
+        }
+
+        .section {
+            margin-top: 24px;
+            padding: 26px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px;
+        }
+
+        .section:first-of-type {
+            margin-top: 0;
+        }
+
+        .section-title {
+            margin: 0 0 6px;
+            font-size: 22px;
+        }
+
+        .section-subtitle {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px;
+        }
+
+        .flow-step {
+            position: relative;
+            min-height: 166px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: var(--surface-soft);
+        }
+
+        .flow-step:not(:last-child)::after {
+            position: absolute;
+            top: 73px;
+            right: -24px;
+            color: #8ca2c0;
+            content: "→";
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .step-index {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            margin-right: 7px;
+            color: #fff;
+            border-radius: 50%;
+            background: var(--primary);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .flow-step h3 {
+            display: inline;
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .flow-step p {
+            margin: 11px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        code,
+        .table-name {
+            font-family: Consolas, "SFMono-Regular", monospace;
+        }
+
+        code {
+            padding: 2px 5px;
+            color: #0f4cba;
+            border-radius: 4px;
+            background: var(--primary-soft);
+            font-size: 0.92em;
+        }
+
+        .callout {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #344054;
+            border-left: 4px solid var(--primary);
+            border-radius: 8px;
+            background: var(--primary-soft);
+            font-size: 14px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+        }
+
+        table {
+            width: 100%;
+            min-width: 1060px;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th,
+        td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            color: #475467;
+            background: #f1f5f9;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        tbody tr:hover {
+            background: #f8fbff;
+        }
+
+        .table-name {
+            color: #123d83;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .badge {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .read {
+            color: var(--primary);
+            background: var(--primary-soft);
+        }
+
+        .write {
+            color: var(--green);
+            background: var(--green-soft);
+        }
+
+        .update {
+            color: var(--orange);
+            background: var(--orange-soft);
+        }
+
+        .conditional {
+            color: var(--purple);
+            background: var(--purple-soft);
+        }
+
+        .core {
+            color: var(--red);
+            background: var(--red-soft);
+        }
+
+        .group-heading td {
+            padding: 10px 14px;
+            color: #344054;
+            background: #edf2f8;
+            font-weight: 800;
+        }
+
+        .relation-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .relation-card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--surface-soft);
+        }
+
+        .relation-card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px;
+        }
+
+        .relation-card ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #475467;
+            font-size: 14px;
+        }
+
+        .branch-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .branch {
+            padding: 18px;
+            border-radius: 12px;
+        }
+
+        .branch h3 {
+            margin: 0 0 9px;
+            font-size: 17px;
+        }
+
+        .branch p {
+            margin: 0;
+            color: #475467;
+            font-size: 14px;
+        }
+
+        .approved {
+            border: 1px solid #a9dfbb;
+            background: var(--green-soft);
+        }
+
+        .rejected {
+            border: 1px solid #f3b8b2;
+            background: var(--red-soft);
+        }
+
+        .note-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px 24px;
+            margin: 0;
+            padding-left: 20px;
+            color: #475467;
+            font-size: 14px;
+        }
+
+        #security-pool-adjust-doc .logic-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+            margin-bottom: 18px;
+            padding: 12px 14px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--surface-soft);
+        }
+
+        #security-pool-adjust-doc .logic-header strong {
+            color: #123d83;
+            font-size: 14px;
+        }
+
+        #security-pool-adjust-doc .api-path {
+            padding: 4px 9px;
+            color: #0f4cba;
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            background: var(--primary-soft);
+            font-family: Consolas, "SFMono-Regular", monospace;
+            font-size: 13px;
+        }
+
+        #security-pool-adjust-doc .method-name {
+            color: var(--muted);
+            font-family: Consolas, "SFMono-Regular", monospace;
+            font-size: 13px;
+        }
+
+        #security-pool-adjust-doc .logic-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        #security-pool-adjust-doc .logic-card {
+            padding: 16px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--surface);
+        }
+
+        #security-pool-adjust-doc .logic-card h3 {
+            margin: 0 0 8px;
+            color: #263b5e;
+            font-size: 16px;
+        }
+
+        #security-pool-adjust-doc .logic-card p {
+            margin: 0;
+            color: #475467;
+            font-size: 14px;
+        }
+
+        #security-pool-adjust-doc .logic-card ul,
+        #security-pool-adjust-doc .logic-card ol {
+            margin: 8px 0 0;
+            padding-left: 21px;
+            color: #475467;
+            font-size: 14px;
+        }
+
+        #security-pool-adjust-doc .logic-card li + li {
+            margin-top: 5px;
+        }
+
+        #security-pool-adjust-doc .logic-sequence {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        #security-pool-adjust-doc .sequence-item {
+            position: relative;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--surface-soft);
+        }
+
+        #security-pool-adjust-doc .sequence-item strong {
+            display: block;
+            margin-bottom: 5px;
+            color: #123d83;
+            font-size: 14px;
+        }
+
+        #security-pool-adjust-doc .sequence-item span {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        #security-pool-adjust-doc .rule-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        #security-pool-adjust-doc .rule-panel {
+            padding: 16px;
+            border: 1px solid var(--line);
+            border-top: 3px solid var(--primary);
+            border-radius: 8px;
+            background: var(--surface-soft);
+        }
+
+        #security-pool-adjust-doc .rule-panel.outbound {
+            border-top-color: var(--red);
+        }
+
+        #security-pool-adjust-doc .rule-panel h3 {
+            margin: 0 0 10px;
+            font-size: 16px;
+        }
+
+        #security-pool-adjust-doc .rule-panel ol {
+            margin: 0;
+            padding-left: 22px;
+            color: #475467;
+            font-size: 14px;
+        }
+
+        #security-pool-adjust-doc .rule-panel li + li {
+            margin-top: 5px;
+        }
+
+        #security-pool-adjust-doc .data-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin-top: 14px;
+        }
+
+        #security-pool-adjust-doc .data-strip code {
+            border: 1px solid #d9e3f2;
+            background: #f7f9fc;
+        }
+
+        #security-pool-adjust-doc .implementation-note {
+            margin-top: 14px;
+            padding: 13px 15px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-radius: 8px;
+            background: #fff9e8;
+            font-size: 14px;
+        }
+
+        footer {
+            padding: 8px 0 28px;
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+        }
+
+        @media (max-width: 1050px) {
+            .summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .flow {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .flow-step {
+                min-height: 0;
+            }
+
+            .flow-step:not(:last-child)::after {
+                display: none;
+            }
+
+            .relation-grid {
+                grid-template-columns: 1fr;
+            }
+
+            #security-pool-adjust-doc .logic-sequence {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 680px) {
+            .hero-inner,
+            .page {
+                width: min(100% - 24px, 1760px);
+            }
+
+            .hero-inner {
+                padding: 24px 0 20px;
+            }
+
+            .summary-grid,
+            .branch-grid,
+            .note-list,
+            #security-pool-adjust-doc .logic-grid,
+            #security-pool-adjust-doc .logic-sequence,
+            #security-pool-adjust-doc .rule-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section {
+                padding: 19px;
+                border-radius: 12px;
+            }
+        }
+
+        @media print {
+            body {
+                background: #fff;
+            }
+
+            .quick-nav {
+                display: none;
+            }
+
+            .section {
+                break-inside: avoid;
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body id="security-pool-adjust-doc">
+    <header class="hero">
+        <div class="hero-inner">
+            <p class="eyebrow">ZNTY RRS · MODULE DATA MAP</p>
+            <h1>证券池调库</h1>
+            <p class="hero-description">覆盖证券池调库从查询与校验、发起申请、生成审批步骤、审批流转到流程结束的数据读写，以及附件、报告和用户角色解析等条件分支。</p>
+            <div class="summary-grid">
+                <div class="summary-item"><span class="summary-value">21 项表/表组</span></div>
+                <div class="summary-item"><span class="summary-value">11 个主要接口</span></div>
+                <div class="summary-item"><span class="summary-value">依据当前代码实现</span></div>
+            </div>
+        </div>
+    </header>
+
+    <main class="page">
+        <nav class="quick-nav" aria-label="页面导航">
+            <a href="#overview">流程总览</a>
+            <a href="#list-query">主页面查询</a>
+            <a href="#pool-status">当前所在池</a>
+            <a href="#adjustable-pools">可调入/调出池</a>
+            <a href="#validation">调库校验</a>
+            <a href="#submit-approval">提交与审批</a>
+            <a href="#tables">完整表清单</a>
+            <a href="#relations">核心关系</a>
+            <a href="#branches">结束分支</a>
+            <a href="#notes">口径说明</a>
+            <a href="module-tables-index.html">文档目录</a>
+        </nav>
+
+        <section id="overview" class="section">
+            <h2 class="section-title">流程总览</h2>
+            <p class="section-subtitle">按实际代码执行顺序梳理，箭头表示主要业务推进方向。</p>
+            <div class="flow">
+                <article class="flow-step">
+                    <span class="step-index">1</span><h3>查询与校验</h3>
+                    <p>查询证券、当前池状态、投资池关系、权限及候选审批流程，判断是否允许调入或调出。</p>
+                </article>
+                <article class="flow-step">
+                    <span class="step-index">2</span><h3>发起申请</h3>
+                    <p>每条调库明细写入 <code>ip_adjust_log</code>；存在附件时写入 <code>sys_attachment</code>。</p>
+                </article>
+                <article class="flow-step">
+                    <span class="step-index">3</span><h3>创建初始步骤</h3>
+                    <p>读取已启用的流程版本、节点、连线和处理人配置，生成 <code>ip_adjust_step</code>。</p>
+                </article>
+                <article class="flow-step">
+                    <span class="step-index">4</span><h3>审批流转</h3>
+                    <p>更新当前步骤与申请状态，并根据流程分支按需创建下一批待办步骤。</p>
+                </article>
+                <article class="flow-step">
+                    <span class="step-index">5</span><h3>流程结束</h3>
+                    <p>通过后落地证券池状态；驳回或终止只结束申请和步骤，不改变当前池状态。</p>
+                </article>
+            </div>
+            <div class="callout"><strong>关键结论：</strong>系统没有独立的通用流程实例表。<code>ip_adjust_log</code> 承担申请实例，<code>ip_adjust_step</code> 承担步骤实例，<code>ip_pool_status</code> 保存最终生效的证券池状态。</div>
+        </section>
+
+        <section id="list-query" class="section">
+            <h2 class="section-title">主页面证券查询逻辑</h2>
+            <p class="section-subtitle">主页面先定位需要调库的证券，再进入详情页加载池状态、可调池和历史流程。</p>
+            <div class="logic-header">
+                <strong>接口</strong>
+                <span class="api-path">POST /api/v1/securityPoolAdjust/querySecurityPage</span>
+                <span class="method-name">SecurityPoolAdjustService.querySecurityPage</span>
+            </div>
+            <div class="logic-grid">
+                <article class="logic-card">
+                    <h3>请求与分页</h3>
+                    <ul>
+                        <li>筛选字段：<code>securityCode</code>、<code>securityShortName</code>、<code>issuer</code>。</li>
+                        <li>分页字段：<code>pageIndex</code>、<code>pageSize</code>。</li>
+                        <li>查询、重置、切换页码或每页条数都会重新调用接口；新查询回到第 1 页。</li>
+                        <li>后端使用 <code>PageHelper.startPage</code>，返回 <code>records</code> 和 <code>total</code>。</li>
+                    </ul>
+                </article>
+                <article class="logic-card">
+                    <h3>SQL 与返回数据</h3>
+                    <ul>
+                        <li>主表为 <code>rrs_securityinfo</code>。</li>
+                        <li>左连接 <code>dict_security_type</code> 获取 <code>security_type_name</code>。</li>
+                        <li>三个筛选字段均使用包含式模糊匹配：<code>LIKE %条件%</code>。</li>
+                        <li>按 <code>rrs_securityinfo.id DESC</code> 排序，最新记录优先。</li>
+                    </ul>
+                </article>
+            </div>
+            <div class="logic-sequence">
+                <div class="sequence-item"><strong>1. 输入条件</strong><span>证券代码、简称或发行人，可留空查询全部。</span></div>
+                <div class="sequence-item"><strong>2. 开启分页</strong><span>PageHelper 拦截紧随其后的 Mapper 查询。</span></div>
+                <div class="sequence-item"><strong>3. 查询证券</strong><span>证券主表关联证券类型字典并执行模糊过滤。</span></div>
+                <div class="sequence-item"><strong>4. 点击“调库”</strong><span>以 windCode 进入详情视图并并发加载业务数据。</span></div>
+            </div>
+            <div class="data-strip"><code>rrs_securityinfo：读</code><code>dict_security_type：读</code></div>
+        </section>
+
+        <section id="pool-status" class="section">
+            <h2 class="section-title">当前所在池查询逻辑</h2>
+            <p class="section-subtitle">接口同时返回“当前证券所在池”和“同发行主体所在池”，两者用途不同。</p>
+            <div class="logic-header">
+                <strong>接口</strong>
+                <span class="api-path">POST /api/v1/securityPoolAdjust/querySecurityPoolStatus</span>
+                <span class="method-name">SecurityPoolAdjustService.querySecurityPoolStatus</span>
+            </div>
+            <div class="logic-grid">
+                <article class="logic-card">
+                    <h3>证券当前所在池</h3>
+                    <ol>
+                        <li>按请求中的 <code>securityCode</code> 查询 <code>ip_pool_status</code>。</li>
+                        <li>只认 <code>audit_status='20'</code> 且 <code>is_deleted=0</code> 的有效状态。</li>
+                        <li>关联未删除的 <code>ip_investment_pool</code>。</li>
+                        <li>通过 <code>NOT EXISTS</code> 排除仍有子节点的池，只返回叶子池。</li>
+                        <li>返回目标池、池类型、批次、调库记录和入池日期。</li>
+                    </ol>
+                </article>
+                <article class="logic-card">
+                    <h3>发行主体当前所在池</h3>
+                    <ol>
+                        <li>先从 <code>rrs_securityinfo</code> 找出当前证券的发行人。</li>
+                        <li>再查询同发行人的所有证券在 <code>ip_pool_status</code> 中的有效池状态。</li>
+                        <li>同样只返回叶子池，并按目标池分组。</li>
+                        <li>返回最早入池日期、最新批次号，以及主体在该池的证券数量 <code>bondCount</code>。</li>
+                    </ol>
+                </article>
+                <article class="logic-card">
+                    <h3>池名称回填</h3>
+                    <p>Service 加载全部投资池的“父级 / 子级”全路径名称映射，覆盖 SQL 返回的单级池名，使页面能够直观看到完整层级。</p>
+                </article>
+                <article class="logic-card">
+                    <h3>前端用途</h3>
+                    <p><code>securityCurrentPools</code> 用于决定哪些池可调出、哪些池不能重复调入；<code>issuerCurrentPools</code> 用于展示主体整体的在池情况和辅助业务判断。</p>
+                </article>
+            </div>
+            <div class="data-strip"><code>ip_pool_status：读</code><code>ip_investment_pool：读</code><code>rrs_securityinfo：读</code></div>
+        </section>
+
+        <section id="adjustable-pools" class="section">
+            <h2 class="section-title">可调入 / 可调出库查询逻辑</h2>
+            <p class="section-subtitle">这一段分为后端“权限基础集”和前端“方向二次过滤”，不能只看接口返回判断最终可选范围。</p>
+            <div class="logic-header">
+                <strong>接口</strong>
+                <span class="api-path">POST /api/v1/securityPoolAdjust/queryAdjustPoolList</span>
+                <span class="method-name">SecurityPoolAdjustService.queryAdjustPoolList</span>
+            </div>
+            <div class="logic-grid">
+                <article class="logic-card">
+                    <h3>后端：加载有权限的基础池集合</h3>
+                    <ol>
+                        <li>查询 <code>ip_investment_pool</code> 中 <code>is_deleted=0</code> 的未删除投资池。</li>
+                        <li>管理员用户 <code>1001</code> 返回全量；普通用户进入权限过滤。</li>
+                        <li>普通用户读取 <code>t_sys_user_role</code> 和 <code>t_sys_role</code> 获取启用角色。</li>
+                        <li>从 <code>ip_pool_permission</code> 匹配用户或角色的“可调整”权限。</li>
+                        <li>保留有权限的池及其所有祖先节点，保证前端树路径完整。</li>
+                    </ol>
+                </article>
+                <article class="logic-card">
+                    <h3>后端：补充约束和容量信息</h3>
+                    <ol>
+                        <li>查询 <code>ip_pool_relation</code> 的 <code>in_mutex</code>、<code>out_mutex</code> 关系。</li>
+                        <li>按池 ID 组装 <code>inMutexPoolIds</code> 和 <code>outMutexPoolIds</code>。</li>
+                        <li>汇总 <code>ip_pool_status</code> 中已生效且未删除的证券数量。</li>
+                        <li>为每个池返回 <code>maxCapacity</code> 与 <code>currentCount</code>。</li>
+                    </ol>
+                </article>
+                <article class="logic-card">
+                    <h3>前端：生成可调出树</h3>
+                    <ol>
+                        <li>取当前证券有效在池 ID 集合。</li>
+                        <li>只保留证券当前已经在其中的池。</li>
+                        <li>同时保留这些池的父节点，用于形成可展示的树路径。</li>
+                        <li>最终只有叶子节点允许勾选调出。</li>
+                    </ol>
+                </article>
+                <article class="logic-card">
+                    <h3>前端：生成可调入树</h3>
+                    <ol>
+                        <li>排除证券当前已经在其中的叶子池，防止重复调入。</li>
+                        <li>叶子池只要未在池即可保留。</li>
+                        <li>父节点仅在仍存在至少一个可调入子节点时保留。</li>
+                        <li>最终只有叶子节点允许勾选调入。</li>
+                    </ol>
+                </article>
+            </div>
+            <div class="implementation-note"><strong>当前实现说明：</strong>前端虽然分别携带 <code>adjustDirection='in'</code> 和 <code>adjustDirection='out'</code> 调用两次接口，但后端当前方法没有按该字段区分结果；两次得到相同的权限基础集合，再由前端按当前在池状态分别过滤。</div>
+            <div class="data-strip"><code>ip_investment_pool：读</code><code>ip_pool_permission：读</code><code>ip_pool_relation：读</code><code>ip_pool_status：读</code><code>t_sys_user_role：读</code><code>t_sys_role：读</code></div>
+        </section>
+
+        <section id="validation" class="section">
+            <h2 class="section-title">调入 / 调出校验逻辑</h2>
+            <p class="section-subtitle">用户点击“下一步”后，前端把勾选的叶子池提交给后端；后端返回手工项、联动项、互斥项及每项失败原因和候选流程。</p>
+            <div class="logic-header">
+                <strong>接口</strong>
+                <span class="api-path">POST /api/v1/securityPoolAdjust/checkAdjust</span>
+                <span class="method-name">SecurityPoolAdjustService.checkAdjust</span>
+            </div>
+            <div class="logic-sequence">
+                <div class="sequence-item"><strong>1. 请求校验</strong><span>证券代码和调库项不能为空。</span></div>
+                <div class="sequence-item"><strong>2. 共享数据初始化</strong><span>集中加载证券、池、当前状态、关系和进行中流程。</span></div>
+                <div class="sequence-item"><strong>3. 方向规则校验</strong><span>分别执行调入和调出规则，收集全部失败原因。</span></div>
+                <div class="sequence-item"><strong>4. 匹配审批流程</strong><span>只为校验通过的手工项返回可选择流程。</span></div>
+            </div>
+            <div class="rule-grid" style="margin-top: 16px;">
+                <article class="rule-panel">
+                    <h3>调入校验顺序</h3>
+                    <ol>
+                        <li>证券是否已经到期。</li>
+                        <li>是否存在 <code>pending</code> 的进行中调库步骤。</li>
+                        <li>证券是否已经在目标池，防止重复调入。</li>
+                        <li>目标池是否达到 <code>maxCapacity</code> 持仓上限。</li>
+                        <li>若配置来源池，证券是否已在至少一个来源池。</li>
+                        <li>是否命中 <code>in_restrict</code> 调入限制池。</li>
+                        <li>本次请求是否同时调入互斥池。</li>
+                        <li>是否命中 <code>in_soft_restrict</code> 弹性禁投池。</li>
+                    </ol>
+                </article>
+                <article class="rule-panel outbound">
+                    <h3>调出校验顺序</h3>
+                    <ol>
+                        <li>证券是否已经到期。</li>
+                        <li>是否存在 <code>pending</code> 的进行中调库步骤。</li>
+                        <li>证券当前是否确实在目标池中。</li>
+                        <li>是否命中 <code>out_restrict</code> 调出限制池。</li>
+                        <li>是否命中 <code>out_mutex</code> 调出互斥池。</li>
+                        <li>本次请求是否同时调出互斥池。</li>
+                        <li>是否命中 <code>out_soft_restrict</code> 弹性禁投池。</li>
+                    </ol>
+                </article>
+            </div>
+            <div class="logic-grid" style="margin-top: 14px;">
+                <article class="logic-card">
+                    <h3>自动生成联动 / 互斥项</h3>
+                    <ul>
+                        <li>调入目标池时，<code>in_linked</code> 关联池自动生成联动调入项。</li>
+                        <li>调入目标池时，若证券已在 <code>in_mutex</code> 池中，自动生成该池的互斥调出项。</li>
+                        <li>调出目标池时，<code>out_linked</code> 关联池自动生成联动调出项。</li>
+                        <li>使用“池 ID + 方向”去重；用户手工项优先于自动项。</li>
+                        <li>手工项失败时，同组自动项继承阻断状态。</li>
+                    </ul>
+                </article>
+                <article class="logic-card">
+                    <h3>候选流程匹配</h3>
+                    <ul>
+                        <li>调出：使用目标池配置的标准调出流程。</li>
+                        <li>非信用债大库调入：使用目标池默认调入流程。</li>
+                        <li>信用债已在库：同父级下按 <code>innerSort</code> 判断上调或下调流程。</li>
+                        <li>信用债未在库：按“白名单 &gt; 简易 &gt; 默认调入”确定推荐优先级。</li>
+                        <li>当前白名单流程默认关闭；简易流程会校验剩余期限、同主体期限、近一年简易入池及评级条件。</li>
+                    </ul>
+                </article>
+            </div>
+            <div class="implementation-note"><strong>当前实现说明：</strong>白名单流程入口固定返回未命中；主体评级、展望评级和担保人评级下调标识目前在共享上下文中初始化为 <code>false</code>，尚未接入真实评级历史查询。页面展示的是当前代码实际行为，不代表未来规则最终口径。</div>
+            <div class="data-strip"><code>rrs_securityinfo：读</code><code>ip_investment_pool：读</code><code>ip_pool_status：读</code><code>ip_pool_relation：读</code><code>ip_adjust_log：读</code><code>ip_adjust_step：读</code><code>wf_flow_definition：读</code></div>
+        </section>
+
+        <section id="submit-approval" class="section">
+            <h2 class="section-title">提交申请与审批推进逻辑</h2>
+            <p class="section-subtitle">校验只判断“能不能调”；提交才创建申请和步骤，审批结束才决定是否真正改变池状态。</p>
+            <div class="logic-grid">
+                <article class="logic-card">
+                    <h3>提交申请：五阶段</h3>
+                    <ol>
+                        <li><strong>前置校验：</strong>检查证券代码、调整人和调库项等请求字段。</li>
+                        <li><strong>参数初始化：</strong>加载证券、池关系、当前状态及每个唯一流程的运行快照。</li>
+                        <li><strong>调入处理：</strong>按调库组写入手工、联动、互斥记录并绑定附件。</li>
+                        <li><strong>调出处理：</strong>同样写入申请记录，并保持同组批次关系。</li>
+                        <li><strong>后续处理：</strong>同步详情页传入的证券基础信息。</li>
+                    </ol>
+                </article>
+                <article class="logic-card">
+                    <h3>直通与人工审批</h3>
+                    <ul>
+                        <li>无流程或流程为 <code>start → end</code> 时视为直通。</li>
+                        <li>直通调入：申请直接记为通过并新增 <code>ip_pool_status</code>。</li>
+                        <li>直通调出：申请直接记为通过并逻辑删除对应池状态。</li>
+                        <li>非直通：申请记为已提交，创建开始、提交人和首个待审批步骤。</li>
+                        <li>后续节点采用懒创建，审批到达时再写入 <code>ip_adjust_step</code>。</li>
+                    </ul>
+                </article>
+                <article class="logic-card">
+                    <h3>审批动作</h3>
+                    <ul>
+                        <li>接口：<code>POST /api/v1/securityPoolAdjustFlow/submitAdjustAudit</code>。</li>
+                        <li>先校验步骤仍为待处理并确认实际处理人。</li>
+                        <li>更新当前步骤动作、意见、处理人和处理时间。</li>
+                        <li>会签节点等待全部人员处理；抢占节点处理后将其他待办标记为跳过。</li>
+                        <li>重新读取节点、连线和条件规则，按动作寻找下一节点。</li>
+                    </ul>
+                </article>
+                <article class="logic-card">
+                    <h3>结束落库</h3>
+                    <ul>
+                        <li>通过：同批申请更新为通过，调入新增池状态、调出逻辑删除池状态。</li>
+                        <li>驳回或终止：结束申请和步骤，但不改变 <code>ip_pool_status</code>。</li>
+                        <li>通过后若存在手工上传信评附件，生成 <code>rrs_report_in</code> 并复制附件。</li>
+                        <li>修改节点重新提交时，可增删并重新绑定调库附件。</li>
+                    </ul>
+                </article>
+            </div>
+            <div class="data-strip"><code>ip_adjust_log：新增 / 更新</code><code>ip_adjust_step：新增 / 更新</code><code>ip_pool_status：新增 / 逻辑删除</code><code>sys_attachment：条件写入</code><code>rrs_report_in：条件新增</code><code>wf_*：读取</code></div>
+        </section>
+
+        <section id="tables" class="section">
+            <h2 class="section-title">完整表清单</h2>
+            <p class="section-subtitle">“条件触发”表示并非每笔调库都会访问或写入；事件表和仅用于流程设计维护的配置表不纳入运行口径。</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 46px;">序号</th>
+                            <th style="width: 255px;">表名</th>
+                            <th style="width: 240px;">用途</th>
+                            <th style="width: 155px;">读写</th>
+                            <th>触发场景</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="group-heading"><td colspan="5">A. 核心业务与校验表</td></tr>
+                        <tr>
+                            <td>1</td><td><span class="table-name">ip_adjust_log</span> <span class="badge core">核心</span></td>
+                            <td>调库申请明细和批次记录，保存证券、目标池、调整方向、流程及审批状态。</td>
+                            <td><span class="badge read">查询</span><span class="badge write">新增</span><span class="badge update">更新</span></td>
+                            <td>提交调库时新增；审批时更新状态；详情、待办、历史记录和批次结束时查询。</td>
+                        </tr>
+                        <tr>
+                            <td>2</td><td><span class="table-name">ip_adjust_step</span> <span class="badge core">核心</span></td>
+                            <td>流程运行步骤，保存节点、处理人、动作、意见和处理时间。</td>
+                            <td><span class="badge read">查询</span><span class="badge write">新增</span><span class="badge update">更新</span></td>
+                            <td>发起后创建开始、提交和首个审批步骤；审批过程中更新当前步骤并创建后续步骤。</td>
+                        </tr>
+                        <tr>
+                            <td>3</td><td><span class="table-name">ip_pool_status</span> <span class="badge core">核心</span></td>
+                            <td>证券当前所在投资池状态，是调库最终生效结果。</td>
+                            <td><span class="badge read">查询</span><span class="badge write">新增</span><span class="badge update">逻辑删除</span></td>
+                            <td>校验当前池状态和容量；流程通过后，调入新增、调出逻辑删除。</td>
+                        </tr>
+                        <tr>
+                            <td>4</td><td><span class="table-name">rrs_securityinfo</span></td>
+                            <td>证券基础信息，包括代码、名称、发行人、证券类型和评级等。</td>
+                            <td><span class="badge read">查询</span><span class="badge update">更新</span></td>
+                            <td>证券搜索、详情、主体池校验及报告生成；提交时按请求更新可编辑证券信息。</td>
+                        </tr>
+                        <tr>
+                            <td>5</td><td><span class="table-name">ip_investment_pool</span></td>
+                            <td>投资池定义、层级、容量、池类型及绑定的调入/调出流程。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>加载可调池、构建池树、校验容量、获取目标池和推荐流程。</td>
+                        </tr>
+                        <tr>
+                            <td>6</td><td><span class="table-name">ip_pool_relation</span></td>
+                            <td>投资池之间的联动和互斥关系。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>调库校验和提交时，根据关系生成联动调整、互斥调整明细。</td>
+                        </tr>
+                        <tr>
+                            <td>7</td><td><span class="table-name">ip_pool_permission</span></td>
+                            <td>投资池可调权限配置，支持按用户或角色授权。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>进入调库页面、查询可调池时判断当前用户是否有权限操作目标池。</td>
+                        </tr>
+                        <tr>
+                            <td>8</td><td><span class="table-name">dict_security_type</span></td>
+                            <td>证券类型字典及证券大类信息。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>证券列表展示类型名称；流程通过后生成内部报告时判断报告类型。</td>
+                        </tr>
+
+                        <tr class="group-heading"><td colspan="5">B. 审批流程配置表</td></tr>
+                        <tr>
+                            <td>9</td><td><span class="table-name">wf_flow_definition</span></td>
+                            <td>流程定义，保存流程名称、Key、类型和启停状态。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>校验候选流程、提交时确认选定流程、审批推进时恢复流程上下文。</td>
+                        </tr>
+                        <tr>
+                            <td>10</td><td><span class="table-name">wf_flow_version</span></td>
+                            <td>流程版本，确定当前生效的流程版本。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>发起时读取 active 版本；审批流转时根据当前节点恢复版本。</td>
+                        </tr>
+                        <tr>
+                            <td>11</td><td><span class="table-name">wf_flow_node</span></td>
+                            <td>流程节点，包括开始、审批、自动和结束节点。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>创建初始步骤、定位当前节点、查找下一节点和创建结束步骤。</td>
+                        </tr>
+                        <tr>
+                            <td>12</td><td><span class="table-name">wf_flow_edge</span></td>
+                            <td>流程节点之间的有向连线。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>提交和审批时计算主路径、通过分支、驳回分支及下一节点。</td>
+                        </tr>
+                        <tr>
+                            <td>13</td><td><span class="table-name">wf_edge_cond_rule</span></td>
+                            <td>流程连线条件规则。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>审批过程中存在条件分支时，按处理动作匹配应走的连线。</td>
+                        </tr>
+                        <tr>
+                            <td>14</td><td><span class="table-name">wf_node_approval_config</span></td>
+                            <td>审批节点策略，如发起人、会签和抢占策略。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>生成审批步骤、判断节点完成条件以及同节点其他待办是否跳过。</td>
+                        </tr>
+                        <tr>
+                            <td>15</td><td><span class="table-name">wf_node_approval_handler</span></td>
+                            <td>审批节点处理人配置，可配置具体用户或角色。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>创建待办步骤时，将节点配置解析成具体审批人员。</td>
+                        </tr>
+
+                        <tr class="group-heading"><td colspan="5">C. 用户与角色表（ais_inv_analysis 库）</td></tr>
+                        <tr>
+                            <td>16</td><td><span class="table-name">ais_inv_analysis.t_sys_user</span></td>
+                            <td>系统用户信息。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>审批节点按角色配置时，将角色展开成具体处理人。</td>
+                        </tr>
+                        <tr>
+                            <td>17</td><td><span class="table-name">ais_inv_analysis.t_sys_role</span></td>
+                            <td>系统角色及角色层级。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>权限校验以及递归解析审批角色和子角色。</td>
+                        </tr>
+                        <tr>
+                            <td>18</td><td><span class="table-name">ais_inv_analysis.t_sys_user_role</span></td>
+                            <td>用户与角色关联关系。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>查询发起人的投资池权限；把审批角色展开为具体用户。</td>
+                        </tr>
+
+                        <tr class="group-heading"><td colspan="5">D. 附件与报告表（条件触发）</td></tr>
+                        <tr>
+                            <td>19</td><td><span class="table-name">sys_attachment</span> <span class="badge conditional">条件触发</span></td>
+                            <td>调库信评报告、其他材料和报告库附件元数据。</td>
+                            <td><span class="badge read">查询</span><span class="badge write">新增</span><span class="badge update">更新</span></td>
+                            <td>上传附件、引用已有报告附件、修改节点增删附件，以及流程通过后的附件复制。</td>
+                        </tr>
+                        <tr>
+                            <td>20</td><td><span class="table-name">rrs_report_in</span> <span class="badge conditional">条件触发</span></td>
+                            <td>内部研究报告。</td>
+                            <td><span class="badge read">查询</span><span class="badge write">新增</span></td>
+                            <td>发起时选择内部报告；审批通过且存在手工上传信评附件时，新增内部报告。</td>
+                        </tr>
+                        <tr>
+                            <td>21</td><td><span class="table-name">rrs_report_out</span> <span class="badge conditional">条件触发</span></td>
+                            <td>外部研究报告。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>发起调库时打开外部报告列表并选择已有报告附件。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="relations" class="section">
+            <h2 class="section-title">核心表关系</h2>
+            <p class="section-subtitle">以下不是数据库物理外键，而是业务代码按照 ID、批次号和证券代码维护的逻辑关系。</p>
+            <div class="relation-grid">
+                <article class="relation-card">
+                    <h3>申请与步骤</h3>
+                    <ul>
+                        <li><code>ip_adjust_log.id</code> 对应 <code>ip_adjust_step.adjust_log_id</code></li>
+                        <li><code>adjust_batch_no</code> 聚合同批手工、联动和互斥调整</li>
+                        <li>一个审批节点按处理人展开后可能产生多条步骤</li>
+                    </ul>
+                </article>
+                <article class="relation-card">
+                    <h3>申请与目标池</h3>
+                    <ul>
+                        <li><code>ip_adjust_log.target_pool_id</code> 对应投资池 ID</li>
+                        <li>审批通过后按调整方向写入或逻辑删除 <code>ip_pool_status</code></li>
+                        <li>池关系用于扩展联动与互斥调整明细</li>
+                    </ul>
+                </article>
+                <article class="relation-card">
+                    <h3>步骤与流程定义</h3>
+                    <ul>
+                        <li><code>ip_adjust_step.flow_node_id</code> 指向流程节点</li>
+                        <li>节点归属于版本，版本归属于流程定义</li>
+                        <li>节点连线和条件规则共同决定下一步骤</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+
+        <section id="branches" class="section">
+            <h2 class="section-title">流程结束分支</h2>
+            <p class="section-subtitle">通过与未通过的最大区别，是是否真正改变证券池状态。</p>
+            <div class="branch-grid">
+                <article class="branch approved">
+                    <h3>审批通过</h3>
+                    <p>更新 <code>ip_adjust_step</code> 和 <code>ip_adjust_log</code> 为完成状态；调入时新增 <code>ip_pool_status</code>，调出时逻辑删除对应状态。若存在手工上传的信评报告附件，再新增 <code>rrs_report_in</code> 并复制 <code>sys_attachment</code>。</p>
+                </article>
+                <article class="branch rejected">
+                    <h3>驳回、拒绝或终止</h3>
+                    <p>更新 <code>ip_adjust_step</code> 和 <code>ip_adjust_log</code> 的处理结果及终态，不新增或删除 <code>ip_pool_status</code>，也不会执行审批通过后的内部报告沉淀。</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="notes" class="section">
+            <h2 class="section-title">口径与阅读说明</h2>
+            <ul class="note-list">
+                <li>完整口径共 21 张表，包含页面查询、发起校验、运行步骤、用户角色、附件和报告。</li>
+                <li>若只关注流程运行与最终落库，核心是 <code>ip_adjust_log</code>、<code>ip_adjust_step</code>、<code>ip_pool_status</code>。</li>
+                <li><code>wf_*</code> 表保存流程模板配置，运行过程中主要读取，不写入流程设计数据。</li>
+                <li><code>*_evt</code> 事件表用于流程设计或投资池配置变更审计，不是本次调库实例运行的写入表。</li>
+                <li><code>wf_node_auto_config</code>、<code>wf_node_notify_config</code>、<code>wf_node_condition_config</code> 当前未被证券池调库运行服务读取。</li>
+                <li>本页依据后端 Service、Mapper XML 与 SQL 建表脚本梳理，适用于当前代码版本。</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>证券池调库数据链路说明 · 静态文档页面</footer>
+</body>
+</html>

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>证券池批量调整｜表与业务逻辑</title>
+    <style>
+        :root {
+            --primary: #155eef;
+            --primary-light: #eaf1ff;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #0f3d91 0%, #155eef 58%, #4788ff 100%);
+            border: 0
+        }
+
+        .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        main {
+            padding: 28px 0 56px
+        }
+
+        .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        .step span {
+            color: var(--regular)
+        }
+
+        .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        .card ul, .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .card li + li {
+            margin-top: 6px
+        }
+
+        .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        th, td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        tr:last-child td {
+            border-bottom: 0
+        }
+
+        tbody tr:hover {
+            background: #f8fbff
+        }
+
+        code, .name {
+            font-family: Consolas, monospace
+        }
+
+        .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .notes li + li {
+            margin-top: 5px
+        }
+
+        .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            .flow, .logic {
+                grid-template-columns: 1fr
+            }
+
+            .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            .wrap {
+                width: calc(100% - 24px)
+            }
+
+            header {
+                padding: 24px 0 20px
+            }
+
+            .stats {
+                grid-template-columns: 1fr
+            }
+
+            .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            .nav {
+                display: none
+            }
+
+            .panel {
+                break-inside: avoid
+            }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>证券池批量调整</h1>
+        <p class="desc">
+            批量选择启用叶子投资池和候选证券，逐券复用单证券调库校验，按证券分组创建调库申请并进入统一审批流程。</p>
+        <div class="stats"><span class="stat">14 项表/表组</span><span class="stat">5 个主要接口</span><span
+                class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">目标池与候选证券查询</a><a href="#logic-2">批量校验与提交</a><a
+            href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
+    <section class="panel" id="overview"><h2>业务流程总览</h2>
+        <p class="sub">从页面操作到数据库读写的主要路径。</p>
+        <div class="flow">
+            <div class="step"><b>1. 选择目标池</b><span>按用户可调整权限查询启用叶子池并回填当前数量。</span></div>
+            <div class="step"><b>2. 筛选证券</b><span>调入排除已在池证券，调出仅保留已在池证券。</span></div>
+            <div class="step"><b>3. 批量校验</b><span>逐证券执行到期、在池、容量、关系及流程匹配。</span></div>
+            <div class="step"><b>4. 批量提交</b><span>按证券分组写申请、步骤和附件，共享批量上下文。</span></div>
+            <div class="step"><b>5. 审批生效</b><span>统一审批通过后更新证券池状态并按条件沉淀报告。</span></div>
+        </div>
+    </section>
+    <section class="panel" id="logic-1"><h2>目标池与候选证券查询</h2>
+        <p class="sub">先选有权限的启用叶子池，再按方向查询候选证券。</p><span class="api">POST /api/v1/batchSecurityPoolAdjust/queryPoolPage · querySecurityPage</span>
+        <div class="logic">
+            <article class="card"><h3>目标池查询</h3>
+                <ul>
+                    <li>管理员可查看全部；普通用户依据 <code>ip_pool_permission</code> 的 adjustable 权限过滤。</li>
+                    <li>只返回 <code>status='enabled'</code>、未删除且没有启用子节点的叶子池。</li>
+                    <li>汇总 <code>ip_pool_status</code> 的有效证券数量并回填完整池路径。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>候选证券查询</h3>
+                <ul>
+                    <li>目标池必须存在、启用、为叶子池且当前用户有调整权限。</li>
+                    <li>调入使用 NOT EXISTS 排除目标池有效状态；调出使用 EXISTS 仅保留目标池有效状态。</li>
+                    <li>支持证券代码、简称和市场过滤，按证券主键倒序分页。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-2"><h2>批量校验与提交</h2>
+        <p class="sub">批量层负责聚合，单券规则与证券池调库保持一致。</p><span class="api">POST /api/v1/batchSecurityPoolAdjust/checkAdjust · addAdjustLogWithFiles</span>
+        <div class="logic">
+            <article class="card"><h3>逐券校验</h3>
+                <ul>
+                    <li>每个证券转换为单证券 <code>AdjustCheckReq</code>。</li>
+                    <li>自动扩展 in_linked、out_linked 和 in_mutex 调出项，并用池ID+方向去重。</li>
+                    <li>仅校验通过的手工项选择流程，联动/互斥项继承同组手工流程。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>提交和审批</h3>
+                <ul>
+                    <li>按 securityCode 分组，逐组创建 <code>ip_adjust_log</code>。</li>
+                    <li>直通流程立即写入或删除 <code>ip_pool_status</code>；非直通创建 <code>ip_adjust_step</code>。</li>
+                    <li>同一次批量提交共享附件上下文；后续由证券池调库审批服务推进。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables"><h2>涉及表、用途与触发场景</h2>
+        <p class="sub">读写口径包含页面初始化、主业务接口及其正常后续流程。</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>表名</th>
+                    <th>用途</th>
+                    <th>读写</th>
+                    <th>触发场景</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="name">ip_investment_pool</span></td>
+                    <td>目标池定义、容量和批量流程配置</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>池分页、叶子池校验、流程选择</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_permission</span></td>
+                    <td>用户/角色可调整权限</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>普通用户查询池、提交前权限复核</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ais_inv_analysis.t_sys_user / t_sys_user_role / t_sys_role</span></td>
+                    <td>解析权限角色及审批处理人</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>角色型权限和审批待办人员</td>
+                </tr>
+                <tr>
+                    <td><span class="name">rrs_securityinfo</span></td>
+                    <td>候选证券和证券基础信息</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>候选分页、逐券校验与提交</td>
+                </tr>
+                <tr>
+                    <td><span class="name">dict_security_type</span></td>
+                    <td>证券大类及报告类型映射</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>审批通过后生成内部报告</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_status</span></td>
+                    <td>当前在池状态及最终生效结果</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span
+                            class='tag u'>逻辑删除</span></td>
+                    <td>候选过滤、容量校验、直通或审批通过</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_relation</span></td>
+                    <td>来源、限制、联动与互斥关系</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>逐券校验及自动项扩展</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_adjust_log</span></td>
+                    <td>每券每池调库申请明细</td>
+                    <td><span class='tag w'>新增</span> <span class='tag u'>更新</span></td>
+                    <td>批量提交、审批状态流转</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_adjust_step</span></td>
+                    <td>审批运行步骤</td>
+                    <td><span class='tag w'>新增</span> <span class='tag u'>更新</span></td>
+                    <td>非直通流程及后续审批</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_definition / wf_flow_version</span></td>
+                    <td>选定流程及活跃版本</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>构建运行时流程快照</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_node / wf_flow_edge / wf_edge_cond_rule</span></td>
+                    <td>节点、连线和条件分支</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>初始步骤及审批推进</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_node_approval_config / wf_node_approval_handler</span></td>
+                    <td>审批策略和处理人</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>展开具体待办人员</td>
+                </tr>
+                <tr>
+                    <td><span class="name">sys_attachment</span></td>
+                    <td>批量提交附件和报告附件副本</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span></td>
+                    <td>上传、引用报告、修改节点</td>
+                </tr>
+                <tr>
+                    <td><span class="name">rrs_report_in / rrs_report_out</span></td>
+                    <td>内部/外部报告来源；通过后可沉淀内部报告</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>条件新增</span></td>
+                    <td>选择报告或审批通过后生成</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>批量不是一条总申请：后端按证券分组，再为手工、联动、互斥明细分别保存调库日志。</li>
+            <li>方向只允许 <code>in</code> 或 <code>out</code>；手工明细方向必须与本次批量方向一致。</li>
+            <li>手工项必须指定审批流程；联动和互斥项复用同组手工项流程。</li>
+            <li>审批运行、会签/抢占、驳回和最终落库复用证券池调库流程逻辑。</li>
+        </ul>
+        <div class="note">本页依据当前 Controller、Service、Mapper
+            XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
+        </div>
+    </section>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p></main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
+</body>
+</html>

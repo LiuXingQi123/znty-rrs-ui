@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>我的事宜｜表与业务逻辑</title>
+    <style>
+        :root {
+            --primary: #155eef;
+            --primary-light: #eaf1ff;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #0f3d91 0%, #155eef 58%, #4788ff 100%);
+            border: 0
+        }
+
+        .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        main {
+            padding: 28px 0 56px
+        }
+
+        .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        .step span {
+            color: var(--regular)
+        }
+
+        .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        .card ul, .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .card li + li {
+            margin-top: 6px
+        }
+
+        .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        th, td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        tr:last-child td {
+            border-bottom: 0
+        }
+
+        tbody tr:hover {
+            background: #f8fbff
+        }
+
+        code, .name {
+            font-family: Consolas, monospace
+        }
+
+        .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .notes li + li {
+            margin-top: 5px
+        }
+
+        .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            .flow, .logic {
+                grid-template-columns: 1fr
+            }
+
+            .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            .wrap {
+                width: calc(100% - 24px)
+            }
+
+            header {
+                padding: 24px 0 20px
+            }
+
+            .stats {
+                grid-template-columns: 1fr
+            }
+
+            .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            .nav {
+                display: none
+            }
+
+            .panel {
+                break-inside: avoid
+            }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>我的事宜</h1>
+        <p class="desc">按当前用户汇总与本人相关的调库流程事项，区分待办与已办，并根据业务场景跳转到证券、主体禁投或 CRMW
+            审批/详情页。</p>
+        <div class="stats"><span class="stat">6 项表/表组</span><span class="stat">2 个主要接口</span><span
+                class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">事项分页与可见范围</a><a href="#logic-2">流程选项与业务场景</a><a
+            href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
+    <section class="panel" id="overview"><h2>业务流程总览</h2>
+        <p class="sub">从页面操作到数据库读写的主要路径。</p>
+        <div class="flow">
+            <div class="step"><b>1. 加载流程选项</b><span>只返回当前用户事项中实际出现的有效流程。</span></div>
+            <div class="step"><b>2. 事项查询</b><span>按用户、流程、证券、日期和状态分页。</span></div>
+            <div class="step"><b>3. 选择代表步骤</b><span>待办取本人最新 pending；其他取每申请最新步骤。</span></div>
+            <div class="step"><b>4. 识别场景</b><span>根据池类型和主体类型判断跳转页面。</span></div>
+            <div class="step"><b>5. 进入处理/查看</b><span>待办进入审批，已结束进入只读详情。</span></div>
+        </div>
+    </section>
+    <section class="panel" id="logic-1"><h2>事项分页与可见范围</h2>
+        <p class="sub">普通用户只能看到曾由自己处理或待处理的事项，管理员可穿透查看。</p><span class="api">POST /api/v1/myMatters/queryMyMattersPage</span>
+        <div class="logic">
+            <article class="card"><h3>待办代表步骤</h3>
+                <ul>
+                    <li>stepStatus=pending 时按 adjust_log_id 分组取最大 pending 步骤ID。</li>
+                    <li>普通用户同时要求 handler_id=currentUserId；未传用户时强制无结果。</li>
+                    <li>管理员 1001 不加处理人限制。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>已办与筛选</h3>
+                <ul>
+                    <li>非待办取每条申请的最新步骤。</li>
+                    <li>普通用户还要求该申请至少存在一条本人处理步骤。</li>
+                    <li>支持流程、证券、开始日期、描述、审核状态、发起人；completed 要求同批次不存在 pending。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-2"><h2>流程选项与业务场景</h2>
+        <p class="sub">列表组合申请、步骤、流程和证券大类生成跳转信息。</p><span class="api">POST /api/v1/myMatters/queryFlowOptionList</span>
+        <div class="logic">
+            <article class="card"><h3>流程下拉</h3>
+                <ul>
+                    <li>从当前用户可见事项的最新步骤反查 <code>wf_flow_node</code> 和有效流程定义。</li>
+                    <li>按流程名称、ID排序并去重。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>场景判断</h3>
+                <ul>
+                    <li>pool_type='crmw' → CRMW 调整。</li>
+                    <li>company 类型且目标池ID在 15/16/17 → 主体禁投调整。</li>
+                    <li>其他 → 证券池调整；待办与非待办分别进入处理或查看模式。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables"><h2>涉及表、用途与触发场景</h2>
+        <p class="sub">读写口径包含页面初始化、主业务接口及其正常后续流程。</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>表名</th>
+                    <th>用途</th>
+                    <th>读写</th>
+                    <th>触发场景</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="name">ip_adjust_log</span></td>
+                    <td>事项对应的调库申请</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>业务对象、状态、批次和发起人</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_adjust_step</span></td>
+                    <td>待办/已办步骤及当前处理人</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>可见范围、代表步骤、完成判断</td>
+                </tr>
+                <tr>
+                    <td><span class="name">dict_security_type</span></td>
+                    <td>识别 company 等证券大类</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>业务场景判断</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_node</span></td>
+                    <td>步骤关联的流程节点</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>反查流程定义</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_definition</span></td>
+                    <td>流程名称、Key和描述</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>列表显示和流程下拉</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_investment_pool</span></td>
+                    <td>目标池完整路径</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>替换流程描述中的叶子池名称</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>管理员用户ID在当前代码中固定为 <code>1001</code>。</li>
+            <li>completed 的判断是同批次无 pending 步骤，不只看当前步骤一行。</li>
+            <li>业务场景对主体禁投池使用固定目标池ID 15/16/17，依赖种子数据。</li>
+            <li>页面只读；真正的审批写操作发生在对应业务审批页面。</li>
+        </ul>
+        <div class="note">本页依据当前 Controller、Service、Mapper
+            XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
+        </div>
+    </section>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p></main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
+</body>
+</html>

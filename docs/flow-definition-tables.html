@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>流程定义｜表与业务逻辑</title>
+    <style>
+        :root {
+            --primary: #155eef;
+            --primary-light: #eaf1ff;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #0f3d91 0%, #155eef 58%, #4788ff 100%);
+            border: 0
+        }
+
+        .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        main {
+            padding: 28px 0 56px
+        }
+
+        .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        .step span {
+            color: var(--regular)
+        }
+
+        .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        .card ul, .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .card li + li {
+            margin-top: 6px
+        }
+
+        .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        th, td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        tr:last-child td {
+            border-bottom: 0
+        }
+
+        tbody tr:hover {
+            background: #f8fbff
+        }
+
+        code, .name {
+            font-family: Consolas, monospace
+        }
+
+        .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .notes li + li {
+            margin-top: 5px
+        }
+
+        .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            .flow, .logic {
+                grid-template-columns: 1fr
+            }
+
+            .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            .wrap {
+                width: calc(100% - 24px)
+            }
+
+            header {
+                padding: 24px 0 20px
+            }
+
+            .stats {
+                grid-template-columns: 1fr
+            }
+
+            .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            .nav {
+                display: none
+            }
+
+            .panel {
+                break-inside: avoid
+            }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>流程定义</h1>
+        <p class="desc">维护流程定义、版本和画布，保存审批/自动/通知/条件节点配置；发布时同步画布 JSON
+            与运行时归一化表。</p>
+        <div class="stats"><span class="stat">12 项表/表组</span><span class="stat">16 个主要接口</span><span
+                class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">定义与版本管理</a><a
+            href="#logic-2">画布归一化与字典</a><a href="#tables">涉及表</a><a href="#notes">规则说明</a><a
+            href="module-tables-index.html">文档目录</a></nav>
+    <section class="panel" id="overview"><h2>业务流程总览</h2>
+        <p class="sub">从页面操作到数据库读写的主要路径。</p>
+        <div class="flow">
+            <div class="step"><b>1. 流程列表</b><span>按关键字、状态和分类分页查询。</span></div>
+            <div class="step"><b>2. 新建草稿</b><span>新增流程定义和 verNum=1 草稿版本。</span></div>
+            <div class="step"><b>3. 画布编辑</b><span>编辑节点、连线、处理人、任务和条件。</span></div>
+            <div class="step"><b>4. 保存/发布</b><span>保存草稿或校验后发布 active 版本。</span></div>
+            <div class="step"><b>5. 运行消费</b><span>调库运行时读取归一化节点、连线和审批配置。</span></div>
+        </div>
+    </section>
+    <section class="panel" id="logic-1"><h2>定义与版本管理</h2>
+        <p class="sub">流程定义控制名称、Key、分类和状态；版本保存完整画布快照。</p><span class="api">POST /api/v1/flows/queryFlowPage · addFlow · editFlowDraft · editFlowToPublished</span>
+        <div class="logic">
+            <article class="card"><h3>定义与草稿</h3>
+                <ul>
+                    <li>flowKey 必填且全局唯一；新增同时创建初始 draft 版本。</li>
+                    <li>详情优先返回已有草稿，否则返回最新版本作为编辑基础。</li>
+                    <li>active 流程首次保存新草稿时，定义状态回退为 draft。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>发布与状态</h3>
+                <ul>
+                    <li>发布前校验节点、唯一开始节点、结束节点、连线及配置。</li>
+                    <li>发布把草稿版本转 active，并更新流程定义状态。</li>
+                    <li>停用仅允许 active→disabled；删除为定义表软删除。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-2"><h2>画布归一化与字典</h2>
+        <p class="sub">版本中的 canvas_nodes/canvas_edges 是画布快照；归一化表供运行时遍历。</p><span class="api">POST /api/v1/flows/queryFlowVersionList · queryFlowVersionDetail · dict/*</span>
+        <div class="logic">
+            <article class="card"><h3>全量同步</h3>
+                <ul>
+                    <li>每次保存/发布按依赖顺序删除该版本旧归一化数据。</li>
+                    <li>重新插入节点、审批配置/处理人、自动任务、通知、条件节点、连线和条件规则。</li>
+                    <li>删除旧行和新增新行都记录对应 evt 事件。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>人员和字典</h3>
+                <ul>
+                    <li>角色、用户来自 ais_inv_analysis 系统表。</li>
+                    <li>自动任务和条件字段来自后端静态字典；角色字典表仍提供查询。</li>
+                    <li>运行时主要读取定义、版本、节点、连线、条件规则和审批配置。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables"><h2>涉及表、用途与触发场景</h2>
+        <p class="sub">读写口径包含页面初始化、主业务接口及其正常后续流程。</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>表名</th>
+                    <th>用途</th>
+                    <th>读写</th>
+                    <th>触发场景</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="name">wf_flow_definition / wf_flow_definition_evt</span></td>
+                    <td>流程主表及变更事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span
+                            class='tag u'>更新/软删</span></td>
+                    <td>列表、CRUD、状态和审计</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_version / wf_flow_version_evt</span></td>
+                    <td>版本、画布JSON及版本事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span class='tag u'>更新</span>
+                    </td>
+                    <td>草稿、发布、历史</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_node / wf_flow_node_evt</span></td>
+                    <td>归一化流程节点及事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>全量重建</span> <span
+                            class='tag d'>删除</span></td>
+                    <td>保存/发布、运行时遍历</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_edge / wf_flow_edge_evt</span></td>
+                    <td>节点连线及事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>全量重建</span> <span
+                            class='tag d'>删除</span></td>
+                    <td>路由和运行时推进</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_edge_cond_rule / wf_edge_cond_rule_evt</span></td>
+                    <td>连线条件规则及事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>全量重建</span> <span
+                            class='tag d'>删除</span></td>
+                    <td>条件分支</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_node_approval_config / *_evt</span></td>
+                    <td>审批策略配置及事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>全量重建</span> <span
+                            class='tag d'>删除</span></td>
+                    <td>发起人、会签、抢占等策略</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_node_approval_handler / *_evt</span></td>
+                    <td>审批用户/角色明细及事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>全量重建</span> <span
+                            class='tag d'>删除</span></td>
+                    <td>待办处理人展开</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_node_auto_config / *_evt</span></td>
+                    <td>自动节点任务及事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>全量重建</span> <span
+                            class='tag d'>删除</span></td>
+                    <td>自动执行节点配置</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_node_notify_config / *_evt</span></td>
+                    <td>通知节点配置及事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>全量重建</span> <span
+                            class='tag d'>删除</span></td>
+                    <td>通知节点配置</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_node_condition_config / *_evt</span></td>
+                    <td>条件节点配置及事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>全量重建</span> <span
+                            class='tag d'>删除</span></td>
+                    <td>条件节点说明</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_role_dict / wf_role_dict_evt</span></td>
+                    <td>流程角色字典及事件</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>事件新增</span></td>
+                    <td>角色字典</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ais_inv_analysis.t_sys_role / t_sys_user / t_sys_user_role</span></td>
+                    <td>系统角色、用户和关联</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>审批处理人选择</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>画布 JSON 是设计器快照真源，归一化表是运行时派生数据；两套数据必须同步。</li>
+            <li>发布前会阻止无节点、开始/结束节点异常和关键配置缺失。</li>
+            <li>删除流程当前未实现业务引用检查，直接把定义 is_deleted 置为1。</li>
+            <li>停用流程中的“检查运行中实例”仍是 TODO，且没有 disabled→active 的逆向接口。</li>
+            <li>运行时目前没有统一流程实例表，具体业务用自己的日志/步骤表承载实例。</li>
+        </ul>
+        <div class="note">本页依据当前 Controller、Service、Mapper
+            XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
+        </div>
+    </section>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p></main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
+</body>
+</html>
