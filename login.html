@@ -57,14 +57,20 @@
                 <p>请输入用户名和密码进入工作台</p>
             </div>
             <el-form ref="loginForm" :model="loginForm" :rules="loginRules" label-position="top">
-                <el-form-item label="用户名" prop="username">
-                    <el-input
+                <el-form-item label="登录用户" prop="username">
+                    <el-select
+                            class="login-user-select"
                             v-model="loginForm.username"
-                            prefix-icon="el-icon-user"
-                            placeholder="请输入用户名"
-                            autocomplete="username"
+                            placeholder="请选择用户"
+                            filterable
                             clearable>
-                    </el-input>
+                        <el-option
+                                v-for="user in userOptions"
+                                :key="user.userId"
+                                :label="user.name + '（' + user.userId + '）'"
+                                :value="user.userId">
+                        </el-option>
+                    </el-select>
                 </el-form-item>
                 <el-form-item label="密码" prop="password">
                     <el-input
@@ -83,7 +89,7 @@
             </el-form>
             <div class="login-notice">
                 <i class="el-icon-info"></i>
-                当前为前端演示登录，任意非空用户名和密码均可进入
+                当前为前端演示登录，演示用户初始密码统一为 123456
             </div>
         </div>
         <div class="login-copyright">© 2026 智慧风控平台</div>
@@ -95,12 +101,30 @@ new Vue({
     el: '#rrs_login',
     data() {
         return {
+            userOptions: [
+                { userId: '1', name: '研究员1', loginName: 'yanjiuyuan1' },
+                { userId: '2', name: '研究员2', loginName: 'yanjiuyuan2' },
+                { userId: '3', name: '研究员3', loginName: 'yanjiuyuan3' },
+                { userId: '4', name: '研究员4', loginName: 'yanjiuyuan4' },
+                { userId: '5', name: '研究员5', loginName: 'yanjiuyuan5' },
+                { userId: '6', name: '固收1', loginName: 'gushou1' },
+                { userId: '7', name: '固收2', loginName: 'gushou2' },
+                { userId: '8', name: '固收3', loginName: 'gushou3' },
+                { userId: '9', name: '固收4', loginName: 'gushou4' },
+                { userId: '10', name: '权益1', loginName: 'quanyi1' },
+                { userId: '11', name: '权益2', loginName: 'quanyi2' },
+                { userId: '12', name: '权益3', loginName: 'quanyi3' },
+                { userId: '13', name: '量化1', loginName: 'lianghua1' },
+                { userId: '14', name: '量化2', loginName: 'lianghua2' },
+                { userId: '15', name: '风控经理', loginName: 'fengkongjingli' },
+                { userId: '1001', name: '管理员', loginName: 'admin' },
+            ], // 可选登录用户
             loginForm: {
                 username: '1001', // 登录用户名
                 password: '123456', // 登录密码（仅用于非空校验）
             },
             loginRules: {
-                username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+                username: [{ required: true, message: '请选择用户', trigger: 'change' }],
                 password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
             },
             submitting: false, // 登录按钮加载状态
@@ -112,10 +136,16 @@ new Vue({
             this.$refs.loginForm.validate(valid => {
                 if (!valid || this.submitting) return
                 this.submitting = true
-                const user = window.RrsAuth.authenticate(this.loginForm.username, this.loginForm.password)
+                const selectedUser = this.userOptions.find(item => item.userId === this.loginForm.username)
+                const user = selectedUser && window.RrsAuth.authenticate(
+                    selectedUser.userId,
+                    this.loginForm.password,
+                    selectedUser.name,
+                    selectedUser.loginName
+                )
                 if (!user) {
                     this.submitting = false
-                    this.$message.error('用户名和密码不能为空')
+                    this.$message.error('请选择用户并输入密码')
                     return
                 }
                 window.location.replace(window.RrsAuth.buildPageUrl('index.html', user))

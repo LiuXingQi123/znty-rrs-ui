@@ -20,13 +20,15 @@ window.RrsAuth = {
     },
 
     // 校验纯前端演示登录并保存用户（密码不持久化）
-    authenticate(username, password) {
-        const loginName = String(username || '').trim()
+    authenticate(userId, password, userName, loginName) {
+        const loginUserId = String(userId || '').trim()
         const loginPassword = String(password || '').trim()
-        if (!loginName || !loginPassword) return null
-        const user = { userId: loginName, userName: loginName, loginName }
-        this.saveCurrentUser(user)
-        return user
+        if (!loginUserId || !loginPassword) return null
+        return this.saveCurrentUser({
+            userId: loginUserId,
+            userName: String(userName || loginUserId).trim(),
+            loginName: String(loginName || loginUserId).trim(),
+        })
     },
 
     // 保存当前登录用户
