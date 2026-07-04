@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>证券池链路体检｜业务问题与合理性审计</title>
+    <style>
+        :root {
+            --bg: #f4f7fb;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --text: #1f2937;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --primary: #2743A4;
+            --primary-soft: #E9ECF6;
+            --green: #15803d;
+            --green-soft: #eaf8ef;
+            --orange: #b45309;
+            --orange-soft: #fff4df;
+            --red: #b42318;
+            --red-soft: #fff0ee;
+            --purple: #6941c6;
+            --purple-soft: #f2edff;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            color: var(--text);
+            background: var(--bg);
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.65;
+        }
+
+        .hero {
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+        }
+
+        .hero-inner,
+        .page {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+
+        .hero-inner {
+            padding: 28px 0 24px;
+        }
+
+        .eyebrow {
+            margin: 0 0 4px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            opacity: 0.82;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25;
+        }
+
+        .hero-description {
+            max-width: 980px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, 0.86);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 980px;
+            margin-top: 16px;
+        }
+
+        .summary-item {
+            min-height: 76px;
+            padding: 10px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+        }
+
+        .summary-value {
+            display: block;
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+
+        .summary-label {
+            display: block;
+            margin-top: 4px;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 12px;
+        }
+
+        .page {
+            padding: 28px 0 56px;
+        }
+
+        .quick-nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 6px 18px rgba(31, 42, 68, 0.07);
+        }
+
+        .quick-nav a {
+            flex: 0 0 auto;
+            padding: 7px 12px;
+            color: #344054;
+            border-radius: 8px;
+            font-size: 14px;
+            text-decoration: none;
+        }
+
+        .quick-nav a:hover {
+            color: var(--primary);
+            background: var(--primary-soft);
+        }
+
+        .section {
+            margin-top: 24px;
+            padding: 26px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px;
+        }
+
+        .section:first-of-type {
+            margin-top: 0;
+        }
+
+        .section-title {
+            margin: 0 0 6px;
+            font-size: 22px;
+        }
+
+        .section-subtitle {
+            margin: 0 0 20px;
+            color: var(--muted);
+        }
+
+        .verdict {
+            display: grid;
+            grid-template-columns: 1.2fr repeat(3, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .verdict-card,
+        .flow-step,
+        .finding-card,
+        .source-card {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--surface-soft);
+        }
+
+        .verdict-card {
+            padding: 18px;
+        }
+
+        .verdict-card h3,
+        .finding-card h3,
+        .source-card h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+        }
+
+        .verdict-card p,
+        .finding-card p,
+        .source-card p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            height: 22px;
+            margin-bottom: 10px;
+            padding: 0 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .badge.ok {
+            color: var(--green);
+            background: var(--green-soft);
+        }
+
+        .badge.warn {
+            color: var(--orange);
+            background: var(--orange-soft);
+        }
+
+        .badge.risk {
+            color: var(--red);
+            background: var(--red-soft);
+        }
+
+        .badge.note {
+            color: var(--primary);
+            background: var(--primary-soft);
+        }
+
+        .badge.todo {
+            color: var(--purple);
+            background: var(--purple-soft);
+        }
+
+        .flow {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 22px;
+        }
+
+        .flow-step {
+            position: relative;
+            min-height: 168px;
+            padding: 16px;
+            border-top: 4px solid var(--primary);
+        }
+
+        .flow-step:not(:last-child)::after {
+            position: absolute;
+            top: 70px;
+            right: -19px;
+            color: #8ca2c0;
+            content: "→";
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .step-index {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            margin-right: 6px;
+            color: #fff;
+            border-radius: 50%;
+            background: var(--primary);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .flow-step h3 {
+            display: inline;
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .flow-step p {
+            margin: 10px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .matrix {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .matrix th,
+        .matrix td {
+            padding: 12px 14px;
+            border-right: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top;
+            font-size: 13px;
+        }
+
+        .matrix th {
+            color: #242933;
+            background: #f7f8fa;
+            font-weight: 700;
+        }
+
+        .matrix tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .matrix th:last-child,
+        .matrix td:last-child {
+            border-right: 0;
+        }
+
+        .finding-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .finding-card {
+            padding: 16px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .finding-card.ok {
+            border-left-color: var(--green);
+        }
+
+        .finding-card.warn {
+            border-left-color: var(--orange);
+        }
+
+        .finding-card.risk {
+            border-left-color: var(--red);
+        }
+
+        .finding-card.todo {
+            border-left-color: var(--purple);
+        }
+
+        .finding-card ul {
+            margin: 10px 0 0;
+            padding-left: 18px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .finding-card li + li {
+            margin-top: 6px;
+        }
+
+        code,
+        .table-name {
+            font-family: Consolas, "SFMono-Regular", monospace;
+        }
+
+        code {
+            padding: 2px 5px;
+            color: var(--primary);
+            border-radius: 4px;
+            background: var(--primary-soft);
+            font-size: 12px;
+        }
+
+        .list {
+            margin: 0;
+            padding-left: 20px;
+            color: var(--muted);
+        }
+
+        .list li + li {
+            margin-top: 8px;
+        }
+
+        .source-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .source-card {
+            padding: 16px;
+        }
+
+        .source-card ul {
+            margin: 10px 0 0;
+            padding-left: 18px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .callout {
+            padding: 14px 16px;
+            border-left: 4px solid var(--primary);
+            border-radius: 10px;
+            background: var(--primary-soft);
+            color: #344054;
+        }
+
+        @media (max-width: 1400px) {
+            .flow {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+
+            .flow-step::after {
+                display: none;
+            }
+
+            .finding-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 980px) {
+            .summary-grid,
+            .verdict,
+            .source-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .flow,
+            .finding-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+<header class="hero">
+    <div class="hero-inner">
+        <p class="eyebrow">ZNTY RRS · BUSINESS LINK AUDIT</p>
+        <h1>证券池链路体检：业务逻辑合理性与遗漏点</h1>
+        <p class="hero-description">从证券池查询、历史查询、单笔调库、批量调库、审核、详情、我的事宜等入口反推完整链路，检查当前实现是否闭环、口径是否一致，以及后续需要补齐的业务规则和技术兜底。</p>
+        <div class="summary-grid">
+            <div class="summary-item"><span class="summary-value">7</span><span class="summary-label">核心业务入口</span></div>
+            <div class="summary-item"><span class="summary-value">8</span><span class="summary-label">主要表/视图口径</span></div>
+            <div class="summary-item"><span class="summary-value">11</span><span class="summary-label">重点问题/建议</span></div>
+            <div class="summary-item"><span class="summary-value">基本闭环</span><span class="summary-label">但仍建议补业务兜底</span></div>
+        </div>
+    </div>
+</header>
+
+<main class="page">
+    <nav class="quick-nav">
+        <a href="#conclusion">总体结论</a>
+        <a href="#flow">全链路</a>
+        <a href="#matrix">模块矩阵</a>
+        <a href="#reasonable">合理设计</a>
+        <a href="#issues">问题与风险</a>
+        <a href="#todo">补充建议</a>
+        <a href="#evidence">依据文件</a>
+    </nav>
+
+    <section id="conclusion" class="section">
+        <h2 class="section-title">总体结论</h2>
+        <p class="section-subtitle">当前证券池调整主链路已经能够从“查证券 → 查当前池 → 校验 → 发起 → 审核 → 生效 → 查询/历史/待办回看”形成闭环；真正需要关注的是边界条件、权限口径、流程配置口径和数据量增长后的性能兜底。</p>
+        <div class="verdict">
+            <div class="verdict-card">
+                <span class="badge ok">结论</span>
+                <h3>主链路基本合理</h3>
+                <p>单笔调库和批量调库都落到同一套 <code>ip_adjust_log</code>、<code>ip_adjust_step</code>、<code>ip_pool_status</code> 语义，审批通过后再写当前池状态，历史与查询也能回看。</p>
+            </div>
+            <div class="verdict-card">
+                <span class="badge warn">业务确认</span>
+                <h3>批量提交是整批原子</h3>
+                <p>任意证券失败会整体回滚。这对数据一致性好，但如果业务希望“部分成功”，需要明确改造。</p>
+            </div>
+            <div class="verdict-card">
+                <span class="badge risk">主要风险</span>
+                <h3>流程语义依赖节点名称</h3>
+                <p>发起、复核、修改、审批、O32 自动审批等判断使用节点中文关键字，流程配置改名后可能影响状态流转。</p>
+            </div>
+            <div class="verdict-card">
+                <span class="badge todo">优先补充</span>
+                <h3>数据库约束与索引兜底</h3>
+                <p>当前关键表只有主键。建议补查询索引，并考虑对“同证券同池有效状态”增加唯一性或业务锁兜底。</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="flow" class="section">
+        <h2 class="section-title">证券池完整链路</h2>
+        <p class="section-subtitle">按用户视角串起来，能看到每个入口在整条链路中的位置。</p>
+        <div class="flow">
+            <div class="flow-step">
+                <span class="step-index">1</span><h3>证券池查询</h3>
+                <p>从 <code>ip_pool_status</code> 查已生效记录，口径是 <code>audit_status='20'</code> 且未删除，用于确认当前在池状态。</p>
+            </div>
+            <div class="flow-step">
+                <span class="step-index">2</span><h3>发起调库</h3>
+                <p>从证券列表进入详情，读取证券、可调池、当前所在池、活跃调库日志和步骤。</p>
+            </div>
+            <div class="flow-step">
+                <span class="step-index">3</span><h3>调库校验</h3>
+                <p>校验到期、进行中流程、重复入池、容量、来源池、限制池、互斥和弹性禁投池。</p>
+            </div>
+            <div class="flow-step">
+                <span class="step-index">4</span><h3>提交申请</h3>
+                <p>写 <code>ip_adjust_log</code>，非直通流程写待处理步骤；直通流程直接写入或软删当前池状态。</p>
+            </div>
+            <div class="flow-step">
+                <span class="step-index">5</span><h3>我的事宜</h3>
+                <p>从 <code>ip_adjust_step</code> 聚合待办/已办，并跳转审核或详情页面处理。</p>
+            </div>
+            <div class="flow-step">
+                <span class="step-index">6</span><h3>审批流转</h3>
+                <p>更新当前步骤，按流程连线创建下一步骤；最终通过后批次落地池状态。</p>
+            </div>
+            <div class="flow-step">
+                <span class="step-index">7</span><h3>历史回看</h3>
+                <p>历史查 <code>ip_adjust_log</code>，当前池查 <code>ip_pool_status</code>，详情按批次展示日志、附件和步骤。</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="matrix" class="section">
+        <h2 class="section-title">模块矩阵：用途、读写和触发点</h2>
+        <p class="section-subtitle">这里把“页面看到的功能”映射到“后端真正读写的表”。</p>
+        <table class="matrix">
+            <thead>
+            <tr>
+                <th>模块</th>
+                <th>主要接口/页面</th>
+                <th>主要读表</th>
+                <th>主要写表</th>
+                <th>业务口径判断</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>证券池查询</td>
+                <td><code>securityPoolQuery/querySecurityPoolPage</code></td>
+                <td><code>ip_pool_status</code>、<code>ip_investment_pool</code>、<code>rrs_securityinfo</code>、<code>my_security_pool</code></td>
+                <td><code>my_security_pool</code>（收藏/取消收藏）</td>
+                <td>只看已生效在池状态，适合作为“当前池快照”。</td>
+            </tr>
+            <tr>
+                <td>证券池调整</td>
+                <td><code>securityPoolAdjust/querySecurityPage</code>、<code>checkAdjust</code>、<code>addAdjustLogWithFiles</code></td>
+                <td><code>rrs_securityinfo</code>、<code>ip_investment_pool</code>、<code>ip_pool_relation</code>、<code>ip_pool_status</code>、<code>wf_flow_*</code></td>
+                <td><code>ip_adjust_log</code>、<code>ip_adjust_step</code>、<code>ip_pool_status</code>、<code>sys_attachment</code>、可选更新 <code>rrs_securityinfo</code></td>
+                <td>单证券多目标池，联动/互斥自动项共用手工项流程和批次号。</td>
+            </tr>
+            <tr>
+                <td>批量调整</td>
+                <td><code>batchSecurityPoolAdjust/queryPoolPage</code>、<code>querySecurityPage</code>、<code>checkAdjust</code>、<code>addAdjustLogWithFiles</code></td>
+                <td>同单笔调库，外加候选证券按目标池方向过滤</td>
+                <td>同单笔调库，外层按证券拆分逐只提交</td>
+                <td>批量层是编排层，核心校验/落库复用单笔逻辑；整批一个事务。</td>
+            </tr>
+            <tr>
+                <td>审核/详情</td>
+                <td><code>securityPoolAdjustFlow/submitAdjustAudit</code>、<code>queryAdjustLogList</code>、<code>queryAdjustStepList</code></td>
+                <td><code>ip_adjust_log</code>、<code>ip_adjust_step</code>、<code>wf_flow_*</code>、<code>sys_attachment</code></td>
+                <td><code>ip_adjust_step</code>、<code>ip_adjust_log</code>、<code>ip_pool_status</code>、<code>rrs_report_in</code>、<code>sys_attachment</code></td>
+                <td>审批通过后同批次生效；复核驳回进入待修改，审批驳回/修改终止则结束。</td>
+            </tr>
+            <tr>
+                <td>我的事宜</td>
+                <td><code>myMatters/queryMyMattersPage</code></td>
+                <td><code>ip_adjust_log</code>、<code>ip_adjust_step</code>、<code>wf_flow_node</code>、<code>wf_flow_definition</code></td>
+                <td>无</td>
+                <td>它是流程事项视图，不是全量历史。待办按当前用户 pending 步骤筛选。</td>
+            </tr>
+            <tr>
+                <td>调整历史</td>
+                <td><code>adjustHistory/queryAdjustHistoryPage</code></td>
+                <td><code>ip_adjust_log</code>、<code>ip_investment_pool</code>、<code>rrs_securityinfo</code>、<code>dict_security_type</code></td>
+                <td>无</td>
+                <td>历史表以申请日志为准，可看到通过、驳回、撤回、待审等状态。</td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section id="reasonable" class="section">
+        <h2 class="section-title">当前比较合理的设计</h2>
+        <p class="section-subtitle">这些点建议保留，不要为了“看起来简单”反而破坏链路一致性。</p>
+        <div class="finding-grid">
+            <div class="finding-card ok">
+                <span class="badge ok">合理</span>
+                <h3>当前状态与申请日志分离</h3>
+                <p><code>ip_adjust_log</code> 记录过程，<code>ip_pool_status</code> 只承载最终已生效状态，查询和历史口径清晰。</p>
+            </div>
+            <div class="finding-card ok">
+                <span class="badge ok">合理</span>
+                <h3>批次号贯穿日志和步骤</h3>
+                <p>联动、互斥、同组调库使用 <code>adjust_batch_no</code> 串起来，详情和审批可以按批次展示。</p>
+            </div>
+            <div class="finding-card ok">
+                <span class="badge ok">合理</span>
+                <h3>批量复用单笔规则</h3>
+                <p>批量调整没有复制一套规则，而是按证券调用单笔校验/提交，减少规则漂移。</p>
+            </div>
+            <div class="finding-card ok">
+                <span class="badge ok">合理</span>
+                <h3>提交前有多层校验</h3>
+                <p>到期、进行中、重复入池、容量、来源池、限制池、互斥、弹性禁投池都有覆盖。</p>
+            </div>
+            <div class="finding-card ok">
+                <span class="badge ok">合理</span>
+                <h3>会签/抢占处理有区分</h3>
+                <p>会签必须当前节点全部处理完才推进；非会签会跳过同节点其他待处理人，符合常见审批模型。</p>
+            </div>
+            <div class="finding-card ok">
+                <span class="badge ok">合理</span>
+                <h3>审批通过后沉淀报告</h3>
+                <p>手工上传的信评报告在流程结束后进入内部报告库，有利于形成资料闭环。</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="issues" class="section">
+        <h2 class="section-title">问题与风险点</h2>
+        <p class="section-subtitle">以下不是全部都是 bug，其中一部分是“业务口径必须确认”，否则后面需求迭代容易产生理解偏差。</p>
+        <div class="finding-grid">
+            <div class="finding-card risk">
+                <span class="badge risk">高优先级</span>
+                <h3>流程语义依赖中文节点名</h3>
+                <p>发起、复核、修改、审批、O32 自动审批通过 <code>node_label/node_code/node_type</code> 的文本关键字识别。</p>
+                <ul>
+                    <li>如果流程配置人员把“复核”改成“审核”，状态可能不再进入 <code>10</code> 或 <code>11</code> 预期分支。</li>
+                    <li>建议后续在流程节点配置中增加稳定的业务语义字段。</li>
+                </ul>
+            </div>
+            <div class="finding-card risk">
+                <span class="badge risk">高优先级</span>
+                <h3>重复入池缺数据库兜底</h3>
+                <p>校验阶段会查是否已在池，但表结构没有看到针对 <code>security_code + target_pool_id + audit_status + is_deleted</code> 的唯一约束。</p>
+                <ul>
+                    <li>并发提交或异常重放可能产生多条有效在池记录。</li>
+                    <li>建议至少加业务锁、幂等键或唯一约束中的一种。</li>
+                </ul>
+            </div>
+            <div class="finding-card risk">
+                <span class="badge risk">高优先级</span>
+                <h3>进行中判断只看 pending 步骤</h3>
+                <p>当前“证券存在进行中流程”以 <code>ip_adjust_step.step_status='pending'</code> 为准。</p>
+                <ul>
+                    <li>如果流程配置异常导致已提交日志没有 pending 步骤，可能放过新调库。</li>
+                    <li>建议把 <code>ip_adjust_log.audit_status in ('00','10','11')</code> 作为辅助兜底或巡检项。</li>
+                </ul>
+            </div>
+            <div class="finding-card warn">
+                <span class="badge warn">需确认</span>
+                <h3>权限口径不完全一致</h3>
+                <p>调库池选择和批量目标池会校验可调权限；证券池查询和历史查询主要按前端传入的池树过滤，未看到同样的后端查看权限过滤。</p>
+                <ul>
+                    <li>如果业务允许全员查看，则当前合理。</li>
+                    <li>如果需要按 <code>viewable</code> 权限隔离，需要后端统一补口径。</li>
+                </ul>
+            </div>
+            <div class="finding-card warn">
+                <span class="badge warn">需确认</span>
+                <h3>批量调整没有部分成功语义</h3>
+                <p>当前批量提交外层事务包住全部证券，任意一只异常会整体回滚。</p>
+                <ul>
+                    <li>数据一致性更好，但大批量场景用户会希望知道失败行。</li>
+                    <li>建议页面文案明确“整批提交、整批回滚”。</li>
+                </ul>
+            </div>
+            <div class="finding-card warn">
+                <span class="badge warn">需确认</span>
+                <h3>详情默认只看活跃流程</h3>
+                <p><code>queryAdjustLogList</code> 不传批次号时会过滤掉已通过、已驳回、已撤回等终态。</p>
+                <ul>
+                    <li>作为“当前处理详情”合理。</li>
+                    <li>作为“历史详情”必须从历史页面带 <code>adjustBatchNo</code> 进入，否则会误以为没有记录。</li>
+                </ul>
+            </div>
+            <div class="finding-card warn">
+                <span class="badge warn">需确认</span>
+                <h3>我的事宜不是全量过程视图</h3>
+                <p>我的事宜取每条调库日志的最新步骤，并用 pending/completed 区分待办已办。</p>
+                <ul>
+                    <li>它适合做入口，不适合替代完整流程轨迹。</li>
+                    <li>同一批次多条日志时，展示口径需要保持“按日志”还是“按批次”一致。</li>
+                </ul>
+            </div>
+            <div class="finding-card warn">
+                <span class="badge warn">需确认</span>
+                <h3>弹性禁投池目前仍是硬阻断</h3>
+                <p>代码注释提到弹性限制“可由特定角色绕过”，但当前调入/调出校验阶段直接加入失败原因。</p>
+                <ul>
+                    <li>如果弹性禁投应能被审批放行，需补“例外申请/高级审批”链路。</li>
+                    <li>如果现在就是硬阻断，建议修改命名或说明，避免误解。</li>
+                </ul>
+            </div>
+            <div class="finding-card warn">
+                <span class="badge warn">需确认</span>
+                <h3>证券基础信息更新可能清空字段</h3>
+                <p>调库提交时会用前端传入的可编辑字段覆盖证券信息，显式传入 null 会清空字段。</p>
+                <ul>
+                    <li>当前前端若传完整表单则合理。</li>
+                    <li>后续若改成局部提交，要避免把未展示字段误置空。</li>
+                </ul>
+            </div>
+            <div class="finding-card todo">
+                <span class="badge todo">优化</span>
+                <h3>关键表缺少业务索引</h3>
+                <p>SQL 中关键表只看到主键，没有看到 <code>security_code</code>、<code>adjust_batch_no</code>、<code>handler_id</code>、<code>target_pool_id</code> 等高频查询索引。</p>
+                <ul>
+                    <li>数据量上来后，查询、待办和审批流转会受到影响。</li>
+                    <li>建议补组合索引并根据实际 SQL 走 explain。</li>
+                </ul>
+            </div>
+            <div class="finding-card todo">
+                <span class="badge todo">优化</span>
+                <h3>我的事宜跳转页签体验不统一</h3>
+                <p>当前页面内部使用 <code>window.location.href</code> 跳转，会在当前 iframe 内切换，不一定新增工作台页签。</p>
+                <ul>
+                    <li>如果希望和首页快捷入口一致，应走父窗口打开页签能力。</li>
+                    <li>这属于体验问题，不影响后端业务闭环。</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section id="todo" class="section">
+        <h2 class="section-title">建议补充清单</h2>
+        <p class="section-subtitle">按“先稳业务正确性，再补体验和性能”的顺序推进。</p>
+        <table class="matrix">
+            <thead>
+            <tr>
+                <th>优先级</th>
+                <th>建议项</th>
+                <th>为什么要做</th>
+                <th>建议落点</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td><span class="badge risk">P1</span></td>
+                <td>流程节点增加稳定业务语义</td>
+                <td>避免流程节点改名导致状态流转错判。</td>
+                <td><code>wf_flow_node</code> 或节点审批配置增加语义字段；Service 改为读字段。</td>
+            </tr>
+            <tr>
+                <td><span class="badge risk">P1</span></td>
+                <td>增加重复入池幂等兜底</td>
+                <td>避免并发提交、重复请求产生多条有效状态。</td>
+                <td><code>ip_pool_status</code> 唯一约束/业务锁/提交前二次校验。</td>
+            </tr>
+            <tr>
+                <td><span class="badge risk">P1</span></td>
+                <td>补进行中流程巡检口径</td>
+                <td>防止有 <code>00/10/11</code> 日志但没有 pending 步骤的异常状态漏拦。</td>
+                <td>校验阶段或定时巡检中增加异常识别。</td>
+            </tr>
+            <tr>
+                <td><span class="badge warn">P2</span></td>
+                <td>明确查询/历史查看权限</td>
+                <td>查看权限如果需要隔离，应后端统一控制，不能只靠前端池树。</td>
+                <td>证券池查询、历史查询、详情入口参数校验。</td>
+            </tr>
+            <tr>
+                <td><span class="badge warn">P2</span></td>
+                <td>明确批量是否允许部分成功</td>
+                <td>现在是整批回滚。业务如果希望“成功行提交”，需要重构事务边界和返回结构。</td>
+                <td>批量调整 Service 和前端结果提示。</td>
+            </tr>
+            <tr>
+                <td><span class="badge todo">P3</span></td>
+                <td>给核心表补索引</td>
+                <td>待办、历史、查询和审批都依赖高频条件查询。</td>
+                <td><code>ip_adjust_log</code>、<code>ip_adjust_step</code>、<code>ip_pool_status</code>。</td>
+            </tr>
+            </tbody>
+        </table>
+        <div class="callout" style="margin-top: 16px;">
+            建议验收时不要只测“能提交”。至少覆盖：直通调入、非直通调入、审批驳回待修改、修改后再提交、审批终止、调出、联动调入、互斥配套调出、批量整批回滚、我的事宜待办跳转、历史带批次进入详情。
+        </div>
+    </section>
+
+    <section id="evidence" class="section">
+        <h2 class="section-title">依据文件</h2>
+        <p class="section-subtitle">本页依据当前工作区代码和需求文档整理，未凭空假设接口或表。</p>
+        <div class="source-grid">
+            <div class="source-card">
+                <h3>后端核心代码</h3>
+                <ul>
+                    <li><code>SecurityPoolAdjustService.java</code>：单笔查询、校验、提交、步骤创建。</li>
+                    <li><code>SecurityPoolAdjustFlowService.java</code>：审批处理、节点推进、最终生效。</li>
+                    <li><code>BatchSecurityPoolAdjustService.java</code>：批量编排、权限、整批事务。</li>
+                    <li><code>SecurityPoolQueryService.java</code>、<code>AdjustHistoryService.java</code>、<code>MyMattersService.java</code>：查询、历史、待办。</li>
+                </ul>
+            </div>
+            <div class="source-card">
+                <h3>Mapper 与表</h3>
+                <ul>
+                    <li><code>SecurityPoolAdjustMapper.xml</code>：<code>ip_adjust_log</code>、<code>ip_adjust_step</code>、<code>ip_pool_status</code> 读写。</li>
+                    <li><code>SecurityPoolQueryMapper.xml</code>：当前池查询口径。</li>
+                    <li><code>AdjustHistoryMapper.xml</code>：历史查询口径。</li>
+                    <li><code>MyMattersMapper.xml</code>：待办/已办事项聚合口径。</li>
+                </ul>
+            </div>
+            <div class="source-card">
+                <h3>前端页面</h3>
+                <ul>
+                    <li><code>pages/security_pool_adjust.html</code>：发起、校验、提交。</li>
+                    <li><code>pages/batch_security_pool_adjust.html</code>：批量选池、候选证券、批量提交。</li>
+                    <li><code>pages/security_pool_query.html</code>、<code>pages/security_pool_adjust_history.html</code>：查询与历史。</li>
+                    <li><code>pages/security_pool_adjust_approve.html</code>、<code>pages/security_pool_adjust_detail.html</code>、<code>pages/my_matters.html</code>：审核、详情、事项入口。</li>
+                </ul>
+            </div>
+            <div class="source-card">
+                <h3>需求文档</h3>
+                <ul>
+                    <li><code>requirements/04-security-pool-adjust.md</code></li>
+                    <li><code>requirements/05-security-pool-adjust-approve.md</code></li>
+                    <li><code>requirements/06-my-matters.md</code></li>
+                    <li><code>requirements/07-security-pool-query.md</code></li>
+                    <li><code>requirements/10-adjust-history.md</code></li>
+                    <li><code>requirements/11-security-pool-adjust-detail.md</code></li>
+                    <li><code>requirements/12-batch-security-pool-adjust.md</code></li>
+                </ul>
+            </div>
+        </div>
+    </section>
+</main>
+</body>
+</html>
