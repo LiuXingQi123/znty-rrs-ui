@@ -38,7 +38,7 @@
                     text-color="#DDE4FF"
                     active-text-color="#FFFFFF"
                     @select="handleMenuSelect">
-                <el-submenu v-for="group in menuGroups" :key="group.index" :index="group.index">
+                <el-submenu v-for="group in visibleMenuGroups" :key="group.index" :index="group.index">
                     <template slot="title">
                         <i :class="group.icon"></i>
                         <span>{{ group.title }}</span>
@@ -76,21 +76,37 @@
         </el-aside>
 
         <el-container class="workbench-main">
-            <el-header class="workbench-header" height="56px">
-                <div class="header-page-info">
-                    <el-tooltip :content="isCollapse ? '展开菜单' : '收起菜单'" placement="bottom">
+            <el-header class="workbench-header" height="64px">
+                <div class="header-left">
+                    <div class="header-page-info">
+                        <el-tooltip :content="isCollapse ? '展开菜单' : '收起菜单'" placement="bottom">
+                            <button
+                                    class="header-menu-toggle"
+                                    type="button"
+                                    :aria-label="isCollapse ? '展开菜单' : '收起菜单'"
+                                    @click="isCollapse = !isCollapse">
+                                <i :class="isCollapse ? 'el-icon-s-unfold' : 'el-icon-s-fold'"></i>
+                            </button>
+                        </el-tooltip>
+                        <span class="header-menu-separator"></span>
+                    </div>
+                    <nav class="primary-navigation" aria-label="一级菜单">
                         <button
-                                class="header-menu-toggle"
+                                v-for="menu in primaryMenus"
+                                :key="menu.index"
+                                class="primary-navigation-item"
+                                :class="{ 'is-active': activePrimaryMenu === menu.index }"
                                 type="button"
-                                :aria-label="isCollapse ? '展开菜单' : '收起菜单'"
-                                @click="isCollapse = !isCollapse">
-                            <i :class="isCollapse ? 'el-icon-s-unfold' : 'el-icon-s-fold'"></i>
+                                @click="handlePrimaryMenuSelect(menu.index)">
+                            <i :class="menu.icon"></i>
+                            <span>{{ menu.title }}</span>
                         </button>
-                    </el-tooltip>
-                    <span class="header-menu-separator"></span>
-                    <span class="header-category">{{ currentGroupTitle }}</span>
-                    <i class="el-icon-arrow-right"></i>
-                    <strong>{{ currentTitle }}</strong>
+                    </nav>
+                    <div v-if="currentTitle" class="header-context">
+                        <span class="header-category">{{ currentGroupTitle }}</span>
+                        <i class="el-icon-arrow-right"></i>
+                        <strong>{{ currentTitle }}</strong>
+                    </div>
                 </div>
                 <div class="header-actions">
                     <el-tooltip content="刷新当前页面" placement="bottom">
@@ -111,15 +127,45 @@
                 </div>
             </el-header>
 
+            <div class="workbench-tabs" role="tablist" aria-label="已打开页面">
+                <div v-if="openedTabs.length" class="page-tabs">
+                    <div
+                            v-for="tab in openedTabs"
+                            :key="tab.index"
+                            class="page-tab"
+                            :class="{ 'is-active': activeMenu === tab.index }"
+                            role="tab"
+                            tabindex="0"
+                            :aria-selected="activeMenu === tab.index"
+                            @click="activateTab(tab.index)"
+                            @keyup.enter="activateTab(tab.index)">
+                        <span class="page-tab-title">{{ tab.title }}</span>
+                        <button
+                                class="page-tab-close"
+                                type="button"
+                                :aria-label="'关闭' + tab.title"
+                                @click.stop="closeTab(tab.index)">
+                            <i class="el-icon-close"></i>
+                        </button>
+                    </div>
+                </div>
+                <span v-else class="page-tabs-empty">暂无打开页面</span>
+            </div>
+
             <el-main class="workbench-content">
                 <div class="content-frame-wrap">
                     <iframe
-                            v-if="currentUrl"
-                            :key="frameKey"
+                            v-for="tab in openedTabs"
+                            v-show="activeMenu === tab.index"
+                            :key="tab.index + '-' + tab.renderKey"
                             class="content-frame"
-                            :src="currentUrl"
-                            :title="currentTitle">
+                            :src="tab.url"
+                            :title="tab.title">
                     </iframe>
+                    <div v-if="!openedTabs.length" class="content-empty">
+                        <i class="el-icon-folder-opened"></i>
+                        <span>请从左侧菜单选择页面</span>
+                    </div>
                 </div>
             </el-main>
         </el-container>
@@ -133,14 +179,22 @@ new Vue({
         return {
             loginUser: window.RrsAuth.getCurrentUser(false), // 当前登录用户
             isCollapse: false, // 左侧菜单折叠状态
+            activePrimaryMenu: 'fixed-income', // 当前一级菜单
             activeMenu: 'security-adjust', // 当前激活菜单
             currentTitle: '证券池调整', // 当前页面标题
             currentGroupTitle: '债券研究', // 当前菜单分组标题
-            currentUrl: '', // 当前 iframe 页面地址
-            frameKey: 1, // iframe 刷新序号
+            openedTabs: [], // 已打开的页面页签
+            lastActiveByPrimary: {
+                'fixed-income': 'security-adjust',
+                'document-management': 'doc-overview',
+            }, // 各一级菜单最后激活的页面
+            primaryMenus: [
+                { index: 'fixed-income', title: '固收研究', icon: 'el-icon-data-line', defaultPage: 'security-adjust' },
+                { index: 'document-management', title: '文档管理', icon: 'el-icon-reading', defaultPage: 'doc-overview' },
+            ], // 顶部一级菜单
             menuGroups: [
                 {
-                    index: 'bond-research', title: '债券研究', icon: 'el-icon-document',
+                    index: 'bond-research', title: '债券研究', icon: 'el-icon-document', primaryMenu: 'fixed-income',
                     items: [
                         { index: 'security-adjust', title: '证券池调整', icon: 'el-icon-sort', page: 'security_pool_adjust.html' },
                         { index: 'security-batch-adjust', title: '证券池批量调整', icon: 'el-icon-s-grid', page: 'batch_security_pool_adjust.html' },
@@ -150,7 +204,7 @@ new Vue({
                     ],
                 },
                 {
-                    index: 'forbidden-pool', title: '主体禁投池', icon: 'el-icon-lock',
+                    index: 'forbidden-pool', title: '主体禁投池', icon: 'el-icon-lock', primaryMenu: 'fixed-income',
                     items: [
                         { index: 'forbidden-adjust', title: '禁投池调整', icon: 'el-icon-sort', page: 'forbidden_pool_adjust.html' },
                         { index: 'forbidden-query', title: '禁投池查询', icon: 'el-icon-search', page: 'forbidden_pool_query.html' },
@@ -160,7 +214,7 @@ new Vue({
                     ],
                 },
                 {
-                    index: 'crmw-pool', title: 'CRMW池', icon: 'el-icon-connection',
+                    index: 'crmw-pool', title: 'CRMW池', icon: 'el-icon-connection', primaryMenu: 'fixed-income',
                     items: [
                         { index: 'crmw-adjust', title: 'CRMW池调整', icon: 'el-icon-sort', page: 'crmw_pool_adjust.html' },
                         { index: 'crmw-query', title: 'CRMW池查询', icon: 'el-icon-search', page: 'crmw_pool_query.html' },
@@ -168,7 +222,7 @@ new Vue({
                     ],
                 },
                 {
-                    index: 'review-detail', title: '审核详情', icon: 'el-icon-s-check',
+                    index: 'review-detail', title: '审核详情', icon: 'el-icon-s-check', primaryMenu: 'fixed-income',
                     items: [
                         { index: 'my-matters', title: '我的事宜', icon: 'el-icon-bell', page: 'my_matters.html' },
                         { index: 'security-approve', title: '证券池调库审核', icon: 'el-icon-circle-check', page: 'security_pool_adjust_approve.html' },
@@ -180,7 +234,7 @@ new Vue({
                     ],
                 },
                 {
-                    index: 'rrs-config', title: 'RRS配置', icon: 'el-icon-setting',
+                    index: 'rrs-config', title: 'RRS配置', icon: 'el-icon-setting', primaryMenu: 'fixed-income',
                     items: [
                         { index: 'investment-pool', title: '投资池维护', icon: 'el-icon-s-management', page: 'investment_pool.html' },
                         { index: 'flow-definition', title: '流程定义', icon: 'el-icon-share', page: 'flow_definition.html' },
@@ -189,7 +243,7 @@ new Vue({
                     ],
                 },
                 {
-                    index: 'business-docs', title: '业务文档', icon: 'el-icon-reading',
+                    index: 'business-docs', title: '业务文档', icon: 'el-icon-reading', primaryMenu: 'document-management',
                     items: [
                         { index: 'doc-overview', title: '文档总览', icon: 'el-icon-s-home', page: 'docs/module-tables-index.html' },
                         {
@@ -252,6 +306,10 @@ new Vue({
             const name = this.loginUser ? this.loginUser.userName : ''
             return name ? name.slice(0, 1).toUpperCase() : 'U'
         },
+        // 根据一级菜单显示对应侧边栏
+        visibleMenuGroups() {
+            return this.menuGroups.filter(group => group.primaryMenu === this.activePrimaryMenu)
+        },
         // 扁平化菜单项，便于按索引检索
         flatMenuItems() {
             const items = []
@@ -261,10 +319,15 @@ new Vue({
                         item.children.forEach(child => items.push({
                             ...child,
                             groupTitle: group.title + ' / ' + item.title,
+                            primaryMenu: group.primaryMenu,
                         }))
                         return
                     }
-                    items.push({ ...item, groupTitle: group.title })
+                    items.push({
+                        ...item,
+                        groupTitle: group.title,
+                        primaryMenu: group.primaryMenu,
+                    })
                 })
             })
             return items
@@ -278,6 +341,15 @@ new Vue({
         this.openMenuItem('security-adjust')
     },
     methods: {
+        // 切换顶部一级菜单并恢复该模块最后访问页面
+        handlePrimaryMenuSelect(index) {
+            this.activePrimaryMenu = index
+            const primaryMenu = this.primaryMenus.find(menu => menu.index === index)
+            if (!primaryMenu) return
+            const lastActiveIndex = this.lastActiveByPrimary[index]
+            const lastTabExists = this.openedTabs.some(tab => tab.index === lastActiveIndex)
+            this.openMenuItem(lastTabExists ? lastActiveIndex : primaryMenu.defaultPage)
+        },
         // 响应菜单选择
         handleMenuSelect(index) {
             this.openMenuItem(index)
@@ -286,15 +358,56 @@ new Vue({
         openMenuItem(index) {
             const item = this.flatMenuItems.find(menuItem => menuItem.index === index)
             if (!item) return
-            this.activeMenu = item.index
-            this.currentTitle = item.title
-            this.currentGroupTitle = item.groupTitle
-            this.currentUrl = window.RrsAuth.buildPageUrl(item.page, this.loginUser)
-            document.title = item.title + ' - RRS 工作台'
+            const opened = this.openedTabs.some(tab => tab.index === item.index)
+            if (!opened) {
+                this.openedTabs.push({
+                    ...item,
+                    url: window.RrsAuth.buildPageUrl(item.page, this.loginUser),
+                    renderKey: 1,
+                })
+            }
+            this.activateTab(item.index)
         },
-        // 刷新当前 iframe 页面
+        // 激活指定页签并同步一级菜单和侧边栏
+        activateTab(index) {
+            const tab = this.openedTabs.find(item => item.index === index)
+            if (!tab) return
+            this.activeMenu = tab.index
+            this.activePrimaryMenu = tab.primaryMenu
+            this.currentTitle = tab.title
+            this.currentGroupTitle = tab.groupTitle
+            this.lastActiveByPrimary[tab.primaryMenu] = tab.index
+            document.title = tab.title + ' - RRS 工作台'
+        },
+        // 关闭页签并激活相邻页面
+        closeTab(index) {
+            const closeIndex = this.openedTabs.findIndex(tab => tab.index === index)
+            if (closeIndex < 0) return
+            const closedTab = this.openedTabs[closeIndex]
+            const isActive = this.activeMenu === index
+            this.openedTabs.splice(closeIndex, 1)
+            const primaryTabs = this.openedTabs.filter(tab => tab.primaryMenu === closedTab.primaryMenu)
+            if (this.lastActiveByPrimary[closedTab.primaryMenu] === index) {
+                this.lastActiveByPrimary[closedTab.primaryMenu] = primaryTabs.length
+                    ? primaryTabs[primaryTabs.length - 1].index
+                    : ''
+            }
+            if (!isActive) return
+            const nextTab = this.openedTabs[closeIndex] || this.openedTabs[closeIndex - 1]
+            if (nextTab) {
+                this.activateTab(nextTab.index)
+                return
+            }
+            this.activeMenu = ''
+            this.currentTitle = ''
+            this.currentGroupTitle = ''
+            document.title = 'RRS 工作台'
+        },
+        // 刷新当前页签对应的 iframe
         refreshCurrentPage() {
-            this.frameKey += 1
+            const tab = this.openedTabs.find(item => item.index === this.activeMenu)
+            if (!tab) return
+            tab.renderKey += 1
         },
         // 处理用户菜单命令
         handleUserCommand(command) {
