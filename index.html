@@ -76,7 +76,7 @@
         </el-aside>
 
         <el-container class="workbench-main">
-            <el-header class="workbench-header" height="64px">
+            <el-header class="workbench-header" height="56px">
                 <div class="header-left">
                     <div class="header-page-info">
                         <el-tooltip :content="isCollapse ? '展开菜单' : '收起菜单'" placement="bottom">
@@ -102,11 +102,6 @@
                             <span>{{ menu.title }}</span>
                         </button>
                     </nav>
-                    <div v-if="currentTitle" class="header-context">
-                        <span class="header-category">{{ currentGroupTitle }}</span>
-                        <i class="el-icon-arrow-right"></i>
-                        <strong>{{ currentTitle }}</strong>
-                    </div>
                 </div>
                 <div class="header-actions">
                     <el-tooltip content="刷新当前页面" placement="bottom">
@@ -128,7 +123,15 @@
             </el-header>
 
             <div class="workbench-tabs" role="tablist" aria-label="已打开页面">
-                <div v-if="openedTabs.length" class="page-tabs">
+                <button
+                        class="tab-scroll-button"
+                        type="button"
+                        :disabled="!openedTabs.length"
+                        aria-label="向左滚动页签"
+                        @click="scrollTabs('left')">
+                    <i class="el-icon-arrow-left"></i>
+                </button>
+                <div v-if="openedTabs.length" ref="pageTabs" class="page-tabs" @wheel.prevent="handleTabsWheel">
                     <div
                             v-for="tab in openedTabs"
                             :key="tab.index"
@@ -150,6 +153,31 @@
                     </div>
                 </div>
                 <span v-else class="page-tabs-empty">暂无打开页面</span>
+                <button
+                        class="tab-scroll-button"
+                        type="button"
+                        :disabled="!openedTabs.length"
+                        aria-label="向右滚动页签"
+                        @click="scrollTabs('right')">
+                    <i class="el-icon-arrow-right"></i>
+                </button>
+                <el-dropdown
+                        class="tab-actions"
+                        trigger="hover"
+                        @command="handleTabCommand">
+                    <button
+                            class="tab-action-trigger"
+                            type="button"
+                            :disabled="!openedTabs.length">
+                        <span>更多</span>
+                        <i class="el-icon-arrow-down"></i>
+                    </button>
+                    <el-dropdown-menu slot="dropdown">
+                        <el-dropdown-item command="closeLeft" :disabled="!canCloseLeftTabs">关闭左侧</el-dropdown-item>
+                        <el-dropdown-item command="closeRight" :disabled="!canCloseRightTabs">关闭右侧</el-dropdown-item>
+                        <el-dropdown-item command="closeAll" :disabled="!openedTabs.length">关闭全部</el-dropdown-item>
+                    </el-dropdown-menu>
+                </el-dropdown>
             </div>
 
             <el-main class="workbench-content">
@@ -332,6 +360,18 @@ new Vue({
             })
             return items
         },
+        // 当前激活页签序号
+        activeTabIndex() {
+            return this.openedTabs.findIndex(tab => tab.index === this.activeMenu)
+        },
+        // 是否可以关闭左侧页签
+        canCloseLeftTabs() {
+            return this.activeTabIndex > 0
+        },
+        // 是否可以关闭右侧页签
+        canCloseRightTabs() {
+            return this.activeTabIndex >= 0 && this.activeTabIndex < this.openedTabs.length - 1
+        },
     },
     created() {
         if (!this.loginUser) {
@@ -402,6 +442,69 @@ new Vue({
             this.currentTitle = ''
             this.currentGroupTitle = ''
             document.title = 'RRS 工作台'
+        },
+        // 处理页签批量关闭命令
+        handleTabCommand(command) {
+            if (command === 'closeLeft') {
+                this.closeLeftTabs()
+                return
+            }
+            if (command === 'closeRight') {
+                this.closeRightTabs()
+                return
+            }
+            if (command === 'closeAll') {
+                this.closeAllTabs()
+            }
+        },
+        // 关闭当前页签左侧的所有页签
+        closeLeftTabs() {
+            if (!this.canCloseLeftTabs) return
+            this.openedTabs.splice(0, this.activeTabIndex)
+            this.normalizeLastActiveTabs()
+        },
+        // 关闭当前页签右侧的所有页签
+        closeRightTabs() {
+            if (!this.canCloseRightTabs) return
+            this.openedTabs.splice(this.activeTabIndex + 1)
+            this.normalizeLastActiveTabs()
+        },
+        // 关闭全部页签
+        closeAllTabs() {
+            if (!this.openedTabs.length) return
+            this.openedTabs = []
+            this.activeMenu = ''
+            this.currentTitle = ''
+            this.currentGroupTitle = ''
+            this.primaryMenus.forEach(menu => {
+                this.lastActiveByPrimary[menu.index] = ''
+            })
+            document.title = 'RRS 工作台'
+        },
+        // 修正各一级菜单最后激活页签，避免指向已关闭页面
+        normalizeLastActiveTabs() {
+            this.primaryMenus.forEach(menu => {
+                const rememberedIndex = this.lastActiveByPrimary[menu.index]
+                const rememberedExists = this.openedTabs.some(tab => tab.index === rememberedIndex)
+                if (rememberedExists) return
+                const primaryTabs = this.openedTabs.filter(tab => tab.primaryMenu === menu.index)
+                this.lastActiveByPrimary[menu.index] = primaryTabs.length
+                    ? primaryTabs[primaryTabs.length - 1].index
+                    : ''
+            })
+        },
+        // 左右滚动页签列表
+        scrollTabs(direction) {
+            const tabs = this.$refs.pageTabs
+            if (!tabs) return
+            const offset = Math.max(180, Math.floor(tabs.clientWidth * 0.7))
+            tabs.scrollLeft += direction === 'left' ? -offset : offset
+        },
+        // 鼠标滚轮横向滚动页签列表
+        handleTabsWheel(event) {
+            const tabs = this.$refs.pageTabs
+            if (!tabs) return
+            tabs.scrollLeft += event.deltaY || event.deltaX
         },
         // 刷新当前页签对应的 iframe
         refreshCurrentPage() {
