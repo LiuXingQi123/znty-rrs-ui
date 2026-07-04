@@ -3,59 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>主体池查询</title>
+    <title>主体池调整历史查询</title>
     <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
     <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
-    <script src="js/api.js"></script>
+    <script src="../js/api.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
-    <link rel="stylesheet" href="css/company_pool_query.css">
-    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="../css/company_pool_adjust_history.css">
+    <link rel="stylesheet" href="../css/common.css">
 </head>
-<body class="company-pool-query-page">
-<div id="company_pool_query">
-    <!-- ── 顶栏 ── -->
+<body class="company-pool-adjust-history-page">
+<div id="company_pool_adjust_history">
     <div class="topbar">
         <div class="topbar-brand">
             <div class="topbar-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
             </div>
-            <h2>主体池查询</h2>
+            <h2>主体池调整历史查询</h2>
         </div>
         <div class="topbar-sep"></div>
         <span class="topbar-sys">证券投资管理系统</span>
-        <div class="topbar-meta">
-            <span class="topbar-date-badge">{{ today }}</span>
-        </div>
+        <div class="topbar-meta"><span class="topbar-date-badge">{{ today }}</span></div>
     </div>
 
-    <!-- ── 列表页 ── -->
     <div class="list-body">
-        <!-- 搜索面板：包含所有筛选条件输入项 -->
         <div class="search-panel">
-            <!-- 第一行：投资池选择 + 主体代码 + 入池时间范围 + 调整人 + 操作按钮 + 总数统计 -->
-            <div class="search-row">
+            <div class="search-row search-row-main">
                 <span class="search-label"><i class="el-icon-search"></i>筛选</span>
-
-                <!-- 投资池选择器：点击触发树形弹窗，支持多选叶子节点 -->
-                <el-popover
-                    placement="bottom-start"
-                    width="340"
-                    v-model="poolTreeVisible"
-                    :append-to-body="false"
-                    @hide="handlePoolTreeHide">
+                <el-popover placement="bottom-start" width="340" v-model="poolTreeVisible"
+                            :append-to-body="false" @hide="handlePoolTreeHide">
                     <div class="pool-popover-content">
-                        <el-input
-                            v-model="poolTreeKeyword"
-                            class="pool-tree-search"
-                            size="small"
-                            clearable
-                            prefix-icon="el-icon-search"
-                            placeholder="搜索投资池"
-                            @input="filterPoolTree">
-                        </el-input>
-                        <!-- 投资池树：check-strictly 保证父子节点独立勾选，default-expand-all 默认全展开 -->
+                        <el-input v-model="poolTreeKeyword" class="pool-tree-search" size="small" clearable
+                                  prefix-icon="el-icon-search" placeholder="搜索投资池"
+                                  @input="filterPoolTree"></el-input>
                         <div class="pool-tree-scroll">
                             <el-tree
                                 ref="poolTreeRef"
@@ -69,7 +50,6 @@
                             </el-tree>
                         </div>
                     </div>
-                    <!-- 弹窗底部操作按钮：取消 / 确认 -->
                     <div class="pool-popover-actions">
                         <el-button size="mini" @click="poolTreeVisible = false">取消</el-button>
                         <el-button type="primary" size="mini" @click="handlePoolTreeConfirm">确认</el-button>
@@ -79,36 +59,30 @@
                         {{ searchForm.poolIds.length > 0 ? '已选 ' + searchForm.poolIds.length + ' 个池' : '请选择投资池' }}
                     </span>
                 </el-popover>
-
-                <el-input v-model="searchForm.companyCode" placeholder="主体代码" clearable size="small" style="width:160px;" @keyup.enter.native="handleSearch">
-                    <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
-                </el-input>
-
+                <el-input class="compact-input" v-model="searchForm.companyCode" placeholder="主体代码" clearable size="small" @keyup.enter.native="handleSearch"></el-input>
+                <el-input class="compact-name-input" v-model="searchForm.companyName" placeholder="主体名称" clearable size="small" @keyup.enter.native="handleSearch"></el-input>
                 <el-date-picker
-                    v-model="searchForm.entryTimeRange"
+                    class="compact-date-range"
+                    v-model="searchForm.adjustTimeRange"
                     type="daterange"
-                    range-separator="至"
-                    start-placeholder="入池开始"
-                    end-placeholder="入池结束"
                     popper-class="project-date-range-picker"
+                    range-separator="至"
+                    start-placeholder="调整开始"
+                    end-placeholder="调整结束"
                     size="small"
-                    style="width:240px;"
                     value-format="yyyy-MM-dd">
                 </el-date-picker>
-
-                <el-input v-model="searchForm.adjusterName" placeholder="调整人" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
-                    <i slot="prefix" class="el-input__icon el-icon-user"></i>
-                </el-input>
-
+                <el-input class="compact-input" v-model="searchForm.adjusterName" placeholder="调整人" clearable size="small" @keyup.enter.native="handleSearch"></el-input>
+                <el-select class="compact-select" v-model="searchForm.adjustMode" placeholder="调整方向" clearable size="small">
+                    <el-option v-for="m in adjustModeOptions" :key="m.value" :label="m.label" :value="m.value"></el-option>
+                </el-select>
+                <el-select class="compact-status-select" v-model="searchForm.auditStatus" placeholder="调整状态" clearable size="small">
+                    <el-option v-for="s in auditStatusOptions" :key="s.value" :label="s.label" :value="s.value"></el-option>
+                </el-select>
                 <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
                 <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
-
-                <div class="total-badge">
-                    <i class="el-icon-office-building"></i> 共 {{ pagination.total }} 个主体
-                </div>
+                <div class="total-badge"><i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录</div>
             </div>
-
-            <!-- 已选池标签行 -->
             <div class="search-row" v-if="selectedPoolTags.length > 0">
                 <span class="search-label" style="visibility:hidden;"><i class="el-icon-search"></i>筛选</span>
                 <div class="pool-tag-row">
@@ -123,7 +97,6 @@
             </div>
         </div>
 
-        <!-- 表格卡片 -->
         <div class="table-card">
             <el-table :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;">
                 <el-table-column label="序号" width="50" align="center">
@@ -131,23 +104,39 @@
                         {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
                     </template>
                 </el-table-column>
-                <el-table-column prop="securityShortName" label="主体名称" min-width="200" show-overflow-tooltip>
+                <el-table-column prop="adjusterName" label="调整人" min-width="90"></el-table-column>
+                <el-table-column label="提交日期" min-width="140" align="center">
+                    <template slot-scope="{ row }">{{ formatDate(row.submitTime) }}</template>
+                </el-table-column>
+                <el-table-column prop="companyName" label="主体名称" min-width="170" show-overflow-tooltip>
                     <template slot-scope="{ row }">
-                        <span class="desc-link" @click="openForbiddenPoolAdjustDetail(row)">{{ row.securityShortName || '' }}</span>
+                        <span class="desc-link" @click="openForbiddenPoolAdjustDetail(row)">{{ row.companyName || '' }}</span>
                     </template>
                 </el-table-column>
-                <el-table-column prop="securityCode" label="主体代码" min-width="140">
+                <el-table-column prop="companyCode" label="主体代码" min-width="120">
                     <template slot-scope="{ row }">
-                        <span class="desc-link" @click="openForbiddenPoolAdjustDetail(row)">{{ row.securityCode || '' }}</span>
+                        <span class="desc-link" @click="openForbiddenPoolAdjustDetail(row)">{{ row.companyCode || '' }}</span>
                     </template>
                 </el-table-column>
-                <el-table-column prop="adjusterName" label="调整人" min-width="100"></el-table-column>
-                <el-table-column label="入池时间" min-width="150" align="center">
+                <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center">
                     <template slot-scope="{ row }">
-                        {{ row.entryTime ? moment(row.entryTime).format('YYYY-MM-DD HH:mm') : '' }}
+                        <el-tag v-if="row.adjustType" size="mini" :type="adjustTypeTagType(row.adjustType)">{{ row.adjustType }}</el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="targetPoolName" label="投资池名称" min-width="160" show-overflow-tooltip></el-table-column>
+                <el-table-column label="调整方向" min-width="90" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.adjustMode === '调入'" class="adjust-direction-tag" type="success" size="mini">调入</el-tag>
+                        <el-tag v-else-if="row.adjustMode === '调出'" class="adjust-direction-tag" type="danger" size="mini">调出</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="targetPoolName" label="投资池名称" min-width="170" show-overflow-tooltip></el-table-column>
+                <el-table-column label="审批状态" min-width="120">
+                    <template slot-scope="{ row }">
+                        <el-tag :type="auditStatusType(row.auditStatus)" size="mini" v-if="row.auditStatus != null">
+                            {{ auditStatusLabel(row.auditStatus) }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
             </el-table>
             <div class="pagination-wrap">
                 <el-pagination
@@ -167,50 +156,94 @@
 
 <script>
 new Vue({
-    el: '#company_pool_query',
+    el: '#company_pool_adjust_history',
     data() {
         return {
             moment: moment, // 日期处理工具
             pagePaths: { // 页面跳转路径
                 forbiddenPoolAdjustDetail: 'forbidden_pool_adjust_detail.html', // 禁投池调整详情页
             },
-            today: moment().format('YYYY年MM月DD日'), // 顶栏显示的当前日期文字
-            // 搜索表单
+            today: moment().format('YYYY年MM月DD日'), // 顶栏日期
             searchForm: {
-                poolIds: [],            // 选中的池 ID 列表（多选）
-                companyCode: '',        // 主体代码关键词
-                entryTimeRange: null,   // 入池时间范围 [startDate, endDate]
-                adjusterName: '',       // 调整人姓名关键词
+                poolIds: [],           // 投资池 ID
+                companyCode: '',       // 主体代码
+                companyName: '',       // 主体名称
+                adjustTimeRange: null, // 调整日期范围
+                adjusterName: '',      // 调整人
+                adjustMode: '',        // 调整方向
+                auditStatus: '',       // 调整状态
             },
-            // 投资池树
-            poolTreeData: [],           // 投资池树形数据（嵌套结构）
-            poolTreeVisible: false,     // 投资池树弹窗是否显示
-            poolTreeKeyword: '',        // 投资池树搜索词
-            selectedPoolTags: [],       // 已选池标签列表 [{id, poolName}]，用于标签行展示
-            treeProps: {              // 投资池树字段配置
-                children: 'children',  // 子节点字段名
-                label: 'poolName',     // 节点显示文本字段名
+            poolTreeData: [],          // 投资池树
+            poolTreeVisible: false,    // 投资池弹层
+            poolTreeKeyword: '',       // 投资池树搜索词
+            selectedPoolTags: [],      // 已选投资池标签
+            treeProps: {
+                children: 'children',
+                label: 'poolName',
                 disabled(data) {
-                    // 仅叶子节点可选，父节点（有子节点）禁止勾选
                     return data.children && data.children.length > 0;
                 }
             },
-            // 表格
-            tableData: [],              // 当前页主体池数据列表
-            loading: false,             // 表格加载状态
-            pagination: {             // 分页参数
-                pageIndex: 1,           // 当前页码
-                pageSize: 20,           // 每页显示条数
-                total: 0,               // 查询结果总条数
+            adjustModeOptions: [
+                { value: '调入', label: '调入' },
+                { value: '调出', label: '调出' },
+            ],
+            auditStatusOptions: [
+                { value: '-1', label: '无效调整' },
+                { value: '00', label: '已提交待审核' },
+                { value: '10', label: '审核通过待审批' },
+                { value: '11', label: '驳回待修改' },
+                { value: '20', label: '审批通过' },
+                { value: '21', label: '审批驳回' },
+                { value: '32', label: 'O32自动审批' },
+                { value: '99', label: '发起人已撤回' },
+            ],
+            tableData: [],             // 表格数据
+            loading: false,            // 加载状态
+            pagination: {
+                pageIndex: 1,          // 当前页
+                pageSize: 20,          // 每页条数
+                total: 0,              // 总数
             },
         };
     },
-    // 页面挂载后：配置请求根地址，加载投资池树与主体池列表
     mounted() {
         this.loadPoolTree();
         this.loadList();
     },
     methods: {
+        // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
+        adjustTypeTagType(adjustType) {
+            if (adjustType === '联动调整') return 'warning'
+            if (adjustType === '互斥调整') return 'danger'
+            return 'info'
+        },
+
+        // 审批状态名称
+        auditStatusLabel(code) {
+            const map = {
+                '-1': '无效调整', '00': '已提交待审核', '10': '审核通过待审批',
+                '11': '驳回待修改', '20': '审批通过', '21': '审批驳回',
+                '32': 'O32自动审批', '99': '发起人已撤回'
+            };
+            return map[String(code)] || code || '';
+        },
+
+        // 审批状态样式
+        auditStatusType(code) {
+            const map = {
+                '20': 'success', '10': 'success', '32': 'success',
+                '21': 'danger', '-1': 'danger',
+                '00': 'warning', '11': 'warning', '99': 'info'
+            };
+            return map[String(code)] || 'info';
+        },
+
+        // 格式化日期
+        formatDate(value) {
+            return value ? moment(value).format('YYYY-MM-DD HH:mm') : '';
+        },
+
         // 加载投资池树
         async loadPoolTree() {
             try {
@@ -219,19 +252,18 @@ new Vue({
             } catch (e) {}
         },
 
-        // 构建树结构（扁平列表 → 嵌套树），同时为每个节点挂载 fullPath 用于标签展示
+        // 构建树结构
         buildPoolTree(list) {
-            if (!list || list.length === 0) return [];
             const map = {};
             const roots = [];
-            list.forEach(function(item) {
+            list.forEach(item => {
                 map[item.id] = Object.assign({}, item, { children: [] });
             });
-            list.forEach(function(item) {
+            list.forEach(item => {
                 const node = map[item.id];
                 if (item.parentId != null && map[item.parentId]) {
                     const parent = map[item.parentId];
-                    node.fullPath = node.poolFullName || parent.poolName + '/' + node.poolName;
+                    node.fullPath = node.poolFullName || (parent.fullPath ? parent.fullPath + '/' + node.poolName : parent.poolName + '/' + node.poolName);
                     parent.children.push(node);
                 } else {
                     node.fullPath = node.poolFullName || node.poolName;
@@ -241,16 +273,29 @@ new Vue({
             return roots;
         },
 
-        // 确认池树选择
+        // 展平树
+        flattenTree(nodes) {
+            const result = [];
+            const walk = list => {
+                list.forEach(node => {
+                    result.push(node);
+                    if (node.children && node.children.length > 0) {
+                        walk(node.children);
+                    }
+                });
+            };
+            walk(nodes);
+            return result;
+        },
+
+        // 确认投资池选择
         handlePoolTreeConfirm() {
             const checkedKeys = this.$refs.poolTreeRef.getCheckedKeys();
-            const halfCheckedKeys = this.$refs.poolTreeRef.getHalfCheckedKeys();
-            const allKeys = checkedKeys.concat(halfCheckedKeys);
-            this.searchForm.poolIds = allKeys;
+            this.searchForm.poolIds = checkedKeys;
             const flatList = this.flattenTree(this.poolTreeData);
             this.selectedPoolTags = flatList
-                .filter(function(n) { return allKeys.indexOf(n.id) !== -1; })
-                .map(function(n) { return { id: n.id, poolName: n.fullPath }; });
+                .filter(item => checkedKeys.indexOf(item.id) !== -1)
+                .map(item => ({ id: item.id, poolName: item.fullPath }));
             this.poolTreeVisible = false;
             this.handleSearch();
         },
@@ -277,11 +322,13 @@ new Vue({
             }
         },
 
-        // 移除已选池标签
+        // 移除投资池标签
         removePoolTag(poolId) {
-            this.searchForm.poolIds = this.searchForm.poolIds.filter(function(id) { return id !== poolId; });
-            this.selectedPoolTags = this.selectedPoolTags.filter(function(p) { return p.id !== poolId; });
-            this.$refs.poolTreeRef.setCheckedKeys(this.searchForm.poolIds);
+            this.searchForm.poolIds = this.searchForm.poolIds.filter(id => id !== poolId);
+            this.selectedPoolTags = this.selectedPoolTags.filter(item => item.id !== poolId);
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.setCheckedKeys(this.searchForm.poolIds);
+            }
             this.handleSearch();
         },
 
@@ -295,21 +342,9 @@ new Vue({
             this.handleSearch();
         },
 
-        // 树扁平化
-        flattenTree(nodes) {
-            const result = [];
-            (function walk(list) {
-                list.forEach(function(n) {
-                    result.push(n);
-                    if (n.children && n.children.length > 0) walk(n.children);
-                });
-            })(nodes);
-            return result;
-        },
-
         // 打开禁投池主体调库详情页
         openForbiddenPoolAdjustDetail(row) {
-            const companyCode = row.securityCode || row.companyCode || '';
+            const companyCode = row.companyCode || row.securityCode || '';
             if (!companyCode) return;
             const params = new URLSearchParams();
             params.set('companyCode', companyCode);
@@ -321,41 +356,45 @@ new Vue({
             window.location.href = this.pagePaths.forbiddenPoolAdjustDetail + '?' + params.toString();
         },
 
-        // 组装分页查询参数并调用接口，将结果填入 tableData 与 pagination.total
+        // 加载列表
         async loadList() {
             this.loading = true;
             try {
                 const params = {
                     poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
                     companyCode: this.searchForm.companyCode || null,
-                    entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
-                        ? this.searchForm.entryTimeRange[0] + ' 00:00:00' : null,
-                    entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1]
-                        ? this.searchForm.entryTimeRange[1] + ' 23:59:59' : null,
+                    companyName: this.searchForm.companyName || null,
+                    adjustTimeStart: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[0] : null,
+                    adjustTimeEnd: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[1] : null,
                     adjusterName: this.searchForm.adjusterName || null,
+                    adjustMode: this.searchForm.adjustMode || null,
+                    auditStatus: this.searchForm.auditStatus || null,
                     pageIndex: this.pagination.pageIndex,
                     pageSize: this.pagination.pageSize,
                 };
-                const data = await this.apiPost('/api/v1/companyPoolQuery/queryCompanyPoolPage', params);
+                const data = await this.apiPost('/api/v1/companyPoolAdjustHistory/queryCompanyPoolAdjustHistoryPage', params);
                 this.tableData = data.records || [];
                 this.pagination.total = data.total || 0;
             } catch (e) {}
             this.loading = false;
         },
 
-        // 点击查询按钮：重置页码为第 1 页并重新加载列表
+        // 查询
         handleSearch() {
             this.pagination.pageIndex = 1;
             this.loadList();
         },
 
-        // 点击重置按钮：清空所有搜索条件、清除池树勾选，并重新加载列表
+        // 重置
         handleReset() {
             this.searchForm = {
                 poolIds: [],
                 companyCode: '',
-                entryTimeRange: null,
+                companyName: '',
+                adjustTimeRange: null,
                 adjusterName: '',
+                adjustMode: '',
+                auditStatus: '',
             };
             this.selectedPoolTags = [];
             this.pagination.pageIndex = 1;
@@ -365,12 +404,13 @@ new Vue({
             this.loadList();
         },
 
-        // 切换页码：更新当前页码并重新加载列表
+        // 切换页码
         handlePageChange(page) {
             this.pagination.pageIndex = page;
             this.loadList();
         },
-        // 修改每页条数：重置到第 1 页并重新加载列表
+
+        // 切换每页条数
         handleSizeChange(size) {
             this.pagination.pageSize = size;
             this.pagination.pageIndex = 1;

@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>证券池调库审核</title>
+    <title>CRMW池调库详情</title>
     <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
     <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
-    <script src="js/api.js"></script>
+    <script src="../js/api.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
-    <link rel="stylesheet" href="css/security_pool_adjust_approve.css">
-    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="../css/crmw_pool_adjust_detail.css">
+    <link rel="stylesheet" href="../css/common.css">
 </head>
-<body class="security-pool-adjust-approve-page">
+<body class="crmw-pool-adjust-detail-page">
 
-<div id="security_pool_adjust_approve">
+<div id="crmw_pool_adjust_detail" class="pool-adjust-workflow-page">
 
     <!-- ==================== 列表页：证券搜索 + 分页表格 ==================== -->
     <div class="page" :class="{ active: currentPage === 'list' }">
@@ -25,7 +25,7 @@
                 <div class="topbar-icon">
                     <svg width="17" height="17" viewBox="0 0 24 24"><path d="M4 4h16v3H4V4zm0 5h16v3H4V9zm0 5h10v3H4v-3z"/></svg>
                 </div>
-                <h2>证券池调库</h2>
+                <h2>CRMW池调整</h2>
             </div>
             <div class="topbar-sep"></div>
             <span class="topbar-sys">证券投资管理系统</span>
@@ -275,6 +275,37 @@
                 </div>
             </div>
 
+            <!-- CRMW基本信息 -->
+            <div class="section-card section-crmw-info">
+                <div class="section-header" @click="toggleSection('crmwInfo')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">CRMW基本信息</div>
+                    <i :class="sectionExpanded.crmwInfo ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="sectionExpanded.crmwInfo" style="padding:0;">
+                    <el-descriptions :column="3" border size="small" class="bond-info-descriptions">
+                        <el-descriptions-item label="CRMW全称">
+                            <el-input v-model="crmwDetail.fullName" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="CRMW名称">
+                            <el-input v-model="crmwDetail.shortName" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="CRMW代码">
+                            <el-input v-model="crmwDetail.windCode" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="市场代码">
+                            <el-input v-model="crmwDetail.market" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券类型">
+                            <el-input v-model="crmwDetail.securityTypeName" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="发行人名称">
+                            <el-input v-model="crmwDetail.issuer" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </div>
+            </div>
+
             <!-- 当前所在池 -->
             <div class="section-card section-current-pools">
                 <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
@@ -375,7 +406,7 @@
             </div>
 
             <!-- 调库记录 -->
-            <div class="section-card section-adjust-log">
+            <div class="section-card section-adjust-log" v-show="showAdjustLogSection">
                 <div class="section-header" @click="toggleSection('adjustLog')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">调库记录</div>
@@ -427,11 +458,8 @@
                                         <span v-for="(name, i) in getReportNames(row.creditReports)" :key="'cr_'+i" class="report-tag report-tag-internal">{{ name }}</span>
                                     </div>
                                     <div v-if="row.attachmentFiles && row.attachmentFiles.length" class="upload-file-list">
-                                        <span v-for="(file, i) in row.attachmentFiles" :key="'af_'+file.id"
-                                              class="upload-file-tag" @click="downloadAttachment(file)">
-                                            <span :title="file.originalFileName">{{ file.originalFileName }}</span>
-                                            <i v-if="showLogUploadActions" class="el-icon-close" @click.stop="removeExistingAttachmentFile(row, 'credit', i)"></i>
-                                        </span>
+                                        <span v-for="file in row.attachmentFiles" :key="'af_'+file.id"
+                                              class="upload-file-tag" @click="downloadAttachment(file)">{{ file.originalFileName }}</span>
                                     </div>
                                     <div v-if="getCreditReportSelections(getLogRowKey(row)).length > 0" class="upload-file-list">
                                         <div v-for="(r, i) in getCreditReportSelections(getLogRowKey(row))" :key="'ncr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
@@ -464,11 +492,8 @@
                                         <span v-for="(name, i) in getReportNames(row.otherMaterials)" :key="'om_'+i" class="report-tag report-tag-external">{{ name }}</span>
                                     </div>
                                     <div v-if="row.materialFiles && row.materialFiles.length" class="upload-file-list">
-                                        <span v-for="(file, i) in row.materialFiles" :key="'mf_'+file.id"
-                                              class="upload-file-tag" @click="downloadAttachment(file)">
-                                            <span :title="file.originalFileName">{{ file.originalFileName }}</span>
-                                            <i v-if="showLogUploadActions" class="el-icon-close" @click.stop="removeExistingAttachmentFile(row, 'material', i)"></i>
-                                        </span>
+                                        <span v-for="file in row.materialFiles" :key="'mf_'+file.id"
+                                              class="upload-file-tag" @click="downloadAttachment(file)">{{ file.originalFileName }}</span>
                                     </div>
                                     <div v-if="getOtherMaterialSelections(getLogRowKey(row)).length > 0" class="upload-file-list">
                                         <div v-for="(r, i) in getOtherMaterialSelections(getLogRowKey(row))" :key="'nom_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
@@ -497,7 +522,7 @@
             </div>
 
             <!-- 原因和建议 -->
-            <div class="section-card section-reason-advice" v-show="showReasonSection" style="animation-delay:.06s;">
+            <div class="section-card section-reason-advice" v-show="adjustStep === 2" style="animation-delay:.06s;">
                 <div class="section-header" @click="toggleSection('reasonAdvice')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">原因和建议</div>
@@ -507,19 +532,19 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                         <div>
                             <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div>
-                            <el-input type="textarea" :rows="4" v-model="adjustReason" :disabled="isReasonReadonly"
+                            <el-input type="textarea" :rows="4" v-model="adjustReason"
                                       size="small" placeholder="请输入调整原因" maxlength="500" show-word-limit></el-input>
                         </div>
                         <div>
                             <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div>
-                            <el-input type="textarea" :rows="4" v-model="adjustAdvice" :disabled="isReasonReadonly"
+                            <el-input type="textarea" :rows="4" v-model="adjustAdvice"
                                       size="small" placeholder="请输入调整建议" maxlength="500" show-word-limit></el-input>
                         </div>
                     </div>
                 </div>
 
                 <!-- 步骤2操作按钮 -->
-                <div class="action-footer" v-if="showReasonActionButtons">
+                <div class="action-footer">
                     <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
                     <el-button type="primary" size="small" icon="el-icon-check"
                                :disabled="validCount === 0 || submitLoading"
@@ -584,7 +609,7 @@
                         </el-table-column>
                         <el-table-column label="处理结果" min-width="100">
                             <template slot-scope="{ row }">
-                                <el-tag v-if="row.processAction" size="mini" :type="row.processAction === 'approve' ? 'success' : (row.processAction === 'reject' ? 'danger' : 'info')">{{ processActionLabel(row.processAction, row) }}</el-tag>
+                                <el-tag v-if="row.processAction" size="mini" :type="row.processAction === 'approve' ? 'success' : (row.processAction === 'reject' ? 'danger' : 'info')">{{ processActionLabel(row.processAction) }}</el-tag>
                             </template>
                         </el-table-column>
                         <el-table-column label="处理时间" min-width="160" align="center">
@@ -596,48 +621,6 @@
                     </el-table>
                 </div>
             </div>
-
-            <!-- 审核审批 -->
-            <div class="section-card section-audit-approval" v-show="showAuditApprovalSection" style="animation-delay:.02s;">
-                <div class="section-header" @click="toggleSection('auditApproval')" style="cursor:pointer;user-select:none;">
-                    <div class="section-dot"></div>
-                    <div class="section-title">审核审批</div>
-                    <i :class="sectionExpanded.auditApproval ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
-                </div>
-                <div v-show="sectionExpanded.auditApproval" style="padding:20px 22px;">
-                    <div v-if="currentPendingStep" style="display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start;">
-                        <div>
-                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:8px;">{{ auditResultTitle }}</div>
-                            <el-radio-group v-model="auditAction" size="small">
-                                <el-radio-button label="approve">{{ approveActionLabel }}</el-radio-button>
-                                <el-radio-button label="reject">{{ rejectActionLabel }}</el-radio-button>
-                            </el-radio-group>
-                            <div style="margin-top:10px;font-size:12px;color:var(--c-text-3);">
-                                当前步骤：{{ currentPendingStep.nodeLabel || '' }}
-                            </div>
-                        </div>
-                        <div>
-                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">处理意见</div>
-                            <el-input type="textarea" :rows="4" v-model="auditComment"
-                                      size="small" placeholder="请输入处理意见" maxlength="500" show-word-limit></el-input>
-                        </div>
-                    </div>
-                    <div v-else style="color:var(--c-text-3);font-size:13px;padding:4px 0;">暂无需要当前用户处理的流程步骤</div>
-                </div>
-                <div class="action-footer">
-                    <el-button size="small" icon="el-icon-arrow-left"
-                               @click="backToList">
-                        返回
-                    </el-button>
-                    <el-button type="primary" size="small" icon="el-icon-check"
-                               :disabled="!currentPendingStep || auditSubmitLoading"
-                               :loading="auditSubmitLoading"
-                               @click="submitAdjustAudit">
-                        {{ auditSubmitButtonText }}
-                    </el-button>
-                </div>
-            </div>
-            <!-- /审核审批 -->
 
             <!-- 调库操作 -->
             <div class="section-card section-adjust-op" v-show="showAdjustOpSection">
@@ -867,7 +850,7 @@
             <!-- /调库操作 -->
 
             <!-- 步骤2：调库校验结果 -->
-            <div class="section-card section-adjust-review" v-show="showCheckResultSection" style="animation-delay:.03s;">
+            <div class="section-card section-adjust-review" v-show="adjustStep === 2" style="animation-delay:.03s;">
                 <div class="section-header" @click="toggleSection('adjustReview')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">调库校验结果</div>
@@ -968,6 +951,11 @@
             <!-- /调库校验结果 -->
 
             <!-- /步骤2 -->
+
+            <!-- 只读详情底部返回操作 -->
+            <div v-if="isViewMode" class="detail-bottom-actions">
+                <el-button size="small" icon="el-icon-arrow-left" @click="backToList">返回</el-button>
+            </div>
 
         </div>
     </div>
@@ -1292,12 +1280,12 @@
 
 <script>
     new Vue({
-        el: '#security_pool_adjust_approve',
+        el: '#crmw_pool_adjust_detail',
         data() {
             return {
                 moment: moment, // 日期处理工具
                 pagePaths: { // 页面跳转路径
-                    securityPoolAdjust: 'security_pool_adjust.html', // 证券池调整列表页
+                    crmwPoolAdjust: 'crmw_pool_adjust.html', // CRMW池调整列表页
                 },
                 currentPage: 'detail',          // 当前显示页：'list'=列表页 / 'detail'=详情页
                 searchForm: { securityCode: '', securityShortName: '', issuer: '' }, // 列表页搜索条件
@@ -1307,8 +1295,10 @@
                 selectedTargetPoolId: null,   // 从目标池入口进入时携带的目标池ID
                 selectedAdjustLogId: null,    // 从调库记录入口进入时携带的调库记录ID
                 selectedAdjustBatchNo: null,  // 从调库记录入口进入时携带的调库批次号
-                entryMode: 'process',         // 入口模式：process=我的事宜处理 / next=下一步校验确认
+                selectedCrmwCode: '',         // 当前绑定的CRMW代码
+                entryMode: 'view',            // 入口模式：view=名称/编码详情 / adjust=调库调整
                 bondDetail: {},               // 证券基本信息（详情页）
+                crmwDetail: {},               // CRMW基本信息（详情页）
                 detailLoading: false,         // 详情页加载状态
                 securityCurrentPools: [],     // 当前证券所在的投资池列表
                 issuerCurrentPools: [],       // 当前证券主体所在的投资池列表
@@ -1321,8 +1311,7 @@
                 submitLoading: false,         // 调库提交防重复点击状态
                 attachmentFiles: {},          // 各池附件文件映射 { poolId: [File, ...] }
                 materialFiles: {},            // 各池其他材料文件映射 { poolId: [File, ...] }
-                deletedAttachmentIds: {},      // 各调库记录待删除附件 ID 映射 { logKey: [id, ...] }
-                adjustStep: 2,           // 调库步骤：1=选择池, 2=校验确认
+                adjustStep: 1,           // 调库步骤：1=选择池, 2=校验确认
                 adjustCheckLoading: false, // 下一步校验接口加载状态
                 currentLoginUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
                 currentLoginUserName: window.RrsAuth.getCurrentUser().userName, // 当前登录用户名称
@@ -1333,17 +1322,14 @@
                 selectedFlowKey: '',      // 当前选中的流程 Key
                 adjustReason: '',       // 调整原因（步骤2）
                 adjustAdvice: '',       // 调整建议（步骤2）
-                auditAction: 'approve',  // 审批动作：approve=通过 / reject=驳回
-                auditComment: '',        // 审批处理意见
-                auditSubmitLoading: false, // 审批提交防重复点击状态
                 adjustLogList: [],       // 调库记录列表
                 activeAdjustLog: null,   // 当前展示流程步骤对应的调库记录
                 flowStepList: [],        // 当前流程步骤列表
                 sectionExpanded: {      // 详情页各区块折叠状态
                     bondInfo: true,
+                    crmwInfo: true,
                     adjustLog: true,
                     flowStatus: true,
-                    auditApproval: true,
                     currentPools: true,
                     adjustOp: true,
                     adjustReview: true,
@@ -1409,91 +1395,39 @@
         computed: {
             // 根据入口模式显示页面用途
             pageTitle() {
-                return this.entryMode === 'next' ? '证券池调库' : '审核审批';
+                return this.entryMode === 'adjust' ? 'CRMW池调整' : 'CRMW调库详情';
             },
-            // 当前是否为我的事宜处理入口
-            isProcessMode() {
-                return this.entryMode !== 'next';
+            // 当前是否为只读详情入口
+            isViewMode() {
+                return this.entryMode !== 'adjust';
             },
-            // 当前是否为下一步校验确认入口
-            isNextMode() {
-                return this.entryMode === 'next';
+            // 当前是否为调库调整入口
+            isAdjustMode() {
+                return this.entryMode === 'adjust';
             },
-            // 审批页只承载校验确认/审批处理，证券基础信息统一只读
+            // 证券基础信息是否只读
             isSecurityInfoReadonly() {
-                return true;
+                return this.isViewMode;
             },
-            // 是否展示调库校验结果
-            showCheckResultSection() {
-                return this.isNextMode && this.adjustStep === 2;
-            },
-            // 是否展示原因和建议
-            showReasonSection() {
-                return this.adjustStep === 2;
+            // 是否展示调库记录
+            showAdjustLogSection() {
+                return this.isViewMode;
             },
             // 是否展示当前流程状态
             showFlowStatusSection() {
-                return this.isProcessMode;
+                return this.isViewMode;
             },
-            // 是否展示审核审批
-            showAuditApprovalSection() {
-                return this.isProcessMode;
-            },
-            // 是否展示原因和建议中的操作按钮
-            showReasonActionButtons() {
-                return this.isNextMode;
-            },
-            // 原因和建议是否只读
-            isReasonReadonly() {
-                return this.isProcessMode;
-            },
-            // 调库操作在审批页默认隐藏，预留后续入口扩展
+            // 是否展示调库操作
             showAdjustOpSection() {
-                return false;
+                return this.isAdjustMode && this.adjustStep === 1;
             },
             // 调库记录及材料区域是否允许新增/删除报告附件
             showLogUploadActions() {
-                return this.isNextMode || (this.isProcessMode && this.isModifyAuditStage && !!this.currentPendingStep);
+                return this.isAdjustMode;
             },
             // 通过校验的数量
             validCount() {
                 return this.adjustReviewList.filter(r => r.valid).length;
-            },
-            // 当前用户可处理的待审批步骤
-            currentPendingStep() {
-                const pendingList = (this.flowStepList || []).filter(row => row.stepStatus === 'pending');
-                const ownStep = pendingList.find(row => this.isCurrentHandler(row));
-                if (ownStep) return ownStep;
-                if (this.isAdminUser()) {
-                    return pendingList[0] || null;
-                }
-                return null;
-            },
-            // 当前是否处于驳回待修改阶段
-            isModifyAuditStage() {
-                const activeLog = this.activeAdjustLog || {};
-                const currentStep = this.currentPendingStep || {};
-                const nodeLabel = currentStep.nodeLabel || '';
-                return activeLog.auditStatus === '11' || nodeLabel.indexOf('修改') >= 0;
-            },
-            // 审核结果区域标题
-            auditResultTitle() {
-                return this.isModifyAuditStage ? '处理结果' : '审核结果';
-            },
-            // 正向处理动作展示文案
-            approveActionLabel() {
-                return this.isModifyAuditStage ? '提交' : '通过';
-            },
-            // 负向处理动作展示文案
-            rejectActionLabel() {
-                return this.isModifyAuditStage ? '终止流程' : '驳回';
-            },
-            // 审批提交按钮文案
-            auditSubmitButtonText() {
-                if (!this.isModifyAuditStage) {
-                    return '提交';
-                }
-                return this.auditAction === 'reject' ? '终止流程' : '提交';
             },
             // 可提交调库项列表
             validAdjustReviewList() {
@@ -1563,9 +1497,9 @@
                 return this.reportDialogColumn === 'material' ? '选择其他材料' : '选择信评报告';
             },
         },
-        // 页面初始化：设置接口基础地址，加载独立调库审核页
+        // 页面初始化：设置接口基础地址，加载独立调库详情页
         created() {
-            this.initStandaloneReviewPage();
+            this.initStandaloneDetailPage();
         },
         mounted() {
             this.handleWindowResize = () => {
@@ -1601,43 +1535,21 @@
                 if (hashQueryIndex < 0) return '';
                 return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
             },
-            // 初始化独立调库审核页
-            async initStandaloneReviewPage() {
+            // 初始化独立调库详情页
+            async initStandaloneDetailPage() {
                 const securityCode = this.getUrlParam('securityCode') || this.getUrlParam('windCode');
-                if (!securityCode) {
-                    this.$message.warning('缺少证券信息，请从业务页面进入');
+                const crmwScode = this.getUrlParam('crmwScode');
+                if (!securityCode || !crmwScode) {
+                    this.$message.warning('缺少证券或CRMW信息，请从业务页面进入');
                     return;
                 }
+                this.selectedCrmwCode = crmwScode;
                 this.selectedTargetPoolId = this.getUrlParam('targetPoolId') || null;
                 this.selectedAdjustLogId = this.getUrlParam('adjustLogId') || this.getUrlParam('adjust_log_id') || null;
                 this.selectedAdjustBatchNo = this.getUrlParam('adjustBatchNo') || this.getUrlParam('adjust_batch_no') || null;
-                this.entryMode = this.getUrlParam('entryMode') === 'next' ? 'next' : 'process';
-                this.adjustStep = 2;
+                this.entryMode = this.getUrlParam('entryMode') === 'adjust' ? 'adjust' : 'view';
+                this.adjustStep = 1;
                 await this.loadDetailData(securityCode);
-                await this.restoreStandaloneAdjustDraft();
-            },
-            // 从会话草稿恢复下一步页面状态，供其他 HTML 跳转复用
-            async restoreStandaloneAdjustDraft() {
-                const draftKey = this.getUrlParam('adjustDraftKey');
-                if (!draftKey) return;
-                let draft = null;
-                try {
-                    draft = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
-                } catch (e) {
-                    draft = null;
-                }
-                if (!draft) return;
-                this.selectedInPools = draft.selectedInPools || [];
-                this.selectedOutPools = draft.selectedOutPools || [];
-                this.attachmentFiles = draft.attachmentFiles || {};
-                this.materialFiles = draft.materialFiles || {};
-                this.creditReportSelections = draft.creditReportSelections || {};
-                this.otherMaterialSelections = draft.otherMaterialSelections || {};
-                if (draft.adjustReason != null) this.adjustReason = draft.adjustReason;
-                if (draft.adjustAdvice != null) this.adjustAdvice = draft.adjustAdvice;
-                if (this.selectedInPools.length > 0 || this.selectedOutPools.length > 0) {
-                    await this.goToStep2();
-                }
             },
             // 加载证券分页列表（按搜索条件查询）
             async loadList() {
@@ -1650,7 +1562,7 @@
                         pageIndex: this.pagination.pageIndex,
                         pageSize: this.pagination.pageSize
                     };
-                    const data = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityPage', queryParams);
+                    const data = await this.apiPost('/api/v1/crmwPoolAdjust/queryBindableSecurityPage', queryParams);
                     this.tableData = data.records || [];
                     this.pagination.total = data.total || 0;
                 } catch (e) {}
@@ -1674,13 +1586,14 @@
                 this.selectedTargetPoolId = this.getUrlParam('targetPoolId') || null;
                 this.selectedAdjustLogId = this.getUrlParam('adjustLogId') || this.getUrlParam('adjust_log_id') || null;
                 this.selectedAdjustBatchNo = this.getUrlParam('adjustBatchNo') || this.getUrlParam('adjust_batch_no') || null;
+                this.entryMode = 'adjust';
                 this.currentPage = 'detail';
                 await this.loadDetailData(row.windCode || row.securityCode);
             },
             // 查询当前证券所在池及主体所在池
             async loadSecurityPoolStatus(securityCode) {
                 try {
-                    const data = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', {
+                    const data = await this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', {
                         securityCode: securityCode
                     });
                     this.securityCurrentPools = data.securityCurrentPools || [];
@@ -1696,7 +1609,7 @@
                     credit_bond: '信用债', offshore_bond: '境外债', convertible_bond: '转债',
                     special_account: '专户产品', crmw: 'CRMW库', research: '研究池', fund: '基金池',
                     restricted: '限制池', industry: '行业池', whitelist: '白名单',
-                    blacklist: '黑名单', private_placement: '私募池', other: '其他'
+                    blacklist: '黑名单', forbidden: '禁投池', private_placement: '私募池', other: '其他'
                 };
                 return map[poolType] || poolType || '';
             },
@@ -1706,14 +1619,16 @@
                 try {
                     const inPoolParams = { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
                     const outPoolParams = { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
-                    const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
-                        this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail',     { securityCode: securityCode }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', inPoolParams),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', outPoolParams),
-                        this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode }),
-                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
+                    const [detail, crmwDetail, inPools, outPools, poolStatus, logList] = await Promise.all([
+                        this.apiPost('/api/v1/crmwPoolAdjust/querySecurityDetail',     { securityCode: securityCode }),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwDetail', { securityCode: this.selectedCrmwCode }),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', inPoolParams),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', outPoolParams),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', { securityCode: securityCode }),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
                     this.bondDetail    = detail  || {};
+                    this.crmwDetail = crmwDetail || {};
                     // 当前所在池
                     this.securityCurrentPools   = (poolStatus && poolStatus.securityCurrentPools)   || [];
                     this.issuerCurrentPools = (poolStatus && poolStatus.issuerCurrentPools) || [];
@@ -1765,7 +1680,6 @@
                     this.loadFlowSteps(this.adjustLogList);
                     this.attachmentFiles = {};
                     this.materialFiles = {};
-                    this.deletedAttachmentIds = {};
                     this.creditReportSelections = {};
                     this.otherMaterialSelections = {};
                 } catch (e) {}
@@ -1877,21 +1791,6 @@
                 files.splice(index, 1);
                 this.$set(this.materialFiles, poolId, files);
             },
-            // 移除调库记录中已存在的附件，提交修改节点时统一落库
-            removeExistingAttachmentFile(row, column, index) {
-                const logKey = this.getLogRowKey(row);
-                const fieldName = column === 'material' ? 'materialFiles' : 'attachmentFiles';
-                const files = [...(row[fieldName] || [])];
-                const removed = files.splice(index, 1)[0];
-                this.$set(row, fieldName, files);
-                if (removed && removed.id != null) {
-                    const ids = [...(this.deletedAttachmentIds[logKey] || [])];
-                    if (ids.indexOf(removed.id) === -1) {
-                        ids.push(removed.id);
-                    }
-                    this.$set(this.deletedAttachmentIds, logKey, ids);
-                }
-            },
             // 折叠/展开区块
             toggleSection(key) {
                 this.$set(this.sectionExpanded, key, !this.sectionExpanded[key]);
@@ -1965,6 +1864,7 @@
                     '11': '驳回待修改',
                     '20': '审批通过',
                     '21': '审批驳回',
+                    '32': 'O32自动审批',
                     '99': '发起人已撤回'
                 };
                 return map[code] || code || '';
@@ -1981,7 +1881,7 @@
                 for (const log of candidateLogs) {
                     if (!log || !log.id) continue;
                     try {
-                        const steps = await this.apiPost('/api/v1/securityPoolAdjust/queryAdjustStepList', { adjustLogId: log.id, adjustBatchNo: log.adjustBatchNo }) || [];
+                        const steps = await this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustStepList', { adjustLogId: log.id, adjustBatchNo: log.adjustBatchNo }) || [];
                         if (!fallback) fallback = { log, steps };
                         if (steps.some(step => step.stepStatus === 'pending')) {
                             this.activeAdjustLog = log;
@@ -2118,124 +2018,11 @@
 
             // 判断流程步骤处理人是否为当前登录人
             isCurrentHandler(row) {
-                if (!row) return false;
-                const handlerId = String(row.handlerId || '').trim();
-                const currentUserId = String(this.currentLoginUserId || '').trim();
-                return !!handlerId && !!currentUserId && handlerId === currentUserId;
-            },
-
-            // 判断当前登录用户是否为管理员
-            isAdminUser() {
-                return String(this.currentLoginUserId) === '1001';
-            },
-
-            // 是否需要随修改节点提交附件变更
-            shouldSubmitAuditAttachments() {
-                return this.isProcessMode && this.isModifyAuditStage
-                    && this.auditAction === 'approve' && !!this.currentPendingStep;
-            },
-
-            // 收集所选报告下的报告库附件 ID
-            collectReportAttachmentIds(reports) {
-                const ids = [];
-                (reports || []).forEach(report => {
-                    (report.attachments || []).forEach(file => {
-                        if (file && file.id != null && ids.indexOf(file.id) === -1) {
-                            ids.push(file.id);
-                        }
-                    });
-                });
-                return ids;
-            },
-
-            // 构建修改节点附件变更请求
-            buildAuditAttachmentChanges(submitFiles) {
-                const changes = [];
-                (this.adjustLogList || []).forEach(log => {
-                    const logKey = this.getLogRowKey(log);
-                    const creditReportFileIndexes = this.collectSubmitFiles(this.getAttachmentFiles(logKey), submitFiles);
-                    const materialFileIndexes = this.collectSubmitFiles(this.getMaterialFiles(logKey), submitFiles);
-                    const creditReportSourceAttachmentIds = this.collectReportAttachmentIds(this.getCreditReportSelections(logKey));
-                    const materialSourceAttachmentIds = this.collectReportAttachmentIds(this.getOtherMaterialSelections(logKey));
-                    const deleteAttachmentIds = this.deletedAttachmentIds[logKey] || [];
-                    if (creditReportFileIndexes.length || materialFileIndexes.length
-                        || creditReportSourceAttachmentIds.length || materialSourceAttachmentIds.length
-                        || deleteAttachmentIds.length) {
-                        changes.push({
-                            adjustLogId: log.id,
-                            creditReportFileIndexes,
-                            materialFileIndexes,
-                            creditReportSourceAttachmentIds,
-                            materialSourceAttachmentIds,
-                            deleteAttachmentIds
-                        });
-                    }
-                });
-                return changes;
-            },
-
-            // 以 multipart 方式提交审批和附件变更
-            async submitAdjustAuditMultipart(payload, files) {
-                const formData = new FormData();
-                formData.append('request', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
-                files.forEach(file => formData.append('files', file));
-                return this.apiPost('/api/v1/securityPoolAdjustFlow/submitAdjustAuditWithFiles', formData);
-            },
-
-            // 提交当前流程步骤审批意见
-            async submitAdjustAudit() {
-                if (this.auditSubmitLoading) return;
-                if (!this.currentPendingStep) {
-                    this.$message.warning('暂无需要当前用户处理的流程步骤');
-                    return;
-                }
-                if (this.auditAction === 'reject' && !this.auditComment.trim()) {
-                    this.$message.warning(this.isModifyAuditStage ? '终止流程时处理意见不能为空' : '驳回时处理意见不能为空');
-                    return;
-                }
-                this.auditSubmitLoading = true;
-                try {
-                    const step = this.currentPendingStep;
-                    const activeLog = this.activeAdjustLog || {};
-                    const payload = {
-                        adjustLogId: activeLog.id || step.adjustLogId || this.selectedAdjustLogId,
-                        adjustBatchNo: activeLog.adjustBatchNo || step.adjustBatchNo || this.selectedAdjustBatchNo,
-                        stepId: step.id,
-                        processAction: this.auditAction,
-                        processComment: this.auditComment,
-                        handlerId: this.currentLoginUserId,
-                        handlerName: this.currentLoginUserName
-                    };
-                    let result = null;
-                    if (this.shouldSubmitAuditAttachments()) {
-                        const submitFiles = [];
-                        payload.attachmentChanges = this.buildAuditAttachmentChanges(submitFiles);
-                        result = await this.submitAdjustAuditMultipart(payload, submitFiles);
-                    } else {
-                        result = await this.apiPost('/api/v1/securityPoolAdjustFlow/submitAdjustAudit', payload);
-                    }
-                    this.$message.success((result && result.message) || '审批处理成功');
-                    this.auditAction = 'approve';
-                    this.auditComment = '';
-                    const securityCode = this.bondDetail.windCode || this.getUrlParam('securityCode') || this.getUrlParam('windCode');
-                    if (securityCode) {
-                        await this.loadDetailData(securityCode);
-                    }
-                } catch (e) {
-                    this.$message.error(e.message || '操作失败');
-                }
-                this.auditSubmitLoading = false;
+                return row && String(row.handlerId || '') === String(this.currentLoginUserId);
             },
 
             // 处理动作映射
-            processActionLabel(code, row) {
-                if (row && row.nodeLabel && row.nodeLabel.indexOf('修改') >= 0) {
-                    const modifyMap = {
-                        approve: '提交',
-                        reject: '终止流程'
-                    };
-                    if (modifyMap[code]) return modifyMap[code];
-                }
+            processActionLabel(code) {
                 const map = {
                     submit: '提交',
                     approve: '通过',
@@ -2362,7 +2149,7 @@
                 };
                 let result = null;
                 try {
-                    result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', checkParams);
+                    result = await this.apiPost('/api/v1/crmwPoolAdjust/checkCrmwAdjust', checkParams);
                 } catch (e) {
                     this.$message.error(e.message || '操作失败');
                     return;
@@ -2493,6 +2280,10 @@
                     securityCode: this.bondDetail.windCode || '',
                     securityShortName: this.bondDetail.shortName || '',
                     securityType: this.bondDetail.securityType || '',
+                    crmwName: this.crmwDetail.shortName || '',
+                    crmwScode: this.crmwDetail.windCode || '',
+                    crmwMktcode: this.crmwDetail.market || '',
+                    crmwStype: this.crmwDetail.securityType || 'crmw',
                     adjustType: '手工调整',
                     adjustReason: this.adjustReason,
                     adjustAdvice: this.adjustAdvice,
@@ -2515,7 +2306,7 @@
                     }))
                 };
                 try {
-                    await this.submitAdjustMultipart('/api/v1/securityPoolAdjust/addAdjustLogWithFiles', payload, submitFiles);
+                    await this.submitAdjustMultipart('/api/v1/crmwPoolAdjust/addCrmwAdjustLogWithFiles', payload, submitFiles);
                     this.$message.success('调库申请已成功提交');
                     this.backToList();
                 } catch (e) {
@@ -2662,13 +2453,7 @@
                     if (visibleIds.indexOf(r.id) === -1) mergeMap[r.id] = r;
                 });
                 rows.forEach(row => {
-                    mergeMap[row.id] = {
-                        id: row.id,
-                        title: row.title,
-                        reportType: row.reportType,
-                        source: 'internal',
-                        attachments: row.attachments || []
-                    };
+                    mergeMap[row.id] = { id: row.id, title: row.title, reportType: row.reportType, source: 'internal' };
                 });
                 this.selectedInternalReports = Object.keys(mergeMap).map(k => mergeMap[k]);
             },
@@ -2682,13 +2467,7 @@
                     if (visibleIds.indexOf(r.id) === -1) mergeMap[r.id] = r;
                 });
                 rows.forEach(row => {
-                    mergeMap[row.id] = {
-                        id: row.id,
-                        title: row.title,
-                        reportType: row.reportType,
-                        source: 'external',
-                        attachments: row.attachments || []
-                    };
+                    mergeMap[row.id] = { id: row.id, title: row.title, reportType: row.reportType, source: 'external' };
                 });
                 this.selectedExternalReports = Object.keys(mergeMap).map(k => mergeMap[k]);
             },
@@ -2882,12 +2661,14 @@
                 }
                 const params = new URLSearchParams();
                 window.RrsAuth.appendUserParams(params);
-                window.location.href = this.pagePaths.securityPoolAdjust + '?' + params.toString();
+                window.location.href = this.pagePaths.crmwPoolAdjust + '?' + params.toString();
             },
             // 重置详情页所有状态
             resetDetailState() {
                 this.currentPage = 'list';
                 this.bondDetail = {};             // 清空证券详情
+                this.crmwDetail = {};             // 清空CRMW详情
+                this.selectedCrmwCode = '';       // 清空CRMW代码
                 this.adjustStep = 1;              // 重置调库步骤为第一步
                 this.adjustReviewList = [];       // 清空校验结果列表
                 this.pendingAdjustReviewList = []; // 清空待确认校验结果
@@ -2898,7 +2679,6 @@
                 this.selectedOutPools = [];       // 清空已选调出池
                 this.attachmentFiles = {};        // 清空附件文件
                 this.materialFiles = {};          // 清空其他材料文件
-                this.deletedAttachmentIds = {};    // 清空待删除附件
                 this.creditReportSelections = {}; // 清空信评报告选择
                 this.otherMaterialSelections = {}; // 清空其他材料报告选择
                 this.inMutexMap = {};             // 清空调入互斥映射

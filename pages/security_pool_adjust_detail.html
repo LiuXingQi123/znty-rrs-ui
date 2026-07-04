@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>禁投池调整详情</title>
+    <title>证券池调库详情</title>
     <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
     <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
-    <script src="js/api.js"></script>
+    <script src="../js/api.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
-    <link rel="stylesheet" href="css/forbidden_pool_adjust_detail.css">
-    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="../css/security_pool_adjust_detail.css">
+    <link rel="stylesheet" href="../css/common.css">
 </head>
-<body class="forbidden-pool-adjust-detail-page">
+<body class="security-pool-adjust-detail-page">
 
-<div id="forbidden_pool_adjust_detail" class="pool-adjust-workflow-page">
+<div id="security_pool_adjust_detail" class="pool-adjust-workflow-page">
 
     <!-- ==================== 列表页：证券搜索 + 分页表格 ==================== -->
     <div class="page" :class="{ active: currentPage === 'list' }">
@@ -25,7 +25,7 @@
                 <div class="topbar-icon">
                     <svg width="17" height="17" viewBox="0 0 24 24"><path d="M4 4h16v3H4V4zm0 5h16v3H4V9zm0 5h10v3H4v-3z"/></svg>
                 </div>
-                <h2>禁投池调整</h2>
+                <h2>证券池调库</h2>
             </div>
             <div class="topbar-sep"></div>
             <span class="topbar-sys">证券投资管理系统</span>
@@ -44,26 +44,18 @@
                 <span class="search-label">
                     <i class="el-icon-search"></i>筛选
                 </span>
-                <el-input v-model="searchForm.companyCode" placeholder="主体代码" clearable
+                <el-input v-model="searchForm.securityCode" placeholder="证券代码" clearable
                           size="small" style="width:148px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-document"></i>
                 </el-input>
-                <el-input v-model="searchForm.companyShortName" placeholder="主体简称" clearable
+                <el-input v-model="searchForm.securityShortName" placeholder="证券简称" clearable
                           size="small" style="width:148px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
                 </el-input>
-                <el-input v-model="searchForm.companyFullName" placeholder="主体全称" clearable
+                <el-input v-model="searchForm.issuer" placeholder="发行人" clearable
                           size="small" style="width:180px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
                 </el-input>
-                <el-input v-model="searchForm.compType" placeholder="发行人类型" clearable
-                          size="small" style="width:140px;" @keyup.enter.native="handleSearch"></el-input>
-                <el-input v-model="searchForm.industryName" placeholder="所属行业" clearable
-                          size="small" style="width:140px;" @keyup.enter.native="handleSearch"></el-input>
-                <el-input v-model="searchForm.companyRating" placeholder="主体评级" clearable
-                          size="small" style="width:120px;" @keyup.enter.native="handleSearch"></el-input>
-                <el-input v-model="searchForm.companyInnerRating" placeholder="主体内评分档" clearable
-                          size="small" style="width:130px;" @keyup.enter.native="handleSearch"></el-input>
                 <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
                 <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
                 <div class="total-badge">
@@ -76,41 +68,50 @@
             <div class="table-card">
                 <el-table ref="listTable" :data="tableData" v-loading="loading" stripe border size="small"
                           style="width:100%;" :empty-text="'暂无数据'">
-                    <el-table-column label="序号" width="50" align="center">
+                    <el-table-column label="序号" width="50" align="center" fixed="left">
                         <template slot-scope="{ $index }">
                             {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
                         </template>
                     </el-table-column>
-                    <el-table-column prop="companyCode" label="主体代码" min-width="130">
+                    <el-table-column prop="windCode" label="证券代码" min-width="130">
                         <template slot-scope="{ row }">
-                            <span class="desc-link" @click="handleAdjust(row)">{{ row.companyCode || '' }}</span>
+                            <span style="font-family:'Courier New',monospace;font-size:12.5px;color:var(--c-primary);font-weight:500;">{{ row.windCode || '' }}</span>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="companyShortName" label="主体简称" min-width="130">
-                        <template slot-scope="{ row }">
-                            <span class="desc-link" @click="handleAdjust(row)">{{ row.companyShortName || '' }}</span>
-                        </template>
-                    </el-table-column>
-                    <el-table-column prop="companyFullName" label="主体全称" min-width="240" show-overflow-tooltip></el-table-column>
-                    <el-table-column prop="securityTypeName" label="主体类型" min-width="110">
+                    <el-table-column prop="shortName" label="证券简称" min-width="130"></el-table-column>
+                    <el-table-column prop="fullName" label="证券全称" min-width="240" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="issuer" label="发行人" min-width="160" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="securityTypeName" label="证券类型" min-width="110">
                         <template slot-scope="{ row }">
                             <el-tag v-if="row.securityTypeName" size="mini" type="info">{{ row.securityTypeName }}</el-tag>
                             <span v-else style="color:var(--c-text-3);"></span>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="compType" label="发行人类型" min-width="120"></el-table-column>
-                    <el-table-column prop="industryName" label="一级行业" min-width="130" show-overflow-tooltip></el-table-column>
-                    <el-table-column prop="industryName2" label="二级行业" min-width="130" show-overflow-tooltip></el-table-column>
-                    <el-table-column prop="companyRating" label="主体评级" min-width="90">
+                    <el-table-column prop="issueAmountplan" label="发行总额(亿)" min-width="110" align="right">
                         <template slot-scope="{ row }">
-                            <el-tag v-if="row.companyRating" size="mini">{{ row.companyRating }}</el-tag>
+                            <span style="font-family:'Courier New',monospace;font-size:12.5px;">{{ row.issueAmountplan != null ? row.issueAmountplan : '' }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="couponRate" label="当期利率(%)" min-width="110" align="right">
+                        <template slot-scope="{ row }">
+                            <span style="font-family:'Courier New',monospace;font-size:12.5px;color:var(--c-amber);">{{ row.couponRate != null ? row.couponRate : '' }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="carryDate" label="起息日期" min-width="110" align="center"></el-table-column>
+                    <el-table-column prop="maturityDate" label="到期日" min-width="110" align="center"></el-table-column>
+                    <el-table-column prop="dateExists" label="证券期限" min-width="110"></el-table-column>
+                    <el-table-column prop="ratingBond" label="证券评级" min-width="90">
+                        <template slot-scope="{ row }">
+                            <el-tag v-if="row.ratingBond" size="mini" type="success">{{ row.ratingBond }}</el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="ratingBondissuer" label="主体评级" min-width="90">
+                        <template slot-scope="{ row }">
+                            <el-tag v-if="row.ratingBondissuer" size="mini">{{ row.ratingBondissuer }}</el-tag>
                             <span v-else style="color:var(--c-text-3);"></span>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="ratingOutlook" label="评级展望" min-width="100"></el-table-column>
-                    <el-table-column prop="companyInnerRating" label="主体内评分档" min-width="110"></el-table-column>
-                    <el-table-column prop="companyBondCount" label="旗下债券数量" min-width="110" align="right"></el-table-column>
-                    <el-table-column label="操作" width="90" fixed="right" align="center">
+                    <el-table-column label="操作" width="90" fixed="right">
                         <template slot-scope="{ row }">
                             <el-button class="pool-row-action" type="primary" size="mini" @click="handleAdjust(row)">调库</el-button>
                         </template>
@@ -141,66 +142,134 @@
             <div class="divider"></div>
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:14px;font-weight:700;color:var(--c-text);">{{ pageTitle }}</span>
-                <span v-if="companyDetail.companyCode"
+                <span v-if="bondDetail.windCode"
                       style="font-family:'Courier New',monospace;font-size:13px;font-weight:600;color:var(--c-primary);background:var(--c-primary-l);padding:2px 10px;border-radius:5px;border:1px solid rgba(23,70,212,.15);">
-                    {{ companyDetail.companyCode }}
+                    {{ bondDetail.windCode }}
                 </span>
-                <span v-if="companyDetail.companyShortName || companyDetail.companyFullName"
+                <span v-if="bondDetail.shortName || bondDetail.fullName"
                       style="color:var(--c-text-2);font-weight:500;font-size:13px;">
-                    {{ companyDetail.companyShortName || companyDetail.companyFullName }}
+                    {{ bondDetail.shortName || bondDetail.fullName }}
                 </span>
             </div>
         </div>
 
         <div class="detail-body" v-loading="detailLoading">
 
-            <!-- 主体基本信息 -->
-            <div class="section-card section-company-info">
+            <!-- 证券基本信息 -->
+            <div class="section-card section-bond-info">
                 <div class="section-header" @click="toggleSection('bondInfo')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
-                    <div class="section-title">主体基本信息</div>
+                    <div class="section-title">证券基本信息</div>
                     <i :class="sectionExpanded.bondInfo ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
                 <div v-show="sectionExpanded.bondInfo" style="padding:0;">
                     <el-descriptions :column="3" border size="small" class="bond-info-descriptions">
-                        <el-descriptions-item label="主体全称">
-                            <el-input v-model="companyDetail.companyFullName" size="small" disabled></el-input>
+                        <el-descriptions-item label="证券全称">
+                            <el-input v-model="bondDetail.fullName" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="主体简称">
-                            <el-input v-model="companyDetail.companyShortName" size="small" disabled></el-input>
+                        <el-descriptions-item label="证券简称">
+                            <el-input v-model="bondDetail.shortName" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="主体代码">
-                            <el-input v-model="companyDetail.companyCode" size="small" disabled></el-input>
+                        <el-descriptions-item label="证券代码">
+                            <el-input v-model="bondDetail.windCode" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="主体类型">
-                            <el-input v-model="companyDetail.securityTypeName" size="small" disabled></el-input>
+                        <el-descriptions-item label="发行人名称">
+                            <el-input v-model="bondDetail.issuer" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="发行人类型">
-                            <el-input v-model="companyDetail.compType" size="small" disabled></el-input>
+                        <el-descriptions-item label="银行间代码">
+                            <el-input v-model="bondDetail.windCodeNib" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="一级行业">
-                            <el-input v-model="companyDetail.industryName" size="small" disabled></el-input>
+                        <el-descriptions-item label="沪市证券代码">
+                            <el-input v-model="bondDetail.windCodeSh" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="二级行业">
-                            <el-input v-model="companyDetail.industryName2" size="small" disabled></el-input>
+                        <el-descriptions-item label="深市证券代码">
+                            <el-input v-model="bondDetail.windCodeSz" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="北交所代码">
+                            <el-input v-model="bondDetail.windCodeBj" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="发行总额(亿元)">
+                            <el-input v-model="bondDetail.issueAmountplan" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="当期利率(%)">
+                            <el-input v-model="bondDetail.couponRate" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="行权剩余期限">
+                            <el-input v-model="bondDetail.dateInrightExists" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="起息日期">
+                            <el-date-picker
+                                    v-model="bondDetail.carryDate"
+                                    type="date"
+                                    size="small"
+                                    value-format="yyyy-MM-dd"
+                                    placeholder="请选择"
+                                    class="detail-date-picker"
+                                    :disabled="isSecurityInfoReadonly">
+                            </el-date-picker>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="到期日">
+                            <el-date-picker
+                                    v-model="bondDetail.maturityDate"
+                                    type="date"
+                                    size="small"
+                                    value-format="yyyy-MM-dd"
+                                    placeholder="请选择"
+                                    class="detail-date-picker"
+                                    :disabled="isSecurityInfoReadonly">
+                            </el-date-picker>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="质押比率(%)">
+                            <el-input v-model="bondDetail.infoPledgeRatio" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="评级机构">
+                            <el-input v-model="bondDetail.ratingBondAgency" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券评级">
+                            <el-input v-model="bondDetail.ratingBond" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主体评级">
-                            <el-input v-model="companyDetail.companyRating" size="small" disabled></el-input>
+                            <el-input v-model="bondDetail.ratingBondissuer" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="评级展望">
-                            <el-input v-model="companyDetail.ratingOutlook" size="small" disabled></el-input>
+                        <el-descriptions-item label="展望评级">
+                            <el-input v-model="bondDetail.ratingOutlook" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="主体评级机构">
-                            <el-input v-model="companyDetail.ratingBondissuerAgency" size="small" disabled></el-input>
+                        <el-descriptions-item label="担保情况">
+                            <el-input v-model="bondDetail.agencyGrnttype" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="主承销商">
+                            <el-input v-model="bondDetail.agencyName" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主体内评分档">
-                            <el-input v-model="companyDetail.companyInnerRating" size="small" disabled></el-input>
+                            <el-input v-model="bondDetail.innerIssuerRating" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="旗下债券数量">
-                            <el-input v-model="companyDetail.companyBondCount" size="small" disabled></el-input>
+                        <el-descriptions-item label="证券类型">
+                            <el-input v-model="bondDetail.securityTypeName" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="数据更新时间">
-                            <el-input :value="formatDateTime(companyDetail.ts)" size="small" disabled></el-input>
+                        <el-descriptions-item label="回售行权期限">
+                            <el-input v-model="bondDetail.dateRedemtionExists" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="赎回行权剩余期限">
+                            <el-input v-model="bondDetail.dateCallExists" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="担保人主体内评分">
+                            <el-input v-model="bondDetail.innerGuarantorRating" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="含权债剩余期限">
+                            <el-input v-model="bondDetail.dateInrightExists" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券期限">
+                            <el-input v-model="bondDetail.dateExists" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="募集资金用途" :span="3">
+                            <el-input type="textarea" :rows="3" v-model="bondDetail.fundUse" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                            <div class="textarea-hint">最多还可输入 968 个字符</div>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="提示原因" :span="3">
+                            <el-input type="textarea" :rows="3" v-model="bondDetail.promptReason" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券分析" :span="3">
+                            <el-input type="textarea" :rows="3" v-model="bondDetail.analysis" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly"></el-input>
                         </el-descriptions-item>
                     </el-descriptions>
                 </div>
@@ -215,27 +284,27 @@
                 </div>
                 <div v-show="sectionExpanded.currentPools" style="padding:0 0 4px;">
 
-                    <!-- ① 当前主体所在池 -->
+                    <!-- ① 当前证券所在池 -->
                     <div class="pool-sub-block block-bond">
-                        <div class="pool-inline-row" :class="{ 'is-expanded': companyPoolExpanded }">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': securityPoolExpanded }">
                             <div class="pool-inline-label">
-                                <span class="pool-sub-label">当前主体所在池</span>
-                                <span class="pool-sub-count type-bond">{{ companyCurrentPools.length }}</span>
+                                <span class="pool-sub-label">当前证券所在池</span>
+                                <span class="pool-sub-count type-bond">{{ securityCurrentPools.length }}</span>
                             </div>
                             <div class="pool-inline-content">
-                                <template v-if="!companyPoolExpanded">
-                                    <span v-if="companyCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
-                                    <span v-for="(p, idx) in companyCurrentPools" :key="p.poolName" class="pool-name-chip">{{ p.poolName }}</span>
-                                    <span v-if="companyCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                <template v-if="!securityPoolExpanded">
+                                    <span v-if="securityCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
+                                    <span v-for="(p, idx) in securityCurrentPools" :key="p.poolName" class="pool-name-chip">{{ p.poolName }}</span>
+                                    <span v-if="securityCurrentPools.length > 0" class="pool-overflow-hint">···</span>
                                 </template>
                             </div>
-                            <button class="pool-toggle-btn" @click.stop="companyPoolExpanded = !companyPoolExpanded">
-                                <i :class="companyPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
-                                {{ companyPoolExpanded ? '收起' : '展开' }}
+                            <button class="pool-toggle-btn" @click.stop="securityPoolExpanded = !securityPoolExpanded">
+                                <i :class="securityPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                                {{ securityPoolExpanded ? '收起' : '展开' }}
                             </button>
                         </div>
-                        <div v-if="companyPoolExpanded" class="pool-expand-table">
-                            <el-table :data="companyCurrentPools" size="small" stripe border style="width:100%;" :empty-text="'暂无'">
+                        <div v-if="securityPoolExpanded" class="pool-expand-table">
+                            <el-table :data="securityCurrentPools" size="small" stripe border style="width:100%;" :empty-text="'暂无'">
                                 <el-table-column label="序号" width="50" align="center">
                                     <template slot-scope="{ $index }">
                                         {{ $index + 1 }}
@@ -256,27 +325,27 @@
                         </div>
                     </div>
 
-                    <!-- ② 当前主体旗下债券所在池 -->
+                    <!-- ② 当前证券主体所在池 -->
                     <div class="pool-sub-block block-issuer">
-                        <div class="pool-inline-row" :class="{ 'is-expanded': companyBondPoolExpanded }">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': issuerPoolExpanded }">
                             <div class="pool-inline-label">
-                                <span class="pool-sub-label">当前主体旗下债券所在池</span>
-                                <span class="pool-sub-count type-issuer">{{ companyBondCurrentPools.length }}</span>
+                                <span class="pool-sub-label">当前证券主体所在池</span>
+                                <span class="pool-sub-count type-issuer">{{ issuerCurrentPools.length }}</span>
                             </div>
                             <div class="pool-inline-content">
-                                <template v-if="!companyBondPoolExpanded">
-                                    <span v-if="companyBondCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
-                                    <span v-for="(p, idx) in companyBondCurrentPools" :key="p.poolName+idx" class="pool-name-chip pool-name-chip--green">{{ p.poolName }}</span>
-                                    <span v-if="companyBondCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                <template v-if="!issuerPoolExpanded">
+                                    <span v-if="issuerCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
+                                    <span v-for="(p, idx) in issuerCurrentPools" :key="p.poolName+idx" class="pool-name-chip pool-name-chip--green">{{ p.poolName }}</span>
+                                    <span v-if="issuerCurrentPools.length > 0" class="pool-overflow-hint">···</span>
                                 </template>
                             </div>
-                            <button class="pool-toggle-btn" @click.stop="companyBondPoolExpanded = !companyBondPoolExpanded">
-                                <i :class="companyBondPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
-                                {{ companyBondPoolExpanded ? '收起' : '展开' }}
+                            <button class="pool-toggle-btn" @click.stop="issuerPoolExpanded = !issuerPoolExpanded">
+                                <i :class="issuerPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                                {{ issuerPoolExpanded ? '收起' : '展开' }}
                             </button>
                         </div>
-                        <div v-if="companyBondPoolExpanded" class="pool-expand-table">
-                            <el-table :data="companyBondCurrentPools" size="small" stripe border style="width:100%;" max-height="280" :empty-text="'暂无'">
+                        <div v-if="issuerPoolExpanded" class="pool-expand-table">
+                            <el-table :data="issuerCurrentPools" size="small" stripe border style="width:100%;" max-height="280" :empty-text="'暂无'">
                                 <el-table-column label="序号" width="50" align="center">
                                     <template slot-scope="{ $index }">
                                         {{ $index + 1 }}
@@ -290,18 +359,13 @@
                                         <span style="display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:500;background:#F0F2FA;color:var(--c-text-2);">{{ poolTypeLabel(row.poolType) }}</span>
                                     </template>
                                 </el-table-column>
-                                <el-table-column prop="bondCount" label="旗下债券数" min-width="120" align="center">
+                                <el-table-column prop="bondCount" label="主体在该池证券数" min-width="140" align="center">
                                     <template slot-scope="{ row }">
                                         <span style="font-family:'Courier New',monospace;font-weight:700;color:var(--c-primary);font-size:13px;">{{ row.bondCount }}<span style="font-size:10px;font-weight:400;color:var(--c-text-3);margin-left:2px;">只</span></span>
                                     </template>
                                 </el-table-column>
                                 <el-table-column prop="entryDate" label="最早入池日期" min-width="130" align="center">
                                     <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
-                                </el-table-column>
-                                <el-table-column label="操作" width="90" align="center">
-                                    <template slot-scope="{ row }">
-                                        <el-button type="text" size="mini" @click="openCompanyBondDialog(row)">查看债券</el-button>
-                                    </template>
                                 </el-table-column>
                             </el-table>
                         </div>
@@ -322,12 +386,6 @@
                         <el-table-column label="序号" width="50" align="center">
                             <template slot-scope="{ $index }">
                                 {{ $index + 1 }}
-                            </template>
-                        </el-table-column>
-                        <el-table-column label="调整对象" min-width="190">
-                            <template slot-scope="{ row }">
-                                <div style="font-weight:500;color:var(--c-text);">{{ row.securityShortName || '' }}</div>
-                                <div style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-3);">{{ row.securityCode || '' }}</div>
                             </template>
                         </el-table-column>
                         <el-table-column prop="poolPath" label="投资池名称" min-width="180">
@@ -918,22 +976,6 @@
             </span>
         </el-dialog>
 
-        <!-- ── 主体旗下债券明细弹窗 ── -->
-        <el-dialog :title="bondDialogTitle" :visible.sync="bondDialogVisible" width="860px" append-to-body>
-            <el-table :data="companyBondList" v-loading="bondDialogLoading" size="small" stripe border
-                      max-height="460" :empty-text="'暂无债券数据'">
-                <el-table-column label="序号" width="50" align="center" type="index"></el-table-column>
-                <el-table-column prop="windCode" label="证券代码" min-width="130"></el-table-column>
-                <el-table-column prop="shortName" label="证券简称" min-width="140" show-overflow-tooltip></el-table-column>
-                <el-table-column prop="fullName" label="证券全称" min-width="220" show-overflow-tooltip></el-table-column>
-                <el-table-column prop="securityTypeName" label="证券类型" min-width="110"></el-table-column>
-                <el-table-column prop="entryDate" label="入池日期" min-width="130" align="center"></el-table-column>
-            </el-table>
-            <span slot="footer">
-                <el-button size="small" @click="bondDialogVisible = false">关闭</el-button>
-            </span>
-        </el-dialog>
-
         <!-- ── 信评报告选择弹窗 ── -->
         <el-dialog :title="reportDialogTitle" :visible.sync="reportDialogVisible" width="960px"
                    custom-class="report-dialog" top="6vh" @closed="handleReportDialogClosed">
@@ -1207,35 +1249,28 @@
 
 <script>
     new Vue({
-        el: '#forbidden_pool_adjust_detail',
+        el: '#security_pool_adjust_detail',
         data() {
             return {
                 moment: moment, // 日期处理工具
                 pagePaths: { // 页面跳转路径
-                    forbiddenPoolAdjust: 'forbidden_pool_adjust.html', // 禁投池调整列表页
+                    securityPoolAdjust: 'security_pool_adjust.html', // 证券池调整列表页
                 },
                 currentPage: 'detail',          // 当前显示页：'list'=列表页 / 'detail'=详情页
-                searchForm: { // 列表页搜索条件
-                    companyCode: '', companyShortName: '', companyFullName: '', compType: '',
-                    industryName: '', companyRating: '', companyInnerRating: ''
-                },
+                searchForm: { securityCode: '', securityShortName: '', issuer: '' }, // 列表页搜索条件
                 tableData: [],                // 列表页表格数据
                 loading: false,               // 列表页加载状态
                 pagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 列表页分页参数
                 selectedTargetPoolId: null,   // 从目标池入口进入时携带的目标池ID
                 selectedAdjustLogId: null,    // 从调库记录入口进入时携带的调库记录ID
                 selectedAdjustBatchNo: null,  // 从调库记录入口进入时携带的调库批次号
-                bondDialogVisible: false,     // 旗下债券明细弹窗显示状态
-                bondDialogLoading: false,     // 旗下债券明细加载状态
-                bondDialogTitle: '旗下债券明细', // 旗下债券明细弹窗标题
-                companyBondList: [],          // 指定投资池中的旗下债券列表
                 entryMode: 'view',            // 入口模式：view=名称/编码详情 / adjust=调库调整
-                companyDetail: {},            // 主体基本信息（详情页）
+                bondDetail: {},               // 证券基本信息（详情页）
                 detailLoading: false,         // 详情页加载状态
-                companyCurrentPools: [],     // 当前证券所在的投资池列表
-                companyBondCurrentPools: [],       // 当前证券主体所在的投资池列表
-                companyPoolExpanded: false,  // 证券所在池展开/折叠状态
-                companyBondPoolExpanded: false,    // 主体所在池展开/折叠状态
+                securityCurrentPools: [],     // 当前证券所在的投资池列表
+                issuerCurrentPools: [],       // 当前证券主体所在的投资池列表
+                securityPoolExpanded: false,  // 证券所在池展开/折叠状态
+                issuerPoolExpanded: false,    // 主体所在池展开/折叠状态
                 adjustInTree: [],             // 可调入池树形数据
                 adjustOutTree: [],            // 可调出池树形数据
                 selectedInPools: [],          // 步骤1中已勾选的调入池列表
@@ -1326,7 +1361,7 @@
         computed: {
             // 根据入口模式显示页面用途
             pageTitle() {
-                return this.entryMode === 'adjust' ? '禁投池调整' : '主体详情';
+                return this.entryMode === 'adjust' ? '证券池调库' : '证券详情';
             },
             // 当前是否为只读详情入口
             isViewMode() {
@@ -1336,7 +1371,7 @@
             isAdjustMode() {
                 return this.entryMode === 'adjust';
             },
-            // 主体基础信息是否只读
+            // 证券基础信息是否只读
             isSecurityInfoReadonly() {
                 return this.isViewMode;
             },
@@ -1466,29 +1501,11 @@
                 if (hashQueryIndex < 0) return '';
                 return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
             },
-            // 格式化日期时间
-            formatDateTime(value) {
-                return value ? moment(value).format('YYYY-MM-DD HH:mm:ss') : '';
-            },
-            // 查看主体旗下债券在指定投资池中的明细
-            async openCompanyBondDialog(pool) {
-                this.bondDialogTitle = (pool.poolName || '') + ' - 旗下债券明细';
-                this.bondDialogVisible = true;
-                this.bondDialogLoading = true;
-                try {
-                    this.companyBondList = await this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyBondList', {
-                        companyCode: this.companyDetail.companyCode,
-                        targetPoolId: pool.targetPoolId
-                    }) || [];
-                } finally {
-                    this.bondDialogLoading = false;
-                }
-            },
             // 初始化独立调库详情页
             async initStandaloneDetailPage() {
-                const companyCode = this.getUrlParam('companyCode');
-                if (!companyCode) {
-                    this.$message.warning('缺少主体信息，请从业务页面进入');
+                const securityCode = this.getUrlParam('securityCode') || this.getUrlParam('windCode');
+                if (!securityCode) {
+                    this.$message.warning('缺少证券信息，请从业务页面进入');
                     return;
                 }
                 this.selectedTargetPoolId = this.getUrlParam('targetPoolId') || null;
@@ -1496,18 +1513,20 @@
                 this.selectedAdjustBatchNo = this.getUrlParam('adjustBatchNo') || this.getUrlParam('adjust_batch_no') || null;
                 this.entryMode = this.getUrlParam('entryMode') === 'adjust' ? 'adjust' : 'view';
                 this.adjustStep = 1;
-                await this.loadDetailData(companyCode);
+                await this.loadDetailData(securityCode);
             },
-            // 加载主体分页列表（按搜索条件查询）
+            // 加载证券分页列表（按搜索条件查询）
             async loadList() {
                 this.loading = true;
                 try {
                     const queryParams = {
-                        ...this.searchForm,
+                        securityCode: this.searchForm.securityCode,
+                        securityShortName: this.searchForm.securityShortName,
+                        issuer: this.searchForm.issuer,
                         pageIndex: this.pagination.pageIndex,
                         pageSize: this.pagination.pageSize
                     };
-                    const data = await this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyPage', queryParams);
+                    const data = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityPage', queryParams);
                     this.tableData = data.records || [];
                     this.pagination.total = data.total || 0;
                 } catch (e) {}
@@ -1519,7 +1538,7 @@
             handleSearch() { this.pagination.pageIndex = 1; this.loadList(); },
             // 重置搜索条件并重新加载
             handleReset() {
-                this.searchForm = { companyCode: '', companyShortName: '', companyFullName: '', compType: '', industryName: '', companyRating: '', companyInnerRating: '' };
+                this.searchForm = { securityCode: '', securityShortName: '', issuer: '' };
                 this.pagination.pageIndex = 1; this.loadList();
             },
             // 分页页码切换
@@ -1533,56 +1552,55 @@
                 this.selectedAdjustBatchNo = this.getUrlParam('adjustBatchNo') || this.getUrlParam('adjust_batch_no') || null;
                 this.entryMode = 'adjust';
                 this.currentPage = 'detail';
-                await this.loadDetailData(row.companyCode);
+                await this.loadDetailData(row.windCode || row.securityCode);
             },
             // 查询当前证券所在池及主体所在池
-            async loadCompanyPoolStatus(companyCode) {
+            async loadSecurityPoolStatus(securityCode) {
                 try {
-                    const data = await this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyPoolStatus', {
-                        companyCode: companyCode
+                    const data = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', {
+                        securityCode: securityCode
                     });
-                    this.companyCurrentPools = data.companyCurrentPools || [];
-                    this.companyBondCurrentPools = data.companyBondCurrentPools || [];
+                    this.securityCurrentPools = data.securityCurrentPools || [];
+                    this.issuerCurrentPools = data.issuerCurrentPools || [];
                 } catch (e) {
-                    this.companyCurrentPools = [];
-                    this.companyBondCurrentPools = [];
+                    this.securityCurrentPools = [];
+                    this.issuerCurrentPools = [];
                 }
             },
             // 池类型码 → 中文名
             poolTypeLabel(poolType) {
                 const map = {
                     credit_bond: '信用债', offshore_bond: '境外债', convertible_bond: '转债',
-                    special_account: '专户产品', research: '研究池', fund: '基金池',
+                    special_account: '专户产品', crmw: 'CRMW库', research: '研究池', fund: '基金池',
                     restricted: '限制池', industry: '行业池', whitelist: '白名单',
-                    forbidden: '禁投池', observe: '观察池', blacklist: '黑名单',
-                    private_placement: '私募池', other: '其他'
+                    blacklist: '黑名单', forbidden: '禁投池', private_placement: '私募池', other: '其他'
                 };
                 return map[poolType] || poolType || '';
             },
-            // 并发加载详情页所需的全部数据（主体详情/可调入出池/当前所在池/调库记录）
-            async loadDetailData(companyCode) {
+            // 并发加载详情页所需的全部数据（证券详情/可调入出池/当前所在池/调库记录）
+            async loadDetailData(securityCode) {
                 this.detailLoading = true;
                 try {
-                    const inPoolParams = { companyCode: companyCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
-                    const outPoolParams = { companyCode: companyCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
+                    const inPoolParams = { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
+                    const outPoolParams = { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
                     const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
-                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyDetail',     { companyCode: companyCode }),
-                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustPoolList', inPoolParams),
-                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustPoolList', outPoolParams),
-                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyPoolStatus', { companyCode: companyCode }),
-                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustLogList',  { companyCode: companyCode, adjustBatchNo: this.selectedAdjustBatchNo })
+                        this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail',     { securityCode: securityCode }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', inPoolParams),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', outPoolParams),
+                        this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode }),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
-                    this.companyDetail    = detail  || {};
+                    this.bondDetail    = detail  || {};
                     // 当前所在池
-                    this.companyCurrentPools   = (poolStatus && poolStatus.companyCurrentPools)   || [];
-                    this.companyBondCurrentPools = (poolStatus && poolStatus.companyBondCurrentPools) || [];
+                    this.securityCurrentPools   = (poolStatus && poolStatus.securityCurrentPools)   || [];
+                    this.issuerCurrentPools = (poolStatus && poolStatus.issuerCurrentPools) || [];
 
                     const inPoolsData  = inPools  || [];
                     const outPoolsData = outPools || [];
 
                     // 证券当前已在库的池 ID 集合
                     const currentSecurityPoolIds = new Set(
-                        this.companyCurrentPools.map(p => p.targetPoolId).filter(id => id != null)
+                        this.securityCurrentPools.map(p => p.targetPoolId).filter(id => id != null)
                     );
 
                     // 调出池：只保留证券当前已在其中的池及其父节点
@@ -1825,7 +1843,7 @@
                 for (const log of candidateLogs) {
                     if (!log || !log.id) continue;
                     try {
-                        const steps = await this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustStepList', { adjustLogId: log.id, adjustBatchNo: log.adjustBatchNo }) || [];
+                        const steps = await this.apiPost('/api/v1/securityPoolAdjust/queryAdjustStepList', { adjustLogId: log.id, adjustBatchNo: log.adjustBatchNo }) || [];
                         if (!fallback) fallback = { log, steps };
                         if (steps.some(step => step.stepStatus === 'pending')) {
                             this.activeAdjustLog = log;
@@ -2086,14 +2104,14 @@
 
                 this.adjustCheckLoading = true;
                 const checkParams = {
-                    companyCode: this.companyDetail.companyCode || '',
-                    companyShortName: this.companyDetail.companyShortName || '',
-                    securityType: this.companyDetail.securityType || '',
+                    securityCode: this.bondDetail.windCode || '',
+                    securityShortName: this.bondDetail.shortName || '',
+                    securityType: this.bondDetail.securityType || '',
                     items
                 };
                 let result = null;
                 try {
-                    result = await this.apiPost('/api/v1/forbiddenPoolAdjust/checkAdjust', checkParams);
+                    result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', checkParams);
                 } catch (e) {
                     this.$message.error(e.message || '操作失败');
                     return;
@@ -2190,14 +2208,44 @@
                     item.creditReportFileIndexes = this.collectSubmitFiles(item.attachmentFiles || [], submitFiles);
                     item.materialFileIndexes = this.collectSubmitFiles(item.materialFiles || [], submitFiles);
                 });
-
+                const securityInfo = {
+                    fullName: this.bondDetail.fullName,
+                    shortName: this.bondDetail.shortName,
+                    windCode: this.bondDetail.windCode,
+                    issuer: this.bondDetail.issuer,
+                    windCodeNib: this.bondDetail.windCodeNib,
+                    windCodeSh: this.bondDetail.windCodeSh,
+                    windCodeSz: this.bondDetail.windCodeSz,
+                    windCodeBj: this.bondDetail.windCodeBj,
+                    issueAmountplan: this.bondDetail.issueAmountplan,
+                    couponRate: this.bondDetail.couponRate,
+                    dateInrightExists: this.bondDetail.dateInrightExists,
+                    carryDate: this.bondDetail.carryDate,
+                    maturityDate: this.bondDetail.maturityDate,
+                    infoPledgeRatio: this.bondDetail.infoPledgeRatio,
+                    ratingBondAgency: this.bondDetail.ratingBondAgency,
+                    ratingBond: this.bondDetail.ratingBond,
+                    ratingBondissuer: this.bondDetail.ratingBondissuer,
+                    ratingOutlook: this.bondDetail.ratingOutlook,
+                    agencyGrnttype: this.bondDetail.agencyGrnttype,
+                    agencyName: this.bondDetail.agencyName,
+                    innerIssuerRating: this.bondDetail.innerIssuerRating,
+                    dateRedemtionExists: this.bondDetail.dateRedemtionExists,
+                    dateCallExists: this.bondDetail.dateCallExists,
+                    innerGuarantorRating: this.bondDetail.innerGuarantorRating,
+                    dateExists: this.bondDetail.dateExists,
+                    fundUse: this.bondDetail.fundUse,
+                    promptReason: this.bondDetail.promptReason,
+                    analysis: this.bondDetail.analysis
+                };
                 const payload = {
-                    companyCode: this.companyDetail.companyCode || '',
-                    companyShortName: this.companyDetail.companyShortName || '',
-                    securityType: this.companyDetail.securityType || '',
+                    securityCode: this.bondDetail.windCode || '',
+                    securityShortName: this.bondDetail.shortName || '',
+                    securityType: this.bondDetail.securityType || '',
                     adjustType: '手工调整',
                     adjustReason: this.adjustReason,
                     adjustAdvice: this.adjustAdvice,
+                    securityInfo,
                     adjusterId: this.currentLoginUserId,
                     adjusterName: this.currentLoginUserName,
                     items: validItems.map(r => ({
@@ -2212,13 +2260,11 @@
                         flowType: r.flowType,
                         adjustmentNote: r.adjustNote,
                         creditReportFileIndexes: r.creditReportFileIndexes || [],
-                        materialFileIndexes: r.materialFileIndexes || [],
-                        creditReportSourceAttachmentIds: this.collectReportAttachmentIds(r.creditReports || []),
-                        materialSourceAttachmentIds: this.collectReportAttachmentIds(r.otherMaterials || [])
+                        materialFileIndexes: r.materialFileIndexes || []
                     }))
                 };
                 try {
-                    await this.submitAdjustMultipart('/api/v1/forbiddenPoolAdjust/addAdjustLogWithFiles', payload, submitFiles);
+                    await this.submitAdjustMultipart('/api/v1/securityPoolAdjust/addAdjustLogWithFiles', payload, submitFiles);
                     this.$message.success('调库申请已成功提交');
                     this.backToList();
                 } catch (e) {
@@ -2236,18 +2282,6 @@
                     submitFiles.push(file.raw);
                     return submitFiles.length - 1;
                 });
-            },
-            // 收集已选报告库附件 ID
-            collectReportAttachmentIds(reports) {
-                const ids = [];
-                (reports || []).forEach(report => {
-                    (report.attachments || []).forEach(file => {
-                        if (file && file.id != null && ids.indexOf(file.id) === -1) {
-                            ids.push(file.id);
-                        }
-                    });
-                });
-                return ids;
             },
             // 一次性提交业务数据和附件
             async submitAdjustMultipart(path, payload, files) {
@@ -2585,12 +2619,12 @@
                 }
                 const params = new URLSearchParams();
                 window.RrsAuth.appendUserParams(params);
-                window.location.href = this.pagePaths.forbiddenPoolAdjust + '?' + params.toString();
+                window.location.href = this.pagePaths.securityPoolAdjust + '?' + params.toString();
             },
             // 重置详情页所有状态
             resetDetailState() {
                 this.currentPage = 'list';
-                this.companyDetail = {};             // 清空主体详情
+                this.bondDetail = {};             // 清空证券详情
                 this.adjustStep = 1;              // 重置调库步骤为第一步
                 this.adjustReviewList = [];       // 清空校验结果列表
                 this.pendingAdjustReviewList = []; // 清空待确认校验结果

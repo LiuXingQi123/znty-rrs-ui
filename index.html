@@ -136,14 +136,16 @@
                             v-for="tab in openedTabs"
                             :key="tab.index"
                             class="page-tab"
-                            :class="{ 'is-active': activeMenu === tab.index }"
+                            :class="{ 'is-active': activeMenu === tab.index, 'is-fixed': tab.fixed }"
                             role="tab"
                             tabindex="0"
                             :aria-selected="activeMenu === tab.index"
                             @click="activateTab(tab.index)"
                             @keyup.enter="activateTab(tab.index)">
+                        <i v-if="tab.fixed" class="el-icon-s-home page-tab-home-icon"></i>
                         <span class="page-tab-title">{{ tab.title }}</span>
                         <button
+                                v-if="!tab.fixed"
                                 class="page-tab-close"
                                 type="button"
                                 :aria-label="'关闭' + tab.title"
@@ -175,7 +177,7 @@
                     <el-dropdown-menu slot="dropdown">
                         <el-dropdown-item command="closeLeft" :disabled="!canCloseLeftTabs">关闭左侧</el-dropdown-item>
                         <el-dropdown-item command="closeRight" :disabled="!canCloseRightTabs">关闭右侧</el-dropdown-item>
-                        <el-dropdown-item command="closeAll" :disabled="!openedTabs.length">关闭全部</el-dropdown-item>
+                        <el-dropdown-item command="closeAll" :disabled="!hasClosableTabs">关闭全部</el-dropdown-item>
                     </el-dropdown-menu>
                 </el-dropdown>
             </div>
@@ -208,66 +210,75 @@ new Vue({
             loginUser: window.RrsAuth.getCurrentUser(false), // 当前登录用户
             isCollapse: false, // 左侧菜单折叠状态
             activePrimaryMenu: 'fixed-income', // 当前一级菜单
-            activeMenu: 'security-adjust', // 当前激活菜单
-            currentTitle: '证券池调整', // 当前页面标题
-            currentGroupTitle: '债券研究', // 当前菜单分组标题
+            activeMenu: 'home', // 当前激活菜单
+            currentTitle: '首页', // 当前页面标题
+            currentGroupTitle: '工作台', // 当前菜单分组标题
             openedTabs: [], // 已打开的页面页签
+            homeTab: {
+                index: 'home',
+                title: '首页',
+                icon: 'el-icon-s-home',
+                page: 'pages/home.html',
+                groupTitle: '工作台',
+                primaryMenu: 'fixed-income',
+                fixed: true,
+            }, // 固定首页页签
             lastActiveByPrimary: {
                 'fixed-income': 'security-adjust',
                 'document-management': 'doc-overview',
             }, // 各一级菜单最后激活的页面
             primaryMenus: [
-                { index: 'fixed-income', title: '固收研究', icon: 'el-icon-data-line', defaultPage: 'security-adjust' },
+                { index: 'fixed-income', title: '研究管理', icon: 'el-icon-data-line', defaultPage: 'security-adjust' },
                 { index: 'document-management', title: '文档管理', icon: 'el-icon-reading', defaultPage: 'doc-overview' },
             ], // 顶部一级菜单
             menuGroups: [
                 {
                     index: 'bond-research', title: '债券研究', icon: 'el-icon-document', primaryMenu: 'fixed-income',
                     items: [
-                        { index: 'security-adjust', title: '证券池调整', icon: 'el-icon-sort', page: 'security_pool_adjust.html' },
-                        { index: 'security-batch-adjust', title: '证券池批量调整', icon: 'el-icon-s-grid', page: 'batch_security_pool_adjust.html' },
-                        { index: 'security-query', title: '证券池查询', icon: 'el-icon-search', page: 'security_pool_query.html' },
-                        { index: 'security-history', title: '证券池调整历史', icon: 'el-icon-time', page: 'security_pool_adjust_history.html' },
-                        { index: 'temp-security-code', title: '临时代码管理', icon: 'el-icon-tickets', page: 'temp_security_code.html' },
+                        { index: 'security-adjust', title: '证券池调整', icon: 'el-icon-sort', page: 'pages/security_pool_adjust.html' },
+                        { index: 'security-batch-adjust', title: '证券池批量调整', icon: 'el-icon-s-grid', page: 'pages/batch_security_pool_adjust.html' },
+                        { index: 'security-query', title: '证券池查询', icon: 'el-icon-search', page: 'pages/security_pool_query.html' },
+                        { index: 'security-history', title: '证券池调整历史', icon: 'el-icon-time', page: 'pages/security_pool_adjust_history.html' },
+                        { index: 'temp-security-code', title: '临时代码管理', icon: 'el-icon-tickets', page: 'pages/temp_security_code.html' },
                     ],
                 },
                 {
                     index: 'forbidden-pool', title: '主体禁投池', icon: 'el-icon-lock', primaryMenu: 'fixed-income',
                     items: [
-                        { index: 'forbidden-adjust', title: '禁投池调整', icon: 'el-icon-sort', page: 'forbidden_pool_adjust.html' },
-                        { index: 'forbidden-query', title: '禁投池查询', icon: 'el-icon-search', page: 'forbidden_pool_query.html' },
-                        { index: 'forbidden-history', title: '禁投池历史', icon: 'el-icon-time', page: 'forbidden_pool_history.html' },
-                        { index: 'company-query', title: '主体池查询', icon: 'el-icon-office-building', page: 'company_pool_query.html' },
-                        { index: 'company-history', title: '主体池调整历史', icon: 'el-icon-notebook-2', page: 'company_pool_adjust_history.html' },
+                        { index: 'forbidden-adjust', title: '禁投池调整', icon: 'el-icon-sort', page: 'pages/forbidden_pool_adjust.html' },
+                        { index: 'forbidden-query', title: '禁投池查询', icon: 'el-icon-search', page: 'pages/forbidden_pool_query.html' },
+                        { index: 'forbidden-history', title: '禁投池历史', icon: 'el-icon-time', page: 'pages/forbidden_pool_history.html' },
+                        { index: 'company-query', title: '主体池查询', icon: 'el-icon-office-building', page: 'pages/company_pool_query.html' },
+                        { index: 'company-history', title: '主体池调整历史', icon: 'el-icon-notebook-2', page: 'pages/company_pool_adjust_history.html' },
                     ],
                 },
                 {
                     index: 'crmw-pool', title: 'CRMW池', icon: 'el-icon-connection', primaryMenu: 'fixed-income',
                     items: [
-                        { index: 'crmw-adjust', title: 'CRMW池调整', icon: 'el-icon-sort', page: 'crmw_pool_adjust.html' },
-                        { index: 'crmw-query', title: 'CRMW池查询', icon: 'el-icon-search', page: 'crmw_pool_query.html' },
-                        { index: 'crmw-history', title: 'CRMW池调整历史', icon: 'el-icon-time', page: 'crmw_pool_adjust_history.html' },
+                        { index: 'crmw-adjust', title: 'CRMW池调整', icon: 'el-icon-sort', page: 'pages/crmw_pool_adjust.html' },
+                        { index: 'crmw-query', title: 'CRMW池查询', icon: 'el-icon-search', page: 'pages/crmw_pool_query.html' },
+                        { index: 'crmw-history', title: 'CRMW池调整历史', icon: 'el-icon-time', page: 'pages/crmw_pool_adjust_history.html' },
                     ],
                 },
                 {
                     index: 'review-detail', title: '审核详情', icon: 'el-icon-s-check', primaryMenu: 'fixed-income',
                     items: [
-                        { index: 'my-matters', title: '我的事宜', icon: 'el-icon-bell', page: 'my_matters.html' },
-                        { index: 'security-approve', title: '证券池调库审核', icon: 'el-icon-circle-check', page: 'security_pool_adjust_approve.html' },
-                        { index: 'security-detail', title: '证券池调库详情', icon: 'el-icon-view', page: 'security_pool_adjust_detail.html' },
-                        { index: 'forbidden-approve', title: '禁投池调整审核', icon: 'el-icon-circle-check', page: 'forbidden_pool_adjust_approve.html' },
-                        { index: 'forbidden-detail', title: '禁投池调整详情', icon: 'el-icon-view', page: 'forbidden_pool_adjust_detail.html' },
-                        { index: 'crmw-approve', title: 'CRMW池调库审核', icon: 'el-icon-circle-check', page: 'crmw_pool_adjust_approve.html' },
-                        { index: 'crmw-detail', title: 'CRMW池调库详情', icon: 'el-icon-view', page: 'crmw_pool_adjust_detail.html' },
+                        { index: 'my-matters', title: '我的事宜', icon: 'el-icon-bell', page: 'pages/my_matters.html' },
+                        { index: 'security-approve', title: '证券池调库审核', icon: 'el-icon-circle-check', page: 'pages/security_pool_adjust_approve.html' },
+                        { index: 'security-detail', title: '证券池调库详情', icon: 'el-icon-view', page: 'pages/security_pool_adjust_detail.html' },
+                        { index: 'forbidden-approve', title: '禁投池调整审核', icon: 'el-icon-circle-check', page: 'pages/forbidden_pool_adjust_approve.html' },
+                        { index: 'forbidden-detail', title: '禁投池调整详情', icon: 'el-icon-view', page: 'pages/forbidden_pool_adjust_detail.html' },
+                        { index: 'crmw-approve', title: 'CRMW池调库审核', icon: 'el-icon-circle-check', page: 'pages/crmw_pool_adjust_approve.html' },
+                        { index: 'crmw-detail', title: 'CRMW池调库详情', icon: 'el-icon-view', page: 'pages/crmw_pool_adjust_detail.html' },
                     ],
                 },
                 {
                     index: 'rrs-config', title: 'RRS配置', icon: 'el-icon-setting', primaryMenu: 'fixed-income',
                     items: [
-                        { index: 'investment-pool', title: '投资池维护', icon: 'el-icon-s-management', page: 'investment_pool.html' },
-                        { index: 'flow-definition', title: '流程定义', icon: 'el-icon-share', page: 'flow_definition.html' },
-                        { index: 'rule-manager', title: '规则管理中心', icon: 'el-icon-set-up', page: 'rule_manager.html' },
-                        { index: 'credit-grade-rule', title: '主体内评分档规则', icon: 'el-icon-data-analysis', page: 'credit_bond_grade_rule.html' },
+                        { index: 'investment-pool', title: '投资池维护', icon: 'el-icon-s-management', page: 'pages/investment_pool.html' },
+                        { index: 'flow-definition', title: '流程定义', icon: 'el-icon-share', page: 'pages/flow_definition.html' },
+                        { index: 'rule-manager', title: '规则管理中心', icon: 'el-icon-set-up', page: 'pages/rule_manager.html' },
+                        { index: 'credit-grade-rule', title: '主体内评分档规则', icon: 'el-icon-data-analysis', page: 'pages/credit_bond_grade_rule.html' },
                     ],
                 },
                 {
@@ -366,11 +377,15 @@ new Vue({
         },
         // 是否可以关闭左侧页签
         canCloseLeftTabs() {
-            return this.activeTabIndex > 0
+            return this.activeTabIndex > 1
         },
         // 是否可以关闭右侧页签
         canCloseRightTabs() {
             return this.activeTabIndex >= 0 && this.activeTabIndex < this.openedTabs.length - 1
+        },
+        // 是否存在可关闭页签
+        hasClosableTabs() {
+            return this.openedTabs.some(tab => !tab.fixed)
         },
     },
     created() {
@@ -378,7 +393,8 @@ new Vue({
             window.location.replace('login.html')
             return
         }
-        this.openMenuItem('security-adjust')
+        window.RrsWorkbenchOpenPage = index => this.openMenuItem(index)
+        this.openHomeTab()
     },
     methods: {
         // 切换顶部一级菜单并恢复该模块最后访问页面
@@ -393,6 +409,18 @@ new Vue({
         // 响应菜单选择
         handleMenuSelect(index) {
             this.openMenuItem(index)
+        },
+        // 打开固定首页页签
+        openHomeTab() {
+            const opened = this.openedTabs.some(tab => tab.index === this.homeTab.index)
+            if (!opened) {
+                this.openedTabs.unshift({
+                    ...this.homeTab,
+                    url: window.RrsAuth.buildPageUrl(this.homeTab.page, this.loginUser),
+                    renderKey: 1,
+                })
+            }
+            this.activateTab(this.homeTab.index)
         },
         // 打开指定菜单页面
         openMenuItem(index) {
@@ -424,6 +452,7 @@ new Vue({
             const closeIndex = this.openedTabs.findIndex(tab => tab.index === index)
             if (closeIndex < 0) return
             const closedTab = this.openedTabs[closeIndex]
+            if (closedTab.fixed) return
             const isActive = this.activeMenu === index
             this.openedTabs.splice(closeIndex, 1)
             const primaryTabs = this.openedTabs.filter(tab => tab.primaryMenu === closedTab.primaryMenu)
@@ -460,7 +489,7 @@ new Vue({
         // 关闭当前页签左侧的所有页签
         closeLeftTabs() {
             if (!this.canCloseLeftTabs) return
-            this.openedTabs.splice(0, this.activeTabIndex)
+            this.openedTabs.splice(1, this.activeTabIndex - 1)
             this.normalizeLastActiveTabs()
         },
         // 关闭当前页签右侧的所有页签
@@ -471,15 +500,12 @@ new Vue({
         },
         // 关闭全部页签
         closeAllTabs() {
-            if (!this.openedTabs.length) return
-            this.openedTabs = []
-            this.activeMenu = ''
-            this.currentTitle = ''
-            this.currentGroupTitle = ''
+            if (!this.hasClosableTabs) return
+            this.openedTabs = this.openedTabs.filter(tab => tab.fixed)
             this.primaryMenus.forEach(menu => {
                 this.lastActiveByPrimary[menu.index] = ''
             })
-            document.title = 'RRS 工作台'
+            this.activateTab(this.homeTab.index)
         },
         // 修正各一级菜单最后激活页签，避免指向已关闭页面
         normalizeLastActiveTabs() {
