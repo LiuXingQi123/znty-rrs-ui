@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>场景生成</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/theme-chalk/index.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.16/vue.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/script_demo_scene.css">
+</head>
+<body>
+<div id="script_demo_scene">
+    <section class="scene-hero">
+        <div>
+            <p class="scene-kicker">RRS SCRIPT TOOL</p>
+            <h1>Demo 场景数据生成</h1>
+            <p class="scene-desc">一键生成待审批、审批通过、驳回待修改等演示场景。后端只执行固定白名单 SQL，重复生成会先清理旧场景数据。</p>
+        </div>
+        <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadScenes">刷新场景</el-button>
+    </section>
+
+    <el-alert class="danger-alert" title="危险操作提示" type="warning" :closable="false" show-icon>
+        <div slot="description">生成场景会写入调库日志、流程步骤和部分池状态。执行前必须输入确认文本 GENERATE_DEMO_SCENE。</div>
+    </el-alert>
+
+    <section class="scene-grid" v-loading="loading">
+        <article v-for="scene in scenes" :key="scene.sceneCode" class="scene-card">
+            <div class="scene-head">
+                <h2>{{ scene.sceneName }}</h2>
+                <el-tag size="mini" type="warning">{{ scene.sceneCode }}</el-tag>
+            </div>
+            <p class="scene-text">{{ scene.description }}</p>
+            <div class="scene-block">
+                <strong>依赖前置数据</strong>
+                <div class="chip-wrap">
+                    <span v-for="item in scene.dependencies" :key="scene.sceneCode + item" class="chip">{{ item }}</span>
+                </div>
+            </div>
+            <div class="scene-block">
+                <strong>影响表</strong>
+                <div class="chip-wrap">
+                    <span v-for="table in scene.affectedTables" :key="scene.sceneCode + table" class="chip">{{ table }}</span>
+                </div>
+            </div>
+            <div class="scene-actions">
+                <el-button
+                    type="warning"
+                    size="small"
+                    icon="el-icon-plus"
+                    :loading="runningCode === scene.sceneCode"
+                    :disabled="!!runningCode && runningCode !== scene.sceneCode"
+                    @click="confirmAndExecute(scene)">
+                    生成场景
+                </el-button>
+            </div>
+            <div v-if="resultMap[scene.sceneCode]" class="result-panel">
+                <el-tag size="mini" :type="resultMap[scene.sceneCode].status === 'success' ? 'success' : 'danger'">
+                    {{ resultMap[scene.sceneCode].status === 'success' ? '生成成功' : '生成失败' }}
+                </el-tag>
+                <span>{{ resultMap[scene.sceneCode].costMillis }} ms</span>
+                <div v-if="resultMap[scene.sceneCode].errorMessage">{{ resultMap[scene.sceneCode].errorMessage }}</div>
+            </div>
+        </article>
+    </section>
+</div>
+
+<script>
+new Vue({
+    el: '#script_demo_scene',
+    data() {
+        return {
+            scenes: [],
+            resultMap: {},
+            loading: false,
+            runningCode: '',
+            loginUser: RrsAuth.getCurrentUser(),
+        }
+    },
+    created() {
+        // 初始化加载 Demo 场景
+        this.loadScenes()
+    },
+    methods: {
+        // 加载 Demo 场景列表
+        async loadScenes() {
+            this.loading = true
+            try {
+                this.scenes = await this.apiPost('/api/v1/scriptTool/queryDemoSceneList', {}) || []
+            } finally {
+                this.loading = false
+            }
+        },
+        // 确认并执行场景生成
+        async confirmAndExecute(scene) {
+            const confirmText = scene.confirmText
+            let value = ''
+            try {
+                const res = await this.$prompt('将生成场景【' + scene.sceneName + '】。请输入确认文本：' + confirmText, 'Demo 场景生成确认', {
+                    confirmButtonText: '确认生成',
+                    cancelButtonText: '取消',
+                    inputPlaceholder: confirmText,
+                    inputValidator: text => text === confirmText || '确认文本不正确',
+                })
+                value = res.value
+            } catch (e) {
+                return
+            }
+            if (value !== confirmText) {
+                this.$message.warning('确认文本不正确')
+                return
+            }
+            // 提交后端生成 Demo 场景
+            await this.executeScene(scene)
+        },
+        // 执行场景生成
+        async executeScene(scene) {
+            this.runningCode = scene.sceneCode
+            try {
+                const result = await this.apiPost('/api/v1/scriptTool/executeDemoScene', {
+                    sceneCode: scene.sceneCode,
+                    confirmText: scene.confirmText,
+                    currentUserId: this.loginUser.userId,
+                    currentUserName: this.loginUser.userName,
+                })
+                this.$set(this.resultMap, scene.sceneCode, result)
+                if (result && result.status === 'success') {
+                    this.$message.success('Demo 场景生成成功')
+                } else {
+                    this.$message.error((result && result.errorMessage) || 'Demo 场景生成失败')
+                }
+            } finally {
+                this.runningCode = ''
+            }
+        },
+    },
+})
+</script>
+</body>
+</html>

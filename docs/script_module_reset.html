@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模块重置</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/theme-chalk/index.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.16/vue.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/script_module_reset.css">
+</head>
+<body>
+<div id="script_module_reset">
+    <section class="reset-hero">
+        <div>
+            <p class="reset-kicker">RRS SCRIPT TOOL</p>
+            <h1>模块级初始化 / 重置</h1>
+            <p class="reset-desc">按业务模块执行对应 Demo SQL，比完整重建更轻量，适合演示前快速恢复指定模块数据。</p>
+        </div>
+        <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadTasks">刷新模块</el-button>
+    </section>
+
+    <el-alert class="danger-alert" title="危险操作提示" type="warning" :closable="false" show-icon>
+        <div slot="description">模块重置会执行对应 demo SQL，脚本内通常包含 TRUNCATE。执行前必须输入确认文本 RESET_MODULE。</div>
+    </el-alert>
+
+    <section class="module-grid" v-loading="loading">
+        <article v-for="task in tasks" :key="task.moduleCode" class="module-card" :class="'risk-' + task.riskLevel">
+            <div class="module-head">
+                <h2>{{ task.moduleName }}</h2>
+                <el-tag size="mini" :type="riskTagType(task.riskLevel)">{{ riskLabel(task.riskLevel) }}</el-tag>
+            </div>
+            <p class="module-desc">{{ task.description }}</p>
+            <div class="confirm-box">确认文本：<code>{{ task.confirmText }}</code></div>
+            <div class="file-box">Demo 脚本：<code>{{ task.demoFileName }}</code></div>
+            <div class="table-chip-wrap">
+                <span v-for="table in task.affectedTables" :key="task.moduleCode + table" class="table-chip">{{ table }}</span>
+            </div>
+            <div class="module-actions">
+                <el-button
+                    type="warning"
+                    size="small"
+                    icon="el-icon-refresh-left"
+                    :loading="runningCode === task.moduleCode"
+                    :disabled="!!runningCode && runningCode !== task.moduleCode"
+                    @click="confirmAndExecute(task)">
+                    重置模块
+                </el-button>
+            </div>
+            <div v-if="resultMap[task.moduleCode]" class="result-panel">
+                <el-tag size="mini" :type="resultMap[task.moduleCode].status === 'success' ? 'success' : 'danger'">
+                    {{ resultMap[task.moduleCode].status === 'success' ? '执行成功' : '执行失败' }}
+                </el-tag>
+                <span>{{ resultMap[task.moduleCode].costMillis }} ms</span>
+                <div v-if="resultMap[task.moduleCode].errorMessage">{{ resultMap[task.moduleCode].errorMessage }}</div>
+            </div>
+        </article>
+    </section>
+</div>
+
+<script>
+new Vue({
+    el: '#script_module_reset',
+    data() {
+        return {
+            tasks: [],
+            resultMap: {},
+            loading: false,
+            runningCode: '',
+            loginUser: RrsAuth.getCurrentUser(),
+        }
+    },
+    created() {
+        // 初始化加载模块重置任务
+        this.loadTasks()
+    },
+    methods: {
+        // 加载模块重置任务
+        async loadTasks() {
+            this.loading = true
+            try {
+                this.tasks = await this.apiPost('/api/v1/scriptTool/queryModuleResetTaskList', {}) || []
+            } finally {
+                this.loading = false
+            }
+        },
+        // 获取风险标签类型
+        riskTagType(riskLevel) {
+            if (riskLevel === 'danger') return 'danger'
+            if (riskLevel === 'high') return 'warning'
+            return 'info'
+        },
+        // 获取风险中文
+        riskLabel(riskLevel) {
+            if (riskLevel === 'danger') return '高危'
+            if (riskLevel === 'high') return '高风险'
+            return '中风险'
+        },
+        // 确认并执行模块重置
+        async confirmAndExecute(task) {
+            const confirmText = task.confirmText
+            let value = ''
+            try {
+                const res = await this.$prompt('将重置模块【' + task.moduleName + '】。请输入确认文本：' + confirmText, '模块重置确认', {
+                    confirmButtonText: '确认重置',
+                    cancelButtonText: '取消',
+                    inputPlaceholder: confirmText,
+                    inputValidator: text => text === confirmText || '确认文本不正确',
+                })
+                value = res.value
+            } catch (e) {
+                return
+            }
+            if (value !== confirmText) {
+                this.$message.warning('确认文本不正确')
+                return
+            }
+            // 提交后端执行模块重置
+            await this.executeTask(task)
+        },
+        // 执行模块重置
+        async executeTask(task) {
+            this.runningCode = task.moduleCode
+            try {
+                const result = await this.apiPost('/api/v1/scriptTool/executeModuleResetTask', {
+                    moduleCode: task.moduleCode,
+                    confirmText: task.confirmText,
+                    currentUserId: this.loginUser.userId,
+                    currentUserName: this.loginUser.userName,
+                })
+                this.$set(this.resultMap, task.moduleCode, result)
+                if (result && result.status === 'success') {
+                    this.$message.success('模块重置成功')
+                } else {
+                    this.$message.error((result && result.errorMessage) || '模块重置失败')
+                }
+            } finally {
+                this.runningCode = ''
+            }
+        },
+    },
+})
+</script>
+</body>
+</html>

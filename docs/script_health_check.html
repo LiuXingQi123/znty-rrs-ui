@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>环境检查</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/theme-chalk/index.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.16/vue.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/script_health_check.css">
+</head>
+<body>
+<div id="script_health_check">
+    <section class="health-hero">
+        <div>
+            <p class="health-kicker">RRS SCRIPT TOOL</p>
+            <h1>环境健康检查</h1>
+            <p class="health-desc">检查 SQL 目录、数据库连接、库表存在性、核心表数据量和 MySQL 8 字符集配置。</p>
+        </div>
+        <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadHealthCheck">重新检查</el-button>
+    </section>
+
+    <section class="status-board">
+        <div class="status-card"><strong>{{ statusLabel(check.status) }}</strong><span>整体状态</span></div>
+        <div class="status-card"><strong>{{ itemCount('success') }}</strong><span>正常项</span></div>
+        <div class="status-card"><strong>{{ itemCount('failed') + itemCount('warning') }}</strong><span>需关注项</span></div>
+    </section>
+
+    <section class="health-card">
+        <el-alert :title="'SQL目录：' + (check.sqlPath || '')" type="info" :closable="false" show-icon></el-alert>
+        <el-alert style="margin-top:8px;" :title="'数据库连接：' + (check.connectionInfo || '')" type="info" :closable="false" show-icon></el-alert>
+    </section>
+
+    <section class="health-card">
+        <el-table :data="check.items || []" size="small" border v-loading="loading" empty-text="暂无检查结果">
+            <el-table-column label="状态" width="90">
+                <template slot-scope="scope">
+                    <el-tag size="mini" :type="statusTagType(scope.row.status)">{{ statusLabel(scope.row.status) }}</el-tag>
+                </template>
+            </el-table-column>
+            <el-table-column prop="itemName" label="检查项" width="230">
+                <template slot-scope="scope"><span class="item-name">{{ scope.row.itemName }}</span></template>
+            </el-table-column>
+            <el-table-column prop="currentValue" label="当前值" min-width="220"></el-table-column>
+            <el-table-column prop="expectedValue" label="期望值" min-width="160"></el-table-column>
+            <el-table-column prop="message" label="说明" min-width="260">
+                <template slot-scope="scope"><span class="item-message">{{ scope.row.message }}</span></template>
+            </el-table-column>
+        </el-table>
+    </section>
+</div>
+
+<script>
+new Vue({
+    el: '#script_health_check',
+    data() {
+        return {
+            check: {},
+            loading: false,
+        }
+    },
+    created() {
+        // 初始化执行环境检查
+        this.loadHealthCheck()
+    },
+    methods: {
+        // 加载环境检查结果
+        async loadHealthCheck() {
+            this.loading = true
+            try {
+                this.check = await this.apiPost('/api/v1/scriptTool/queryHealthCheck', {}) || {}
+            } finally {
+                this.loading = false
+            }
+        },
+        // 统计指定状态数量
+        itemCount(status) {
+            return (this.check.items || []).filter(item => item.status === status).length
+        },
+        // 获取状态标签类型
+        statusTagType(status) {
+            if (status === 'success') return 'success'
+            if (status === 'warning') return 'warning'
+            return 'danger'
+        },
+        // 获取状态中文
+        statusLabel(status) {
+            if (status === 'success') return '正常'
+            if (status === 'warning') return '警告'
+            if (status === 'failed') return '失败'
+            return '未检查'
+        },
+    },
+})
+</script>
+</body>
+</html>

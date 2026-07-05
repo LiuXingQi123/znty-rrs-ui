@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>脚本总览</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/theme-chalk/index.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.16/vue.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/element-ui/2.15.14/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/script_overview.css">
+</head>
+<body>
+<div id="script_overview">
+    <section class="tool-hero">
+        <div>
+            <p class="tool-kicker">RRS SCRIPT TOOL</p>
+            <h1>脚本清单与依赖总览</h1>
+            <p class="tool-desc">只读展示 SQL 脚本执行顺序、所属模块、影响表和语句统计，便于迁移、排查和确认初始化范围。</p>
+        </div>
+        <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadOverview">刷新总览</el-button>
+    </section>
+
+    <section class="summary-grid">
+        <div class="summary-card"><strong>{{ overview.schemaFileCount || 0 }}</strong><span>建表脚本</span></div>
+        <div class="summary-card"><strong>{{ overview.demoFileCount || 0 }}</strong><span>Demo 脚本</span></div>
+        <div class="summary-card"><strong>{{ overview.missingFileCount || 0 }}</strong><span>缺失文件</span></div>
+        <div class="summary-card"><strong>{{ files.length }}</strong><span>总脚本数</span></div>
+    </section>
+
+    <section class="content-card">
+        <div class="toolbar">
+            <div>
+                <el-tag size="mini" type="info">{{ overview.sqlPath || 'SQL 目录未加载' }}</el-tag>
+            </div>
+            <el-input v-model="keyword" size="small" clearable prefix-icon="el-icon-search" placeholder="搜索脚本、模块或表" style="width:260px;"></el-input>
+        </div>
+        <el-table :data="filteredFiles" size="small" border v-loading="loading" empty-text="暂无脚本数据">
+            <el-table-column prop="sortOrder" label="顺序" width="70"></el-table-column>
+            <el-table-column label="类型" width="90">
+                <template slot-scope="scope">
+                    <el-tag size="mini" :type="scope.row.scriptType === 'schema' ? 'success' : 'warning'">{{ scope.row.scriptType }}</el-tag>
+                </template>
+            </el-table-column>
+            <el-table-column prop="moduleName" label="模块" width="150"></el-table-column>
+            <el-table-column prop="fileName" label="脚本文件" min-width="230"></el-table-column>
+            <el-table-column label="存在" width="80">
+                <template slot-scope="scope">
+                    <el-tag size="mini" :type="scope.row.exists ? 'success' : 'danger'">{{ scope.row.exists ? '存在' : '缺失' }}</el-tag>
+                </template>
+            </el-table-column>
+            <el-table-column label="语句统计" width="180">
+                <template slot-scope="scope">
+                    C {{ scope.row.createCount }} / T {{ scope.row.truncateCount }} / I {{ scope.row.insertCount }}
+                </template>
+            </el-table-column>
+            <el-table-column label="影响表" min-width="260">
+                <template slot-scope="scope">
+                    <div class="table-chips">
+                        <span v-for="table in scope.row.affectedTables" :key="scope.row.fileName + table" class="table-chip">{{ table }}</span>
+                    </div>
+                </template>
+            </el-table-column>
+        </el-table>
+    </section>
+</div>
+
+<script>
+new Vue({
+    el: '#script_overview',
+    data() {
+        return {
+            overview: {},
+            keyword: '',
+            loading: false,
+        }
+    },
+    computed: {
+        files() {
+            return this.overview.files || []
+        },
+        filteredFiles() {
+            const keyword = (this.keyword || '').trim().toLowerCase()
+            if (!keyword) return this.files
+            return this.files.filter(file => {
+                const text = [file.fileName, file.moduleName, file.moduleCode, (file.affectedTables || []).join(',')].join(' ').toLowerCase()
+                return text.indexOf(keyword) > -1
+            })
+        },
+    },
+    created() {
+        // 初始化加载脚本总览
+        this.loadOverview()
+    },
+    methods: {
+        // 加载脚本总览
+        async loadOverview() {
+            this.loading = true
+            try {
+                this.overview = await this.apiPost('/api/v1/scriptTool/queryScriptOverview', {}) || {}
+            } finally {
+                this.loading = false
+            }
+        },
+    },
+})
+</script>
+</body>
+</html>

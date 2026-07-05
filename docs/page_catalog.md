@@ -32,6 +32,12 @@
 | `security_pool_adjust_history.html` | 证券池调整历史 | `css/security_pool_adjust_history.css`、`css/common.css` |
 | `security_pool_query.html` | 证券池查询 | `css/security_pool_query.css`、`css/common.css` |
 | `temp_security_code.html` | 临时代码管理 | `css/temp_security_code.css`、`css/common.css` |
+| `docs/script_tool.html` | 数据初始化 | `css/script_tool.css`、`css/common.css` |
+| `docs/script_table_clear.html` | 表数据清空 | `css/script_table_clear.css`、`css/common.css` |
+| `docs/script_overview.html` | 脚本总览 | `css/script_overview.css`、`css/common.css` |
+| `docs/script_health_check.html` | 环境检查 | `css/script_health_check.css`、`css/common.css` |
+| `docs/script_module_reset.html` | 模块重置 | `css/script_module_reset.css`、`css/common.css` |
+| `docs/script_demo_scene.html` | 场景生成 | `css/script_demo_scene.css`、`css/common.css` |
 
 ## CSS 样式
 
@@ -63,6 +69,12 @@
 | `css/security_pool_adjust_detail.css` | 证券池调库详情页面样式 | `security_pool_adjust_detail.html` |
 | `css/security_pool_adjust_history.css` | 证券池调整历史页面样式 | `security_pool_adjust_history.html` |
 | `css/security_pool_query.css` | 证券池查询页面样式 | `security_pool_query.html` |
+| `css/script_demo_scene.css` | 场景生成页面样式 | `docs/script_demo_scene.html` |
+| `css/script_health_check.css` | 环境检查页面样式 | `docs/script_health_check.html` |
+| `css/script_module_reset.css` | 模块重置页面样式 | `docs/script_module_reset.html` |
+| `css/script_overview.css` | 脚本总览页面样式 | `docs/script_overview.html` |
+| `css/script_table_clear.css` | 表数据清空页面样式 | `docs/script_table_clear.html` |
+| `css/script_tool.css` | 数据初始化页面样式 | `docs/script_tool.html` |
 | `css/temp_security_code.css` | 临时代码管理页面样式 | `temp_security_code.html` |
 
 ## 业务文档页面
