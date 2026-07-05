@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据迁移说明</title>
+    <style>
+        #data_migration_guide {
+            --c-bg: #F7F8FA;
+            --c-surface: #FFFFFF;
+            --c-surface-2: #F7F8FA;
+            --c-primary: #2743A4;
+            --c-primary-dark: #1F3683;
+            --c-primary-bright: #2F7BFF;
+            --c-primary-soft: #E9ECF6;
+            --c-gold: #D1A777;
+            --c-gold-text: #A7865F;
+            --c-border: #E5E5E5;
+            --c-border-strong: #DCE3F0;
+            --c-text: #242933;
+            --c-subtext: #707783;
+            --c-muted: #9199BD;
+            --c-success: #06C687;
+            --c-danger: #FF4542;
+            --c-warning: #F5822E;
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+            background:
+                radial-gradient(circle at 12% 0%, rgba(47, 123, 255, 0.10), transparent 28%),
+                radial-gradient(circle at 94% 6%, rgba(209, 167, 119, 0.14), transparent 24%),
+                linear-gradient(180deg, #F6F8FD 0%, #F7F8FA 42%, #F2F5FA 100%);
+            color: var(--c-text);
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+
+        #data_migration_guide * {
+            box-sizing: border-box;
+        }
+
+        #data_migration_guide .migration-hero {
+            position: relative;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+            gap: 18px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            border-radius: 18px;
+            background:
+                radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.22), transparent 26%),
+                linear-gradient(135deg, #16358F 0%, #1F5FF3 58%, #3C8CFF 100%);
+            box-shadow: 0 20px 46px rgba(31, 54, 131, 0.20);
+        }
+
+        #data_migration_guide .migration-hero::before,
+        #data_migration_guide .migration-hero::after {
+            content: "";
+            position: absolute;
+            border-radius: 999px;
+            pointer-events: none;
+        }
+
+        #data_migration_guide .migration-hero::before {
+            right: -92px;
+            top: -92px;
+            width: 260px;
+            height: 260px;
+            background: rgba(255, 255, 255, 0.13);
+        }
+
+        #data_migration_guide .migration-hero::after {
+            right: 26%;
+            bottom: -120px;
+            width: 300px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        #data_migration_guide .migration-hero > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        #data_migration_guide .kicker {
+            margin: 0 0 6px;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+        }
+
+        #data_migration_guide h1 {
+            margin: 0;
+            color: #FFFFFF;
+            font-size: 32px;
+            line-height: 1.35;
+            letter-spacing: -0.02em;
+        }
+
+        #data_migration_guide .hero-desc {
+            margin: 10px 0 0;
+            max-width: 780px;
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        #data_migration_guide .hero-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 18px;
+        }
+
+        #data_migration_guide .hero-tags span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.90);
+            font-size: 12px;
+            line-height: 1;
+        }
+
+        #data_migration_guide .hero-tags span::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: #7CF1C8;
+            box-shadow: 0 0 0 4px rgba(124, 241, 200, 0.14);
+        }
+
+        #data_migration_guide .hero-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        #data_migration_guide .metric-card {
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.13);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(10px);
+        }
+
+        #data_migration_guide .metric-card strong {
+            display: block;
+            color: #FFFFFF;
+            font-size: 30px;
+            line-height: 1.2;
+        }
+
+        #data_migration_guide .metric-card span {
+            display: block;
+            margin-top: 4px;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 12px;
+        }
+
+        #data_migration_guide .anchor-bar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 16px 0;
+            padding: 12px;
+            border: 1px solid rgba(220, 227, 240, 0.88);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.90);
+            box-shadow: 0 10px 24px rgba(31, 42, 68, 0.08);
+            backdrop-filter: blur(8px);
+        }
+
+        #data_migration_guide .anchor-bar a {
+            padding: 8px 12px;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            background: var(--c-surface);
+            color: var(--c-primary);
+            font-size: 13px;
+            text-decoration: none;
+            transition: all 0.18s ease;
+        }
+
+        #data_migration_guide .anchor-bar a:hover {
+            border-color: var(--c-primary);
+            background: var(--c-primary-soft);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(39, 67, 164, 0.12);
+        }
+
+        #data_migration_guide .section-card {
+            margin-bottom: 16px;
+            padding: 22px;
+            border: 1px solid rgba(220, 227, 240, 0.92);
+            border-radius: 16px;
+            background: var(--c-surface);
+            box-shadow: 0 14px 32px rgba(31, 42, 68, 0.07);
+        }
+
+        #data_migration_guide .section-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #EEF2F8;
+        }
+
+        #data_migration_guide h2 {
+            margin: 0;
+            color: var(--c-text);
+            font-size: 18px;
+            line-height: 1.5;
+        }
+
+        #data_migration_guide h2::before {
+            content: "";
+            display: inline-block;
+            width: 6px;
+            height: 18px;
+            margin-right: 9px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, var(--c-primary-bright), var(--c-primary-dark));
+            vertical-align: -3px;
+        }
+
+        #data_migration_guide .section-head p {
+            margin: 4px 0 0;
+            color: var(--c-subtext);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        #data_migration_guide .badge {
+            flex: 0 0 auto;
+            padding: 5px 10px;
+            border: 1px solid #C8D1EA;
+            border-radius: 999px;
+            background: var(--c-primary-soft);
+            color: var(--c-primary);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        #data_migration_guide .matrix-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--c-border);
+            border-radius: 12px;
+            background: #FFFFFF;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+
+        #data_migration_guide table {
+            width: 100%;
+            min-width: 920px;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        #data_migration_guide th,
+        #data_migration_guide td {
+            padding: 10px 11px;
+            border-bottom: 1px solid var(--c-border);
+            color: var(--c-subtext);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        #data_migration_guide td:first-child {
+            color: var(--c-text);
+            font-weight: 600;
+        }
+
+        #data_migration_guide th {
+            background: linear-gradient(180deg, #F7F9FC 0%, #EEF2F8 100%);
+            color: var(--c-text);
+            font-weight: 600;
+        }
+
+        #data_migration_guide tbody tr:hover td {
+            background: #FAFCFF;
+        }
+
+        #data_migration_guide tr:last-child td {
+            border-bottom: none;
+        }
+
+        #data_migration_guide code {
+            display: inline-block;
+            padding: 3px 7px;
+            border: 1px solid #D8E1F2;
+            border-radius: 7px;
+            background: var(--c-primary-soft);
+            color: var(--c-primary);
+            font-family: Consolas, Menlo, monospace;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        #data_migration_guide .danger-code {
+            border-color: #FFD1CE;
+            background: #FFEDEC;
+            color: #B42318;
+        }
+
+        #data_migration_guide .code-line {
+            display: block;
+            max-width: 560px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        #data_migration_guide .note-box {
+            margin-top: 12px;
+            padding: 13px 14px;
+            border: 1px solid #F2DFC2;
+            border-left: 4px solid var(--c-gold);
+            border-radius: 12px;
+            background: linear-gradient(135deg, #FFF8EA 0%, #FFFFFF 100%);
+            color: var(--c-gold-text);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        #data_migration_guide .prompt-box {
+            margin-top: 12px;
+            padding: 18px;
+            border: 1px solid rgba(148, 163, 184, 0.38);
+            border-radius: 14px;
+            background:
+                linear-gradient(135deg, rgba(47, 123, 255, 0.18), transparent 34%),
+                #101828;
+            color: #E9ECF6;
+            font-family: Consolas, Menlo, monospace;
+            font-size: 12px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            box-shadow: 0 14px 30px rgba(16, 24, 40, 0.18);
+        }
+
+        #data_migration_guide .split-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        #data_migration_guide .tip-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        #data_migration_guide .tip-card {
+            padding: 16px;
+            border: 1px solid #E1E7F2;
+            border-top: 4px solid var(--c-primary);
+            border-radius: 14px;
+            background: linear-gradient(180deg, #FFFFFF 0%, #F7F9FC 100%);
+            box-shadow: 0 8px 18px rgba(31, 42, 68, 0.05);
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        #data_migration_guide .tip-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 28px rgba(31, 42, 68, 0.10);
+        }
+
+        #data_migration_guide .tip-card.is-warn {
+            border-top-color: var(--c-warning);
+        }
+
+        #data_migration_guide .tip-card.is-danger {
+            border-top-color: var(--c-danger);
+        }
+
+        #data_migration_guide .tip-card h3 {
+            margin: 0;
+            color: var(--c-text);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        #data_migration_guide .tip-card p,
+        #data_migration_guide li {
+            color: var(--c-subtext);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        #data_migration_guide .tip-card p {
+            margin: 6px 0 0;
+        }
+
+        #data_migration_guide ul,
+        #data_migration_guide ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        #data_migration_guide .flow-list {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        #data_migration_guide .flow-step {
+            position: relative;
+            padding: 15px;
+            border: 1px solid #E1E7F2;
+            border-radius: 14px;
+            background: linear-gradient(180deg, #FFFFFF 0%, #F7F9FC 100%);
+            box-shadow: 0 8px 18px rgba(31, 42, 68, 0.05);
+        }
+
+        #data_migration_guide .flow-step::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 16px;
+            bottom: 16px;
+            width: 3px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, var(--c-primary-bright), var(--c-primary-dark));
+        }
+
+        #data_migration_guide .flow-step strong {
+            display: block;
+            color: var(--c-primary);
+            font-size: 14px;
+        }
+
+        #data_migration_guide .flow-step span {
+            display: block;
+            margin-top: 6px;
+            color: var(--c-subtext);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 1100px) {
+            #data_migration_guide .migration-hero,
+            #data_migration_guide .tip-grid,
+            #data_migration_guide .flow-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="data_migration_guide">
+    <header class="migration-hero">
+        <div>
+            <p class="kicker">ZNTY RRS · MIGRATION GUIDE</p>
+            <h1>前后端与数据迁移说明</h1>
+            <p class="hero-desc">
+                本页面用于记录从本地演示项目迁移到公司项目或其他环境时，需要同步调整的前端、后端、数据库和部署配置。
+                重点关注“在哪里改、从什么值改到什么值、改完如何验证”，避免迁移时遗漏路径、接口地址、数据库名、脚本顺序和用户上下文。
+            </p>
+            <div class="hero-tags">
+                <span>HTML 只取 body 业务 DOM</span>
+                <span>JS 保持 RequireJS 模板</span>
+                <span>CSS 第一轮直接复制</span>
+                <span>title 按菜单路径填写</span>
+            </div>
+        </div>
+        <div class="hero-metrics">
+            <div class="metric-card"><strong>4</strong><span>迁移层面：前端 / 后端 / SQL / 部署</span></div>
+            <div class="metric-card"><strong>18</strong><span>高频替换项</span></div>
+            <div class="metric-card"><strong>2</strong><span>数据库：znty_rrs / ais_inv_analysis</span></div>
+            <div class="metric-card"><strong>1</strong><span>最终验证闭环</span></div>
+        </div>
+    </header>
+
+    <nav class="anchor-bar">
+        <a href="#overview">迁移总览</a>
+        <a href="#exact-replace">精准替换清单</a>
+        <a href="#split-migration">三文件迁移</a>
+        <a href="#frontend">前端替换</a>
+        <a href="#backend">后端替换</a>
+        <a href="#sql">SQL 与数据</a>
+        <a href="#deploy">部署配置</a>
+        <a href="#checklist">验证清单</a>
+    </nav>
+
+    <section class="section-card" id="overview">
+        <div class="section-head">
+            <div>
+                <h2>迁移总览</h2>
+                <p>建议按“代码路径 → 配置 → 数据库脚本 → 联调验证”的顺序推进。</p>
+            </div>
+            <span class="badge">推荐流程</span>
+        </div>
+        <div class="flow-list">
+            <div class="flow-step"><strong>1. 确认目标仓库</strong><span>明确前端静态页面、后端服务、SQL 脚本最终放在哪个公司项目路径。</span></div>
+            <div class="flow-step"><strong>2. 替换环境值</strong><span>替换 API 地址、数据库连接、库名、登录用户上下文、静态资源路径。</span></div>
+            <div class="flow-step"><strong>3. 执行建表脚本</strong><span>先 schema 后 demo，保持脚本顺序一致，确认 MySQL 8 默认字符集。</span></div>
+            <div class="flow-step"><strong>4. 启动联调</strong><span>后端启动后打开前端工作台，重点验证调库、审批、文档和脚本工具。</span></div>
+            <div class="flow-step"><strong>5. 回归清单</strong><span>检查菜单、接口、数据、附件、报告、字典和脚本工具是否都能正常使用。</span></div>
+        </div>
+    </section>
+
+    <section class="section-card" id="exact-replace">
+        <div class="section-head">
+            <div>
+                <h2>精准替换清单</h2>
+                <p>迁移到公司前端框架时，优先按这些代码片段全局搜索。目标值里带“公司实际值”的，需要按目标项目已有路由、权限对象和菜单编码替换。</p>
+            </div>
+            <span class="badge">Search & Replace</span>
+        </div>
+        <div class="matrix-wrap">
+            <table>
+                <thead>
+                <tr><th>场景</th><th>需要搜索的当前值</th><th>建议替换为</th><th>涉及文件 / 页面</th><th>注意事项</th></tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>关闭演示用户参数拼接</td>
+                    <td><code class="code-line">window.RrsAuth.appendUserParams(params);</code></td>
+                    <td><code class="code-line">// window.RrsAuth.appendUserParams(params);</code></td>
+                    <td><code>pages/*_query.html</code>、<code>pages/*_history.html</code>、审批/详情跳转方法</td>
+                    <td>如果公司门户或路由系统已经统一注入用户上下文，就注释掉本地演示参数拼接，避免 URL 上继续出现 <code>loginUserId</code>、<code>loginUserName</code>。</td>
+                </tr>
+                <tr>
+                    <td>当前用户 ID</td>
+                    <td><code class="code-line">window.RrsAuth.getCurrentUser().userId</code></td>
+                    <td><code class="code-line">permission.userId</code></td>
+                    <td>所有提交、审核、查询当前用户事项的页面</td>
+                    <td>统一使用 <code>permission</code>，迁移时不要使用错误拼写。</td>
+                </tr>
+                <tr>
+                    <td>当前用户名称</td>
+                    <td><code class="code-line">window.RrsAuth.getCurrentUser().userName</code></td>
+                    <td><code class="code-line">permission.userName</code></td>
+                    <td>调库提交、脚本工具、审批提交页面</td>
+                    <td>需要和公司登录态字段核对：有些系统叫 <code>user_name</code>、<code>realName</code>、<code>nickName</code>，不要只替换 ID 不替换名称。</td>
+                </tr>
+                <tr>
+                    <td>工作台当前用户</td>
+                    <td><code class="code-line">window.RrsAuth.getCurrentUser(false)</code></td>
+                    <td><code class="code-line">permission</code></td>
+                    <td><code>index.html</code></td>
+                    <td>如果迁移后由公司外层系统提供当前用户，工作台不应再从 URL/localStorage 兜底取管理员。</td>
+                </tr>
+                <tr>
+                    <td>证券池审核页跳转</td>
+                    <td><code class="code-line">'security_pool_adjust_approve.html'</code></td>
+                    <td><code class="code-line">'&lt;公司证券池调库审核页地址&gt;'</code></td>
+                    <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
+                    <td>公司如果使用路由 name，建议替换为路由常量，例如 <code>ROUTE_SECURITY_ADJUST_APPROVE</code>，不要散落硬编码字符串。</td>
+                </tr>
+                <tr>
+                    <td>证券池详情页跳转</td>
+                    <td><code class="code-line">'security_pool_adjust_detail.html'</code></td>
+                    <td><code class="code-line">'&lt;公司证券池调库详情页地址&gt;'</code></td>
+                    <td><code>pages/my_matters.html</code>、<code>pages/security_pool_query.html</code>、<code>pages/security_pool_adjust_history.html</code></td>
+                    <td>查询页、历史页、我的事宜都会跳详情，需统一替换，避免部分入口还打开本地 HTML。</td>
+                </tr>
+                <tr>
+                    <td>禁投池审核页跳转</td>
+                    <td><code class="code-line">'forbidden_pool_adjust_approve.html'</code></td>
+                    <td><code class="code-line">'&lt;公司禁投池调整审核页地址&gt;'</code></td>
+                    <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
+                    <td>如果公司只保留一个通用审批页，需要把业务类型参数一起带过去。</td>
+                </tr>
+                <tr>
+                    <td>禁投池详情页跳转</td>
+                    <td><code class="code-line">'forbidden_pool_adjust_detail.html'</code></td>
+                    <td><code class="code-line">'&lt;公司禁投池调整详情页地址&gt;'</code></td>
+                    <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
+                    <td>注意主体池、禁投池历史页里也可能间接打开证券池详情。</td>
+                </tr>
+                <tr>
+                    <td>CRMW 审核页跳转</td>
+                    <td><code class="code-line">'crmw_pool_adjust_approve.html'</code></td>
+                    <td><code class="code-line">'&lt;公司 CRMW 调库审核页地址&gt;'</code></td>
+                    <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
+                    <td>CRMW 页面会同时处理凭证和标的证券参数，迁移后要确认参数名不丢。</td>
+                </tr>
+                <tr>
+                    <td>CRMW 详情页跳转</td>
+                    <td><code class="code-line">'crmw_pool_adjust_detail.html'</code></td>
+                    <td><code class="code-line">'&lt;公司 CRMW 调库详情页地址&gt;'</code></td>
+                    <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
+                    <td>如果公司详情页按业务类型复用，建议统一传 <code>businessType=crmw</code> 或等价字段。</td>
+                </tr>
+                <tr>
+                    <td>本地页面 URL 构造</td>
+                    <td><code class="code-line">window.RrsAuth.buildPageUrl(item.page, this.loginUser)</code></td>
+                    <td><code class="code-line">公司路由打开方法，例如 openTab(routeConfig)</code></td>
+                    <td><code>index.html</code></td>
+                    <td>如果迁移后不再使用 iframe 多页签，就不要继续构造 HTML 文件地址。</td>
+                </tr>
+                <tr>
+                    <td>默认管理员兜底</td>
+                    <td><code class="code-line">RrsAuth.getCurrentUser()</code></td>
+                    <td><code class="code-line">permission / 公司登录态对象</code></td>
+                    <td><code>docs/script_tool.html</code>、<code>docs/script_table_clear.html</code>、业务提交页</td>
+                    <td>本地演示允许无登录时兜底管理员；迁移到公司系统后不建议保留这个兜底，避免审计操作人错误。</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="note-box">
+            命名提醒：统一按 <code>permission</code> 处理当前登录态 / 权限对象，迁移时不要使用错误拼写。
+            如果公司现有前端框架还有更具体的对象名，则以公司真实对象名为准，但不要继续使用误写名称。
+        </div>
+    </section>
+
+    <section class="section-card" id="split-migration">
+        <div class="section-head">
+            <div>
+                <h2>公司 html / js / css 分离迁移方式</h2>
+                <p>公司项目采用三文件分离结构时，只迁移 <code>pages/</code> 里的功能页面；<code>docs/</code> 文档页按需要单独处理。</p>
+            </div>
+            <span class="badge">公司前端结构</span>
+        </div>
+        <div class="tip-grid split-grid">
+            <div class="tip-card">
+                <h3>HTML：只复制 body 业务结构</h3>
+                <p>先创建与本项目 <code>pages</code> 中同名的空壳 HTML，例如 <code>my_matters.html</code>。然后只复制原页面 <code>&lt;body&gt;</code> 内的业务 DOM，例如 <code>&lt;div id="my_matters"&gt;...&lt;/div&gt;</code>。</p>
+            </div>
+            <div class="tip-card is-warn">
+                <h3>JS：按 RequireJS 模板创建</h3>
+                <p>先复制公司现有 <code>aaa_demo.js</code> 模板，改名为页面同名 JS，例如 <code>my_matters.js</code>。JS 保持公司 RequireJS 写法，并在 <code>return { title: '' }</code> 中填入你提供的菜单当前位置路径。</p>
+            </div>
+            <div class="tip-card">
+                <h3>CSS：直接复制</h3>
+                <p>当前页面 CSS 已按页面根节点作用域编写，迁移到公司项目时可以直接复制对应 CSS 文件，通常不需要修改选择器或样式内容。</p>
+            </div>
+        </div>
+        <div class="matrix-wrap" style="margin-top:12px;">
+            <table>
+                <thead>
+                <tr><th>文件类型</th><th>本项目来源</th><th>公司项目目标</th><th>迁移动作</th><th>不要复制 / 注意事项</th></tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>HTML</td>
+                    <td><code>pages/my_matters.html</code></td>
+                    <td><code>my_matters.html</code></td>
+                    <td>创建同名空壳 HTML，只复制 <code>&lt;body&gt;</code> 内的业务 DOM。</td>
+                    <td>不要复制 <code>&lt;head&gt;</code>、CDN 引用、<code>&lt;script&gt;new Vue...&lt;/script&gt;</code>。</td>
+                </tr>
+                <tr>
+                    <td>JS</td>
+                    <td>原 HTML 底部 <code>new Vue({...})</code></td>
+                    <td><code>my_matters.js</code></td>
+                    <td>基于公司 <code>aaa_demo.js</code> 模板创建同名 JS，保持 RequireJS 模块结构，把 data/computed/created/methods 等业务逻辑迁进去。</td>
+                    <td>不要直接把整段 <code>new Vue</code> 原样塞进去；<code>return { title: '固收研究-研究管理-投资池维护' }</code> 里的 <code>title</code> 要按提供的菜单路径填写。</td>
+                </tr>
+                <tr>
+                    <td>CSS</td>
+                    <td><code>css/my_matters.css</code></td>
+                    <td>公司对应 CSS 目录</td>
+                    <td>直接复制 CSS 文件内容。</td>
+                    <td>如公司有统一皮肤变量，只在后续 UI 走查时再调整，不在第一轮迁移中改样式。</td>
+                </tr>
+                <tr>
+                    <td>页面引用</td>
+                    <td>本项目 HTML 内直接引入 CSS/JS/CDN</td>
+                    <td>公司页面加载规范</td>
+                    <td>按公司空壳 HTML 的既有方式引用同名 JS/CSS。</td>
+                    <td>不要保留本项目的 Vue、Element UI、Axios CDN 引入。</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="note-box">
+            迁移顺序建议：先迁 HTML 壳和 CSS，确认页面静态布局出来；再按公司 RequireJS 模板迁 JS 的 data/computed/methods；
+            最后处理接口地址、用户对象、页面跳转和权限对象替换。<code>title</code> 字段不要留空，应填写你提供的菜单当前位置路径。
+        </div>
+        <div class="prompt-box">公司 RequireJS JS 目标结构示例：
+
+define(function (require) {
+    // 按公司 aaa_demo.js 模板保留已有依赖、工具方法和导出结构
+    return {
+        // title 用于显示当前所在菜单位置，按提供的菜单路径填写
+        title: '固收研究-研究管理-投资池维护',
+        // 将原页面 new Vue({...}) 中的 data、computed、created、mounted、methods 等
+        // 按公司模板要求迁移到这里对应的位置
+    };
+});</div>
+        <div class="prompt-box">可直接使用的迁移提示词：
+
+请帮我将 znty-rrs-ui/pages 中的功能页面迁移到公司前端项目。公司项目是 html、js、css 三文件分离结构，JS 使用 RequireJS 写法，并且已有 aaa_demo.js 作为页面 JS 模板。请严格按“HTML 部分、JS 部分、CSS 部分”分别迁移，不要把三类内容混在一起。
+
+一、迁移范围
+1. 只迁移 znty-rrs-ui/pages 目录下的功能页面，不迁移 docs 文档页。
+2. 每个页面保持和 pages 中相同的功能文件名，例如 pages/my_matters.html 迁移为公司 my_matters.html、my_matters.js、my_matters.css。
+3. 每个页面的菜单路径由我提供，迁移时必须按我提供的路径填写 JS 模板里的 title，例如：固收研究-研究管理-投资池维护。
+
+二、HTML 迁移规则
+1. 先在公司项目中创建同名空壳 HTML。
+2. 只复制原页面 &lt;body&gt; 内的业务 DOM，也就是类似 &lt;div id="my_matters"&gt;...&lt;/div&gt; 的根节点及其内部内容。
+3. 不要复制原页面的 &lt;head&gt;、CDN 引用、axios/Vue/Element UI 引入、页面 CSS 引入、页面底部 &lt;script&gt;new Vue({...})&lt;/script&gt;。
+4. 保持根节点 id 不变，例如 my_matters 页面继续使用 &lt;div id="my_matters"&gt;，避免 CSS 作用域和 JS 挂载点失效。
+5. HTML 文件中不写业务 JS；事件、接口、弹窗、表格方法都放到同名 JS 文件里。
+
+三、JS 迁移规则
+1. 先复制公司 aaa_demo.js 模板，改名为当前页面同名 JS，例如 my_matters.js。
+2. JS 必须保持公司 RequireJS 模块写法，不要直接粘贴原页面完整 new Vue({...})，也不要在 JS 里重新引入 Vue、Element UI、Axios CDN。
+3. 公司模板中的 return { title: '' } 用于显示当前所在菜单位置，必须按我提供的菜单路径填写，title 不能留空。例如：
+   return {
+       title: '固收研究-研究管理-投资池维护',
+   };
+   如果我提供的路径是“文档管理-数据迁移-迁移说明”，则 title 写成 '文档管理-数据迁移-迁移说明'。
+   不要自行根据文件名猜 title；如果没有提供菜单路径，先标注 TODO 等待确认。
+4. 将原 HTML 中 new Vue({...}) 里的 data、computed、created、mounted、beforeDestroy、methods 等业务逻辑迁移到公司 aaa_demo.js 模板对应位置。
+5. 如果公司模板中 data/methods 写法与原 Vue2 写法不同，优先保持公司模板结构，再迁业务字段和方法，不要为了省事破坏模板。
+6. 原页面中的 this.apiPost(path, body) 要替换为公司项目统一请求方法；如果公司请求方法名不确定，保留 TODO 注释，不要临时新增一套请求封装。
+7. 原页面中的页面跳转、打开详情、打开审核页等逻辑，要替换成公司项目的菜单编码、路由方法或打开页签方法。
+
+四、CSS 迁移规则
+1. CSS 文件可以直接复制本项目 css 下对应页面 CSS，第一轮迁移不要修改样式。
+2. CSS 中页面根选择器需要和 HTML 根节点 id 保持一致，例如 #my_matters 对应 &lt;div id="my_matters"&gt;。
+3. CSS 只放样式，不放 HTML 和 JS；不要因为迁移顺手改主题色、间距、字体等视觉效果。
+4. 如果公司项目有统一皮肤变量或公共样式冲突，先标注 TODO，后续 UI 走查再统一调整。
+
+五、必须替换或人工确认的内容
+1. 不要原样保留 window.RrsAuth 这套本地演示登录逻辑。用户 ID、用户名称、权限信息要替换为公司项目已有登录态/权限对象；如果对象名不确定，请先标注 TODO，不要猜。
+2. window.RrsAuth.appendUserParams(params); 如公司路由/门户已统一处理用户参数，应注释或删除。
+3. window.RrsAuth.getCurrentUser().userId / userName 要替换为公司登录态字段，例如 permission.userId / permission.userName。
+4. 页面跳转不要继续硬编码本地 html 文件路径，例如 'security_pool_adjust_approve.html'、'security_pool_adjust_detail.html'，需要替换为公司项目实际路由、菜单编码或打开页签方法。
+5. 接口请求保持业务语义一致，但请求封装要按公司项目已有方法改造；不要在页面 JS 中新增 axios 全局配置。
+6. 页面 title 要与我提供的菜单路径一致，避免当前位置显示错误；菜单名称、页签标题如由公司框架另行配置，则按公司配置处理。
+
+六、输出要求
+1. 每迁移一个页面后，按 HTML、JS、CSS 三部分分别列出改动点。
+2. 单独列出 return { title: '一级目录-二级目录-页面名称' } 的最终取值，方便核对当前位置显示。
+3. 列出仍需人工确认的 TODO，例如公司登录态字段、路由名称、菜单编码、接口前缀。
+4. 不要改动与当前页面无关的文件，不要顺手重构样式。</div>
+    </section>
+
+    <section class="section-card" id="frontend">
+        <div class="section-head">
+            <div>
+                <h2>前端迁移替换矩阵</h2>
+                <p>前端是静态 Vue2 + Element UI 页面，核心是路径、接口地址、登录用户和菜单入口。</p>
+            </div>
+            <span class="badge">znty-rrs-ui</span>
+        </div>
+        <div class="matrix-wrap">
+            <table>
+                <thead>
+                <tr><th>替换项</th><th>当前值 / 旧值</th><th>目标值 / 新值</th><th>涉及文件</th><th>注意事项</th></tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>接口根地址</td>
+                    <td><code>http://localhost:18090</code></td>
+                    <td><code>公司后端网关或服务地址</code></td>
+                    <td><code>js/api.js</code></td>
+                    <td>只在 <code>axios.defaults.baseURL</code> 一处替换；业务页继续使用 <code>this.apiPost()</code>。</td>
+                </tr>
+                <tr>
+                    <td>工作台入口</td>
+                    <td><code>index.html?loginUserId=1001...</code></td>
+                    <td><code>公司系统菜单入口 / iframe 地址</code></td>
+                    <td><code>index.html</code></td>
+                    <td>如果嵌入公司门户，需要确认是否仍由本项目维护登录用户参数。</td>
+                </tr>
+                <tr>
+                    <td>登录用户参数</td>
+                    <td><code>loginUserId</code> / <code>loginUserName</code></td>
+                    <td><code>公司统一用户字段</code></td>
+                    <td><code>js/api.js</code>、各提交页</td>
+                    <td>后端脚本工具、调库提交等会传 <code>currentUserId/currentUserName</code> 或业务操作人字段。</td>
+                </tr>
+                <tr>
+                    <td>静态资源 CDN</td>
+                    <td><code>unpkg</code> / <code>cdnjs</code> / <code>jsdelivr</code></td>
+                    <td><code>公司内网静态资源</code></td>
+                    <td><code>index.html</code>、<code>pages/*.html</code></td>
+                    <td>内网环境不能访问公网时，需把 Vue、Element UI、Axios、Moment、ECharts 改为本地资源。</td>
+                </tr>
+                <tr>
+                    <td>页面路径</td>
+                    <td><code>pages/xxx.html</code>、<code>docs/xxx.html</code></td>
+                    <td><code>公司项目实际静态路径</code></td>
+                    <td><code>index.html</code></td>
+                    <td>菜单的 <code>page</code> 字段必须和迁移后的文件路径一致。</td>
+                </tr>
+                <tr>
+                    <td>脚本工具入口</td>
+                    <td><code>docs/script_tool.html</code>、<code>docs/script_table_clear.html</code></td>
+                    <td><code>保留或按公司权限隐藏</code></td>
+                    <td><code>index.html</code></td>
+                    <td>脚本工具会真实执行数据库脚本，生产环境建议通过菜单权限隔离或直接不部署。</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="section-card" id="backend">
+        <div class="section-head">
+            <div>
+                <h2>后端迁移替换矩阵</h2>
+                <p>后端是 Spring Boot 1.5 + MyBatis，迁移重点是数据库连接、包结构、接口路径和 SQL 目录。</p>
+            </div>
+            <span class="badge">znty-rrs-parent</span>
+        </div>
+        <div class="matrix-wrap">
+            <table>
+                <thead>
+                <tr><th>替换项</th><th>当前值 / 旧值</th><th>目标值 / 新值</th><th>涉及文件</th><th>注意事项</th></tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>后端端口</td>
+                    <td><code>18090</code></td>
+                    <td><code>公司服务端口</code></td>
+                    <td><code>application.yml</code></td>
+                    <td>端口变化后前端 <code>js/api.js</code> 的 baseURL 必须同步。</td>
+                </tr>
+                <tr>
+                    <td>主数据库连接</td>
+                    <td><code>localhost:3306/znty_rrs</code></td>
+                    <td><code>公司 MySQL 地址 / 库名</code></td>
+                    <td><code>application.yml</code></td>
+                    <td>如果库名变化，SQL 脚本中的 <code>CREATE DATABASE</code>、<code>USE</code> 也要同步替换。</td>
+                </tr>
+                <tr>
+                    <td>AIS 分析库</td>
+                    <td><code>ais_inv_analysis</code></td>
+                    <td><code>公司投资分析库名</code></td>
+                    <td><code>sql/ais_inv_analysis_*.sql</code></td>
+                    <td>主体评级、公司主体等演示数据依赖该库；公司已有库时确认是否需要执行 demo。</td>
+                </tr>
+                <tr>
+                    <td>SQL 文件目录</td>
+                    <td><code>rrs.script.sql-path: sql</code></td>
+                    <td><code>部署服务器上的 SQL 目录</code></td>
+                    <td><code>application.yml</code>、环境变量</td>
+                    <td>脚本工具通过该目录读取 SQL 文件；路径不对会提示 SQL 目录不存在。</td>
+                </tr>
+                <tr>
+                    <td>接口前缀</td>
+                    <td><code>/api/v1/</code></td>
+                    <td><code>公司接口网关前缀</code></td>
+                    <td>Controller、前端调用</td>
+                    <td>本项目接口统一 POST；如果网关加前缀，优先在 baseURL 处理，不要改每个页面。</td>
+                </tr>
+                <tr>
+                    <td>包名</td>
+                    <td><code>com.znty.rrs</code></td>
+                    <td><code>公司项目包名</code></td>
+                    <td><code>src/main/java</code>、MyBatis 扫描配置</td>
+                    <td>如需要合并到既有工程，注意 Mapper XML、实体包、Spring 扫描路径一致。</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="section-card" id="sql">
+        <div class="section-head">
+            <div>
+                <h2>SQL 与数据迁移替换矩阵</h2>
+                <p>SQL 迁移要统一 MySQL 8 字符集、库名、执行顺序和是否导入 demo 数据。</p>
+            </div>
+            <span class="badge">sql/*.sql</span>
+        </div>
+        <div class="matrix-wrap">
+            <table>
+                <thead>
+                <tr><th>替换项</th><th>当前值 / 旧值</th><th>目标值 / 新值</th><th>涉及文件</th><th>注意事项</th></tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>业务库名</td>
+                    <td><code>znty_rrs</code></td>
+                    <td><code>公司业务库名</code></td>
+                    <td><code>sql/rrs_*.sql</code></td>
+                    <td>需替换 <code>CREATE DATABASE</code>、<code>USE</code> 和跨库访问语句。</td>
+                </tr>
+                <tr>
+                    <td>投资分析库名</td>
+                    <td><code>ais_inv_analysis</code></td>
+                    <td><code>公司投资分析库名</code></td>
+                    <td><code>sql/ais_inv_analysis_*.sql</code></td>
+                    <td>如果公司已有数据，只迁移结构时不要执行 demo data。</td>
+                </tr>
+                <tr>
+                    <td>字符集与排序规则</td>
+                    <td><code>utf8mb4_0900_ai_ci</code></td>
+                    <td><code>MySQL 8 默认排序规则</code></td>
+                    <td>全部 SQL</td>
+                    <td>保持 <code>CREATE DATABASE ... DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci</code>。</td>
+                </tr>
+                <tr>
+                    <td>建表脚本顺序</td>
+                    <td><code>schema → demo</code></td>
+                    <td><code>同当前顺序</code></td>
+                    <td><code>ScriptToolService.querySchemaFiles()</code></td>
+                    <td>不要随意调换流程、投资池、规则、附件等脚本顺序。</td>
+                </tr>
+                <tr>
+                    <td>演示数据</td>
+                    <td><code>*_demo_data.sql</code></td>
+                    <td><code>按环境选择执行</code></td>
+                    <td><code>sql/*_demo_data.sql</code></td>
+                    <td>开发/演示环境可执行；生产环境通常只导入必要字典和配置。</td>
+                </tr>
+                <tr>
+                    <td>外键检查</td>
+                    <td><code class="danger-code">SET FOREIGN_KEY_CHECKS = 0</code></td>
+                    <td><code>不使用</code></td>
+                    <td>全部 SQL</td>
+                    <td>当前项目不创建物理外键，无需关闭外键检查。</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="section-card" id="deploy">
+        <div class="section-head">
+            <div>
+                <h2>部署配置注意事项</h2>
+                <p>迁移后最容易出问题的是跨域、静态资源、权限和脚本工具安全边界。</p>
+            </div>
+            <span class="badge">部署与权限</span>
+        </div>
+        <div class="tip-grid">
+            <div class="tip-card">
+                <h3>前端静态部署</h3>
+                <p>如果使用 Nginx 或公司门户托管，确认 <code>index.html</code>、<code>pages/</code>、<code>docs/</code>、<code>css/</code>、<code>js/</code> 都在同一相对路径下。</p>
+            </div>
+            <div class="tip-card is-warn">
+                <h3>跨域与网关</h3>
+                <p>本地前端默认请求 <code>http://localhost:18090</code>。迁移到网关后，优先改 <code>js/api.js</code> 的 baseURL，并确认 Cookie / Token / Header 策略。</p>
+            </div>
+            <div class="tip-card is-danger">
+                <h3>脚本工具权限</h3>
+                <p>脚本工具可以清表和执行 SQL 初始化。生产环境建议隐藏菜单，或只允许管理员在隔离环境使用。</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-card" id="checklist">
+        <div class="section-head">
+            <div>
+                <h2>迁移后验证清单</h2>
+                <p>按下面顺序跑一遍，基本能覆盖前端、后端、数据库和文档页面的常见断点。</p>
+            </div>
+            <span class="badge">Checklist</span>
+        </div>
+        <ol>
+            <li>打开工作台首页，确认一级菜单“研究管理 / 文档管理”正常切换。</li>
+            <li>打开“文档管理 → 业务文档 → 文档总览 / 字典值总览”，确认 docs 页面路径正常。</li>
+            <li>打开“文档管理 → 脚本工具 → 数据初始化 / 表数据清空”，确认接口能请求后端。</li>
+            <li>执行后端 <code>mvn test -Dtest=ScriptToolApiTest</code>，确认脚本工具接口仍通过。</li>
+            <li>执行建表 SQL 后，检查 <code>znty_rrs</code> 和 <code>ais_inv_analysis</code> 是否存在且字符集一致。</li>
+            <li>打开证券池调整、证券池查询、我的事宜、流程定义、投资池维护，确认核心页面无接口 404。</li>
+            <li>尝试发起一笔调库申请并审批到结束，确认 <code>ip_adjust_log</code>、<code>ip_adjust_step</code>、<code>ip_pool_status</code> 数据完整。</li>
+            <li>如部署到内网，断网测试页面是否仍能加载 Vue、Element UI、Axios 等静态依赖。</li>
+        </ol>
+    </section>
+</div>
+</body>
+</html>
