@@ -112,3 +112,21 @@ Vue.prototype.apiPost = async function(path, body, config) {
     }
     return json.data
 }
+
+Vue.prototype.downloadBase64File = function(base64, fileName, contentType) {
+    const binary = atob(base64 || '')
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i)
+    }
+    const blob = new Blob([bytes], { type: contentType || 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    try {
+        const link = document.createElement('a')
+        link.href = url
+        link.download = fileName || '附件'
+        link.click()
+    } finally {
+        URL.revokeObjectURL(url)
+    }
+}
