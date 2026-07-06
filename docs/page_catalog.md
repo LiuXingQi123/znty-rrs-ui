@@ -40,6 +40,19 @@
 | `docs/script_data_integrity.html` | 业务数据完整性检查 | `css/script_data_integrity.css`、`css/common.css` |
 | `docs/script_module_reset.html` | 模块重置 | `css/script_module_reset.css`、`css/common.css` |
 | `docs/script_demo_scene.html` | 场景生成 | `css/script_demo_scene.css`、`css/common.css` |
+| `docs/business-issues-overview.html` | 业务问题总览 | HTML 内联样式 |
+| `docs/security-pool-link-audit.html` | 证券池单笔调库体检 | HTML 内联样式 |
+| `docs/batch-security-pool-link-audit.html` | 证券池批量调整体检 | HTML 内联样式 |
+| `docs/forbidden-pool-link-audit.html` | 禁投池调整体检 | HTML 内联样式 |
+| `docs/crmw-pool-link-audit.html` | CRMW池调整体检 | HTML 内联样式 |
+| `docs/query-history-audit.html` | 查询与历史口径体检 | HTML 内联样式 |
+| `docs/approval-matters-audit.html` | 审批与我的事宜体检 | HTML 内联样式 |
+| `docs/investment-pool-permission-audit.html` | 投资池与权限体检 | HTML 内联样式 |
+| `docs/workflow-engine-audit.html` | 流程定义与流转体检 | HTML 内联样式 |
+| `docs/rule-rating-temp-audit.html` | 规则评级与临时代码体检 | HTML 内联样式 |
+| `docs/attachment-report-audit.html` | 附件与报告体检 | HTML 内联样式 |
+| `docs/data-consistency-performance-audit.html` | 数据一致性与性能体检 | HTML 内联样式 |
+| `docs/business-acceptance-matrix.html` | 全业务验收矩阵 | HTML 内联样式 |
 
 ## CSS 样式
 
