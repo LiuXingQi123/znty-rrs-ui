@@ -753,10 +753,11 @@ define(function (require) {
 1. 不要原样保留 window.RrsAuth 这套本地演示登录逻辑。用户 ID、用户名称、权限信息要替换为公司项目已有登录态/权限对象；如果对象名不确定，请先标注 TODO，不要猜。
 2. window.RrsAuth.appendUserParams(params); 如公司路由/门户已统一处理用户参数，应注释或删除。
 3. window.RrsAuth.getCurrentUser().userId / userName 要替换为公司登录态字段，例如 permission.userId / permission.userName。
-4. 页面跳转不要继续硬编码本地 html 文件路径，例如 'security_pool_adjust_approve.html'、'security_pool_adjust_detail.html'，需要替换为公司项目实际路由、菜单编码或打开页签方法。
-5. 接口请求保持业务语义一致，但请求封装要按公司项目已有方法改造；常见替换包括 this.apiPost('/api/v1 → postActionArrs('/analysis/rrs/api/v1、'/api/v1/ → '/analysis/rrs/api/v1/、this.apiPost → postActionRrs。不要在页面 JS 中新增 axios 全局配置。
-6. 如果同一处代码同时命中“接口路径前缀”和“请求方法名”，先按公司 aaa_demo.js 模板判断应使用 postActionRrs 还是 postActionArrs，避免重复替换后括号或引号不匹配。
-7. 页面 title 要与我提供的菜单路径一致，避免当前位置显示错误；菜单名称、页签标题如由公司框架另行配置，则按公司配置处理。
+4. 当前后端没有独立登录上下文，currentUserId、adjusterId、handlerId、operatorId、userId 都可能直接来自前端请求体。迁移后必须由公司后端认证上下文获取真实用户 ID 和名称，并忽略前端传入的身份字段；尤其不能允许客户端传入 1 获得管理员特权。
+5. 页面跳转不要继续硬编码本地 html 文件路径，例如 'security_pool_adjust_approve.html'、'security_pool_adjust_detail.html'，需要替换为公司项目实际路由、菜单编码或打开页签方法。
+6. 接口请求保持业务语义一致，但请求封装要按公司项目已有方法改造；常见替换包括 this.apiPost('/api/v1 → postActionArrs('/analysis/rrs/api/v1、'/api/v1/ → '/analysis/rrs/api/v1/、this.apiPost → postActionRrs。不要在页面 JS 中新增 axios 全局配置。
+7. 如果同一处代码同时命中“接口路径前缀”和“请求方法名”，先按公司 aaa_demo.js 模板判断应使用 postActionRrs 还是 postActionArrs，避免重复替换后括号或引号不匹配。
+8. 页面 title 要与我提供的菜单路径一致，避免当前位置显示错误；菜单名称、页签标题如由公司框架另行配置，则按公司配置处理。
 
 六、输出要求
 1. 每迁移一个页面后，按 HTML、JS、CSS 三部分分别列出改动点。
@@ -830,7 +831,7 @@ define(function (require) {
         <div class="section-head">
             <div>
                 <h2>后端迁移替换矩阵</h2>
-                <p>后端是 Spring Boot 1.5 + MyBatis，迁移重点是数据库连接、包结构、接口路径和 SQL 目录。</p>
+                <p>后端是 Spring Boot 1.5 + MyBatis，迁移重点是登录身份来源、数据库连接、包结构、接口路径和 SQL 目录。</p>
             </div>
             <span class="badge">znty-rrs-parent</span>
         </div>
@@ -846,6 +847,13 @@ define(function (require) {
                     <td><code>公司服务端口</code></td>
                     <td><code>application.yml</code></td>
                     <td>端口变化后前端 <code>js/api.js</code> 的 baseURL 必须同步。</td>
+                </tr>
+                <tr>
+                    <td>当前登录用户来源</td>
+                    <td>请求体中的 <code>currentUserId</code>、<code>adjusterId</code>、<code>handlerId</code>、<code>operatorId</code>、<code>userId</code></td>
+                    <td>公司后端认证上下文中的真实用户 ID / 用户名称</td>
+                    <td>调库查询与提交、审批流程、我的事宜、投资池维护、脚本工具等 Controller / Service</td>
+                    <td>当前演示项目没有 Session、JWT、Spring Security 或登录拦截器，不能在公司环境继续信任客户端身份字段；后端应覆盖或忽略这些字段。</td>
                 </tr>
                 <tr>
                     <td>主数据库连接</td>
@@ -884,6 +892,12 @@ define(function (require) {
                 </tr>
                 </tbody>
             </table>
+        </div>
+        <div class="note-box">
+            <strong>身份安全边界：</strong>
+            当前代码会使用前端传入的用户 ID 做权限过滤、写入操作人、校验审批处理人；部分服务还把用户 ID <code>1</code> 直接视为管理员。
+            非管理员权限虽然会继续查询用户角色和投资池权限，但用户 ID 本身并未由后端认证，因此客户端仍可能冒充其他用户。
+            迁移时应统一从公司后端认证上下文读取当前用户，并由后端查询或校验用户名称；流程配置产生的下一节点处理人仍可来自数据库，但执行审批的当前操作人必须来自认证上下文。
         </div>
     </section>
 
