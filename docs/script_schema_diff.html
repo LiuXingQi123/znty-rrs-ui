@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库结构差异检查</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <link rel="stylesheet" href="../css/script_schema_diff.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<div id="script_schema_diff">
+    <section class="check-hero">
+        <div>
+            <p class="check-kicker">RRS SCRIPT TOOL</p>
+            <h1>数据库结构差异检查</h1>
+            <p class="check-desc">以 11 个 schema 脚本为基准，对比 2 个数据库、59 张表的字段类型、可空性、自增属性、索引、引擎和排序规则，全程只读。</p>
+        </div>
+        <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadInspection">重新检查</el-button>
+    </section>
+
+    <section class="summary-grid">
+        <div class="summary-card"><strong>{{ statusLabel(inspection.status) }}</strong><span>整体状态</span></div>
+        <div class="summary-card"><strong>{{ inspection.totalCount || 0 }}</strong><span>检查表数</span></div>
+        <div class="summary-card"><strong>{{ inspection.successCount || 0 }}</strong><span>结构一致</span></div>
+        <div class="summary-card"><strong>{{ inspection.warningCount || 0 }}</strong><span>存在警告</span></div>
+        <div class="summary-card"><strong>{{ inspection.failedCount || 0 }}</strong><span>结构异常</span></div>
+        <div class="summary-card"><strong>{{ inspection.issueCount || 0 }}</strong><span>差异项数</span></div>
+    </section>
+
+    <section class="content-card">
+        <div class="check-toolbar">
+            <el-select v-model="statusFilter" size="small" clearable placeholder="全部状态" style="width:130px;">
+                <el-option label="正常" value="success"></el-option>
+                <el-option label="警告" value="warning"></el-option>
+                <el-option label="失败" value="failed"></el-option>
+            </el-select>
+            <el-input v-model="keyword" size="small" clearable prefix-icon="el-icon-search" placeholder="搜索数据库、表或差异" style="width:300px;"></el-input>
+            <span class="result-count">当前 {{ filteredItems.length }} 张表</span>
+        </div>
+        <el-table :data="filteredItems" size="small" border v-loading="loading" empty-text="暂无检查结果">
+            <el-table-column label="状态" width="80" align="center">
+                <template slot-scope="scope"><el-tag size="mini" :type="statusTagType(scope.row.status)">{{ statusLabel(scope.row.status) }}</el-tag></template>
+            </el-table-column>
+            <el-table-column prop="objectName" label="数据库表" min-width="210"></el-table-column>
+            <el-table-column prop="currentValue" label="实际结构" min-width="220"></el-table-column>
+            <el-table-column prop="expectedValue" label="脚本结构" min-width="220"></el-table-column>
+            <el-table-column prop="message" label="差异说明" min-width="320" show-overflow-tooltip></el-table-column>
+            <el-table-column prop="suggestion" label="处理建议" min-width="260" show-overflow-tooltip></el-table-column>
+        </el-table>
+    </section>
+</div>
+
+<script>
+new Vue({
+    el: '#script_schema_diff',
+    data() {
+        return {
+            inspection: {},
+            loading: false,
+            statusFilter: '',
+            keyword: '',
+        }
+    },
+    computed: {
+        filteredItems() {
+            const keyword = (this.keyword || '').trim().toLowerCase()
+            return (this.inspection.items || []).filter(item => {
+                if (this.statusFilter && item.status !== this.statusFilter) return false
+                if (!keyword) return true
+                return [item.objectName, item.currentValue, item.expectedValue, item.message].join(' ').toLowerCase().indexOf(keyword) > -1
+            })
+        },
+    },
+    created() {
+        // 初始化数据库结构差异检查
+        this.loadInspection()
+    },
+    methods: {
+        // 加载数据库结构差异检查结果
+        async loadInspection() {
+            this.loading = true
+            try {
+                this.inspection = await this.apiPost('/api/v1/scriptTool/querySchemaDiff', {}) || {}
+            } finally {
+                this.loading = false
+            }
+        },
+        // 获取状态标签类型
+        statusTagType(status) {
+            if (status === 'success') return 'success'
+            if (status === 'warning') return 'warning'
+            return 'danger'
+        },
+        // 获取状态中文
+        statusLabel(status) {
+            if (status === 'success') return '正常'
+            if (status === 'warning') return '警告'
+            if (status === 'failed') return '失败'
+            return '未检查'
+        },
+    },
+})
+</script>
+</body>
+</html>

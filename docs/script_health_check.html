@@ -18,14 +18,17 @@
         <div>
             <p class="health-kicker">RRS SCRIPT TOOL</p>
             <h1>环境健康检查</h1>
-            <p class="health-desc">检查 SQL 目录、数据库连接、库表存在性、核心表数据量和 MySQL 8 字符集配置。</p>
+            <p class="health-desc">检查 SQL 目录、数据库连接、2 个数据库以及全部 59 张项目表的存在性、数据量和 MySQL 8 字符集配置。</p>
         </div>
         <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadHealthCheck">重新检查</el-button>
     </section>
 
     <section class="status-board">
         <div class="status-card"><strong>{{ statusLabel(check.status) }}</strong><span>整体状态</span></div>
-        <div class="status-card"><strong>{{ itemCount('success') }}</strong><span>正常项</span></div>
+        <div class="status-card"><strong>{{ check.existingTableCount || 0 }}/{{ check.expectedTableCount || 0 }}</strong><span>已存在表</span></div>
+        <div class="status-card"><strong>{{ check.missingTableCount || 0 }}</strong><span>缺失表</span></div>
+        <div class="status-card"><strong>{{ check.nonEmptyTableCount || 0 }}</strong><span>有数据表</span></div>
+        <div class="status-card"><strong>{{ check.emptyTableCount || 0 }}</strong><span>空表</span></div>
         <div class="status-card"><strong>{{ itemCount('failed') + itemCount('warning') }}</strong><span>需关注项</span></div>
     </section>
 
@@ -35,7 +38,16 @@
     </section>
 
     <section class="health-card">
-        <el-table :data="check.items || []" size="small" border v-loading="loading" empty-text="暂无检查结果">
+        <div class="health-toolbar">
+            <el-select v-model="statusFilter" size="small" clearable placeholder="全部状态" style="width:130px;">
+                <el-option label="正常" value="success"></el-option>
+                <el-option label="警告" value="warning"></el-option>
+                <el-option label="失败" value="failed"></el-option>
+            </el-select>
+            <el-input v-model="keyword" size="small" clearable prefix-icon="el-icon-search" placeholder="搜索数据库、表或说明" style="width:280px;"></el-input>
+            <span class="result-count">当前 {{ filteredItems.length }} 项</span>
+        </div>
+        <el-table :data="filteredItems" size="small" border v-loading="loading" empty-text="暂无检查结果">
             <el-table-column label="状态" width="90">
                 <template slot-scope="scope">
                     <el-tag size="mini" :type="statusTagType(scope.row.status)">{{ statusLabel(scope.row.status) }}</el-tag>
@@ -60,7 +72,19 @@ new Vue({
         return {
             check: {},
             loading: false,
+            statusFilter: '',
+            keyword: '',
         }
+    },
+    computed: {
+        filteredItems() {
+            const keyword = (this.keyword || '').trim().toLowerCase()
+            return (this.check.items || []).filter(item => {
+                if (this.statusFilter && item.status !== this.statusFilter) return false
+                if (!keyword) return true
+                return [item.itemName, item.currentValue, item.expectedValue, item.message].join(' ').toLowerCase().indexOf(keyword) > -1
+            })
+        },
     },
     created() {
         // 初始化执行环境检查
