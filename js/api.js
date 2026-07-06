@@ -3,7 +3,7 @@
 * 统一登录用户、后端接口地址、响应解析、错误提示与文件下载响应处理
 */
 const RRS_AUTH_STORAGE_KEY = 'rrs-login-user'
-const RRS_DEFAULT_USER = { userId: '1001', userName: '管理员', loginName: 'admin' }
+const RRS_DEFAULT_USER = { userId: '1', userName: '管理员', loginName: 'admin' }
 
 window.RrsAuth = {
     // 规范化登录用户信息
