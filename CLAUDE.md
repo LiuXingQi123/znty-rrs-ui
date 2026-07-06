@@ -21,6 +21,51 @@
 
 ---
 
+## 整体架构
+
+> 本节描述需要跨多个文件才能理清的"大局"；逐页语法规范见下方各节。
+
+### 工作台 Shell + iframe 多页签
+
+- `index.html` 是唯一的工作台外壳：左侧 `el-menu` 分组导航 + 顶部一级菜单（`primaryMenus`：研究管理 / 文档管理）+ 多页签 `iframe` 内容区。所有业务页都在 `pages/` 下，通过 `<iframe :src="tab.url">` 加载，页签之间相互隔离、可独立刷新。
+- 菜单结构在 `index.html` 的 `primaryMenus` / `menuGroups` 数据里硬编码，每项形如 `{ index, title, icon, page: 'pages/xxx.html', primaryMenu }`。**新增业务页时必须同时在 `menuGroups` 注册菜单项**，否则无法从工作台进入——只把 `.html` 丢进 `pages/` 不会出现在菜单里。
+- 页签 `url` 由 `window.RrsAuth.buildPageUrl(page, loginUser)` 生成，自动把当前登录用户拼成 `?loginUserId=...&loginUserName=...`；业务页在 iframe 内调 `RrsAuth.getCurrentUser()` 读取。
+
+### 登录与用户上下文（`js/api.js` 中的 `window.RrsAuth`）
+
+- `login.html` 是**纯前端演示登录**（无后端校验，演示用户密码统一 `123456`）：选中用户 → `RrsAuth.authenticate(...)` 写入 `localStorage`（key `rrs-login-user`）→ `buildPageUrl('index.html', user)` 跳转工作台。
+- 业务页无登录信息时 `RrsAuth.getCurrentUser()` 兜底返回管理员 `{ userId: '1001', userName: '管理员' }`，因此直接打开 `pages/xxx.html` 也能跑通布局，但提交后端时拿不到真实操作人。
+- 业务页提交后端时，把 `loginUser.userId / userName` 作为字段传入（参考 `pages/script_tool.html` 的 `currentUserId / currentUserName`），后端按此记录操作人。
+
+### 统一请求封装（`js/api.js`）
+
+- `axios.defaults.baseURL = 'http://localhost:18090'` 在 `js/api.js` 中设置一次；业务页直接 `this.apiPost('/api/v1/xxx', body)` 即可，**禁止**再设 `Vue.prototype.apiBase` 或在业务页里重复写 `axios.defaults.baseURL`。
+- `Vue.prototype.apiPost(path, body, config)` 第 3 个 `config` 透传给 `axios`；传 `{ responseType: 'blob' }` 走文件下载分支，直接返回原始 `resp`、跳过 `success` 解析。
+- 业务页 `<head>` 引入顺序固定：Element UI CSS → Vue → Element UI → axios → **`js/api.js`**（根目录 `js/api.js`，`pages/` 下用 `../js/api.js`）→ 按需 moment → 页面 CSS → `css/common.css`。`api.js` 必须在 axios 之后、页面脚本之前，否则 `apiPost` 未挂载。
+
+### `css/common.css` 的 iframe 适配职责
+
+- `common.css` **不是**通用基础样式，而是为「业务页嵌入工作台 iframe」做的统一适配：隐藏各页自带的 `.topbar / .search-label / .total-badge`（这些在 iframe 内会重复占位）、把调库详情页 `.pool-adjust-workflow-page` 的底部操作区固定到 iframe 视口底部。
+- 业务页 `<body class="xxx-page">` + 根 `<div id="xxx">` 的命名是 `common.css` 选择器的基础；调库类详情页沿用 `pool-adjust-workflow-page` 这个 class 才能拿到固定底栏。新增页面沿用既有命名，不要新造命名空间。
+- 改 `common.css` 会影响所有 iframe 内业务页，调整前先全站搜索受影响的选择器。
+
+### 字典与文档
+
+- `docs/dict.js` 是 code→中文名称的**参考字典**（与后端 `com.znty.rrs.common.enums` 核对），**当前不是运行时依赖**：各业务页仍 inline 维护各自字典与 `xxxLabel() / xxxTagType()` helper。后续统一字典接入时以 `dict.js` 为准。
+- `docs/*.html` 是业务文档页（表结构 / 字段说明，HTML 内联样式），由 `docs/module-tables-index.html` 索引。
+- `docs/page_catalog.md` 是「页面 ↔ CSS」对照清单；新增 / 重命名 / 删除页面或样式文件时必须同步更新该清单。
+
+### 本地预览与调试
+
+- 前端无构建。推荐入口：`login.html` → 登录后跳 `index.html` 工作台 → 通过菜单打开业务页（iframe）。直接打开 `pages/xxx.html` 可看布局，但脱离工作台 iframe 时 `common.css` 的隐藏 / 固定规则会失效，且无真实登录用户。
+- 业务页请求 `http://localhost:18090`，需后端 `znty-rrs-parent` 服务在跑；跨域由后端处理，前端无需额外配置。用任意静态服务器（如 `python -m http.server`、VS Code Live Server）托管 UI 目录即可，避免 `file://` 协议下部分浏览器限制。
+
+### 仓库同步
+
+- `AGENTS.md` 与 `CLAUDE.md` 内容保持一致（供 Codex 等 agent 工具读取）；改 `CLAUDE.md` 时同步更新 `AGENTS.md`。
+
+---
+
 ## 页面风格与 UI 设计规范
 
 项目整体 UI 设计规范以 `project_ui_design_guidelines.md` 为准。新增页面、页面重构、页面样式调整、AI 生成页面和 UI 走查时，必须先参考该文件；本节只保留关键摘要和执行原则，避免多份文档重复维护后产生偏差。
@@ -358,16 +403,18 @@ new Vue({
 
 所有请求通过 `this.apiPost()` 发起，**禁止**在业务代码中直接调用 `axios`。
 
-`apiPost` 挂载在 Vue 原型上，后端返回结构为 `{ success: true/false, data, message }`：
+统一封装在 `js/api.js`（详见上文「整体架构 → 统一请求封装」），核心实现：
 
 ```js
-// 接口根地址
-Vue.prototype.apiBase = 'https://your-api-domain.com'
+// 接口根地址（js/api.js 中设置一次，业务页不再重复设置）
+axios.defaults.baseURL = 'http://localhost:18090'
 
 // 统一请求封装，后端返回结构：{ success: true/false, data, message }
-Vue.prototype.apiPost = async function(path, body) {
-  const resp = await axios.post(this.apiBase + path, body || {})
-  const json = resp.data
+Vue.prototype.apiPost = async function(path, body, config) {
+  const resp = await axios.post(path, body || {}, config || {})
+  // 文件下载等 blob 响应直接返回原始 resp，跳过 success 解析
+  if (config && config.responseType === 'blob') return resp
+  const json = resp.data || {}
   // 请求失败时弹出错误提示并中断后续逻辑
   if (!json.success) {
     this.$message.error(json.message || '接口异常')
