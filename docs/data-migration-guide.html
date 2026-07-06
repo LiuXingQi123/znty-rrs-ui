@@ -477,7 +477,7 @@
         </div>
         <div class="hero-metrics">
             <div class="metric-card"><strong>4</strong><span>迁移层面：前端 / 后端 / SQL / 部署</span></div>
-            <div class="metric-card"><strong>18</strong><span>高频替换项</span></div>
+            <div class="metric-card"><strong>21</strong><span>高频替换项</span></div>
             <div class="metric-card"><strong>2</strong><span>数据库：znty_rrs / ais_inv_analysis</span></div>
             <div class="metric-card"><strong>1</strong><span>最终验证闭环</span></div>
         </div>
@@ -547,53 +547,74 @@
                     <td>需要和公司登录态字段核对：有些系统叫 <code>user_name</code>、<code>realName</code>、<code>nickName</code>，不要只替换 ID 不替换名称。</td>
                 </tr>
                 <tr>
-                    <td>工作台当前用户</td>
-                    <td><code class="code-line">window.RrsAuth.getCurrentUser(false)</code></td>
-                    <td><code class="code-line">permission</code></td>
-                    <td><code>index.html</code></td>
-                    <td>如果迁移后由公司外层系统提供当前用户，工作台不应再从 URL/localStorage 兜底取管理员。</td>
+                    <td>接口调用前缀迁移</td>
+                    <td><code class="code-line">this.apiPost('/api/v1</code></td>
+                    <td><code class="code-line">postActionArrs('/analysis/rrs/api/v1</code></td>
+                    <td><code>pages/*.html</code> 中所有接口调用</td>
+                    <td>按公司模板实际请求方法核对；截图示例为 <code>postActionArrs</code>，如果页面使用普通请求方法，则优先按公司真实方法替换。</td>
+                </tr>
+                <tr>
+                    <td>接口路径前缀字符串</td>
+                    <td><code class="code-line">'/api/v1/</code></td>
+                    <td><code class="code-line">'/analysis/rrs/api/v1/</code></td>
+                    <td>接口路径常量、变量 <code>path</code>、报告查询路径</td>
+                    <td>适合处理不是直接写在 <code>this.apiPost(...)</code> 里的路径，例如 <code>const path = isInternal ? ...</code>；注意不要误替换注释或文档示例之外的非接口字符串。</td>
+                </tr>
+                <tr>
+                    <td>请求封装方法名</td>
+                    <td><code class="code-line">this.apiPost</code></td>
+                    <td><code class="code-line">postActionRrs</code></td>
+                    <td>从本地 Vue 页面迁移出的 JS 方法体</td>
+                    <td>公司 RequireJS 页面里通常不再通过 <code>this</code> 调公共请求；普通 RRS 接口按 <code>postActionRrs</code>，如公司模板另有 <code>postActionArrs</code> 场景，以模板为准。</td>
                 </tr>
                 <tr>
                     <td>证券池审核页跳转</td>
                     <td><code class="code-line">'security_pool_adjust_approve.html'</code></td>
-                    <td><code class="code-line">'&lt;公司证券池调库审核页地址&gt;'</code></td>
+                    <td><code class="code-line">'#/48/10021/fd/analysis/sirm/pages/security_pool_adjust_approve'</code></td>
                     <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
                     <td>公司如果使用路由 name，建议替换为路由常量，例如 <code>ROUTE_SECURITY_ADJUST_APPROVE</code>，不要散落硬编码字符串。</td>
                 </tr>
                 <tr>
                     <td>证券池详情页跳转</td>
                     <td><code class="code-line">'security_pool_adjust_detail.html'</code></td>
-                    <td><code class="code-line">'&lt;公司证券池调库详情页地址&gt;'</code></td>
+                    <td><code class="code-line">'#/48/10020/fd/analysis/sirm/pages/security_pool_adjust_detail'</code></td>
                     <td><code>pages/my_matters.html</code>、<code>pages/security_pool_query.html</code>、<code>pages/security_pool_adjust_history.html</code></td>
                     <td>查询页、历史页、我的事宜都会跳详情，需统一替换，避免部分入口还打开本地 HTML。</td>
                 </tr>
                 <tr>
                     <td>禁投池审核页跳转</td>
                     <td><code class="code-line">'forbidden_pool_adjust_approve.html'</code></td>
-                    <td><code class="code-line">'&lt;公司禁投池调整审核页地址&gt;'</code></td>
+                    <td><code class="code-line">'#/48/10023/fd/analysis/sirm/pages/forbidden_pool_adjust_approve'</code></td>
                     <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
                     <td>如果公司只保留一个通用审批页，需要把业务类型参数一起带过去。</td>
                 </tr>
                 <tr>
                     <td>禁投池详情页跳转</td>
                     <td><code class="code-line">'forbidden_pool_adjust_detail.html'</code></td>
-                    <td><code class="code-line">'&lt;公司禁投池调整详情页地址&gt;'</code></td>
+                    <td><code class="code-line">'#/48/10022/fd/analysis/sirm/pages/forbidden_pool_adjust_detail'</code></td>
                     <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
                     <td>注意主体池、禁投池历史页里也可能间接打开证券池详情。</td>
                 </tr>
                 <tr>
                     <td>CRMW 审核页跳转</td>
                     <td><code class="code-line">'crmw_pool_adjust_approve.html'</code></td>
-                    <td><code class="code-line">'&lt;公司 CRMW 调库审核页地址&gt;'</code></td>
+                    <td><code class="code-line">'#/48/10025/fd/analysis/sirm/pages/crmw_pool_adjust_approve'</code></td>
                     <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
                     <td>CRMW 页面会同时处理凭证和标的证券参数，迁移后要确认参数名不丢。</td>
                 </tr>
                 <tr>
                     <td>CRMW 详情页跳转</td>
                     <td><code class="code-line">'crmw_pool_adjust_detail.html'</code></td>
-                    <td><code class="code-line">'&lt;公司 CRMW 调库详情页地址&gt;'</code></td>
+                    <td><code class="code-line">'#/48/10024/fd/analysis/sirm/pages/crmw_pool_adjust_detail'</code></td>
                     <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
                     <td>如果公司详情页按业务类型复用，建议统一传 <code>businessType=crmw</code> 或等价字段。</td>
+                </tr>
+                <tr>
+                    <td>工作台当前用户</td>
+                    <td><code class="code-line">window.RrsAuth.getCurrentUser(false)</code></td>
+                    <td><code class="code-line">permission</code></td>
+                    <td><code>index.html</code></td>
+                    <td>如果迁移后由公司外层系统提供当前用户，工作台不应再从 URL/localStorage 兜底取管理员。</td>
                 </tr>
                 <tr>
                     <td>本地页面 URL 构造</td>
@@ -733,8 +754,9 @@ define(function (require) {
 2. window.RrsAuth.appendUserParams(params); 如公司路由/门户已统一处理用户参数，应注释或删除。
 3. window.RrsAuth.getCurrentUser().userId / userName 要替换为公司登录态字段，例如 permission.userId / permission.userName。
 4. 页面跳转不要继续硬编码本地 html 文件路径，例如 'security_pool_adjust_approve.html'、'security_pool_adjust_detail.html'，需要替换为公司项目实际路由、菜单编码或打开页签方法。
-5. 接口请求保持业务语义一致，但请求封装要按公司项目已有方法改造；不要在页面 JS 中新增 axios 全局配置。
-6. 页面 title 要与我提供的菜单路径一致，避免当前位置显示错误；菜单名称、页签标题如由公司框架另行配置，则按公司配置处理。
+5. 接口请求保持业务语义一致，但请求封装要按公司项目已有方法改造；常见替换包括 this.apiPost('/api/v1 → postActionArrs('/analysis/rrs/api/v1、'/api/v1/ → '/analysis/rrs/api/v1/、this.apiPost → postActionRrs。不要在页面 JS 中新增 axios 全局配置。
+6. 如果同一处代码同时命中“接口路径前缀”和“请求方法名”，先按公司 aaa_demo.js 模板判断应使用 postActionRrs 还是 postActionArrs，避免重复替换后括号或引号不匹配。
+7. 页面 title 要与我提供的菜单路径一致，避免当前位置显示错误；菜单名称、页签标题如由公司框架另行配置，则按公司配置处理。
 
 六、输出要求
 1. 每迁移一个页面后，按 HTML、JS、CSS 三部分分别列出改动点。
