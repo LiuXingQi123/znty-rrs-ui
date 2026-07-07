@@ -388,6 +388,11 @@
                 <div v-show="sectionExpanded.adjustOp" class="section-body">
                     <!-- 步骤1：选择调库池 -->
                     <div v-show="adjustStep === 1">
+                        <!-- 基金评分（仅基金证券显示，调入基金池时按池 fund_rate_limit 校验） -->
+                        <div v-if="bondDetail.categoryType === 'fund'" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:13px;color:var(--c-text-2);">基金评分</span>
+                            <el-input v-model="fundRate" size="small" placeholder="请输入基金评分（调入基金池时校验）" style="width:260px;"></el-input>
+                        </div>
                         <div class="adjust-dual-panels">
                             <!-- 可调入库 -->
                             <div class="adjust-panel panel-in">
@@ -1074,6 +1079,7 @@
                 selectedAdjustLogId: null,    // 从调库记录入口进入时携带的调库记录ID
                 selectedAdjustBatchNo: null,  // 从调库记录入口进入时携带的调库批次号
                 bondDetail: {},               // 证券基本信息（详情页）
+                fundRate: '',                 // 基金评分（基金证券调入校验用，前端传入）
                 detailLoading: false,         // 详情页加载状态
                 securityCurrentPools: [],     // 当前证券所在的投资池列表
                 issuerCurrentPools: [],       // 当前证券主体所在的投资池列表
@@ -1352,6 +1358,8 @@
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
                     this.bondDetail    = detail  || {};
+                    // 切换证券时重置基金评分（仅基金证券调入时填写）
+                    this.fundRate = '';
                     // 当前所在池
                     this.securityCurrentPools   = (poolStatus && poolStatus.securityCurrentPools)   || [];
                     this.issuerCurrentPools = (poolStatus && poolStatus.issuerCurrentPools) || [];
@@ -1973,6 +1981,7 @@
                         securityCode: this.bondDetail.windCode || '',
                         securityShortName: this.bondDetail.shortName || '',
                         securityType: this.bondDetail.securityType || '',
+                        fundRate: this.fundRate || '',
                         items
                     };
                     const result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', checkParams);
