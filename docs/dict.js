@@ -35,8 +35,7 @@ const DictUtil = {
 // 说明：调库申请从提交到最终入池/驳回/撤回的全生命周期状态
 const DICT_AUDIT_STATUS = {
     '-1': '无效调整',     // 批量校验不通过，操作中止，流程未正式发起
-    '00': '已提交待审核', // 已提交，等待审核人处理
-    '10': '审核通过待审批', // 审核通过，等待审批人处理
+    '00': '流程中',       // 待审批 / 审批中，等待后续流程节点处理
     '11': '驳回待修改',   // 一级审核驳回，发起人可修改后重新提交
     '20': '审批通过',     // 二级审批通过，证券已入池/已生效
     '21': '审批驳回',     // 二级审批驳回，流程终止
@@ -48,7 +47,6 @@ const DICT_AUDIT_STATUS = {
 const DICT_AUDIT_STATUS_TAG_TYPE = {
     '-1': 'danger',
     '00': 'warning',
-    '10': 'success',
     '11': 'warning',
     '20': 'success',
     '21': 'danger',
@@ -60,7 +58,6 @@ const DICT_AUDIT_STATUS_TAG_TYPE = {
 const DICT_AUDIT_STATUS_STYLE = {
     '-1': { bg: '#F0F2FA', color: '#8895B8' },
     '00': { bg: '#EEF2FD', color: '#1746D4' },
-    '10': { bg: '#E8FBF3', color: '#0A8A5A' },
     '11': { bg: '#FFF6E8', color: '#B05E00' },
     '20': { bg: '#E8FBF3', color: '#0A8A5A' },
     '21': { bg: '#FFF0F0', color: '#D02020' },
