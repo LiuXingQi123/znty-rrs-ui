@@ -620,6 +620,13 @@
                             <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">处理意见</div>
                             <el-input type="textarea" :rows="4" v-model="auditComment"
                                       size="small" placeholder="请输入处理意见" maxlength="500" show-word-limit></el-input>
+                            <!-- 评级联动改判池：仅信用债大库调入审批通过时可选 -->
+                            <div v-if="auditAction === 'approve' && canRedirectPool" style="margin-top:10px;">
+                                <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">改判目标池（评级联动，可选）</div>
+                                <el-select v-model="redirectPoolId" size="small" clearable placeholder="不选则按原目标池落地" style="width:100%;">
+                                    <el-option v-for="p in redirectPoolOptions" :key="p.id" :label="p.poolName" :value="p.id"></el-option>
+                                </el-select>
+                            </div>
                         </div>
                     </div>
                     <div v-else style="color:var(--c-text-3);font-size:13px;padding:4px 0;">暂无需要当前用户处理的流程步骤</div>
@@ -1336,6 +1343,8 @@
                 auditAction: 'approve',  // 审批动作：approve=通过 / reject=驳回
                 auditComment: '',        // 审批处理意见
                 auditSubmitLoading: false, // 审批提交防重复点击状态
+                redirectPoolId: null,    // 评级联动改判目标池 ID（可选）
+                redirectPoolOptions: [], // 评级联动改判池候选项（主体债入库矩阵允许池）
                 adjustLogList: [],       // 调库记录列表
                 activeAdjustLog: null,   // 当前展示流程步骤对应的调库记录
                 flowStepList: [],        // 当前流程步骤列表
@@ -1410,6 +1419,11 @@
             // 根据入口模式显示页面用途
             pageTitle() {
                 return this.entryMode === 'next' ? '证券池调库' : '审核审批';
+            },
+            // 当前审批是否为信用债大库调入（评级联动改判池仅此场景可用）
+            canRedirectPool() {
+                const log = this.activeAdjustLog || {};
+                return log.poolType === 'credit_bond' && log.adjustMode === '调入';
             },
             // 当前是否为我的事宜处理入口
             isProcessMode() {
@@ -1580,6 +1594,17 @@
         beforeDestroy() {
             window.removeEventListener('resize', this.handleWindowResize);
             window.clearTimeout(this.resizeLayoutTimer);
+        },
+        watch: {
+            // 当前调库记录变化时，按需加载评级联动改判池候选项
+            activeAdjustLog() {
+                this.redirectPoolId = null;
+                if (this.canRedirectPool) {
+                    this.loadRedirectPoolOptions();
+                } else {
+                    this.redirectPoolOptions = [];
+                }
+            }
         },
         methods: {
             // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
@@ -2181,6 +2206,21 @@
             },
 
             // 提交当前流程步骤审批意见
+            // 加载评级联动改判池候选项（主体债入库矩阵允许池）
+            async loadRedirectPoolOptions() {
+                const securityCode = this.bondDetail.windCode || this.getUrlParam('securityCode') || this.getUrlParam('windCode');
+                if (!securityCode) {
+                    this.redirectPoolOptions = [];
+                    return;
+                }
+                try {
+                    const data = await this.apiPost('/api/v1/securityPoolAdjust/queryRedirectPoolOptions', { securityCode });
+                    this.redirectPoolOptions = data || [];
+                } catch (e) {
+                    this.redirectPoolOptions = [];
+                }
+            },
+
             async submitAdjustAudit() {
                 if (this.auditSubmitLoading) return;
                 if (!this.currentPendingStep) {
@@ -2202,7 +2242,8 @@
                         processAction: this.auditAction,
                         processComment: this.auditComment,
                         handlerId: this.currentLoginUserId,
-                        handlerName: this.currentLoginUserName
+                        handlerName: this.currentLoginUserName,
+                        redirectPoolId: this.canRedirectPool ? (this.redirectPoolId || undefined) : undefined
                     };
                     let result = null;
                     if (this.shouldSubmitAuditAttachments()) {
@@ -2215,6 +2256,7 @@
                     this.$message.success((result && result.message) || '审批处理成功');
                     this.auditAction = 'approve';
                     this.auditComment = '';
+                    this.redirectPoolId = null;
                     const securityCode = this.bondDetail.windCode || this.getUrlParam('securityCode') || this.getUrlParam('windCode');
                     if (securityCode) {
                         await this.loadDetailData(securityCode);
