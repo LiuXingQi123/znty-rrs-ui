@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>调库校验新旧对比</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #f4f7fb;
+        }
+        #validation_compare_audit {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, .08);
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+        #validation_compare_audit,
+        #validation_compare_audit * {
+            box-sizing: border-box;
+        }
+        #validation_compare_audit .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+        #validation_compare_audit .doc-header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0;
+        }
+        #validation_compare_audit .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82;
+        }
+        #validation_compare_audit h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25;
+            color: #fff;
+        }
+        #validation_compare_audit .desc {
+            max-width: 980px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px;
+        }
+        #validation_compare_audit .stats {
+            max-width: 980px;
+            margin-top: 16px;
+        }
+        #validation_compare_audit .stat-card {
+            margin-bottom: 10px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            box-shadow: none;
+            backdrop-filter: blur(8px);
+        }
+        #validation_compare_audit .stat-card .el-card__body {
+            padding: 10px 14px;
+        }
+        #validation_compare_audit .stat-value {
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        #validation_compare_audit .stat-label {
+            margin-top: 4px;
+            color: rgba(255, 255, 255, .78);
+            font-size: 12px;
+        }
+        #validation_compare_audit main {
+            padding: 28px 0 56px;
+        }
+        #validation_compare_audit .nav-card {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            margin-bottom: 24px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07);
+        }
+        #validation_compare_audit .nav-card .el-card__body {
+            display: flex;
+            gap: 8px;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        #validation_compare_audit .nav-btn.el-button {
+            flex: none;
+            margin: 0;
+            padding: 7px 12px;
+            color: #344054;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            font-size: 14px;
+        }
+        #validation_compare_audit .nav-btn.el-button:hover,
+        #validation_compare_audit .nav-btn.el-button:focus {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+        #validation_compare_audit .panel {
+            margin-bottom: 24px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px;
+        }
+        #validation_compare_audit .panel .el-card__header {
+            padding: 26px 26px 0;
+            border-bottom: 0;
+        }
+        #validation_compare_audit .panel .el-card__body {
+            padding: 20px 26px 26px;
+        }
+        #validation_compare_audit h2,
+        #validation_compare_audit .section-title {
+            margin: 0 0 6px;
+            color: var(--text);
+            font-size: 22px;
+            line-height: 1.35;
+            font-weight: 800;
+        }
+        #validation_compare_audit .sub {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        /* 对比表格：允许单元格内文字换行，避免长文本被裁剪 */
+        #validation_compare_audit .audit-table.el-table {
+            color: var(--regular);
+            font-size: 13px;
+        }
+        #validation_compare_audit .audit-table.el-table th {
+            color: var(--text);
+            background: #f8fafc;
+            font-weight: 700;
+        }
+        #validation_compare_audit .compare-table .cell {
+            line-height: 1.6;
+            white-space: normal;
+        }
+        #validation_compare_audit .compare-table .cell-text {
+            display: block;
+            max-width: 100%;
+            color: var(--regular);
+            vertical-align: middle;
+            white-space: normal;
+            word-break: break-word;
+        }
+        #validation_compare_audit .code-text {
+            display: inline-block;
+            min-width: 28px;
+            padding: 1px 6px;
+            color: var(--primary);
+            background: var(--primary-light);
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 12px;
+            text-align: center;
+        }
+        #validation_compare_audit .issue-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+        }
+        #validation_compare_audit .issue-card {
+            height: 100%;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: none;
+        }
+        #validation_compare_audit .issue-card.level-p0 {
+            border-top: 4px solid var(--danger);
+        }
+        #validation_compare_audit .issue-card.level-p1 {
+            border-top: 4px solid #f59e0b;
+        }
+        #validation_compare_audit .issue-card.level-p2 {
+            border-top: 4px solid #94a3b8;
+        }
+        #validation_compare_audit .issue-card .el-card__body {
+            padding: 18px;
+        }
+        #validation_compare_audit .issue-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        #validation_compare_audit .issue-title {
+            margin: 0 0 8px;
+            color: var(--text);
+            font-size: 16px;
+            line-height: 1.45;
+        }
+        #validation_compare_audit .issue-desc {
+            margin: 0 0 12px;
+            color: var(--regular);
+            font-size: 13px;
+            line-height: 1.75;
+        }
+        #validation_compare_audit .issue-card .el-alert {
+            padding: 8px 10px;
+            border-radius: 8px;
+        }
+        #validation_compare_audit .check-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 14px;
+        }
+        #validation_compare_audit .check-card {
+            position: relative;
+            height: 100%;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            box-shadow: none;
+        }
+        #validation_compare_audit .check-card .el-card__body {
+            display: flex;
+            gap: 14px;
+            padding: 16px;
+        }
+        #validation_compare_audit .check-index {
+            flex: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            color: #fff;
+            background: var(--primary);
+            border-radius: 50%;
+            font-weight: 800;
+            box-shadow: 0 6px 14px rgba(39, 67, 164, .22);
+        }
+        #validation_compare_audit .check-body h3 {
+            margin: 0 0 6px;
+            color: var(--text);
+            font-size: 15px;
+            line-height: 1.45;
+        }
+        #validation_compare_audit .check-body p {
+            margin: 0;
+            color: var(--regular);
+            font-size: 13px;
+            line-height: 1.75;
+        }
+        #validation_compare_audit .related-block {
+            height: 100%;
+            padding: 16px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+        #validation_compare_audit .block-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 800;
+        }
+        #validation_compare_audit .block-title i {
+            color: var(--primary);
+            font-size: 17px;
+        }
+        #validation_compare_audit .source-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        #validation_compare_audit .source-list li {
+            padding: 7px 10px;
+            color: #344054;
+            background: #f8fafc;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            font-size: 12px;
+        }
+        #validation_compare_audit .topic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+        }
+        #validation_compare_audit .topic-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            min-height: 38px;
+            padding: 9px 10px;
+            color: #344054;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            cursor: pointer;
+            font: inherit;
+            text-align: left;
+            transition: color .16s ease, border-color .16s ease, background .16s ease;
+        }
+        #validation_compare_audit .topic-card:hover {
+            color: var(--primary);
+            background: var(--primary-light);
+            border-color: #c7d2fe;
+        }
+        #validation_compare_audit .topic-card i {
+            flex: none;
+            color: #94a3b8;
+        }
+        #validation_compare_audit .topic-card:hover i {
+            color: var(--primary);
+        }
+        @media (max-width: 900px) {
+            #validation_compare_audit .wrap {
+                width: calc(100% - 24px);
+            }
+            #validation_compare_audit .doc-header {
+                padding: 24px 0 22px;
+            }
+            #validation_compare_audit .panel .el-card__header {
+                padding: 20px 18px 0;
+            }
+            #validation_compare_audit .panel .el-card__body {
+                padding: 16px 18px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="validation_compare_audit" class="docs-business-issue-page">
+    <header class="doc-header">
+        <div class="wrap">
+            <p class="kicker">ZNTY RRS · VALIDATION COMPARISON AUDIT</p>
+            <h1>{{ title }}</h1>
+            <p class="desc">{{ desc }}</p>
+            <el-row v-if="metrics.length" :gutter="10" class="stats">
+                <el-col v-for="metric in metrics" :key="metric[1]" :xs="12" :sm="8" :md="statSpan">
+                    <el-card shadow="never" class="stat-card">
+                        <div class="stat-value">{{ metric[0] }}</div>
+                        <div class="stat-label">{{ metric[1] }}</div>
+                    </el-card>
+                </el-col>
+            </el-row>
+        </div>
+    </header>
+
+    <main>
+        <div class="wrap">
+            <el-card shadow="never" class="nav-card">
+                <el-button v-for="(table,index) in tables" :key="table.title" class="nav-btn" size="mini" @click="scrollTo('section-table-'+index)">{{ table.title }}</el-button>
+                <el-button v-if="findings.length" class="nav-btn" size="mini" @click="scrollTo('section-issues')">隐患与差异</el-button>
+                <el-button v-if="checks.length" class="nav-btn" size="mini" @click="scrollTo('section-checks')">验收场景</el-button>
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-related')">依据专题</el-button>
+            </el-card>
+
+            <el-card v-for="(table,index) in tables" :id="'section-table-'+index" :key="table.title" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ table.title }}</h2>
+                    <p class="sub">{{ table.sub }}</p>
+                </div>
+                <el-table :data="table.rows" size="small" border class="audit-table compare-table">
+                    <el-table-column v-for="column in table.columns" :key="column[0]" :prop="column[0]" :label="column[1]" :min-width="column[2]">
+                        <template slot-scope="scope">
+                            <el-tag v-if="column[0] === 'status'" size="mini" :type="compareStatusType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <span v-else-if="column[0] === 'code'" class="code-text">{{ scope.row[column[0]] }}</span>
+                            <span v-else class="cell-text">{{ scope.row[column[0]] }}</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+
+            <el-card v-if="findings.length" id="section-issues" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>隐患与待对齐差异</h2>
+                    <p class="sub">修改前必查：只记录可验证的语义差异、潜在缺陷和未对齐项，避免泛泛而谈。</p>
+                </div>
+                <div class="issue-grid">
+                    <el-card v-for="finding in findings" :key="finding.title" shadow="never" class="issue-card" :class="'level-'+finding.level.toLowerCase()">
+                        <div class="issue-head">
+                            <el-tag size="mini" :type="levelTagType(finding.level)">{{ finding.level }}</el-tag>
+                            <el-tag size="mini" effect="plain">新旧对比</el-tag>
+                        </div>
+                        <h3 class="issue-title">{{ finding.title }}</h3>
+                        <p class="issue-desc">{{ finding.desc }}</p>
+                        <el-alert v-if="finding.suggestion" :title="'建议：'+finding.suggestion" type="info" :closable="false"></el-alert>
+                    </el-card>
+                </div>
+            </el-card>
+
+            <el-card v-if="checks.length" id="section-checks" shadow="never" class="panel check-panel">
+                <div slot="header">
+                    <h2>建议验收场景</h2>
+                    <p class="sub">后续修改后可按这些场景做回归确认，优先覆盖高风险链路和跨链路一致性。</p>
+                </div>
+                <div class="check-grid">
+                    <el-card v-for="(check,index) in checks" :key="check.scene" shadow="never" class="check-card">
+                        <div class="check-index">{{ index + 1 }}</div>
+                        <div class="check-body">
+                            <h3>{{ check.scene }}</h3>
+                            <p>{{ check.expected }}</p>
+                        </div>
+                    </el-card>
+                </div>
+            </el-card>
+
+            <el-card id="section-related" shadow="never" class="panel related-panel">
+                <div slot="header">
+                    <h2>依据与相关专题</h2>
+                    <p class="sub">用于回看代码依据、需求说明和相邻问题页，方便后续逐项排查。</p>
+                </div>
+                <el-row :gutter="16">
+                    <el-col :xs="24" :md="11">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-document-copy"></i><span>依据文件</span></div>
+                            <ul v-if="sources.length" class="source-list">
+                                <li v-for="source in sources" :key="source">{{ source }}</li>
+                            </ul>
+                            <div v-else class="empty-tip">暂无依据文件。</div>
+                        </div>
+                    </el-col>
+                    <el-col :xs="24" :md="13">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-connection"></i><span>相关专题</span></div>
+                            <div class="topic-grid">
+                                <button v-for="item in related" :key="item[1]" class="topic-card" @click="openDoc(item[1])">
+                                    <span>{{ item[0] }}</span>
+                                    <i class="el-icon-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </el-col>
+                </el-row>
+            </el-card>
+        </div>
+    </main>
+</div>
+<script>
+new Vue({
+    el: '#validation_compare_audit',
+    data() {
+        return {
+            title: '调库校验新旧对比',
+            desc: '老项目 Sinitek SIRM 与新项目 znty-rrs 三链路调库校验、落地、回滚、数据模型的逐条对比，迁移与改造前必查。',
+            metrics: [
+                ['23', '调入校验规则'],
+                ['12', '调出校验规则'],
+                ['11', '隐患与差异'],
+                ['5+9+7', '架构/环节/模型'],
+            ],
+            tables: [
+                {
+                    title: '调入校验规则对比',
+                    sub: '老项目 checkInPool 23 条规则 + 弹性限制池末条，逐条对照新项目实现与对齐状态。',
+                    columns: [['code', '编号', 70], ['rule', '校验规则', 150], ['old', '旧项目实现', 230], ['new', '新项目实现', 260], ['status', '对齐状态', 110]],
+                    rows: [
+                        { code: 'I1', rule: '股票分管(IsManage)', old: 'stype==2 分管判断', new: '无', status: '未迁移' },
+                        { code: 'I2', rule: 'CRMW凭证已在池(4参)', old: '4参检查', new: 'checkCrmwInboundCombination(submit阶段)', status: '已对齐' },
+                        { code: 'I3', rule: 'CRMW审批中', old: '4参检查', new: 'checkCrmwInboundCombination(submit阶段)', status: '已对齐' },
+                        { code: 'I4', rule: 'CRMW池必填凭证', old: '校验凭证必填', new: 'validateSubmitReq 强制 crmwScode', status: '已对齐' },
+                        { code: 'I5', rule: '观察池跳过(ASTRICTPOOLS)', old: 'openrule=1/isgcc=true 跳过', new: 'securityInObservePool/issuerInObservePool 加载但未用', status: '字段未用' },
+                        { code: 'I6', rule: '评级指定(GradeAstrict)', old: 'checkInPool 评级指定池', new: 'inCheckGradeAstrict(checkCommonIn)', status: '已对齐' },
+                        { code: 'I7', rule: '开放日', old: 'checkInPool 开放日判断', new: 'inCheckOpenDay(checkCommonIn)，建 ip_pool_open_day 表', status: '已对齐' },
+                        { code: 'I8', rule: '行业', old: '编码前缀层级匹配', new: 'inCheckIndustry(checkCommonIn)，名称适配', status: '已对齐' },
+                        { code: 'I9', rule: '容量(MaxCount)', old: 'checkInPool 容量上限', new: 'inCheckPoolCapacity', status: '已对齐' },
+                        { code: 'I10', rule: '池锁定', old: 'checkInPool 池锁定', new: 'inCheckPoolLocked', status: '已对齐' },
+                        { code: 'I11', rule: '调入限制池', old: 'checkInPool 限制池', new: 'inCheckRestrictPool', status: '已对齐' },
+                        { code: 'I12', rule: '半年入池记录跳过报告', old: 'bondfileflag 逻辑', new: '无', status: '未迁移' },
+                        { code: 'I13', rule: '主体债入库规则', old: 'IP_MainGradeRule 评级×期限矩阵', new: 'inCheckMainGradeRule(checkBondIn)，矩阵适配', status: '已对齐' },
+                        { code: 'I14', rule: '股票退市', old: 'checkInPool 退市判断', new: 'inCheckStockDelist(checkStockIn)', status: '已对齐' },
+                        { code: 'I15', rule: '投资品种', old: 'checkInPool 品种', new: 'inCheckVariety', status: '已对齐' },
+                        { code: 'I16', rule: '投资市场', old: 'checkInPool 市场', new: 'inCheckMarket', status: '已对齐' },
+                        { code: 'I17', rule: '已在池', old: 'checkInPool 已在池', new: 'inCheckSecurityAlreadyInPool', status: '已对齐' },
+                        { code: 'I18', rule: '审批中(pending)', old: 'checkInPool 审批中', new: 'preCheckPendingProcess', status: '已对齐' },
+                        { code: 'I19', rule: '来源池', old: 'checkInPool 来源池', new: 'inCheckSourcePool', status: '已对齐' },
+                        { code: 'I20', rule: '全局禁止池', old: 'checkInPool 禁止池', new: 'inCheckForbiddenPool', status: '已对齐' },
+                        { code: 'I21', rule: '报告必填(rschDocMode2/3)', old: 'checkInPool 报告必填', new: 'checkReportRequired(submit阶段，none/any/internal)', status: '已对齐' },
+                        { code: 'I22', rule: '自定义文档(>100)', old: 'checkInPool 自定义文档', new: '无(P2搁置，低价值)', status: '未迁移' },
+                        { code: 'I23', rule: '基金评分', old: 'checkInPool 基金评分', new: 'inCheckFundRate(checkFundIn)', status: '已对齐' },
+                        { code: '末', rule: '弹性限制池警告(code=2)', old: 'code=2 警告放行', new: 'inCheckElasticPool 阻断', status: '语义差异' },
+                    ],
+                },
+                {
+                    title: '调出校验规则对比',
+                    sub: '老项目 checkOutPool 12 条规则 + 弹性限制出池末条，逐条对照新项目实现与对齐状态。',
+                    columns: [['code', '编号', 70], ['rule', '校验规则', 150], ['old', '旧项目实现', 230], ['new', '新项目实现', 260], ['status', '对齐状态', 110]],
+                    rows: [
+                        { code: 'O1', rule: '股票分管', old: 'stype==2 分管判断', new: '无', status: '未迁移' },
+                        { code: 'O2', rule: '开放日', old: 'checkOutPool 开放日', new: 'outCheckOpenDay(checkCommonOut)', status: '已对齐' },
+                        { code: 'O3', rule: '半年调出记录跳过报告', old: 'bondfileflag 逻辑', new: '无', status: '未迁移' },
+                        { code: 'O4', rule: '冻结期', old: 'checkOutPool 冻结期', new: 'outCheckFrozenPeriod', status: '已对齐' },
+                        { code: 'O5', rule: '池锁定', old: 'checkOutPool 池锁定', new: 'outCheckPoolLocked', status: '已对齐' },
+                        { code: 'O6', rule: 'CRMW组合在池(7参)', old: 'checkOutPool 7参检查', new: 'checkCrmwOutboundCombination(submit阶段)', status: '已对齐' },
+                        { code: 'O7', rule: 'CRMW池必填凭证', old: '校验凭证必填', new: 'validateSubmitReq', status: '已对齐' },
+                        { code: 'O8', rule: '不在池', old: 'checkOutPool 不在池', new: 'outCheckSecurityNotInPool', status: '已对齐' },
+                        { code: 'O9', rule: '调出限制池', old: 'checkOutPool 限制池', new: 'outCheckRestrictPool', status: '已对齐' },
+                        { code: 'O10', rule: '审批中', old: 'checkOutPool 审批中', new: 'preCheckPendingProcess', status: '已对齐' },
+                        { code: 'O11', rule: '报告必填(rschDocOutMode)', old: 'checkOutPool 报告必填', new: 'checkReportRequired(submit阶段，outReportRestriction)', status: '已对齐' },
+                        { code: 'O12', rule: '自定义文档', old: 'checkOutPool 自定义文档', new: '无', status: '未迁移' },
+                        { code: '末', rule: '弹性限制出池警告', old: '警告放行', new: 'outCheckElasticPool 阻断', status: '语义差异' },
+                    ],
+                },
+                {
+                    title: '架构差异',
+                    sub: '校验分层、审批落地、撤回终止、状态码、直通审批等架构层面差异。',
+                    columns: [['dim', '维度', 130], ['old', '旧项目', 400], ['new', '新项目', 400]],
+                    rows: [
+                        { dim: '校验分层', old: '三层(基础 checkInPool/Out + 完整 checkBasisAndProduct + 工作流 checkWorkflowXxx)，全混在 AdjustCheckRuleResult(3296行) 靠 ptype/stype if-else', new: '两阶段(checkAdjust 预览 + submit 落地)，按 categoryType 分组(checkCommonIn/Out + checkBondIn/StockIn/FundIn/CompanyIn)，4链路各自复制一份' },
+                        { dim: '审批落地', old: 'IWorkflowAction 异步回调(InvestPoolApproveAction/BondAction/WorkflowActionImpl)，2条落地路径(A批量简易/B单条债券)', new: 'FlowService submitAdjustAudit 同步自驱 -> processAdjustAudit -> advanceToNextAvailableStep -> finishAdjustBatch(单一落地路径)' },
+                        { dim: '撤回/终止', old: '终止150/撤回350/驳回50 各自 IWorkflowActionImpl 回调，不恢复池状态(依赖时序)', new: '撤回=提交人在驳回待修改节点 REJECT->REVOKED(99)；驳回->REJECTED(21)/REJECT_MODIFY(11)。均不落地(pending未落地)，无池状态需恢复，老项目隐患在新项目不存在' },
+                        { dim: '状态码', old: 'approveStatus -1/10/50/100/150/350', new: 'AuditStatus -1/00/11/20/21/32(预留)/99。仅 20 落地' },
+                        { dim: '直通 vs 审批', old: 'wfModeIn/Out=0 -> approveStatus=100 直通(提交即落地)；非0 -> 10 待审', new: 'isDirectFlow(start->发起人自动->end) -> audit_status=20 submit 即落地；非直通 -> 00 待审，审批通过 finishAdjustBatch 落地' },
+                    ],
+                },
+                {
+                    title: '落地与功能环节差异',
+                    sub: '落地路径、主体同步、一起调整、联动级联、评级联动、终止、附件转报告、O32自动审批等环节。',
+                    columns: [['link', '环节', 130], ['old', '旧项目', 400], ['new', '新项目', 400]],
+                    rows: [
+                        { link: '落地路径', old: 'A批量简易(saveUpdateInvestPoolAdjustLog) + B单条债券(saveUpdateInvestPoolAdjustLogBond)', new: '单一 finishAdjustBatch(同批次日志逐条 addPoolStatus/deletePoolStatusSoft)' },
+                        { link: '主体同步', old: 'adjustBondByCompanyCode 裸JDBC(autoLog简化/绕过check/无联动/createLogId=0)', new: 'Forbidden syncCompanyBonds(写完整 autoLog，adjustType=自动调整)' },
+                        { link: '一起调整', old: 'adjustBondByShowLogId(togetherBond)', new: '未实现' },
+                        { link: '联动/互斥级联', old: 'autoInAdjust/autoOutAdjust(落地阶段二次扫描，写 satellite autoLog)', new: '未实现(新项目前移到校验阶段)' },
+                        { link: '评级联动', old: 'inquestInvestPoolByAccordMaingrade(adjustType=15)', new: '未实现(新项目用 redirectPoolId 改判替代，落地阶段 finishAdjustBatch redirect)' },
+                        { link: '终止', old: 'killWorkFlow(150)', new: '未实现(仅撤回 REVOKED + 驳回 REJECTED)' },
+                        { link: '附件转报告', old: 'saveReportByAttachment', new: 'generateInternalReportsOnFinish' },
+                        { link: 'O32自动审批', old: 'InvestPoolO32RemindAction(仅提醒)', new: '枚举32预留，isAutoApprovalNode 识别后 AUTO_PROCESS 跳过，落地仍 20' },
+                    ],
+                },
+                {
+                    title: '数据模型差异',
+                    sub: '主体债入库矩阵、内部评级、期限档、评级历史、证券类型字典、报告、池关系等数据模型差异。',
+                    columns: [['data', '数据', 140], ['old', '旧项目', 400], ['new', '新项目', 400]],
+                    rows: [
+                        { data: '主体债入库矩阵', old: 'IP_MainGradeRule(评级×期限)+Detail+poolinfo，sirmEnums(COMMON池层级sort)', new: 'credit_bond_pool_grade_rule(期限档×评分档->池)+term_bucket+inner_rating_grade，直接列允许池无需 sort 比对' },
+                        { data: '主体内部评级', old: 'lon(默认8.0)，BrCompanyInternalRate+bondwarrantpeople+ABSInternalrate', new: 'SecurityInfoBo.innerIssuerRating(已有)，担保债 innerGuarantorRating' },
+                        { data: '期限档', old: 'bondDurationId(2/3/4/5)，bondBase.bonddt20/bonddt21+getBondDeadLineDate', new: 'termYear+credit_bond_term_bucket(GT_5/GT_3_LE_5/GT_1_LE_3/LE_1)' },
+                        { data: '评级历史', old: 'sdc_sirm_bondcompanylevel(creditrank/expectrank/changedate)', new: '无(评级下调三标志硬编码 false，开关形同虚设)' },
+                        { data: '证券类型字典', old: 'dict_security_type(stype数字/ptype数字/memo)', new: 'dict_security_type(securityType字符串/categoryType字符串)' },
+                        { data: '报告', old: 'rschDocMode(2/3/>100)+DocTypeId+reports串', new: 'in/outReportRestriction(none/any/internal)+creditReportFileIndexes/creditReportSourceAttachmentIds' },
+                        { data: '池关系', old: 'type码 1/11/12/33/34', new: 'RelationType source/in_restrict/out_restrict/in_linked/out_linked/in_mutex/out_mutex/in_soft_restrict/out_soft_restrict' },
+                    ],
+                },
+            ],
+            findings: [
+                { level: 'P0', title: 'submit阶段不重复结构校验', desc: '前端绕过 checkAdjust 直接调 addAdjustLog，池锁定/容量/来源/互斥/禁止池等结构校验被跳过直接写库(4链路均有)。老项目提交时调 checkBasisAndProductInPool(type=8)有校验。', suggestion: 'submit 阶段补一次结构校验，或保证 checkAdjust 不可绕过' },
+                { level: 'P1', title: '弹性限制池语义差异', desc: '新项目 inCheckElasticPool/outCheckElasticPool 阻断，老项目 code=2 警告放行。若需保留警告语义需改。', suggestion: '确认是否保留警告放行语义，按需调整' },
+                { level: 'P1', title: 'outCheckMutexConflict 用 IN_MUTEX', desc: '用 IN_MUTEX(非 OUT_MUTEX)，语义可能混淆，需核对老项目意图(老项目互斥靠调用方遍历，无独立 outCheckMutexConflict)。', suggestion: '核对互斥方向语义，确认应使用 OUT_MUTEX' },
+                { level: 'P1', title: 'inCheckIndustry 名称vs编码错配', desc: 'pool.industryCode 存名称与 sec.industryName 精确匹配，老项目编码前缀层级匹配。', suggestion: '统一为编码层级匹配，或字段语义重命名' },
+                { level: 'P2', title: '4链路代码大量重复(~3400行×4)', desc: '改一处需同步四处，易漂移。如 inCheckMainGradeRule/inCheckFundRate 仅 Security/Batch 实现，Forbidden/Crmw 空占位。', suggestion: '抽取公共校验基类或共享方法' },
+                { level: 'P2', title: '观察池字段加载未用', desc: '主体债入库已落地但仍未用观察池跳过(老 ASTRICTPOOLS->openrule=1/isgcc=true)。', suggestion: '补全观察池跳过逻辑或明确弃用' },
+                { level: 'P2', title: '评级下调开关形同虚设', desc: 'ratingDowngradeCheckEnabled=true 仍写死 false(需评级历史表)。', suggestion: '建评级历史表或移除开关' },
+                { level: 'P2', title: 'AuditStatus 缺10', desc: '枚举仅7个code(无10审核通过待审批)，SUBMITTED("00")合并承担，与 CLAUDE.md/README 约定8个code不符。', suggestion: '核对状态枚举口径，补齐或更新文档' },
+                { level: 'P2', title: 'CRMW组合校验仅submit阶段', desc: 'checkAdjust 阶段前端无法感知凭证已在池/审批中。', suggestion: '校验前移到 checkAdjust 阶段' },
+                { level: 'P2', title: '未迁移规则', desc: '股票分管(I1/O1)、半年记录跳过报告(I12/O3)、自定义文档>100(I22/O12)。', suggestion: '评估业务价值后决定是否补迁' },
+                { level: 'P2', title: '未实现功能', desc: '一起调整、autoIn/Out联动级联、评级联动、终止(150)。', suggestion: '按新项目架构评估替代方案，评级联动已用 redirectPoolId 改判部分替代' },
+            ],
+            checks: [
+                { scene: '调入结构校验绕过', expected: '前端绕过 checkAdjust 直接调 addAdjustLog，submit 应拦截或补结构校验' },
+                { scene: '弹性限制池语义', expected: '调入/调出弹性限制池时确认是阻断还是警告放行，与老项目语义对齐' },
+                { scene: '主体债入库矩阵', expected: '期限档×评分档命中允许池放行，未命中拒绝，与老项目 sort 比对结果一致' },
+                { scene: '基金评分校验', expected: '基金类证券调入投资池时校验 fundRate，命中阈值规则放行/拒绝' },
+                { scene: '评级联动改判', expected: '评级下调触发 redirectPoolId 改判到目标池，finishAdjustBatch redirect 落地' },
+                { scene: 'CRMW组合校验', expected: '凭证+标的组合在池/审批中校验，submit 阶段拦截重复入池' },
+                { scene: '4链路一致性', expected: '同一规则在 Security/Batch/Forbidden/Crmw 四链路行为一致，无空占位漂移' },
+                { scene: '行业匹配', expected: 'pool.industryCode 与 sec.industry 匹配方式与老项目编码层级一致' },
+            ],
+            sources: [
+                '老项目 AdjustCheckRuleResult(3296行) / IWorkflowAction 回调',
+                'znty-rrs-parent SecurityPoolAdjust/Forbidden/Crmw/Batch Service',
+                'znty-rrs-parent SecurityPoolAdjustFlowService finishAdjustBatch',
+                'ip_adjust_log / ip_pool_status / credit_bond_pool_grade_rule',
+                'znty-rrs-parent/requirements/04、05、11、15、19',
+            ],
+            related: [
+                ['问题总览', 'business-issues-overview.html'],
+                ['证券池单笔调库体检', 'security-pool-link-audit.html'],
+                ['批量调整体检', 'batch-security-pool-link-audit.html'],
+                ['禁投池调整体检', 'forbidden-pool-link-audit.html'],
+                ['CRMW池调整体检', 'crmw-pool-link-audit.html'],
+                ['数据一致性与性能', 'data-consistency-performance-audit.html'],
+            ],
+        }
+    },
+    computed: {
+        statSpan() {
+            if (this.metrics.length <= 3) return 8
+            if (this.metrics.length <= 4) return 6
+            return 4
+        },
+    },
+    methods: {
+        // 获取问题等级标签类型
+        levelTagType(level) {
+            if (level === 'P0') return 'danger'
+            if (level === 'P1') return 'warning'
+            return 'info'
+        },
+        // 获取对齐状态标签类型
+        compareStatusType(status) {
+            if (!status) return 'info'
+            if (status.indexOf('已对齐') > -1) return 'success'
+            if (status.indexOf('语义差异') > -1 || status.indexOf('部分') > -1 || status.indexOf('未用') > -1 || status.indexOf('预留') > -1) return 'warning'
+            if (status.indexOf('未迁移') > -1 || status.indexOf('未实现') > -1) return 'danger'
+            return 'info'
+        },
+        // 滚动到页面内指定区域
+        scrollTo(id) {
+            const el = document.getElementById(id)
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+        },
+        // 通过父工作台打开关联文档页签
+        openDoc(page) {
+            const menuIndexMap = {
+                'business-issues-overview.html': 'doc-business-issues-overview',
+                'security-pool-link-audit.html': 'doc-security-link-audit',
+                'batch-security-pool-link-audit.html': 'doc-batch-security-link-audit',
+                'forbidden-pool-link-audit.html': 'doc-forbidden-link-audit',
+                'crmw-pool-link-audit.html': 'doc-crmw-link-audit',
+                'query-history-audit.html': 'doc-query-history-audit',
+                'approval-matters-audit.html': 'doc-approval-matters-audit',
+                'investment-pool-permission-audit.html': 'doc-pool-permission-audit',
+                'workflow-engine-audit.html': 'doc-workflow-engine-audit',
+                'rule-rating-temp-audit.html': 'doc-rule-rating-temp-audit',
+                'attachment-report-audit.html': 'doc-attachment-report-audit',
+                'data-consistency-performance-audit.html': 'doc-data-consistency-audit',
+                'business-acceptance-matrix.html': 'doc-business-acceptance',
+            }
+            const opener = window.parent && window.parent !== window ? window.parent.RrsWorkbenchOpenPage : null
+            if (opener && menuIndexMap[page]) {
+                opener(menuIndexMap[page])
+                return
+            }
+            window.location.href = page
+        },
+    },
+})
+</script>
+</body>
+</html>
