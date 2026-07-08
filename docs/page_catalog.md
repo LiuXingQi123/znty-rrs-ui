@@ -42,6 +42,7 @@
 | `docs/script_demo_scene.html` | 场景生成 | `css/script_demo_scene.css`、`css/common.css` |
 | `docs/business-issues-overview.html` | 业务问题总览 | HTML 内联样式 |
 | `docs/validation-comparison-audit.html` | 调库校验新旧对比 | HTML 内联样式 |
+| `docs/flow-type-comparison-audit.html` | 调库流程类型对比 | HTML 内联样式 |
 | `docs/security-pool-link-audit.html` | 证券池单笔调库体检 | HTML 内联样式 |
 | `docs/batch-security-pool-link-audit.html` | 证券池批量调整体检 | HTML 内联样式 |
 | `docs/forbidden-pool-link-audit.html` | 禁投池调整体检 | HTML 内联样式 |
