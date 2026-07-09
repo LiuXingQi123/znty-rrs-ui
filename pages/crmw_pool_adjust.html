@@ -777,9 +777,9 @@
                         <el-table-column label="校验结果" width="150" fixed="right" align="center">
                             <template slot-scope="{ row }">
                                 <span style="display:inline-flex;align-items:center;gap:5px;">
-                                    <span class="status-dot" :class="{ green: row.valid, red: !row.valid }"></span>
-                                    <span :style="{fontSize:'12px',fontWeight:600,color:row.valid?'var(--c-green)':'var(--c-red)'}">
-                                        {{ row.valid ? '可调整' : '不可调整' }}
+                                    <span class="status-dot" :class="{ green: row.valid && !row.hasWarning, yellow: row.valid && row.hasWarning, red: !row.valid }"></span>
+                                    <span :style="{fontSize:'12px',fontWeight:600,color:row.valid?(row.hasWarning?'var(--c-orange)':'var(--c-green)'):'var(--c-red)'}">
+                                        {{ row.valid ? (row.hasWarning ? '可调整(警告)' : '可调整') : '不可调整' }}
                                     </span>
                                 </span>
                             </template>
@@ -2077,14 +2077,17 @@
             },
 
             // 构建调库校验结果的调整说明
-            buildAdjustNote(item, failReason) {
+            buildAdjustNote(item, failReason, warning) {
                 const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' };
                 const typeLabel = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode;
-                if (!failReason) return typeLabel;
-                if (item.itemTag === 'manual') {
-                    return item.adjustMode + '失败：' + failReason;
+                if (failReason) {
+                    if (item.itemTag === 'manual') {
+                        return item.adjustMode + '失败：' + failReason;
+                    }
+                    return typeLabel + '失败：' + failReason;
                 }
-                return typeLabel + '失败：' + failReason;
+                // 可调整但有警告（如弹性禁投池命中）时追加警告文案
+                return warning ? typeLabel + '（警告：' + warning + '）' : typeLabel;
             },
 
             // 调库校验结果中的调整类型展示
@@ -2131,6 +2134,7 @@
 
                     this.adjustReviewList = result.items.map((item, rowIndex) => {
                         const failReasonStr = (item.failReasons || []).join('；')
+                        const warningStr = (item.warnings || []).join('；')
                         const rowFlowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex);
                         const recommendedFlow = rowFlowOptions.find(option => option.recommended && option.selectable)
                             || rowFlowOptions.find(option => option.selectable);
@@ -2143,8 +2147,10 @@
                             itemTag: item.itemTag,
                             adjustGroupKey: item.adjustGroupKey,
                             valid: item.canAdjust,
+                            hasWarning: warningStr !== '',
                             failReason: failReasonStr,
-                            adjustNote: this.buildAdjustNote(item, failReasonStr),
+                            warningStr,
+                            adjustNote: this.buildAdjustNote(item, failReasonStr, warningStr),
                             attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
                             materialFiles: this.getMaterialFiles(item.targetPoolId),
                             creditReports: this.getCreditReportSelections(item.targetPoolId),
