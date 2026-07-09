@@ -193,6 +193,19 @@
         #business_issues_overview .audit-table .cell {
             line-height: 1.55;
         }
+        #business_issues_overview .table-section {
+            margin-top: 16px;
+        }
+        #business_issues_overview .section-title {
+            margin: 0 0 8px;
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 800;
+        }
+        #business_issues_overview .page-tag {
+            margin: 0 4px 4px 0;
+            font-family: Consolas, "Courier New", monospace;
+        }
         #business_issues_overview .cell-text {
             display: inline-block;
             max-width: 100%;
@@ -415,6 +428,7 @@
                 <el-button v-if="steps.length" class="nav-btn" size="mini" @click="scrollTo('section-flow')">流程总览</el-button>
                 <el-button v-for="(table,index) in tables" :key="table.title" class="nav-btn" size="mini" @click="scrollTo('section-table-'+index)">{{ table.title }}</el-button>
                 <el-button v-if="findings.length" class="nav-btn" size="mini" @click="scrollTo('section-issues')">问题与建议</el-button>
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-validation-diff')">校验差异</el-button>
                 <el-button v-if="checks.length" class="nav-btn" size="mini" @click="scrollTo('section-checks')">验收场景</el-button>
                 <el-button class="nav-btn" size="mini" @click="scrollTo('section-related')">依据专题</el-button>
             </el-card>
@@ -463,6 +477,60 @@
                         <p class="issue-desc">{{ finding.desc }}</p>
                         <el-alert v-if="finding.suggestion" :title="'建议：'+finding.suggestion" type="info" :closable="false"></el-alert>
                     </el-card>
+                </div>
+            </el-card>
+
+            <el-card id="section-validation-diff" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>调库校验新老差异</h2>
+                    <p class="sub">覆盖调入、调出、页面入口和优先整改问题；用于后续按老系统 investpool 逻辑补齐新系统校验。</p>
+                </div>
+                <div class="table-section">
+                    <div class="section-title">涉及 .html 页面</div>
+                    <el-table :data="validationPageRows" size="small" border class="audit-table">
+                        <el-table-column prop="entry" label="业务入口" min-width="150"></el-table-column>
+                        <el-table-column label="涉及页面" min-width="380">
+                            <template slot-scope="{ row }">
+                                <el-tag v-for="page in row.pages" :key="page" size="mini" type="info" class="page-tag">{{ page }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="impact" label="主要影响" min-width="320" show-overflow-tooltip></el-table-column>
+                    </el-table>
+                </div>
+                <div class="table-section">
+                    <div class="section-title">调入校验差异</div>
+                    <el-table :data="inValidationRows" size="small" border class="audit-table">
+                        <el-table-column prop="item" label="校验项" min-width="150"></el-table-column>
+                        <el-table-column prop="oldRule" label="老系统口径" min-width="260" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="newRule" label="新系统现状" min-width="260" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="risk" label="差异/风险" min-width="280" show-overflow-tooltip></el-table-column>
+                    </el-table>
+                </div>
+                <div class="table-section">
+                    <div class="section-title">调出校验差异</div>
+                    <el-table :data="outValidationRows" size="small" border class="audit-table">
+                        <el-table-column prop="item" label="校验项" min-width="150"></el-table-column>
+                        <el-table-column prop="oldRule" label="老系统口径" min-width="260" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="newRule" label="新系统现状" min-width="260" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="risk" label="差异/风险" min-width="280" show-overflow-tooltip></el-table-column>
+                    </el-table>
+                </div>
+                <div class="table-section">
+                    <div class="section-title">优先关注的业务问题</div>
+                    <el-table :data="priorityIssueRows" size="small" border class="audit-table">
+                        <el-table-column label="优先级" min-width="90" align="center">
+                            <template slot-scope="{ row }">
+                                <el-tag size="mini" :type="priorityTagType(row.priority)">{{ row.priority }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="issue" label="问题" min-width="220" show-overflow-tooltip></el-table-column>
+                        <el-table-column label="涉及页面" min-width="380">
+                            <template slot-scope="{ row }">
+                                <el-tag v-for="page in row.pages" :key="page" size="mini" type="info" class="page-tag">{{ page }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="suggestion" label="建议" min-width="360" show-overflow-tooltip></el-table-column>
+                    </el-table>
                 </div>
             </el-card>
 
@@ -525,12 +593,78 @@ new Vue({
             if (this.metrics.length <= 4) return 6
             return 4
         },
+        validationPageRows() {
+            return [
+                { entry: '证券池单笔调库', pages: ['pages/security_pool_adjust.html', 'pages/security_pool_adjust_detail.html', 'pages/security_pool_adjust_approve.html'], impact: '选池、调库校验结果、提交、审批详情均会展示或消费校验结论。' },
+                { entry: '证券池批量调库', pages: ['pages/batch_security_pool_adjust.html'], impact: '批量勾选证券后复用单笔校验；来源池、pending、基金评分等差异会影响整批可提交性。' },
+                { entry: '禁投池/主体级调库', pages: ['pages/forbidden_pool_adjust.html', 'pages/forbidden_pool_adjust_detail.html', 'pages/forbidden_pool_adjust_approve.html'], impact: '主体入出池也复用同构校验框架，需关注关系池、pending 和报告限制口径。' },
+                { entry: 'CRMW 池调库', pages: ['pages/crmw_pool_adjust.html', 'pages/crmw_pool_adjust_detail.html', 'pages/crmw_pool_adjust_approve.html'], impact: 'CRMW 独立链路仍复用调库校验，并额外关注凭证必填、凭证重复、凭证+标的组合调出。' },
+                { entry: '查询与历史追踪', pages: ['pages/security_pool_adjust_history.html', 'pages/company_pool_adjust_history.html', 'pages/crmw_pool_adjust_history.html'], impact: '主要用于追踪校验后生成的调库记录和最终审核状态，不直接执行校验。' },
+            ]
+        },
+        inValidationRows() {
+            return [
+                { item: '池锁定', oldRule: 'LockFlag=1 禁止调入', newRule: '已有 inCheckPoolLocked', risk: '基本一致' },
+                { item: '投资品种', oldRule: '池配置 numeric ptype，证券类型映射后校验', newRule: 'variety_codes JSON + categoryType', risk: '迁移时需确保 numeric ptype 和新 code 映射准确' },
+                { item: '投资市场', oldRule: '池配置 numeric mktcode', newRule: 'market_codes JSON，按 wind_code_sh/sz/nib 推导', risk: '多市场证券可能比老系统更宽松' },
+                { item: '正在审批中', oldRule: '按证券 + 市场 + 类型 + poolGroupId 判断，部分批量场景可用批次排除', newRule: '按 security_code + pending step 判断', risk: '可能更严格，同一证券任意池有 pending 都会拦截' },
+                { item: '已在目标池', oldRule: '已在池则不可重复调入', newRule: '已有', risk: '基本一致' },
+                { item: '来源池限制', oldRule: '当前已在来源池，或本次同批勾选调入来源池', newRule: '已补齐：当前已在来源池或 requestInPoolIds 包含来源池均通过', risk: '已修复并对齐老系统选择阶段口径' },
+                { item: '最大容量', oldRule: 'MaxCount != -1 且当前数 >= 上限则拦', newRule: 'maxCapacity > 0 且当前数 >= 上限则拦', risk: '迁移时需统一 -1/null/0 的不限制含义' },
+                { item: '调入限制池', oldRule: 'LimitedPoolId 命中则拦', newRule: '已有 in_restrict', risk: '基本一致' },
+                { item: '弹性限制池', oldRule: '命中后返回 code=2，偏提示/警告', newRule: '作为 warning，不阻断', risk: '需确认前端是否醒目展示 warning' },
+                { item: '全局禁止池', oldRule: '通过配置 Forbiddenlastpoolid 指定池 ID', newRule: "通过池 pool_type in ('forbidden','blacklist') 判断", risk: '配置口径不同，迁移时必须正确标记 forbidden/blacklist' },
+                { item: '开放日', oldRule: 'open_day_adjust=1 时查开放日', newRule: '已有 ip_pool_open_day', risk: '基本一致' },
+                { item: '行业限制', oldRule: '查 IndustryPartition.industrycode 与池 IndustryCode 比对', newRule: '用 rrs_securityinfo.industry_name == pool.industry_code', risk: '可能有问题，老系统是行业编码，新系统当前像名称对配置值精确匹配' },
+                { item: '股票分管人限制', oldRule: 'IsManage=1 且当前用户不是分管股票则拦', newRule: '未实现', risk: '缺少；股票池需要分管人权限时需补' },
+                { item: '股票入池评级限制', oldRule: 'grade_astrict + StockResearch.investrank', newRule: '入口保留，当前无股票评级来源，先跳过', risk: '当前有意放宽；后续接股票研究评级后补强' },
+                { item: '股票退市', oldRule: '股票 EndDate 有值就拦', newRule: 'delist_date < today 才拦', risk: '口径不同，老系统更严格' },
+                { item: '债券到期', oldRule: '到期日早于当前日则拦', newRule: '已有', risk: '基本一致' },
+                { item: '债券大库/主体评级矩阵', oldRule: '观察池跳过、可转债跳过、担保人取低、期限档、私募/ABS/担保等分支', newRule: '已有信用债矩阵、观察池、担保人、期限档、可转债跳过', risk: '私募债、ABS、担保人等细分分支仍需单独核' },
+                { item: '基金评分', oldRule: '池配置 FundRateLimit，且传了 fundRate 才校验', newRule: '池配置后，未传 fundRate 也失败', risk: '新系统更严格，需确认前端是否总能提供基金评分' },
+                { item: '研报限制', oldRule: 'check/提交阶段均有逻辑，支持 RschDocMode > 100 自定义规则类', newRule: '提交阶段支持 none/any/internal', risk: '缺少自定义研报规则；批量跳过报告配置也未复刻' },
+                { item: 'CRMW 必填/重复', oldRule: '通过 CRMWPOOLID_XYJJ 判断 CRMW 池，调入必须有 CRMW 代码，并校验 CRMW 是否已在池/审批中', newRule: 'CRMW 已拆独立链路', risk: 'CRMW 链路需单独确认是否完全覆盖' },
+            ]
+        },
+        outValidationRows() {
+            return [
+                { item: '池锁定', oldRule: 'LockFlag=1 禁止调出', newRule: '已有 outCheckPoolLocked', risk: '基本一致' },
+                { item: '正在审批中', oldRule: '按证券 + 市场 + 类型 + 池组/批次判断', newRule: '按证券 pending step 判断', risk: '同调入，新系统可能更严格' },
+                { item: '不在目标池', oldRule: '不在池不可调出', newRule: '已有', risk: '基本一致' },
+                { item: '调出冻结期', oldRule: '用池 Frozenperiodin + 老状态 submitTime 计算', newRule: '用 ip_pool_status.entry_time 计算', risk: '基准字段不同；新系统更贴近实际入池时间，但不完全等同老系统' },
+                { item: '调出限制池', oldRule: 'LimitedOutPoolId 命中则拦', newRule: '已有 out_restrict', risk: '基本一致' },
+                { item: '调出互斥池', oldRule: '老系统有调出互斥/限制关系', newRule: '已有 out_mutex + 同批互斥冲突', risk: '基本覆盖' },
+                { item: '调出弹性限制池', oldRule: '命中返回提示 code=2', newRule: 'warning', risk: '基本一致' },
+                { item: '开放日', oldRule: 'open_day_adjust=1 时调出也校验', newRule: '已有', risk: '基本一致' },
+                { item: '股票分管人限制', oldRule: '调出也校验 IsManage', newRule: '未实现', risk: '缺少' },
+                { item: '股票退市/债券到期', oldRule: '调出也会校验', newRule: '已有', risk: '股票退市仍存在“有退市日即拦 vs 早于今日才拦”的差异' },
+                { item: '调出研报限制', oldRule: 'RschDocOutMode，支持 any/internal/custom', newRule: '提交阶段支持基础 none/any/internal', risk: '缺少自定义规则、批量跳过配置' },
+                { item: 'CRMW 组合调出', oldRule: 'CRMW 池调出必须传 CRMW 代码，并校验证券+凭证组合在池', newRule: 'CRMW 独立链路中有组合校验', risk: '需单独确认“凭证+标的组合”覆盖所有老场景' },
+            ]
+        },
+        priorityIssueRows() {
+            return [
+                { priority: '高', issue: 'pending 审批判断可能过严', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html', 'pages/forbidden_pool_adjust.html', 'pages/crmw_pool_adjust.html'], suggestion: '确认是否应按池组/链路隔离；否则同一证券在任意池审批中都会阻断全部调库。' },
+                { priority: '高', issue: '行业限制当前用 industry_name == industry_code', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html', 'pages/crmw_pool_adjust.html'], suggestion: '要么配置存行业名称，要么补行业编码字段，避免编码名称错配。' },
+                { priority: '中', issue: '股票分管人限制缺失', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html'], suggestion: '如果股票池还需要“只允许分管人调库”，需补 is_manage 和股票分管关系。' },
+                { priority: '中', issue: '股票退市口径不同', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html'], suggestion: '确认业务想按“退市日存在即拦”还是“退市日已到才拦”。' },
+                { priority: '中', issue: '研报自定义规则缺失', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html', 'pages/forbidden_pool_adjust.html', 'pages/crmw_pool_adjust.html'], suggestion: '如果老系统 RschDocMode > 100 有实际使用，需要设计新规则扩展点。' },
+                { priority: '中', issue: '基金评分新系统比老系统更严格', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html'], suggestion: '若前端不传 fundRate，配置了基金评分限制的池会无法调入。' },
+                { priority: '低', issue: 'CRMW 设置型校验迁移口径不同', pages: ['pages/crmw_pool_adjust.html', 'pages/crmw_pool_adjust_detail.html', 'pages/crmw_pool_adjust_approve.html'], suggestion: '新系统独立 CRMW 链路更清晰，但要单独确认“CRMW 池必填凭证”和“凭证+标的组合”都覆盖。' },
+            ]
+        },
     },
     methods: {
         // 获取问题等级标签类型
         levelTagType(level) {
             if (level === 'P0') return 'danger'
             if (level === 'P1') return 'warning'
+            return 'info'
+        },
+        // 获取优先级标签类型
+        priorityTagType(priority) {
+            if (priority === '高') return 'danger'
+            if (priority === '中') return 'warning'
             return 'info'
         },
         // 获取状态标签类型
