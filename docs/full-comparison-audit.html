@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新老系统调库全量对比</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <style>
+        body { margin: 0; background: #f4f7fb; }
+        #full_compare_audit {
+            --primary: #2743A4; --primary-light: #E9ECF6; --bg: #f4f7fb; --panel: #ffffff;
+            --text: #1f2937; --regular: #475467; --muted: #64748b; --line: #dbe4ef;
+            --shadow: 0 12px 32px rgba(31, 42, 68, .08);
+            min-height: 100vh; background: var(--bg); color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+        #full_compare_audit, #full_compare_audit * { box-sizing: border-box; }
+        #full_compare_audit .wrap { width: min(1760px, calc(100% - 32px)); margin: 0 auto; }
+        #full_compare_audit .doc-header { padding: 28px 0 24px; color: #fff; background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%); border: 0; }
+        #full_compare_audit .kicker { margin: 0 0 4px; color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .14em; opacity: .82; }
+        #full_compare_audit h1 { margin: 0; font-size: clamp(26px, 3vw, 36px); line-height: 1.25; color: #fff; }
+        #full_compare_audit .desc { max-width: 980px; margin: 8px 0 0; color: rgba(255,255,255,.86); font-size: 14px; }
+        #full_compare_audit .stats { max-width: 980px; margin-top: 16px; }
+        #full_compare_audit .stat-card { margin-bottom: 10px; color: #fff; border: 1px solid rgba(255,255,255,.22); border-radius: 12px; background: rgba(255,255,255,.1); box-shadow: none; backdrop-filter: blur(8px); }
+        #full_compare_audit .stat-card .el-card__body { padding: 10px 14px; }
+        #full_compare_audit .stat-value { font-size: 18px; font-weight: 800; line-height: 1.2; }
+        #full_compare_audit .stat-label { margin-top: 4px; color: rgba(255,255,255,.78); font-size: 12px; }
+        #full_compare_audit main { padding: 28px 0 56px; }
+        #full_compare_audit .nav-card { position: sticky; top: 10px; z-index: 10; margin-bottom: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 6px 18px rgba(31,42,68,.07); }
+        #full_compare_audit .nav-card .el-card__body { display: flex; gap: 8px; padding: 10px; overflow-x: auto; }
+        #full_compare_audit .nav-btn.el-button { flex: none; margin: 0; padding: 7px 12px; color: #344054; border: 0; border-radius: 8px; background: transparent; font-size: 14px; }
+        #full_compare_audit .nav-btn.el-button:hover, #full_compare_audit .nav-btn.el-button:focus { color: var(--primary); background: var(--primary-light); }
+        #full_compare_audit .panel { margin-bottom: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: var(--shadow); scroll-margin-top: 78px; }
+        #full_compare_audit .panel .el-card__header { padding: 26px 26px 0; border-bottom: 0; }
+        #full_compare_audit .panel .el-card__body { padding: 20px 26px 26px; }
+        #full_compare_audit h2 { margin: 0 0 6px; color: var(--text); font-size: 22px; line-height: 1.35; font-weight: 800; }
+        #full_compare_audit .sub { margin: 0; color: var(--muted); font-size: 14px; }
+        #full_compare_audit .audit-table.el-table { color: var(--regular); font-size: 13px; }
+        #full_compare_audit .audit-table.el-table th { color: var(--text); background: #f8fafc; font-weight: 700; }
+        #full_compare_audit .compare-table .cell { line-height: 1.6; white-space: normal; }
+        #full_compare_audit .compare-table .cell-text { display: block; max-width: 100%; color: var(--regular); white-space: normal; word-break: break-word; }
+        #full_compare_audit .issue-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+        #full_compare_audit .issue-card { height: 100%; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: none; }
+        #full_compare_audit .issue-card.level-p0 { border-top: 4px solid #b42318; }
+        #full_compare_audit .issue-card.level-p1 { border-top: 4px solid #f59e0b; }
+        #full_compare_audit .issue-card.level-p2 { border-top: 4px solid #94a3b8; }
+        #full_compare_audit .issue-card .el-card__body { padding: 18px; }
+        #full_compare_audit .issue-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        #full_compare_audit .issue-title { margin: 0 0 8px; color: var(--text); font-size: 16px; line-height: 1.45; }
+        #full_compare_audit .issue-desc { margin: 0 0 12px; color: var(--regular); font-size: 13px; line-height: 1.75; }
+        #full_compare_audit .issue-card .el-alert { padding: 8px 10px; border-radius: 8px; }
+        #full_compare_audit .related-block { height: 100%; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
+        #full_compare_audit .block-title { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--text); font-size: 15px; font-weight: 800; }
+        #full_compare_audit .block-title i { color: var(--primary); font-size: 17px; }
+        #full_compare_audit .source-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+        #full_compare_audit .source-list li { padding: 7px 10px; color: #344054; background: #f8fafc; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; }
+        #full_compare_audit .topic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+        #full_compare_audit .topic-card { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 38px; padding: 9px 10px; color: #344054; background: #fff; border: 1px solid var(--line); border-radius: 9px; cursor: pointer; font: inherit; text-align: left; transition: color .16s ease, border-color .16s ease, background .16s ease; }
+        #full_compare_audit .topic-card:hover { color: var(--primary); background: var(--primary-light); border-color: #c7d2fe; }
+        #full_compare_audit .topic-card i { flex: none; color: #94a3b8; }
+        #full_compare_audit .topic-card:hover i { color: var(--primary); }
+        @media (max-width: 900px) {
+            #full_compare_audit .wrap { width: calc(100% - 24px); }
+            #full_compare_audit .doc-header { padding: 24px 0 22px; }
+            #full_compare_audit .panel .el-card__header { padding: 20px 18px 0; }
+            #full_compare_audit .panel .el-card__body { padding: 16px 18px 20px; }
+        }
+    </style>
+</head>
+<body>
+<div id="full_compare_audit" class="docs-business-issue-page">
+    <header class="doc-header">
+        <div class="wrap">
+            <p class="kicker">ZNTY RRS · NEW VS OLD FULL COMPARISON</p>
+            <h1>{{ title }}</h1>
+            <p class="desc">{{ desc }}</p>
+            <el-row v-if="metrics.length" :gutter="10" class="stats">
+                <el-col v-for="metric in metrics" :key="metric[1]" :xs="12" :sm="8" :md="statSpan">
+                    <el-card shadow="never" class="stat-card">
+                        <div class="stat-value">{{ metric[0] }}</div>
+                        <div class="stat-label">{{ metric[1] }}</div>
+                    </el-card>
+                </el-col>
+            </el-row>
+        </div>
+    </header>
+    <main>
+        <div class="wrap">
+            <el-card shadow="never" class="nav-card">
+                <el-button v-for="(table,index) in tables" :key="table.title" class="nav-btn" size="mini" @click="scrollTo('section-table-'+index)">{{ table.title }}</el-button>
+                <el-button v-if="findings.length" class="nav-btn" size="mini" @click="scrollTo('section-issues')">缺失与差异</el-button>
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-related')">依据专题</el-button>
+            </el-card>
+
+            <el-card v-for="(table,index) in tables" :id="'section-table-'+index" :key="table.title" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ table.title }}</h2>
+                    <p class="sub">{{ table.sub }}</p>
+                </div>
+                <el-table :data="table.rows" size="small" border class="audit-table compare-table">
+                    <el-table-column v-for="column in table.columns" :key="column[0]" :prop="column[0]" :label="column[1]" :min-width="column[2]">
+                        <template slot-scope="scope">
+                            <el-tag v-if="column[0] === 'status'" size="mini" :type="diffTagType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <span v-else-if="column[0] === 'code'" class="code-text" style="display:inline-block;min-width:28px;padding:1px 6px;color:var(--primary);background:var(--primary-light);border-radius:6px;font-weight:700;font-size:12px;text-align:center;">{{ scope.row[column[0]] }}</span>
+                            <span v-else class="cell-text">{{ scope.row[column[0]] }}</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+
+            <el-card v-if="findings.length" id="section-issues" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>缺失与差异汇总</h2>
+                    <p class="sub">未迁移/骨架未生效/架构差异/未实现功能，按风险分级。</p>
+                </div>
+                <div class="issue-grid">
+                    <el-card v-for="finding in findings" :key="finding.title" shadow="never" class="issue-card" :class="'level-'+finding.level.toLowerCase()">
+                        <div class="issue-head">
+                            <el-tag size="mini" :type="levelTagType(finding.level)">{{ finding.level }}</el-tag>
+                            <el-tag size="mini" effect="plain">{{ finding.cat }}</el-tag>
+                        </div>
+                        <h3 class="issue-title">{{ finding.title }}</h3>
+                        <p class="issue-desc">{{ finding.desc }}</p>
+                        <el-alert v-if="finding.suggestion" :title="'建议：'+finding.suggestion" type="info" :closable="false"></el-alert>
+                    </el-card>
+                </div>
+            </el-card>
+
+            <el-card id="section-related" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>依据与相关专题</h2>
+                    <p class="sub">用于回看代码依据和相邻问题页。</p>
+                </div>
+                <el-row :gutter="16">
+                    <el-col :xs="24" :md="11">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-document-copy"></i><span>依据文件</span></div>
+                            <ul class="source-list">
+                                <li v-for="source in sources" :key="source">{{ source }}</li>
+                            </ul>
+                        </div>
+                    </el-col>
+                    <el-col :xs="24" :md="13">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-connection"></i><span>相关专题</span></div>
+                            <div class="topic-grid">
+                                <button v-for="item in related" :key="item[1]" class="topic-card" @click="openDoc(item[1])">
+                                    <span>{{ item[0] }}</span>
+                                    <i class="el-icon-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </el-col>
+                </el-row>
+            </el-card>
+        </div>
+    </main>
+</div>
+<script>
+new Vue({
+    el: '#full_compare_audit',
+    data() {
+        return {
+            title: '新老系统调库全量对比',
+            desc: '老项目 Sinitek SIRM 与新项目 znty-rrs 证券池调库的架构、校验、流程判断、提交落地、审批流转的逐条全量对比。新系统校验和提交分开（checkAdjust 预览 + submitAdjustLog 落地），老系统两次校验同方法。',
+            metrics: [['7张', '对比表'], ['25+14', '调入校验'], ['12+9', '调出校验'], ['11项', '缺失差异']],
+            tables: [
+                {
+                    title: '架构差异对比',
+                    sub: '新系统校验和提交分开（checkAdjust 预览 + submitAdjustLog 落地），老系统两次校验同方法（securityResult 预览 + addAdjustLog 再校验）。',
+                    columns: [['dim','维度',130],['old','老系统',350],['now','新系统',350],['status','差异',100]],
+                    rows: [
+                        { dim: '校验架构', old: 'securityResult 预览(type=1) + addAdjustLog 再校验(type=8)，同一方法跑两遍', now: 'checkAdjust 预览(只读) + submitAdjustLog 落地(不重跑结构校验)', status: '⚠️ 差异' },
+                        { dim: '流程候选', old: 'addAdjustLog 内根据规则选流程(workflowType/whiteWorkFlow/simpleWorkFlow)', now: 'checkAdjust 返回 flowOptions，前端选定后回传 flowId/flowKey/flowType', status: '🆕 优化' },
+                        { dim: '直通判断', old: 'getWfModeId()==0/null -> approveStatus=100', now: 'isDirectFlow：遍历 start 出边是否全直达 end 或经 initiator 节点到 end', status: '⚠️ 差异' },
+                        { dim: '落地路径', old: 'A 批量简易 / B 单条债券 + LimitAction', now: '单一 finishAdjustBatch（同批次逐条 addPoolStatus/deletePoolStatusSoft）', status: '🆕 优化' },
+                        { dim: '审批流转', old: 'IWorkflowAction 异步回调(InvestPoolApproveAction/BondAction)', now: 'FlowService 同步自驱(submitAdjustAudit -> processAdjustAudit -> advanceToNextAvailableStep)', status: '🆕 优化' },
+                        { dim: '节点语义', old: 'StepStage.key 数字(32=O32)', now: 'approval_strategy(o32/initiator/preempt/all)', status: '✅ 已对齐' },
+                        { dim: '状态码', old: 'approveStatus -1/10/50/100/150/350', now: 'AuditStatus -1/00/11/20/21/32/99（无150终止）', status: '⚠️ 差异' },
+                    ],
+                },
+                {
+                    title: '调入校验逐条对比',
+                    sub: '老系统 25 条（checkBasisAndProductInPool）vs 新系统 14 通用 + 类型特有（checkCommonIn + checkBondIn/StockIn/FundIn）。',
+                    columns: [['oldCode','老#',50],['oldRule','老校验名',160],['newRule','新对应',160],['newCode','新#',50],['status','差异',100]],
+                    rows: [
+                        { oldCode: '1', oldRule: '股票分管(stype=2)', newRule: '无', newCode: '-', status: '❌ 未迁移' },
+                        { oldCode: '2', oldRule: 'CRMW凭证已在池', newRule: '无（CRMW链路独有）', newCode: '-', status: '独立链路' },
+                        { oldCode: '3', oldRule: 'CRMW审批中', newRule: '无（CRMW链路独有）', newCode: '-', status: '独立链路' },
+                        { oldCode: '4', oldRule: 'CRMW池必填凭证', newRule: '无（CRMW链路独有）', newCode: '-', status: '独立链路' },
+                        { oldCode: '5', oldRule: '观察池标记(isgcc)', newRule: 'inCheckMainGradeRule 观察池跳过', newCode: '特有', status: '✅ 已对齐' },
+                        { oldCode: '6', oldRule: '投资评级(gradeAstrict)', newRule: 'inCheckGradeAstrict', newCode: '12', status: '✅ 已对齐' },
+                        { oldCode: '7', oldRule: '开放日', newRule: 'inCheckOpenDay', newCode: '14', status: '✅ 已对齐' },
+                        { oldCode: '8', oldRule: '行业', newRule: 'inCheckIndustry', newCode: '13', status: '✅ 已对齐' },
+                        { oldCode: '9', oldRule: '上限数量(maxCount)', newRule: 'inCheckPoolCapacity', newCode: '6', status: '✅ 已对齐' },
+                        { oldCode: '10', oldRule: '池锁定(lockFlag)', newRule: 'inCheckPoolLocked', newCode: '1', status: '✅ 已对齐' },
+                        { oldCode: '11', oldRule: '限制池(limitedPoolId)', newRule: 'inCheckRestrictPool', newCode: '8', status: '✅ 已对齐' },
+                        { oldCode: '12', oldRule: '半年入池报告标记(bondfileflag)', newRule: '无', newCode: '-', status: '❌ 未迁移' },
+                        { oldCode: '13', oldRule: '债券到期', newRule: 'inCheckBondMaturity', newCode: '特有', status: '✅ 已对齐' },
+                        { oldCode: '14', oldRule: '主体评级矩阵', newRule: 'inCheckMainGradeRule', newCode: '特有', status: '✅ 已对齐' },
+                        { oldCode: '15', oldRule: '退市(股票)', newRule: 'inCheckStockDelist', newCode: '特有', status: '✅ 已对齐' },
+                        { oldCode: '16', oldRule: '投资品种', newRule: 'inCheckVariety', newCode: '2', status: '✅ 已对齐' },
+                        { oldCode: '17', oldRule: '投资市场', newRule: 'inCheckMarket', newCode: '3', status: '✅ 已对齐' },
+                        { oldCode: '18', oldRule: '已在目标池', newRule: 'inCheckSecurityAlreadyInPool', newCode: '5', status: '✅ 已对齐' },
+                        { oldCode: '19', oldRule: '审批中', newRule: 'preCheckPendingProcess', newCode: '4', status: '✅ 已对齐' },
+                        { oldCode: '20', oldRule: '来源池(fromPoolId)', newRule: 'inCheckSourcePool', newCode: '7', status: '✅ 已对齐' },
+                        { oldCode: '21', oldRule: '禁止池', newRule: 'inCheckForbiddenPool', newCode: '11', status: '✅ 已对齐' },
+                        { oldCode: '22', oldRule: '研究报告(rschDocMode)', newRule: 'checkReportRequired(submit阶段)', newCode: 'submit', status: '⚠️ 时机不同' },
+                        { oldCode: '23', oldRule: '自定义文档(>100)', newRule: '无', newCode: '-', status: '❌ 未迁移' },
+                        { oldCode: '24', oldRule: '基金评分(fundRateLimit)', newRule: 'inCheckFundRate', newCode: '特有', status: '✅ 已对齐' },
+                        { oldCode: '25', oldRule: '弹性禁投池(code=2)', newRule: 'inCheckElasticPool(警告放行)', newCode: '10', status: '✅ 已对齐' },
+                        { oldCode: '新增', oldRule: '-', newRule: 'inCheckMutexConflict(同请求互斥)', newCode: '9', status: '🆕 新增' },
+                    ],
+                },
+                {
+                    title: '调出校验逐条对比',
+                    sub: '老系统 12 条（checkOutPool）vs 新系统 9 通用 + 类型特有（checkCommonOut + checkBondOut/StockOut）。',
+                    columns: [['oldCode','老#',50],['oldRule','老校验名',160],['newRule','新对应',160],['newCode','新#',50],['status','差异',100]],
+                    rows: [
+                        { oldCode: '1', oldRule: '股票分管', newRule: '无', newCode: '-', status: '❌ 未迁移' },
+                        { oldCode: '2', oldRule: '开放日', newRule: 'outCheckOpenDay', newCode: '9', status: '✅ 已对齐' },
+                        { oldCode: '3', oldRule: '半年入池报告标记', newRule: '无', newCode: '-', status: '❌ 未迁移' },
+                        { oldCode: '4', oldRule: '冻结期', newRule: 'outCheckFrozenPeriod', newCode: '4', status: '✅ 已对齐' },
+                        { oldCode: '5', oldRule: '池锁定', newRule: 'outCheckPoolLocked', newCode: '1', status: '✅ 已对齐' },
+                        { oldCode: '6', oldRule: 'CRMW组合不在池', newRule: '无（CRMW独有）', newCode: '-', status: '独立链路' },
+                        { oldCode: '7', oldRule: '不在目标池', newRule: 'outCheckSecurityNotInPool', newCode: '3', status: '✅ 已对齐' },
+                        { oldCode: '8', oldRule: '限制出池(limitedOutPoolId)', newRule: 'outCheckRestrictPool', newCode: '5', status: '✅ 已对齐' },
+                        { oldCode: '9', oldRule: '审批中', newRule: 'preCheckPendingProcess', newCode: '2', status: '✅ 已对齐' },
+                        { oldCode: '10', oldRule: '研究报告(rschDocOutMode)', newRule: 'checkReportRequired(submit阶段)', newCode: 'submit', status: '⚠️ 时机不同' },
+                        { oldCode: '11', oldRule: '自定义文档(>100)', newRule: '无', newCode: '-', status: '❌ 未迁移' },
+                        { oldCode: '12', oldRule: '弹性禁投池(code=2)', newRule: 'outCheckElasticPool(警告放行)', newCode: '8', status: '✅ 已对齐' },
+                        { oldCode: '新增', oldRule: '-', newRule: 'outCheckMutexPool(out_mutex)', newCode: '6', status: '🆕 新增' },
+                        { oldCode: '新增', oldRule: '-', newRule: 'outCheckMutexConflict(同请求互斥)', newCode: '7', status: '🆕 新增' },
+                    ],
+                },
+                {
+                    title: '流程判断对比',
+                    sub: '老系统 workflowType(1/2/3) + whiteWorkFlow + simpleWorkFlow vs 新系统 FlowType(6种)。',
+                    columns: [['dim','维度',130],['old','老系统',320],['now','新系统',320],['status','差异',100]],
+                    rows: [
+                        { dim: '升库', old: 'workflowType=3 + BOND_UPPOOL_WORKFLOWID', now: 'UPGRADE_INBOUND + bond:standard-upgrade', status: '✅ 已对齐' },
+                        { dim: '降库', old: 'workflowType=2 + BOND_DOWNPOOL_WORKFLOWID', now: 'DOWNGRADE_INBOUND + bond:standard-downgrade', status: '✅ 已对齐' },
+                        { dim: '白名单', old: 'whiteWorkFlow=1（checkWhiteWorkFlow 5条件）', now: 'WHITELIST_INBOUND（isWhitelistFlowMatched 5条件）', status: '⚠️ 骨架' },
+                        { dim: '简易', old: 'simpleWorkflow=1（checkSimpleWorkFlow 多条件）', now: 'SIMPLE_INBOUND（isSimpleInboundFlowMatched 5条件）', status: '⚠️ 骨架' },
+                        { dim: '正常调入', old: 'workflowType=1/default', now: 'NORMAL_INBOUND', status: '✅ 已对齐' },
+                        { dim: '调出', old: 'pool.wfModeOut', now: 'NORMAL_OUTBOUND + pool.outFlowId/Key', status: '✅ 已对齐' },
+                        { dim: '产品库升/降', old: 'workflowTypePro + BOND_UPPOOL/DOWNPOOL', now: '无（产品池走 NORMAL_INBOUND）', status: '❌ 未迁移' },
+                        { dim: '互斥池流程覆盖', old: 'getWfModeId 互斥池优先', now: '无', status: '❌ 未迁移' },
+                        { dim: '三候选推荐', old: '无（白名单/简易二选一）', now: '白名单>简易>默认 三候选前端可选', status: '🆕 优化' },
+                        { dim: '流程判断时机', old: 'securityResult（预览阶段）', now: 'checkAdjust resolveAdjustFlowOptions（预览阶段）', status: '✅ 已对齐' },
+                    ],
+                },
+                {
+                    title: '提交落地对比',
+                    sub: '老系统 addAdjustLog 重跑校验链(type=8)；新系统 submitAdjustLog 不重跑结构校验，只做必填+报告+直通判断。',
+                    columns: [['dim','维度',130],['old','老系统',320],['now','新系统',320],['status','差异',100]],
+                    rows: [
+                        { dim: 'submit 重跑校验', old: '✅ addAdjustLog 调 checkBasisAndProductInPool(type=8) 完整重跑', now: '❌ submit 只做 validateSubmitReq + checkReportRequired', status: '⚠️ 不兜底' },
+                        { dim: '报告必填', old: '预览+落地都查（bondfileflag 跳过）', now: '仅 submit 查（none/any/internal）', status: '⚠️ 时机不同' },
+                        { dim: '直通落地', old: 'approveStatus=100 + saveInvestPoolStatus', now: 'audit_status=20 + addPoolStatus/deletePoolStatusSoft', status: '✅ 已对齐' },
+                        { dim: '非直通', old: 'approveStatus=10 + startProcess', now: 'audit_status=00 + createInitialSteps', status: '✅ 已对齐' },
+                        { dim: '评级联动', old: 'inquestInvestPoolByAccordMaingrade(adjustType=15) 跳过校验', now: 'redirectPoolId 改判（校验矩阵允许范围）', status: '✅ 优化替代' },
+                        { dim: '主体同步', old: 'adjustBondByCompanyCode(stype==250)', now: '无（禁投池链路 syncCompanyBonds 替代）', status: '✅ 优化替代' },
+                        { dim: '一起调整', old: 'adjustBondByShowLogId(togetherBond)', now: '无', status: '❌ 未实现' },
+                        { dim: '联动级联', old: 'autoInAdjust/autoOutAdjust 落地后二次扫描', now: '无（前移到 checkAdjust 生成自动项）', status: '⚠️ 无兜底' },
+                        { dim: '附件转报告', old: 'saveReportByAttachment', now: 'generateInternalReportsOnFinish', status: '✅ 已对齐' },
+                    ],
+                },
+                {
+                    title: '审批流转对比',
+                    sub: '老系统 IWorkflowAction 异步回调 vs 新系统 FlowService 同步自驱。',
+                    columns: [['dim','维度',130],['old','老系统',320],['now','新系统',320],['status','差异',100]],
+                    rows: [
+                        { dim: '流转驱动', old: 'IWorkflowAction 异步回调', now: 'FlowService 同步自驱', status: '✅ 优化' },
+                        { dim: 'O32自动审批', old: 'O32AutomaticApprovalJob 定时 + isTemporaryCode 跳过', now: 'isAutoApprovalNode(o32) + 临时代码转人工', status: '✅ 已对齐' },
+                        { dim: '节点推进', old: 'subProcessStep + workflow 框架', now: 'advanceToNextAvailableStep + findNextNode', status: '✅ 已对齐' },
+                        { dim: '驳回', old: 'approveStatus=50', now: 'REJECT_MODIFY(11) / REJECTED(21)', status: '✅ 已对齐' },
+                        { dim: '撤回', old: 'approveStatus=350', now: 'REVOKED(99)（驳回到修改节点再驳回）', now2: '', status: '✅ 已对齐' },
+                        { dim: '终止', old: 'killWorkFlow -> approveStatus=150', now: '无（无 150 状态）', status: '❌ 未迁移' },
+                        { dim: '会签', old: 'workflow 框架处理', now: 'completeCurrentApprovalNodeIfNeeded(all)', status: '✅ 已对齐' },
+                        { dim: '批量整体回滚', old: 'isnext<0 && 非手动 -> approveStatus=-1', now: '无（逐条落地）', status: '❌ 未迁移' },
+                    ],
+                },
+                {
+                    title: '状态机对比',
+                    sub: '老系统 approveStatus vs 新系统 AuditStatus。仅 20（APPROVED）落地池状态。',
+                    columns: [['oldCode','老code',60],['oldName','老含义',120],['newCode','新code',60],['newName','新含义',120],['land','是否落地',80],['status','差异',100]],
+                    rows: [
+                        { oldCode: '-1', oldName: '无效调整', newCode: '-1', newName: 'INVALID', land: '否', status: '✅ 对齐' },
+                        { oldCode: '10', oldName: '待审批', newCode: '00', newName: 'SUBMITTED', land: '否', status: '✅ 对齐' },
+                        { oldCode: '50', oldName: '审批驳回', newCode: '11', newName: 'REJECT_MODIFY', land: '否', status: '✅ 对齐' },
+                        { oldCode: '100', oldName: '审批通过', newCode: '20', newName: 'APPROVED', land: '是', status: '✅ 对齐' },
+                        { oldCode: '-', oldName: '-', newCode: '21', newName: 'REJECTED', land: '否', status: '🆕 新增' },
+                        { oldCode: '-', oldName: '-', newCode: '32', newName: 'O32(预留)', land: '否', status: '🆕 预留' },
+                        { oldCode: '150', oldName: '审批终止', newCode: '-', newName: '无', land: '否', status: '❌ 未迁移' },
+                        { oldCode: '350', oldName: '已撤回', newCode: '99', newName: 'REVOKED', land: '否', status: '✅ 对齐' },
+                    ],
+                },
+            ],
+            findings: [
+                { level: 'P0', cat: '架构差异', title: 'submit 不重跑结构校验', desc: '新系统 submitAdjustLog 只做 validateSubmitReq + checkReportRequired，不重跑池锁定/容量/互斥/pending/矩阵等结构校验。前端可绕过 checkAdjust 直接调 addAdjustLogWithFiles。老系统 addAdjustLog 内部重跑 checkInPool/checkOutPool 兜底。', suggestion: 'submit 阶段补一次结构校验，或保证 checkAdjust 不可绕过' },
+                { level: 'P1', cat: '架构差异', title: '联动级联无后端兜底', desc: '新项目联动/互斥前移到 checkAdjust 生成自动项(不落库)，依赖前端把自动项作为 items 一起提交。前端绕过则联动/互斥不生效。老项目 autoInAdjust/autoOutAdjust 落地后二次扫描兜底。', suggestion: 'finishAdjustBatch 落地后补二次扫描兜底' },
+                { level: 'P2', cat: '未迁移', title: '股票分管(stype=2)', desc: '老项目 stockAssignExists 校验股票分管，新项目无。债券链路不用。', suggestion: '确认是否需要，债券链路可跳过' },
+                { level: 'P2', cat: '未迁移', title: '半年入池报告跳过(bondfileflag)', desc: '老项目半年内有入池记录则跳过研究报告校验，新项目无。', suggestion: '评估业务价值后决定是否补迁' },
+                { level: 'P2', cat: '未迁移', title: '自定义文档(>100)', desc: '老项目 rschDocMode>100 反射加载 IDocCheckRule 自定义校验，新项目无。', suggestion: '低价值，按需补迁' },
+                { level: 'P2', cat: '骨架未生效', title: '白名单流程条件4未接查询', desc: 'WHITELIST_POOL_IDS 常量空集写死，条件4(主体在白名单池)永远不命中。5条件逻辑已写好。', suggestion: '配 WHITELIST_POOL_IDS + 补 queryIssuerInWhitelistPools 查询' },
+                { level: 'P2', cat: '骨架未生效', title: '简易评级下调三标志写死false', desc: 'ISSUER/OUTLOOK/GUARANTOR_RATING_DOWNGRADED 常量 false，第5条件恒通过。5条件逻辑已写好。', suggestion: '接评级历史表替换三常量' },
+                { level: 'P2', cat: '未实现', title: '终止流程(150)', desc: '老项目 killWorkFlow -> approveStatus=150，新项目无 150 状态。', suggestion: '确认是否需要终止流程' },
+                { level: 'P2', cat: '未实现', title: '产品库升降库', desc: '老项目 workflowTypePro + BOND_UPPOOL/DOWNPOOL_WORKFLOWID，新项目产品池走 NORMAL_INBOUND。', suggestion: '确认产品库是否需要升降级' },
+                { level: 'P2', cat: '未实现', title: '批量整体回滚', desc: '老项目 isnext<0 && 非手动调整类型 -> approveStatus=-1 整批失败，新项目逐条落地无整体回滚。', suggestion: '确认批量是否需要整体回滚语义' },
+                { level: 'P2', cat: '未实现', title: '一起调整 togetherBond', desc: '老项目 adjustBondByShowLogId 关联债券联动，新项目无。', suggestion: '按需评估' },
+            ],
+            sources: [
+                '老项目 InvestPoolAdjustManageAction(querySecurity/securityResult/addAdjustLog)',
+                '老项目 AdjustCheckRuleResult(checkBasisAndProductInPool:1154/checkOutPool:102)',
+                '老项目 InvestPoolNewServiceImpl(checkWhiteWorkFlow:261/checkSimpleWorkFlow:298)',
+                '新项目 SecurityPoolAdjustService(checkAdjust:1078/submitAdjustLog:391/checkCommonIn:1941/checkCommonOut:2310)',
+                '新项目 SecurityPoolAdjustFlowService(submitAdjustAudit:114/advanceToNextAvailableStep:371/finishAdjustBatch:436)',
+                '新项目 FlowType/AuditStatus/ApprovalStrategy 枚举',
+            ],
+            related: [
+                ['老项目债券池调库链路', 'bond-link-audit.html'],
+                ['调库校验新旧对比', 'validation-comparison-audit.html'],
+                ['调库流程类型对比', 'flow-type-comparison-audit.html'],
+                ['问题总览', 'business-issues-overview.html'],
+            ],
+        }
+    },
+    computed: {
+        statSpan() {
+            if (this.metrics.length <= 3) return 8
+            if (this.metrics.length <= 4) return 6
+            return 4
+        },
+    },
+    methods: {
+        // 差异标签配色
+        diffTagType(status) {
+            if (!status) return 'info'
+            if (status.indexOf('✅') > -1 || status.indexOf('已对齐') > -1 || status.indexOf('优化') > -1) return 'success'
+            if (status.indexOf('⚠️') > -1 || status.indexOf('差异') > -1 || status.indexOf('骨架') > -1 || status.indexOf('不兜底') > -1 || status.indexOf('时机') > -1) return 'warning'
+            if (status.indexOf('❌') > -1 || status.indexOf('未迁移') > -1 || status.indexOf('未实现') > -1) return 'danger'
+            return 'info'
+        },
+        // 问题等级标签
+        levelTagType(level) {
+            if (level === 'P0') return 'danger'
+            if (level === 'P1') return 'warning'
+            return 'info'
+        },
+        scrollTo(id) {
+            const el = document.getElementById(id)
+            if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
+        },
+        openDoc(page) {
+            const menuIndexMap = {
+                'business-issues-overview.html': 'doc-business-issues-overview',
+                'bond-link-audit.html': 'doc-bond-link-audit',
+                'validation-comparison-audit.html': 'doc-validation-comparison',
+                'flow-type-comparison-audit.html': 'doc-flow-type-comparison',
+                'full-comparison-audit.html': 'doc-full-comparison',
+                'security-pool-link-audit.html': 'doc-security-link-audit',
+                'batch-security-pool-link-audit.html': 'doc-batch-security-link-audit',
+                'forbidden-pool-link-audit.html': 'doc-forbidden-link-audit',
+                'crmw-pool-link-audit.html': 'doc-crmw-link-audit',
+                'query-history-audit.html': 'doc-query-history-audit',
+                'approval-matters-audit.html': 'doc-approval-matters-audit',
+                'investment-pool-permission-audit.html': 'doc-pool-permission-audit',
+                'workflow-engine-audit.html': 'doc-workflow-engine-audit',
+                'rule-rating-temp-audit.html': 'doc-rule-rating-temp-audit',
+                'attachment-report-audit.html': 'doc-attachment-report-audit',
+                'data-consistency-performance-audit.html': 'doc-data-consistency-audit',
+                'business-acceptance-matrix.html': 'doc-business-acceptance',
+            }
+            const opener = window.parent && window.parent !== window ? window.parent.RrsWorkbenchOpenPage : null
+            if (opener && menuIndexMap[page]) { opener(menuIndexMap[page]); return }
+            window.location.href = page
+        },
+    },
+})
+</script>
+</body>
+</html>
