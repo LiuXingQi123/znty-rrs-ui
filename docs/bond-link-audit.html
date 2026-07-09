@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>老项目债券池调库链路梳理</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <style>
+        body { margin: 0; background: #f4f7fb; }
+        #bond_link_audit {
+            --primary: #2743A4; --primary-light: #E9ECF6; --bg: #f4f7fb; --panel: #ffffff;
+            --text: #1f2937; --regular: #475467; --muted: #64748b; --line: #dbe4ef;
+            --success: #15803d; --warn: #b45309; --danger: #b42318;
+            --shadow: 0 12px 32px rgba(31, 42, 68, .08);
+            min-height: 100vh; background: var(--bg); color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+        #bond_link_audit, #bond_link_audit * { box-sizing: border-box; }
+        #bond_link_audit .wrap { width: min(1760px, calc(100% - 32px)); margin: 0 auto; }
+        #bond_link_audit .doc-header { padding: 28px 0 24px; color: #fff; background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%); border: 0; }
+        #bond_link_audit .kicker { margin: 0 0 4px; color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .14em; opacity: .82; }
+        #bond_link_audit h1 { margin: 0; font-size: clamp(26px, 3vw, 36px); line-height: 1.25; color: #fff; }
+        #bond_link_audit .desc { max-width: 980px; margin: 8px 0 0; color: rgba(255,255,255,.86); font-size: 14px; }
+        #bond_link_audit .stats { max-width: 980px; margin-top: 16px; }
+        #bond_link_audit .stat-card { margin-bottom: 10px; color: #fff; border: 1px solid rgba(255,255,255,.22); border-radius: 12px; background: rgba(255,255,255,.1); box-shadow: none; backdrop-filter: blur(8px); }
+        #bond_link_audit .stat-card .el-card__body { padding: 10px 14px; }
+        #bond_link_audit .stat-value { font-size: 18px; font-weight: 800; line-height: 1.2; }
+        #bond_link_audit .stat-label { margin-top: 4px; color: rgba(255,255,255,.78); font-size: 12px; }
+        #bond_link_audit main { padding: 28px 0 56px; }
+        #bond_link_audit .nav-card { position: sticky; top: 10px; z-index: 10; margin-bottom: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 6px 18px rgba(31,42,68,.07); }
+        #bond_link_audit .nav-card .el-card__body { display: flex; gap: 8px; padding: 10px; overflow-x: auto; }
+        #bond_link_audit .nav-btn.el-button { flex: none; margin: 0; padding: 7px 12px; color: #344054; border: 0; border-radius: 8px; background: transparent; font-size: 14px; }
+        #bond_link_audit .nav-btn.el-button:hover, #bond_link_audit .nav-btn.el-button:focus { color: var(--primary); background: var(--primary-light); }
+        #bond_link_audit .panel { margin-bottom: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: var(--shadow); scroll-margin-top: 78px; }
+        #bond_link_audit .panel .el-card__header { padding: 26px 26px 0; border-bottom: 0; }
+        #bond_link_audit .panel .el-card__body { padding: 20px 26px 26px; }
+        #bond_link_audit h2 { margin: 0 0 6px; color: var(--text); font-size: 22px; line-height: 1.35; font-weight: 800; }
+        #bond_link_audit .sub { margin: 0; color: var(--muted); font-size: 14px; }
+        #bond_link_audit .audit-table.el-table { color: var(--regular); font-size: 13px; }
+        #bond_link_audit .audit-table.el-table th { color: var(--text); background: #f8fafc; font-weight: 700; }
+        #bond_link_audit .compare-table .cell { line-height: 1.6; white-space: normal; }
+        #bond_link_audit .compare-table .cell-text { display: block; max-width: 100%; color: var(--regular); vertical-align: middle; white-space: normal; word-break: break-word; }
+        #bond_link_audit .code-text { display: inline-block; min-width: 28px; padding: 1px 6px; color: var(--primary); background: var(--primary-light); border-radius: 6px; font-weight: 700; font-size: 12px; text-align: center; }
+        #bond_link_audit .alert-box { margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; background: #fff4df; border: 1px solid #ffe0a3; }
+        #bond_link_audit .alert-box b { color: var(--warn); }
+        #bond_link_audit .related-block { height: 100%; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
+        #bond_link_audit .block-title { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--text); font-size: 15px; font-weight: 800; }
+        #bond_link_audit .block-title i { color: var(--primary); font-size: 17px; }
+        #bond_link_audit .source-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+        #bond_link_audit .source-list li { padding: 7px 10px; color: #344054; background: #f8fafc; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; }
+        #bond_link_audit .topic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+        #bond_link_audit .topic-card { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 38px; padding: 9px 10px; color: #344054; background: #fff; border: 1px solid var(--line); border-radius: 9px; cursor: pointer; font: inherit; text-align: left; transition: color .16s ease, border-color .16s ease, background .16s ease; }
+        #bond_link_audit .topic-card:hover { color: var(--primary); background: var(--primary-light); border-color: #c7d2fe; }
+        #bond_link_audit .topic-card i { flex: none; color: #94a3b8; }
+        #bond_link_audit .topic-card:hover i { color: var(--primary); }
+        @media (max-width: 900px) {
+            #bond_link_audit .wrap { width: calc(100% - 24px); }
+            #bond_link_audit .doc-header { padding: 24px 0 22px; }
+            #bond_link_audit .panel .el-card__header { padding: 20px 18px 0; }
+            #bond_link_audit .panel .el-card__body { padding: 16px 18px 20px; }
+        }
+    </style>
+</head>
+<body>
+<div id="bond_link_audit" class="docs-business-issue-page">
+    <header class="doc-header">
+        <div class="wrap">
+            <p class="kicker">ZNTY RRS · OLD PROJECT BOND POOL ADJUST AUDIT</p>
+            <h1>{{ title }}</h1>
+            <p class="desc">{{ desc }}</p>
+            <el-row v-if="metrics.length" :gutter="10" class="stats">
+                <el-col v-for="metric in metrics" :key="metric[1]" :xs="12" :sm="8" :md="statSpan">
+                    <el-card shadow="never" class="stat-card">
+                        <div class="stat-value">{{ metric[0] }}</div>
+                        <div class="stat-label">{{ metric[1] }}</div>
+                    </el-card>
+                </el-col>
+            </el-row>
+        </div>
+    </header>
+    <main>
+        <div class="wrap">
+            <el-card shadow="never" class="nav-card">
+                <el-button v-for="(table,index) in tables" :key="table.title" class="nav-btn" size="mini" @click="scrollTo('section-table-'+index)">{{ table.title }}</el-button>
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-related')">依据专题</el-button>
+            </el-card>
+
+            <el-card v-for="(table,index) in tables" :id="'section-table-'+index" :key="table.title" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ table.title }}</h2>
+                    <p class="sub">{{ table.sub }}</p>
+                </div>
+                <el-table :data="table.rows" size="small" border class="audit-table compare-table">
+                    <el-table-column v-for="column in table.columns" :key="column[0]" :prop="column[0]" :label="column[1]" :min-width="column[2]">
+                        <template slot-scope="scope">
+                            <el-tag v-if="column[0] === 'status'" size="mini" :type="checkTagType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <span v-else-if="column[0] === 'code'" class="code-text">{{ scope.row[column[0]] }}</span>
+                            <span v-else class="cell-text">{{ scope.row[column[0]] }}</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+
+            <el-card id="section-related" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>依据与相关专题</h2>
+                    <p class="sub">用于回看代码依据和相邻问题页。</p>
+                </div>
+                <el-row :gutter="16">
+                    <el-col :xs="24" :md="11">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-document-copy"></i><span>依据文件</span></div>
+                            <ul class="source-list">
+                                <li v-for="source in sources" :key="source">{{ source }}</li>
+                            </ul>
+                        </div>
+                    </el-col>
+                    <el-col :xs="24" :md="13">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-connection"></i><span>相关专题</span></div>
+                            <div class="topic-grid">
+                                <button v-for="item in related" :key="item[1]" class="topic-card" @click="openDoc(item[1])">
+                                    <span>{{ item[0] }}</span>
+                                    <i class="el-icon-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </el-col>
+                </el-row>
+            </el-card>
+        </div>
+    </main>
+</div>
+<script>
+new Vue({
+    el: '#bond_link_audit',
+    data() {
+        return {
+            title: '老项目债券池调库链路梳理',
+            desc: '老项目 Sinitek SIRM 债券池调整完整链路：从前端 JSP 入口出发，梳理 Action 映射、查询逻辑、调入/调出校验判断（按执行顺序）、调入/调出流程判断（升库/降库/白名单/简易/正常）。',
+            metrics: [
+                ['3步', '向导流程'],
+                ['25条', '调入校验'],
+                ['12条', '调出校验'],
+                ['7种', '流程类型'],
+            ],
+            tables: [
+                {
+                    title: '前端入口与 Action 映射',
+                    sub: '三步式向导，全部走 InvestPoolAdjustManageAction（Struts action 名 investpooladjustmanageaction，默认方法 querySecurity）。',
+                    columns: [['code','步骤',60],['jsp','JSP 页面',200],['button','按钮/操作',160],['method','Action 方法',200],['desc','功能说明',320]],
+                    rows: [
+                        { code: '1', jsp: 'querybond.jsp', button: '提交', method: 'querySecurity() :500', desc: '按债券代码加载池列表，基于评级矩阵 findMainGradeRuleList 过滤可调入/调出池，转发 investpooladjustbond' },
+                        { code: '1b', jsp: 'investpooladjustbond.jsp', button: '勾选池时 AJAX', method: 'checkNormLimitReminderPoolds() :142', desc: '规范库提醒：债券在产品规范库时弹窗"请谨慎调整"' },
+                        { code: '1c', jsp: 'investpooladjustbond.jsp', button: '勾选池时 AJAX', method: 'getLastReprotDocs() :186', desc: '自动回填上次调整的研究报告' },
+                        { code: '2', jsp: 'investpooladjustbond.jsp', button: '下一步', method: 'securityResult() :1032', desc: '对勾选池跑 checkBasisAndProductInPool/checkOutPool 校验，判断 workflowType/whiteWorkFlow/simpleWorkFlow，转发校验结果页' },
+                        { code: '3', jsp: 'investpooladjustreslutbond.jsp', button: '提交', method: 'addAdjustLog() :2273', desc: '跑校验链(type=8) + 落地 AdjustLog + 启动工作流；whiteWorkFlow/simpleWorkFlow 时弹单选框确认' },
+                        { code: '3b', jsp: 'investpooladjustreslutbond.jsp', button: '上一步', method: 'querySecurity()', desc: '回到第1步' },
+                    ],
+                },
+                {
+                    title: '调入校验判断逻辑（按执行顺序）',
+                    sub: '入口：securityResult() :1150 调 checkBasisAndProductInPool（注意：不是 checkInPool）。结果码 0=失败 / 1=成功 / 2=警告 / 3=需评级，只有 code∈{1,2,3} 才进入可调入池列表。',
+                    columns: [['code','序号',60],['rule','校验名',180],['status','阻断/警告',100],['data','依赖数据',250],['pos','代码位置',160]],
+                    rows: [
+                        { code: '1', rule: '股票分管（stype=2）', status: '阻断', data: 'pool.isManage==1 + stockAssignExists', pos: ':1199' },
+                        { code: '2', rule: 'CRMW 凭证已在池', status: '阻断', data: 'checkCrmwInPool', pos: ':1214' },
+                        { code: '3', rule: 'CRMW 审批中', status: '阻断', data: 'checkPoolCrmwWorkflow', pos: ':1218' },
+                        { code: '4', rule: 'CRMW 池必填凭证', status: '阻断', data: '配置 IP.CRMWPOOLID_XYJJ', pos: ':1223' },
+                        { code: '5', rule: '观察池标记（isgcc）', status: '不阻断', data: 'existsInPool(ASTRICTPOOLS) 主体+债券', pos: ':1230' },
+                        { code: '6', rule: '投资评级（gradeAstrict）', status: '阻断', data: 'pool.gradeAstrict + map.gradeastrict', pos: ':1238' },
+                        { code: '7', rule: '开放日', status: '阻断', data: 'pool.openDayAdjust==1 + isInPoolOpenDay', pos: ':1256' },
+                        { code: '8', rule: '行业', status: '阻断', data: 'pool.industryCode + IndustryPartition', pos: ':1262' },
+                        { code: '9', rule: '上限数量（maxCount）', status: '阻断', data: 'pool.maxCount + findMaxCount', pos: ':1266' },
+                        { code: '10', rule: '池锁定（lockFlag）', status: '阻断', data: 'pool.lockFlag==1', pos: ':1273' },
+                        { code: '11', rule: '限制池（limitedPoolId）', status: '阻断', data: 'relationMap.limitedPoolId + existsInPool', pos: ':1277' },
+                        { code: '12', rule: '半年入池报告标记（bondfileflag）', status: '不阻断', data: 'findInvestPoolAdjustHistory 主体+债券', pos: ':1281' },
+                        { code: '13', rule: '债券到期', status: '阻断', data: 'security.endDate', pos: ':1315' },
+                        { code: '14', rule: '主体评级矩阵（核心，含担保债/观察池分支）', status: '阻断', data: 'findMainGradeRuleList(lon,bondDurationId) + sirmEnums sort 比较', pos: ':1293-1765' },
+                        { code: '15', rule: '退市（股票，债券跳过）', status: '阻断', data: 'security.endDate', pos: ':1766' },
+                        { code: '16', rule: '投资品种', status: '阻断', data: 'poolMap.varietals 含 ptype', pos: ':1770' },
+                        { code: '17', rule: '投资市场', status: '阻断', data: 'poolMap.mkts 含 mktcode', pos: ':1774' },
+                        { code: '18', rule: '已在目标池', status: '阻断', data: 'findPoolSecurity', pos: ':1778' },
+                        { code: '19', rule: '审批中（checkPoolWorkflow）', status: '阻断', data: 'checkPoolWorkflow / checkLogPoolWorkflow', pos: ':1782' },
+                        { code: '20', rule: '来源池（fromPoolId）', status: '阻断', data: 'relationMap.fromPoolId + existsInPool', pos: ':1795' },
+                        { code: '21', rule: '禁止池（Forbiddenlastpoolid）', status: '阻断', data: '配置 IP.Forbiddenlastpoolid', pos: ':1816' },
+                        { code: '22', rule: '研究报告（rschDocMode=2/3）', status: '阻断', data: 'pool.rschDocMode + reports 串拆分', pos: ':1820' },
+                        { code: '23', rule: '自定义文档（rschDocMode>100）', status: '阻断', data: '反射加载 IDocCheckRule', pos: ':1905' },
+                        { code: '24', rule: '基金评分（fundRateLimit）', status: '阻断', data: 'pool.fundRateLimit（债券一般无）', pos: ':1921' },
+                        { code: '25', rule: '弹性禁投池（code=2 警告放行）', status: '警告', data: 'relationMap.flexibleLimitedPoolId + existsInPool', pos: ':1965' },
+                    ],
+                },
+                {
+                    title: '调出校验判断逻辑（按执行顺序）',
+                    sub: '入口：securityResult() :1221 调 checkOutPool。结果码 0=失败 / 1=成功 / 2=警告，只有 code∈{1,2} 才进入可调出池列表。调出比调入少：上限数量、行业、品种/市场、来源池、禁止池、主体评级矩阵。',
+                    columns: [['code','序号',60],['rule','校验名',180],['status','阻断/警告',100],['data','依赖数据',250],['pos','代码位置',160]],
+                    rows: [
+                        { code: '1', rule: '股票分管', status: '阻断', data: '同调入', pos: ':135' },
+                        { code: '2', rule: '开放日', status: '阻断', data: '同调入', pos: ':139' },
+                        { code: '3', rule: '半年入池报告标记', status: '不阻断', data: '同调入', pos: ':146' },
+                        { code: '4', rule: '冻结期（frozenperiodin）', status: '阻断', data: 'pool.frozenperiodin + getPoolSecurity.submitTime', pos: ':156' },
+                        { code: '5', rule: '池锁定', status: '阻断', data: 'pool.lockFlag==1', pos: ':164' },
+                        { code: '6', rule: 'CRMW 组合不在池', status: '阻断', data: 'checkCrmwInPool（含双代码）', pos: ':168' },
+                        { code: '7', rule: '不在目标池', status: '阻断', data: 'findPoolSecurity（adjustMode≠0）', pos: ':182' },
+                        { code: '8', rule: '限制出池（limitedOutPoolId）', status: '阻断', data: 'relationMap.limitedOutPoolId', pos: ':186' },
+                        { code: '9', rule: '审批中', status: '阻断', data: 'checkPoolWorkflow / checkLogPoolWorkflow', pos: ':190' },
+                        { code: '10', rule: '研究报告（rschDocOutMode=2/3）', status: '阻断', data: 'pool.rschDocOutMode + reports', pos: ':203' },
+                        { code: '11', rule: '自定义文档（rschDocOutMode>100）', status: '阻断', data: '反射 IDocCheckRule', pos: ':289' },
+                        { code: '12', rule: '弹性禁投池（code=2 警告放行）', status: '警告', data: 'relationMap.flexibleLimitedOutPoolId', pos: ':309' },
+                    ],
+                },
+                {
+                    title: '调入流程判断逻辑（升库/降库/白名单/简易/正常）',
+                    sub: '位置：securityResult() :1439-1539（不是 querySecurity）。querySecurity 只做池过滤，securityResult 才判断流程类型。workflowType/whiteWorkFlow/simpleWorkFlow 是分类标记，不是流程模板ID。',
+                    columns: [['code','序号',60],['condition','条件',320],['result','判断结果',150],['flowType','流程类型',150],['pos','代码位置',120]],
+                    rows: [
+                        { code: '1', condition: '证券已在信用债大库 + adjustPool.poolLevel > poolIn.poolLevel', result: '升库', flowType: 'workflowType=3', pos: ':1453' },
+                        { code: '2', condition: '证券已在信用债大库 + adjustPool.poolLevel < poolIn.poolLevel', result: '降库', flowType: 'workflowType=2', pos: ':1459' },
+                        { code: '3', condition: '证券已在信用债大库 + poolLevel 相等', result: '正常调入', flowType: '默认1', pos: ':1462' },
+                        { code: '4', condition: '不在大库 + 调入一/二/三级库 + checkWhiteWorkFlow=true', result: '白名单', flowType: 'whiteWorkFlow=1', pos: ':1485' },
+                        { code: '5', condition: '不在大库 + 调入一/二/三级库 + 非白名单 + checkSimpleWorkFlow=true', result: '简易', flowType: 'simpleWorkflow=1', pos: ':1491' },
+                        { code: '6', condition: '不在大库 + 调入一/二/三级库 + 非白名单 + 非简易', result: '正常调入（首次入大库）', flowType: '默认1', pos: ':1495' },
+                        { code: '7', condition: '不在大库 + 调入非一/二/三级库', result: '正常调入', flowType: 'workflowType=2', pos: ':1499' },
+                    ],
+                },
+                {
+                    title: '白名单与简易流程判断条件',
+                    sub: 'checkWhiteWorkFlow（InvestPoolNewServiceImpl:261）/ checkSimpleWorkFlow（:298）。两者都在 securityResult 里调用，只对"不在大库+调入一/二/三级库"场景生效。',
+                    columns: [['flow','流程',80],['code','序号',60],['condition','条件',400],['result','结果',100],['pos','代码位置',120]],
+                    rows: [
+                        { flow: '白名单', code: '1', condition: '剩余期限 > 1095天（3年）', result: 'false', pos: ':279' },
+                        { flow: '白名单', code: '2', condition: '主体在白名单池 WHITEPOOLID_XYJJ + 非永续/私募/ABS + bonddt52=0', result: 'true', pos: ':285' },
+                        { flow: '简易', code: '1', condition: '本券期限 > 同主体在池最大期限', result: 'false', pos: ':333' },
+                        { flow: '简易', code: '2', condition: '上次非简易入池超过1年（查 IP_SIMPLEWORKFLOWDATE）', result: 'false', pos: ':352' },
+                        { flow: '简易', code: '3', condition: '主体/展望评级下调 + 担保人评级也下调', result: 'false', pos: ':419' },
+                        { flow: '简易', code: '4', condition: '评级未下调，或下调但担保人未下调（兜底）', result: 'true', pos: ':484' },
+                    ],
+                },
+                {
+                    title: '调出流程判断逻辑',
+                    sub: '调出无升库/降库/白名单/简易判断，直接用池配置 wfModeOut。调入方向有"互斥池流程覆盖"机制（getWfModeId：证券在互斥池时走互斥池配置的流程），调出方向无此机制。',
+                    columns: [['code','序号',60],['condition','条件',300],['result','判断结果',150],['status','审批状态',150],['pos','代码位置',120]],
+                    rows: [
+                        { code: '1', condition: 'pool.wfModeOut == 0', result: '自动通过', status: 'approveStatus=100', pos: ':2525' },
+                        { code: '2', condition: 'pool.wfModeOut != 0', result: '走审批流程', status: 'approveStatus=10', pos: ':2525' },
+                    ],
+                },
+                {
+                    title: '关键纠正点（避免找错方法）',
+                    sub: '从前端出发梳理时容易找错方法，以下 5 点是关键纠正。',
+                    columns: [['code','序号',60],['point','纠正点',600]],
+                    rows: [
+                        { code: '1', point: '调入校验入口是 checkBasisAndProductInPool（:1154），不是 checkInPool（:378）。checkInPool 是另一个方法，本链路不用。' },
+                        { code: '2', point: '流程类型判断在 securityResult()（:1439-1539），不在 querySecurity()。querySecurity 只做池过滤，不产生 workflowType。' },
+                        { code: '3', point: '校验执行两次：securityResult 跑一遍（预览 type=1）+ addAdjustLog 再跑一遍（落地 type=8），两次都调同一方法。' },
+                        { code: '4', point: 'workflowType/whiteWorkFlow/simpleWorkFlow 是分类标记，不是流程模板ID；真正流程模板ID由 getWfModeId() 取 pool.wfModeIn。' },
+                        { code: '5', point: '调出无升库/降库/白名单/简易判断，直接 pool.wfModeOut 决定自动通过还是走审批。' },
+                    ],
+                },
+            ],
+            sources: [
+                'querybond.jsp / investpooladjustbond.jsp / investpooladjustreslutbond.jsp',
+                'InvestPoolAdjustManageAction（querySecurity:500 / securityResult:1032 / addAdjustLog:2273）',
+                'AdjustCheckRuleResult（checkBasisAndProductInPool:1154 / checkOutPool:102）',
+                'InvestPoolUtils（getWfModeId:183 / getBondPool:767 / checkHBondPool:721）',
+                'InvestPoolNewServiceImpl（checkWhiteWorkFlow:261 / checkSimpleWorkFlow:298）',
+                'struts-investpool.xml（action 映射）',
+            ],
+            related: [
+                ['调库校验新旧对比', 'validation-comparison-audit.html'],
+                ['调库流程类型对比', 'flow-type-comparison-audit.html'],
+                ['问题总览', 'business-issues-overview.html'],
+                ['证券池单笔调库体检', 'security-pool-link-audit.html'],
+            ],
+        }
+    },
+    computed: {
+        statSpan() {
+            if (this.metrics.length <= 3) return 8
+            if (this.metrics.length <= 4) return 6
+            return 4
+        },
+    },
+    methods: {
+        // 获取校验状态标签类型
+        checkTagType(status) {
+            if (!status) return 'info'
+            if (status.indexOf('阻断') > -1) return 'danger'
+            if (status.indexOf('警告') > -1) return 'warning'
+            if (status.indexOf('不阻断') > -1) return 'info'
+            return 'info'
+        },
+        // 滚动到页面内指定区域
+        scrollTo(id) {
+            const el = document.getElementById(id)
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+        },
+        // 通过父工作台打开关联文档页签
+        openDoc(page) {
+            const menuIndexMap = {
+                'business-issues-overview.html': 'doc-business-issues-overview',
+                'validation-comparison-audit.html': 'doc-validation-comparison',
+                'flow-type-comparison-audit.html': 'doc-flow-type-comparison',
+                'bond-link-audit.html': 'doc-bond-link-audit',
+                'security-pool-link-audit.html': 'doc-security-link-audit',
+                'batch-security-pool-link-audit.html': 'doc-batch-security-link-audit',
+                'forbidden-pool-link-audit.html': 'doc-forbidden-link-audit',
+                'crmw-pool-link-audit.html': 'doc-crmw-link-audit',
+                'query-history-audit.html': 'doc-query-history-audit',
+                'approval-matters-audit.html': 'doc-approval-matters-audit',
+                'investment-pool-permission-audit.html': 'doc-pool-permission-audit',
+                'workflow-engine-audit.html': 'doc-workflow-engine-audit',
+                'rule-rating-temp-audit.html': 'doc-rule-rating-temp-audit',
+                'attachment-report-audit.html': 'doc-attachment-report-audit',
+                'data-consistency-performance-audit.html': 'doc-data-consistency-audit',
+                'business-acceptance-matrix.html': 'doc-business-acceptance',
+            }
+            const opener = window.parent && window.parent !== window ? window.parent.RrsWorkbenchOpenPage : null
+            if (opener && menuIndexMap[page]) {
+                opener(menuIndexMap[page])
+                return
+            }
+            window.location.href = page
+        },
+    },
+})
+</script>
+</body>
+</html>
