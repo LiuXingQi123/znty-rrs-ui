@@ -102,6 +102,7 @@ const DICT_FLOW_TYPE = {
     'whitelistInbound':  '白名单调入',
     'simpleInbound':     '简易调入',
     'normalInbound':     '默认调入',
+    'specialInbound':    '特殊审批',
     'upgradeInbound':    '上调',
     'downgradeInbound':  '下调',
     'normalOutbound':    '默认调出',
