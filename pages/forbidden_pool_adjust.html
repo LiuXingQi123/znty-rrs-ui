@@ -48,11 +48,7 @@
                           size="small" style="width:148px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-document"></i>
                 </el-input>
-                <el-input v-model="searchForm.companyShortName" placeholder="主体简称" clearable
-                          size="small" style="width:148px;" @keyup.enter.native="handleSearch">
-                    <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
-                </el-input>
-                <el-input v-model="searchForm.companyFullName" placeholder="主体全称" clearable
+                <el-input v-model="searchForm.companyFullName" placeholder="主体名称" clearable
                           size="small" style="width:180px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
                 </el-input>
@@ -80,13 +76,9 @@
                             <span class="desc-link" @click="handleAdjust(row)">{{ row.companyCode || '' }}</span>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="companyShortName" label="主体简称" min-width="130">
-                        <template slot-scope="{ row }">
-                            <span class="desc-link" @click="handleAdjust(row)">{{ row.companyShortName || '' }}</span>
-                        </template>
-                    </el-table-column>
-                    <el-table-column prop="companyFullName" label="主体全称" min-width="240" show-overflow-tooltip></el-table-column>
-                    <el-table-column prop="industryName" label="所属行业" min-width="150" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="companyFullName" label="主体名称" min-width="240" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="industryName" label="一级行业" min-width="150" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="industryName2" label="二级行业" min-width="150" show-overflow-tooltip></el-table-column>
                     <el-table-column prop="companyBondCount" label="旗下债券数量" min-width="110" align="right"></el-table-column>
                     <el-table-column label="操作" width="90" fixed="right" align="center">
                         <template slot-scope="{ row }">
@@ -123,9 +115,9 @@
                       style="font-family:'Courier New',monospace;font-size:13px;font-weight:600;color:var(--c-primary);background:var(--c-primary-l);padding:2px 10px;border-radius:5px;border:1px solid rgba(39,67,164,.15);">
                     {{ companyDetail.companyCode }}
                 </span>
-                <span v-if="companyDetail.companyShortName || companyDetail.companyFullName"
+                <span v-if="companyDetail.companyFullName"
                       style="color:var(--c-text-2);font-weight:500;font-size:13px;">
-                    {{ companyDetail.companyShortName || companyDetail.companyFullName }}
+                    {{ companyDetail.companyFullName }}
                 </span>
             </div>
         </div>
@@ -141,38 +133,36 @@
                 </div>
                 <div v-show="sectionExpanded.bondInfo" style="padding:0;">
                     <el-descriptions :column="3" border size="small" class="bond-info-descriptions">
-                        <el-descriptions-item label="主体全称">
+                        <el-descriptions-item label="主体名称">
                             <el-input v-model="companyDetail.companyFullName" size="small" disabled></el-input>
-                        </el-descriptions-item>
-                        <el-descriptions-item label="主体简称">
-                            <el-input v-model="companyDetail.companyShortName" size="small" disabled></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主体代码">
                             <el-input v-model="companyDetail.companyCode" size="small" disabled></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="所属行业">
+                        <el-descriptions-item label="一级行业">
                             <el-input v-model="companyDetail.industryName" size="small" disabled></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="Wind 主体代码">
-                            <el-input v-model="companyDetail.windCode" size="small" disabled></el-input>
+                        <el-descriptions-item label="二级行业">
+                            <el-input v-model="companyDetail.industryName2" size="small" disabled></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="法定代表人">
-                            <el-input v-model="companyDetail.legaler" size="small" disabled></el-input>
+                        <el-descriptions-item label="三级行业">
+                            <el-input v-model="companyDetail.industryName3" size="small" disabled></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="注册资本">
-                            <el-input v-model="companyDetail.regCapital" size="small" disabled></el-input>
+                        <el-descriptions-item label="四级行业">
+                            <el-input v-model="companyDetail.industryName4" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="主体类型">
+                            <el-input v-model="companyDetail.compType" size="small" disabled></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="注册地址">
                             <el-input v-model="companyDetail.regAddress" size="small" disabled></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="经营范围" :span="3">
-                            <el-input v-model="companyDetail.businessScope" size="small" type="textarea" :rows="2" disabled></el-input>
+                        <el-descriptions-item label="是否金融机构">
+                            <el-tag v-if="companyDetail.isFinInst === 1" size="mini" type="success">是</el-tag>
+                            <el-tag v-else-if="companyDetail.isFinInst === 0" size="mini" type="info">否</el-tag>
                         </el-descriptions-item>
                         <el-descriptions-item label="旗下债券数量">
                             <el-input v-model="companyDetail.companyBondCount" size="small" disabled></el-input>
-                        </el-descriptions-item>
-                        <el-descriptions-item label="数据更新时间">
-                            <el-input :value="formatDateTime(companyDetail.ts)" size="small" disabled></el-input>
                         </el-descriptions-item>
                     </el-descriptions>
                 </div>
@@ -988,7 +978,6 @@
                 currentPage: 'list',          // 当前显示页：'list'=列表页 / 'detail'=详情页
                 searchForm: { // 列表页搜索条件
                     companyCode: '',
-                    companyShortName: '',
                     companyFullName: '',
                     industryName: ''
                 },
@@ -1206,10 +1195,6 @@
                 if (hashQueryIndex < 0) return '';
                 return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
             },
-            // 格式化日期时间
-            formatDateTime(value) {
-                return value ? moment(value).format('YYYY-MM-DD HH:mm:ss') : '';
-            },
             // 查看主体旗下债券在指定投资池中的明细
             async openCompanyBondDialog(pool) {
                 this.bondDialogTitle = (pool.poolName || '') + ' - 旗下债券明细';
@@ -1247,7 +1232,6 @@
             handleReset() {
                 this.searchForm = {
                     companyCode: '',
-                    companyShortName: '',
                     companyFullName: '',
                     industryName: ''
                 };
@@ -1925,7 +1909,6 @@
                 try {
                     const checkParams = {
                         companyCode: this.companyDetail.companyCode || '',
-                        companyShortName: this.companyDetail.companyShortName || '',
                         items
                     };
                     const result = await this.apiPost('/api/v1/forbiddenPoolAdjust/checkAdjust', checkParams);
@@ -2033,7 +2016,6 @@
                 });
                 const payload = {
                     companyCode: this.companyDetail.companyCode || '',
-                    companyShortName: this.companyDetail.companyShortName || '',
                     adjustType: '手工调整',
                     adjustReason: this.adjustReason,
                     adjustAdvice: this.adjustAdvice,
