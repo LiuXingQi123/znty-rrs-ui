@@ -327,8 +327,10 @@
                                     <el-input size="small" v-model="selEdge.label" @change="renderAll" placeholder="自动生成 / 手动覆盖" :readonly="viewMode" :disabled="viewMode"></el-input>
                                 </el-form-item>
                                 <el-form-item label="流转动作">
-                                    <el-select v-model="selEdge.routeAction" size="small" style="width:100%" placeholder="固定路径可不选" clearable :disabled="viewMode">
-                                        <el-option v-for="item in routeActionOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                                    <el-select v-model="selEdge.routeAction" size="small" style="width:100%" placeholder="请选择流转动作" :disabled="viewMode">
+                                        <el-option v-for="item in routeActionOptions" :key="item.value" :label="item.label" :value="item.value">
+                                            {{ item.label }}（{{ item.description }}）
+                                        </el-option>
                                     </el-select>
                                 </el-form-item>
                             </div>
@@ -1070,10 +1072,11 @@
                 condRules: [],                  // 条件规则列表
                 condLogic: 'AND',               // 条件间逻辑：'AND' | 'OR'
                 routeActionOptions: [ // 连线路由动作选项
-                    { label: '通过', value: 'approve' },
-                    { label: '驳回', value: 'reject' },
-                    { label: '自动', value: 'auto' },
-                    { label: '提交', value: 'submit' },
+                    { label: '通过', value: 'approve', description: '审核/审批通过' },
+                    { label: '驳回', value: 'reject', description: '审核/审批驳回' },
+                    { label: '提交', value: 'submit', description: '首次发起' },
+                    { label: '重新提交', value: 'resubmit', description: '修改后提交' },
+                    { label: '自动', value: 'auto', description: '系统自动流转' },
                 ],
             };
         },
@@ -1847,6 +1850,11 @@
             async confirmPublish() {
                 const id = this.designerFlowId;
                 if (!id) { this.$message.warning('请先创建流程'); return; }
+                const missingActionEdge = this.edges.find(edge => !edge.routeAction);
+                if (missingActionEdge) {
+                    this.$message.warning(`请为连线 ${missingActionEdge.label || `${missingActionEdge.from} → ${missingActionEdge.to}`} 选择流转动作`);
+                    return;
+                }
                 const row = this.tableData.find(x => x.id === id);
                 const pubParams = { id: id, publishNote: this.publishNote || '', nodes: JSON.parse(JSON.stringify(this.nodes.map(n => this.normalizeNode(n)))), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
                 try {
