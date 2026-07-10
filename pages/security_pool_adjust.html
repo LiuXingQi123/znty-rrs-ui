@@ -241,6 +241,14 @@
                         <el-descriptions-item label="担保情况">
                             <el-input v-model="bondDetail.agencyGrnttype" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
+                        <el-descriptions-item label="担保人*">
+                            <el-select v-if="guarantorOptions.length > 0" v-model="bondDetail.selectedGuarantorCode"
+                                       size="small" placeholder="请选择担保人" style="width:100%;"
+                                       :disabled="adjustStep === 2">
+                                <el-option v-for="opt in guarantorOptions" :key="opt.code"
+                                           :label="opt.name" :value="opt.code"></el-option>
+                            </el-select>
+                        </el-descriptions-item>
                         <el-descriptions-item label="主承销商">
                             <el-input v-model="bondDetail.agencyName" size="small" placeholder="请输入" :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
@@ -1207,6 +1215,10 @@
                 if (this.invalidCount === 0) return '';
                 return '请根据上述提示原因，调整所选投资池或补充相关材料后重新提交校验。如确认无法调整，可剔除不可调整的库后单独提交可调整的部分。';
             },
+            // 担保人下拉选项：由 guarantorId（代码，逗号分隔）与 guarantor（名称，逗号分隔）按位置配对
+            guarantorOptions() {
+                return this.parseGuarantorOptions(this.bondDetail.guarantorId, this.bondDetail.guarantor);
+            },
             // 当前选中的流程候选项
             selectedFlowOption() {
                 if (!this.selectedFlowKey) return null;
@@ -1264,6 +1276,13 @@
             window.clearTimeout(this.resizeLayoutTimer);
         },
         methods: {
+            // 解析担保人下拉选项：guarantorId（代码，逗号分隔）与 guarantor（名称，逗号分隔）按位置配对
+            parseGuarantorOptions(guarantorId, guarantor) {
+                const codes = (guarantorId || '').split(',').map(s => s.trim()).filter(s => s !== '');
+                if (codes.length === 0) return [];
+                const names = (guarantor || '').split(',').map(s => s.trim());
+                return codes.map((code, idx) => ({ code, name: names[idx] || code }));
+            },
             // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
             adjustTypeTagType(adjustType) {
                 if (adjustType === '联动调整') return 'warning'
@@ -1358,6 +1377,9 @@
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
                     this.bondDetail    = detail  || {};
+                    // 担保人下拉默认值：单担保人默认选中，多担保人默认不选（下一步校验提示选择）
+                    const guarantorOpts = this.parseGuarantorOptions(detail && detail.guarantorId, detail && detail.guarantor);
+                    this.$set(this.bondDetail, 'selectedGuarantorCode', guarantorOpts.length === 1 ? guarantorOpts[0].code : '');
                     // 切换证券时重置基金评分（仅基金证券调入时填写）
                     this.fundRate = '';
                     // 当前所在池
@@ -1976,6 +1998,11 @@
                     this.$message.warning('请至少选择一个调入或调出投资池');
                     return;
                 }
+                // 担保人选择校验：有担保人时必须选择一个（多担保人默认不选，此处提示）
+                if (this.guarantorOptions.length > 0 && !this.bondDetail.selectedGuarantorCode) {
+                    this.$message.warning('请选择担保人');
+                    return;
+                }
 
                 this.adjustCheckLoading = true;
                 const currentSeq = ++this.adjustCheckSeq;
@@ -1985,6 +2012,7 @@
                         securityShortName: this.bondDetail.shortName || '',
                         securityType: this.bondDetail.securityType || '',
                         fundRate: this.fundRate || '',
+                        guarantorCode: this.bondDetail.selectedGuarantorCode || '',
                         items
                     };
                     const result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', checkParams);

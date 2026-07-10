@@ -275,6 +275,15 @@
                     <el-table-column prop="maturityDate" label="到期日期" min-width="125" align="center">
                         <template slot-scope="{ row }">{{ row.maturityDate || '' }}</template>
                     </el-table-column>
+                    <el-table-column label="担保人*" min-width="180">
+                        <template slot-scope="{ row }">
+                            <el-select v-if="row.guarantorOptions && row.guarantorOptions.length > 0"
+                                       v-model="row.selectedGuarantorCode" size="small" placeholder="请选择担保人" style="width:100%;">
+                                <el-option v-for="opt in row.guarantorOptions" :key="opt.code"
+                                           :label="opt.name" :value="opt.code"></el-option>
+                            </el-select>
+                        </template>
+                    </el-table-column>
                 </el-table>
                 <div class="pagination-wrap">
                     <el-pagination :total="securityPagination.total" :current-page="securityPagination.pageIndex" :page-size="securityPagination.pageSize"
@@ -1089,7 +1098,14 @@
                         pageSize: this.securityPagination.pageSize
                     };
                     const data = await this.apiPost('/api/v1/batchSecurityPoolAdjust/querySecurityPage', securityQueryParams)
-                    this.securityTableData = data.records || []
+                    const records = data.records || []
+                    // 担保人下拉：预置选项与默认值（单担保人默认选中，多担保人默认不选，下一步校验提示选择）
+                    records.forEach(r => {
+                        const opts = this.parseGuarantorOptions(r.guarantorId, r.guarantor)
+                        r.guarantorOptions = opts
+                        r.selectedGuarantorCode = opts.length === 1 ? opts[0].code : ''
+                    })
+                    this.securityTableData = records
                     this.securityPagination.total = data.total || 0
                     this.$nextTick(this.restoreCurrentPageSelection)
                 } finally {
@@ -1160,10 +1176,26 @@
                 if (this.$refs.securityTableRef) this.$refs.securityTableRef.clearSelection()
             },
 
+            // 解析担保人下拉选项：guarantorId（代码，逗号分隔）与 guarantor（名称，逗号分隔）按位置配对
+            parseGuarantorOptions(guarantorId, guarantor) {
+                const codes = (guarantorId || '').split(',').map(s => s.trim()).filter(s => s !== '')
+                if (codes.length === 0) return []
+                const names = (guarantor || '').split(',').map(s => s.trim())
+                return codes.map((code, idx) => ({ code, name: names[idx] || code }))
+            },
+
             // 进入步骤2并执行调库校验
             async goToStep2() {
                 if (this.selectedSecurities.length === 0) {
                     this.$message.warning('请至少选择一只证券')
+                    return
+                }
+                // 担保人选择校验：每个有担保人的已选证券必须选择一个担保人（多担保人默认不选，此处提示）
+                const missingGuarantor = this.selectedSecurities.find(
+                    item => item.guarantorOptions && item.guarantorOptions.length > 0 && !item.selectedGuarantorCode
+                )
+                if (missingGuarantor) {
+                    this.$message.warning('请为证券「' + (missingGuarantor.securityShortName || missingGuarantor.securityCode) + '」选择担保人')
                     return
                 }
                 this.checkLoading = true
@@ -1177,7 +1209,8 @@
                         securities: this.selectedSecurities.map(item => ({
                             securityCode: item.securityCode,
                             securityShortName: item.securityShortName || '',
-                            securityType: item.securityType || ''
+                            securityType: item.securityType || '',
+                            guarantorCode: item.selectedGuarantorCode || ''
                         }))
                     };
                     const data = await this.apiPost('/api/v1/batchSecurityPoolAdjust/checkAdjust', checkParams)
