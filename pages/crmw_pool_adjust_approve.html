@@ -419,6 +419,9 @@
                                 {{ $index + 1 }}
                             </template>
                         </el-table-column>
+                        <el-table-column label="CRMW凭证" min-width="170">
+                            <template slot-scope="{ row }">{{ row.crmwName || '' }}<span v-if="row.crmwScode">（{{ row.crmwScode }}）</span></template>
+                        </el-table-column>
                         <el-table-column prop="poolPath" label="投资池名称" min-width="180">
                             <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.poolPath }}</span></template>
                         </el-table-column>
@@ -1706,7 +1709,10 @@
             async loadSecurityPoolStatus(securityCode) {
                 try {
                     const data = await this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', {
-                        securityCode: securityCode
+                        securityCode: securityCode,
+                        crmwScode: this.crmwDetail.windCode || this.selectedCrmwCode || '',
+                        crmwMktcode: this.crmwDetail.market || '',
+                        crmwStype: this.crmwDetail.securityType || 'crmw'
                     });
                     this.securityCurrentPools = data.securityCurrentPools || [];
                     this.issuerCurrentPools = data.issuerCurrentPools || [];
@@ -1729,18 +1735,18 @@
             async loadDetailData(securityCode) {
                 this.detailLoading = true;
                 try {
+                    const crmwDetail = await this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwDetail', { securityCode: this.selectedCrmwCode });
+                    this.crmwDetail = crmwDetail || {};
                     const inPoolParams = { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
                     const outPoolParams = { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
-                    const [detail, crmwDetail, inPools, outPools, poolStatus, logList] = await Promise.all([
+                    const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/crmwPoolAdjust/querySecurityDetail',     { securityCode: securityCode }),
-                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwDetail', { securityCode: this.selectedCrmwCode }),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', inPoolParams),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', outPoolParams),
-                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', { securityCode: securityCode }),
-                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', { securityCode: securityCode, crmwScode: this.crmwDetail.windCode, crmwMktcode: this.crmwDetail.market, crmwStype: this.crmwDetail.securityType || 'crmw' }),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustLogList',  { securityCode: securityCode, crmwScode: this.crmwDetail.windCode, crmwMktcode: this.crmwDetail.market, crmwStype: this.crmwDetail.securityType || 'crmw', adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
                     this.bondDetail    = detail  || {};
-                    this.crmwDetail = crmwDetail || {};
                     // 当前所在池
                     this.securityCurrentPools   = (poolStatus && poolStatus.securityCurrentPools)   || [];
                     this.issuerCurrentPools = (poolStatus && poolStatus.issuerCurrentPools) || [];
@@ -2388,6 +2394,9 @@
                     securityCode: this.bondDetail.windCode || '',
                     securityShortName: this.bondDetail.shortName || '',
                     securityType: this.bondDetail.securityType || '',
+                    crmwScode: this.crmwDetail.windCode || '',
+                    crmwMktcode: this.crmwDetail.market || '',
+                    crmwStype: this.crmwDetail.securityType || 'crmw',
                     items
                 };
                 let result = null;
