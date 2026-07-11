@@ -328,15 +328,7 @@
                     </el-table-column>
                     <el-table-column label="审批流程" min-width="210">
                         <template slot-scope="{ row }">
-                            <el-select v-if="row.valid && row.itemTag === 'manual'" v-model="row.selectedFlowKey" size="small" placeholder="请选择流程"
-                                       popper-class="batch-flow-select-dropdown" style="width:190px;" @change="handleRowFlowChange(row)">
-                                <el-option v-for="option in row.flowOptions" :key="option.optionKey" :label="option.flowName" :value="option.optionKey" :disabled="!option.selectable">
-                                    <span class="batch-flow-option-name">{{ option.flowName }}</span>
-                                    <span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">
-                                        {{ flowTypeLabel(option.flowType) }}
-                                    </span>
-                                </el-option>
-                            </el-select>
+                            <span v-if="row.valid && row.itemTag === 'manual'">{{ row.batchFlowName }}</span>
                         </template>
                     </el-table-column>
                     <el-table-column label="材料" min-width="150" align="center">
@@ -838,7 +830,6 @@
             // 有效手工调整项是否都已选择审批流程（仅手工项需要选流程）
             allValidRowsHaveFlow() {
                 return this.validManualAdjustReviewList.length > 0
-                    && this.validManualAdjustReviewList.every(item => item.flowId || item.flowKey)
             },
 
             // 内部报告当前页数据
@@ -1206,6 +1197,7 @@
                         poolId: this.currentPool.id,
                         poolName: this.currentPool.poolFullName || this.currentPool.poolName || '',
                         poolType: this.currentPool.poolType || '',
+                        releaseRules: this.releaseRules,
                         securities: this.selectedSecurities.map(item => ({
                             securityCode: item.securityCode,
                             securityShortName: item.securityShortName || '',
@@ -1285,6 +1277,8 @@
                     flowKey: recommended ? recommended.flowKey : '',
                     flowType: recommended ? recommended.flowType : '',
                     flowName: recommended ? recommended.flowName : '',
+                    batchFlowName: item.batchFlowName || '无需审批',
+                    directFlow: !!item.directFlow,
                     creditMaterialCount: this.creditMaterialCount,
                     otherMaterialCount: this.otherMaterialCount
                 }
@@ -1320,17 +1314,13 @@
                 this.adjustStep = 1
             },
 
-            // 提交批量调库申请：先弹窗确认调库流程，再执行提交
+            // 提交批量调库申请，审批流程由目标池批量流程配置决定
             async submitAdjust() {
                 if (this.validCount === 0) {
                     this.$message.warning('没有可提交的' + this.directionLabel + '申请，请检查校验结果')
                     return
                 }
-                if (!this.allValidRowsHaveFlow) {
-                    this.$message.warning('请为所有可提交的手工调整项选择审批流程')
-                    return
-                }
-                this.flowDialogVisible = true
+                await this.confirmFlowSelection()
             },
 
             // 确认调库流程后执行提交
@@ -1358,6 +1348,7 @@
                         poolType: this.currentPool.poolType || '',
                         adjustReason: this.adjustReason,
                         adjustAdvice: this.adjustAdvice,
+                        releaseRules: this.releaseRules,
                         items: this.adjustReviewList.filter(item => item.valid).map(item => ({
                             securityCode: item.securityCode,
                             securityShortName: item.securityShortName || '',
@@ -1391,8 +1382,8 @@
 
             // 调库校验结果中的调整类型展示
             getAdjustTypeLabel(itemTag) {
-                const map = { manual: '手工调整', linkage: '联动调整', mutex: '互斥调整' }
-                return map[itemTag] || '手工调整'
+                const map = { manual: '手动批量调整', linkage: '联动调整', mutex: '互斥调整' }
+                return map[itemTag] || '手动批量调整'
             },
 
             // 构建调库校验结果的调整说明
