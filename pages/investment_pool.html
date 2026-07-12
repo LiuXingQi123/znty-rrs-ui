@@ -117,7 +117,7 @@
                             </div>
 
                             <!-- el-form：基础信息表单（名称/市场/品种/上限/排序/描述） -->
-                            <el-form ref="baseFormRef" :model="baseForm" :rules="baseRules" label-width="130px">
+                            <el-form ref="baseFormRef" :model="baseForm" :rules="baseRules" label-width="130px" class="base-config-form">
                                 <!-- 基础信息字段：名称/恒生名称/市场/品种/上限/排序/描述 -->
                                 <el-row :gutter="20">
                                     <el-col :span="12">
@@ -130,35 +130,61 @@
                                             <el-input v-model="baseForm.hsPoolName" maxlength="128" clearable placeholder="请输入恒生系统名称"></el-input>
                                         </el-form-item>
                                     </el-col>
+                                </el-row>
+                                <el-row :gutter="20" class="option-row">
                                     <el-col :span="12">
-                                        <el-form-item label="投资市场">
+                                        <el-form-item label="投资市场" class="option-column">
                                             <el-checkbox-group v-model="baseForm.marketCodes">
                                                 <el-checkbox v-for="item in marketOptions" :key="item.value" :label="item.value">{{ item.label }}</el-checkbox>
                                             </el-checkbox-group>
                                         </el-form-item>
                                     </el-col>
                                     <el-col :span="12">
-                                        <el-form-item label="投资品种">
+                                        <el-form-item label="投资品种" class="option-column">
                                             <el-checkbox-group v-model="baseForm.varietyCodes">
                                                 <el-checkbox v-for="item in varietyOptions" :key="item.value" :label="item.value">{{ item.label }}</el-checkbox>
                                             </el-checkbox-group>
                                         </el-form-item>
                                     </el-col>
-                                    <el-col :span="8">
+                                </el-row>
+                                <el-row>
+                                    <el-col :span="24">
+                                        <el-form-item label="投资池描述">
+                                            <el-input v-model="baseForm.description" type="textarea" :rows="3" maxlength="512" show-word-limit placeholder="请输入描述信息..."></el-input>
+                                        </el-form-item>
+                                    </el-col>
+                                </el-row>
+
+                                <div class="section-header config-subsection">
+                                    <span class="section-title">运行限制</span>
+                                    <div class="section-line"></div>
+                                </div>
+
+                                <el-row :gutter="20">
+                                    <el-col :span="12">
                                         <el-form-item label="最大上限数量">
                                             <el-input-number v-model="baseForm.maxCapacity" :min="0" :max="999999999" class="full-width" controls-position="right"></el-input-number>
                                         </el-form-item>
                                     </el-col>
-                                    <el-col :span="8">
+                                    <el-col :span="12">
+                                        <el-form-item label="调入冻结期（天）">
+                                            <el-input-number v-model="baseForm.frozenPeriodIn" :min="0" :max="99999" :precision="0" class="full-width" controls-position="right"></el-input-number>
+                                        </el-form-item>
+                                    </el-col>
+                                </el-row>
+                                <el-row :gutter="20">
+                                    <el-col :span="12">
                                         <el-form-item label="外部排序">
                                             <el-input-number v-model="baseForm.outerSort" :min="0" :max="9999" class="full-width" controls-position="right"></el-input-number>
                                         </el-form-item>
                                     </el-col>
-                                    <el-col :span="8">
+                                    <el-col :span="12">
                                         <el-form-item label="内部排序">
                                             <el-input-number v-model="baseForm.innerSort" :min="0" :max="9999" class="full-width" controls-position="right"></el-input-number>
                                         </el-form-item>
                                     </el-col>
+                                </el-row>
+                                <el-row :gutter="20">
                                     <el-col :span="12">
                                         <el-form-item label="调入研报限制">
                                             <el-select v-model="baseForm.inReportRestriction" class="full-width" clearable placeholder="请选择">
@@ -173,9 +199,12 @@
                                             </el-select>
                                         </el-form-item>
                                     </el-col>
+                                </el-row>
+                                <el-row :gutter="20">
                                     <el-col :span="24">
-                                        <el-form-item label="投资池描述">
-                                            <el-input v-model="baseForm.description" type="textarea" :rows="3" maxlength="512" show-word-limit placeholder="请输入描述信息..."></el-input>
+                                        <el-form-item label="锁定状态" class="lock-setting">
+                                            <el-checkbox v-model="baseForm.lockFlag" :true-label="1" :false-label="0">锁定该池</el-checkbox>
+                                            <span class="lock-tip">注：锁定后禁止调入和调出</span>
                                         </el-form-item>
                                     </el-col>
                                 </el-row>
@@ -803,6 +832,8 @@
                     inReportRestriction: '',    // 调入研报限制类型
                     outReportRestriction: '',   // 调出研报限制类型
                     maxCapacity: null,          // 证券上限数量
+                    lockFlag: 0,                // 池锁定标志：0=未锁定 / 1=已锁定
+                    frozenPeriodIn: null,       // 调入冻结期天数，空或 0 表示不限制
                     outerSort: 0,               // 外部排序权重
                     innerSort: 0,               // 内部排序权重
                     description: ''             // 投资池描述
@@ -1273,7 +1304,9 @@
                     batchInFlowId: this.getFlowValue(data.batchInFlow), batchOutFlowId: this.getFlowValue(data.batchOutFlow),
                     inReportRestriction: data.inReportRestriction || '',
                     outReportRestriction: data.outReportRestriction || '',
-                    maxCapacity: data.maxCapacity, outerSort: data.outerSort || 0, innerSort: data.innerSort || 0, description: data.description || ''
+                    maxCapacity: data.maxCapacity, lockFlag: data.lockFlag === 1 ? 1 : 0,
+                    frozenPeriodIn: data.frozenPeriodIn, outerSort: data.outerSort || 0,
+                    innerSort: data.innerSort || 0, description: data.description || ''
                 }
             },
             // 将接口返回的详情数据填充到关系配置表单（关系池 + 自动规则）
@@ -1313,7 +1346,9 @@
                         batchInFlow: this.getFlowOption(this.baseForm.batchInFlowId), batchOutFlow: this.getFlowOption(this.baseForm.batchOutFlowId),
                         inReportRestriction: this.baseForm.inReportRestriction,
                         outReportRestriction: this.baseForm.outReportRestriction,
-                        maxCapacity: this.baseForm.maxCapacity, outerSort: this.baseForm.outerSort, innerSort: this.baseForm.innerSort,
+                        maxCapacity: this.baseForm.maxCapacity, lockFlag: this.baseForm.lockFlag,
+                        frozenPeriodIn: this.baseForm.frozenPeriodIn,
+                        outerSort: this.baseForm.outerSort, innerSort: this.baseForm.innerSort,
                         description: this.baseForm.description, operatorId: window.RrsAuth.getCurrentUser().userId
                     }
                     const data = await this.apiPost('/api/v1/investmentPool/editPoolConfig', body)
