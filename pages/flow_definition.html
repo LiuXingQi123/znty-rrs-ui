@@ -966,6 +966,7 @@
                     return e;
                 },
                 moment: moment, // 日期处理工具
+                currentOperatorId: window.RrsAuth.getCurrentUser().userId, // 当前操作人用户 ID
                 // ── 页面路由 ──
                 currentPage: 'list',            // 当前页面：'list' | 'designer'
 
@@ -1559,7 +1560,7 @@
                     const panX = (flow.draft && flow.draft.panX != null) ? flow.draft.panX : 60;
                     const panY = (flow.draft && flow.draft.panY != null) ? flow.draft.panY : 50;
                     const zoom = (flow.draft && flow.draft.zoom != null) ? flow.draft.zoom : 1;
-                    const pubParams = { id: id, publishNote: '', nodes, edges, panX, panY, zoom };
+                    const pubParams = { id: id, publishNote: '', nodes, edges, panX, panY, zoom, operatorId: this.currentOperatorId };
                     const pubResult = await this.apiPost('/api/v1/flows/editFlowToPublished', pubParams);
                     if (pubResult && pubResult.verNum != null) {
                         row.ver = 'v' + pubResult.verNum;
@@ -1649,7 +1650,7 @@
             async confirmDelete() {
                 if (!this.deleteTarget) return;
                 try {
-                    await this.apiPost('/api/v1/flows/deleteFlow', { id: this.deleteTarget.id });
+                    await this.apiPost('/api/v1/flows/deleteFlow', { id: this.deleteTarget.id, operatorId: this.currentOperatorId });
                     this.deleteVisible = false;
                     this.$message.success('已删除');
                     this.loadList(); // 从服务端重新加载，保证计数和分页准确
@@ -1678,7 +1679,7 @@
                     this.$message.warning('请填写流程 Key');
                     return;
                 }
-                const params = { id: this.editInfoForm.id, name: this.editInfoForm.name, flowKey: this.editInfoForm.key, category: this.editInfoForm.category, description: this.editInfoForm.desc, remark: this.editInfoForm.remark };
+                const params = { id: this.editInfoForm.id, name: this.editInfoForm.name, flowKey: this.editInfoForm.key, category: this.editInfoForm.category, description: this.editInfoForm.desc, remark: this.editInfoForm.remark, operatorId: this.currentOperatorId };
                 try {
                     await this.apiPost('/api/v1/flows/editFlow', params);
                     const row = this.tableData.find(r => r.id === this.editInfoForm.id);
@@ -1705,7 +1706,7 @@
                     this.$message.warning('请填写流程 Key');
                     return;
                 }
-                const params = { name: this.createForm.name, flowKey: this.createForm.key, category: this.createForm.category || 'other', description: this.createForm.desc || '', remark: this.createForm.remark || '' };
+                const params = { name: this.createForm.name, flowKey: this.createForm.key, category: this.createForm.category || 'other', description: this.createForm.desc || '', remark: this.createForm.remark || '', operatorId: this.currentOperatorId };
                 try {
                     const res = await this.apiPost('/api/v1/flows/addFlow', params);
                     this.$message.success('创建成功');
@@ -1818,7 +1819,7 @@
                     this.$message.warning('流程 Key 不能为空，请先在基础信息中设置');
                     return;
                 }
-                const params = { id: id, name: row ? row.name : undefined, flowKey: row ? row.key : undefined, nodes: JSON.parse(JSON.stringify(this.nodes.map(n => this.normalizeNode(n)))), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
+                const params = { id: id, name: row ? row.name : undefined, flowKey: row ? row.key : undefined, nodes: JSON.parse(JSON.stringify(this.nodes.map(n => this.normalizeNode(n)))), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom, operatorId: this.currentOperatorId };
                 try {
                     const res = await this.apiPost('/api/v1/flows/editFlowDraft', params);
                     if (row) {
@@ -1856,7 +1857,7 @@
                     return;
                 }
                 const row = this.tableData.find(x => x.id === id);
-                const pubParams = { id: id, publishNote: this.publishNote || '', nodes: JSON.parse(JSON.stringify(this.nodes.map(n => this.normalizeNode(n)))), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom };
+                const pubParams = { id: id, publishNote: this.publishNote || '', nodes: JSON.parse(JSON.stringify(this.nodes.map(n => this.normalizeNode(n)))), edges: JSON.parse(JSON.stringify(this.edges)), panX: this.panX, panY: this.panY, zoom: this.zoom, operatorId: this.currentOperatorId };
                 try {
                     const res = await this.apiPost('/api/v1/flows/editFlowToPublished', pubParams);
                     if (row) {
@@ -1908,7 +1909,7 @@
                         cancelButtonText: '取消',
                         type: 'warning',
                     });
-                    await this.apiPost('/api/v1/flows/editFlowStatus', { id: row.id });
+                    await this.apiPost('/api/v1/flows/editFlowStatus', { id: row.id, operatorId: this.currentOperatorId });
                     row.status = 'disabled';
                     this.$message.success('已停用');
                 } catch (e) {

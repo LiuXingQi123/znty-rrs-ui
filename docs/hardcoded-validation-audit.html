@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>写死值与校验缺口</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #f4f7fb;
+        }
+        #hardcoded_validation_audit {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --panel: #FFFFFF;
+            --text: #242933;
+            --regular: #3F485A;
+            --muted: #667085;
+            --line: #DBE4EF;
+            min-height: 100vh;
+            color: var(--text);
+            background: #f4f7fb;
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+        #hardcoded_validation_audit,
+        #hardcoded_validation_audit * {
+            box-sizing: border-box;
+        }
+        #hardcoded_validation_audit .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+        #hardcoded_validation_audit .doc-header {
+            padding: 28px 0 24px;
+            color: #FFFFFF;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+        }
+        #hardcoded_validation_audit .kicker {
+            margin: 0 0 4px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82;
+        }
+        #hardcoded_validation_audit h1 {
+            margin: 0;
+            color: #FFFFFF;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25;
+        }
+        #hardcoded_validation_audit .desc {
+            max-width: 1080px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+        }
+        #hardcoded_validation_audit .stats {
+            max-width: 1080px;
+            margin-top: 16px;
+        }
+        #hardcoded_validation_audit .stat-card {
+            margin-bottom: 10px;
+            color: #FFFFFF;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+        }
+        #hardcoded_validation_audit .stat-card .el-card__body {
+            padding: 10px 14px;
+        }
+        #hardcoded_validation_audit .stat-value {
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        #hardcoded_validation_audit .stat-label {
+            margin-top: 4px;
+            color: rgba(255, 255, 255, .78);
+            font-size: 12px;
+        }
+        #hardcoded_validation_audit main {
+            padding: 28px 0 56px;
+        }
+        #hardcoded_validation_audit .nav-card {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            margin-bottom: 24px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07);
+        }
+        #hardcoded_validation_audit .nav-card .el-card__body {
+            display: flex;
+            gap: 8px;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        #hardcoded_validation_audit .nav-btn.el-button {
+            flex: none;
+            margin: 0;
+            padding: 7px 12px;
+            color: #344054;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+        }
+        #hardcoded_validation_audit .nav-btn.el-button:hover,
+        #hardcoded_validation_audit .nav-btn.el-button:focus {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+        #hardcoded_validation_audit .panel {
+            margin-bottom: 24px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel);
+            box-shadow: 0 12px 32px rgba(31, 42, 68, .08);
+            scroll-margin-top: 78px;
+        }
+        #hardcoded_validation_audit .panel .el-card__header {
+            padding: 24px 24px 0;
+            border-bottom: 0;
+        }
+        #hardcoded_validation_audit .panel .el-card__body {
+            padding: 18px 24px 24px;
+        }
+        #hardcoded_validation_audit h2 {
+            margin: 0 0 6px;
+            font-size: 22px;
+            line-height: 1.35;
+        }
+        #hardcoded_validation_audit .sub {
+            margin: 0;
+            color: var(--muted);
+        }
+        #hardcoded_validation_audit .table-wrap {
+            width: 100%;
+            overflow-x: auto;
+        }
+        #hardcoded_validation_audit .audit-table {
+            min-width: 1260px;
+            color: var(--regular);
+            font-size: 13px;
+        }
+        #hardcoded_validation_audit .audit-table th {
+            color: var(--text);
+            background: #F8FAFC;
+            font-weight: 700;
+        }
+        #hardcoded_validation_audit .audit-table .cell {
+            line-height: 1.55;
+        }
+        #hardcoded_validation_audit .evidence {
+            color: #475467;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            white-space: normal;
+            word-break: break-all;
+        }
+        #hardcoded_validation_audit .issue-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+        }
+        #hardcoded_validation_audit .issue-card {
+            border: 1px solid var(--line);
+            border-top: 4px solid #D97706;
+            border-radius: 12px;
+            background: #FFFFFF;
+        }
+        #hardcoded_validation_audit .issue-card.level-p0 {
+            border-top-color: #B42318;
+        }
+        #hardcoded_validation_audit .issue-card.level-p2 {
+            border-top-color: #667085;
+        }
+        #hardcoded_validation_audit .issue-card .el-card__body {
+            padding: 18px;
+        }
+        #hardcoded_validation_audit .issue-head {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        #hardcoded_validation_audit .issue-title {
+            margin: 0 0 8px;
+            font-size: 16px;
+        }
+        #hardcoded_validation_audit .issue-desc {
+            min-height: 46px;
+            margin: 0 0 14px;
+            color: var(--regular);
+        }
+        #hardcoded_validation_audit .check-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 14px;
+        }
+        #hardcoded_validation_audit .check-card {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #F8FAFC;
+        }
+        #hardcoded_validation_audit .check-card .el-card__body {
+            display: flex;
+            gap: 12px;
+            padding: 16px;
+        }
+        #hardcoded_validation_audit .check-index {
+            display: flex;
+            flex: 0 0 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            color: #FFFFFF;
+            border-radius: 50%;
+            background: var(--primary);
+            font-weight: 700;
+        }
+        #hardcoded_validation_audit .check-body h3 {
+            margin: 1px 0 5px;
+            font-size: 14px;
+        }
+        #hardcoded_validation_audit .check-body p {
+            margin: 0;
+            color: var(--muted);
+        }
+        #hardcoded_validation_audit .related-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+        #hardcoded_validation_audit .topic-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 46px;
+            padding: 0 14px;
+            color: var(--regular);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #FFFFFF;
+            cursor: pointer;
+        }
+        #hardcoded_validation_audit .topic-card:hover {
+            color: var(--primary);
+            border-color: #AAB8E3;
+            background: #F7F8FD;
+        }
+        @media (max-width: 768px) {
+            #hardcoded_validation_audit .wrap {
+                width: calc(100% - 20px);
+            }
+            #hardcoded_validation_audit .doc-header {
+                padding: 22px 0 18px;
+            }
+            #hardcoded_validation_audit .panel .el-card__header,
+            #hardcoded_validation_audit .panel .el-card__body {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="hardcoded_validation_audit">
+    <header class="doc-header">
+        <div class="wrap">
+            <p class="kicker">BUSINESS AUDIT</p>
+            <h1>{{ title }}</h1>
+            <p class="desc">{{ desc }}</p>
+            <el-row :gutter="10" class="stats">
+                <el-col v-for="metric in metrics" :key="metric[1]" :xs="12" :sm="6">
+                    <el-card shadow="never" class="stat-card">
+                        <div class="stat-value">{{ metric[0] }}</div>
+                        <div class="stat-label">{{ metric[1] }}</div>
+                    </el-card>
+                </el-col>
+            </el-row>
+        </div>
+    </header>
+
+    <main>
+        <div class="wrap">
+            <el-card shadow="never" class="nav-card">
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-priority')">优先问题</el-button>
+                <el-button v-for="(section, index) in sections" :key="section.title" class="nav-btn" size="mini" @click="scrollTo('section-'+index)">{{ section.title }}</el-button>
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-checks')">验收建议</el-button>
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-related')">相关专题</el-button>
+            </el-card>
+
+            <el-card id="section-priority" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>当前优先问题</h2>
+                    <p class="sub">优先展示可能造成批次串联、校验漏拦或配置失真的问题。</p>
+                </div>
+                <div class="issue-grid">
+                    <el-card v-for="finding in findings" :key="finding.title" shadow="never" class="issue-card" :class="'level-'+finding.level.toLowerCase()">
+                        <div class="issue-head">
+                            <el-tag size="mini" :type="levelTagType(finding.level)">{{ finding.level }}</el-tag>
+                            <el-tag size="mini" :type="statusTagType(finding.status)" effect="plain">{{ finding.status }}</el-tag>
+                        </div>
+                        <h3 class="issue-title">{{ finding.title }}</h3>
+                        <p class="issue-desc">{{ finding.desc }}</p>
+                        <el-alert :title="'建议：'+finding.suggestion" type="info" :closable="false"></el-alert>
+                    </el-card>
+                </div>
+            </el-card>
+
+            <el-card v-for="(section, index) in sections" :id="'section-'+index" :key="section.title" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ section.title }}</h2>
+                    <p class="sub">{{ section.desc }}</p>
+                </div>
+                <div class="table-wrap">
+                    <el-table :data="section.rows" size="small" border class="audit-table">
+                        <el-table-column prop="level" label="等级" width="72">
+                            <template slot-scope="scope">
+                                <el-tag size="mini" :type="levelTagType(scope.row.level)">{{ scope.row.level }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="module" label="影响模块" min-width="150"></el-table-column>
+                        <el-table-column prop="current" label="当前表现" min-width="290"></el-table-column>
+                        <el-table-column prop="evidence" label="代码依据" min-width="275">
+                            <template slot-scope="scope"><span class="evidence">{{ scope.row.evidence }}</span></template>
+                        </el-table-column>
+                        <el-table-column prop="suggestion" label="处理建议" min-width="280"></el-table-column>
+                        <el-table-column prop="status" label="当前状态" width="110">
+                            <template slot-scope="scope">
+                                <el-tag size="mini" :type="statusTagType(scope.row.status)">{{ scope.row.status }}</el-tag>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </el-card>
+
+            <el-card id="section-checks" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>后续整改验收建议</h2>
+                    <p class="sub">修复对应问题后，应使用可重复场景验证业务结果，而不只检查接口是否成功。</p>
+                </div>
+                <div class="check-grid">
+                    <el-card v-for="(check, index) in checks" :key="check.scene" shadow="never" class="check-card">
+                        <div class="check-index">{{ index + 1 }}</div>
+                        <div class="check-body">
+                            <h3>{{ check.scene }}</h3>
+                            <p>{{ check.expected }}</p>
+                        </div>
+                    </el-card>
+                </div>
+            </el-card>
+
+            <el-card id="section-related" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>依据与相关专题</h2>
+                    <p class="sub">本页为当前代码静态审计快照，可通过相邻专题继续查看对应业务链路。</p>
+                </div>
+                <div class="related-grid">
+                    <button v-for="item in related" :key="item[1]" class="topic-card" @click="openDoc(item[1])">
+                        <span>{{ item[0] }}</span>
+                        <i class="el-icon-arrow-right"></i>
+                    </button>
+                </div>
+            </el-card>
+        </div>
+    </main>
+</div>
+
+<script>
+new Vue({
+    el: '#hardcoded_validation_audit',
+    data() {
+        return {
+            title: '写死值与校验缺口',
+            desc: '集中记录前后端硬编码、尚未接通或存在漏洞的校验、已经明确暂缓的限制，以及可以继续保留的正常业务常量。',
+            metrics: [
+                ['3', '重点跟踪问题'],
+                ['10', '主要硬编码类别'],
+                ['13', '校验与配置缺口'],
+                ['6', '正常业务常量'],
+            ],
+            findings: [
+                {
+                    level: 'P0',
+                    status: '已修复',
+                    title: '批次号已提升到毫秒并拆分业务前缀',
+                    desc: '证券、批量、主体、CRMW和自动调整已使用毫秒级时间片；主体改用 COMP 前缀，降低低并发内部场景下的批次碰撞风险。',
+                    suggestion: '继续接受同前缀请求在同一毫秒生成时仍可能碰撞的极小概率限制。',
+                },
+                {
+                    level: 'P1',
+                    status: '已修复',
+                    title: '证券派生项已完整占用 pending 池组',
+                    desc: '证券链路已通过活动手工日志定位批次，再关联同批全部活动手工、联动和互斥日志，派生项跨组时会占用对应顶级池组。',
+                    suggestion: '后续调整三条链路 pending SQL 时继续保持同构。',
+                },
+                {
+                    level: 'P1',
+                    status: '待整改',
+                    title: '市场代码体系不一致',
+                    desc: '投资池、批量页、临时代码页和后端枚举使用不同代码集合，正式市场校验只识别 SSE、SZSE、CIBM，BJ、OTC、JWCW 等无法按预期匹配。',
+                    suggestion: '确定唯一市场字典和证券市场推导规则，统一维护页、请求参数、后端枚举及校验。',
+                },
+            ],
+            sections: [
+                {
+                    title: '高风险与高维护成本硬编码',
+                    desc: '这些值与身份、环境、主数据主键或业务路由绑定，迁移数据和部署环境时容易失效。',
+                    rows: [
+                        { level: 'P0', module: '登录与权限', current: '前端默认管理员 ID=1，登录只校验账号密码非空；后端信任请求中的 currentUserId、adjusterId 和 handlerId。', evidence: 'js/api.js；login.html；各 Adjust/Flow Service', suggestion: '接入服务端认证上下文并覆盖请求身份字段。', status: '按要求暂缓' },
+                        { level: 'P2', module: '部署配置', current: 'API 地址固定为 localhost:18090，数据库地址、root/123456 和端口写在 application.yml。', evidence: 'js/api.js；application.yml', suggestion: '按开发、测试、生产环境外置配置，避免源码携带环境凭据。', status: '待配置化' },
+                        { level: 'P1', module: '禁投池调整', current: '可调整风险池固定为 poolId=15、16、17；我的事宜也使用相同 ID 识别业务场景。', evidence: 'ForbiddenPoolAdjustService；MyMattersMapper.xml', suggestion: '使用稳定 pool_code、pool_type 或配置项定位风险池。', status: '待整改' },
+                        { level: 'P1', module: '主体内评分档规则', current: '信用债根池固定 parent_id=1，且默认只使用内部排序 1—5 的五级池。', evidence: 'CreditBondGradeRuleMapper.xml；CreditBondGradeRuleService', suggestion: '按稳定根池编码和等级配置查询，不依赖演示数据主键。', status: '待整改' },
+                        { level: 'P1', module: '投资池初始化', current: '信用债、专户、境外债、转债和 CRMW 根池名称、代码及一至五级结构由 Service 固定生成。', evidence: 'InvestmentPoolService', suggestion: '明确这些内容属于初始化模板还是业务配置；迁移时至少验证代码唯一性。', status: '待确认' },
+                        { level: 'P1', module: '流程选择', current: '白名单、升级、降级和特殊调入流程使用固定 flowKey；流程 Key 被修改后运行时将无法匹配。', evidence: 'Security/Batch/Crmw/Forbidden Adjust Service', suggestion: '保留稳定不可变 flowKey，或将业务场景与流程关系配置化。', status: '待整改' },
+                        { level: 'P2', module: '三条调库链路', current: '批次号已提升到毫秒；证券使用 BOND、主体使用 COMP、CRMW使用 CRMW、自动调整使用 AUTO。', evidence: 'Security/Batch/Forbidden/Crmw/Auto Adjust Service', suggestion: '当前按内部低并发口径接受同毫秒理论碰撞概率。', status: '已修复' },
+                        { level: 'P2', module: '流程定义审计', current: '创建人、修改人、发布人及节点连线配置事件均记录页面当前登录用户，不再固定为管理员1。', evidence: 'FlowReq；DesignerReq；FlowService；flow_definition.html', suggestion: '正式接入认证后由服务端上下文覆盖请求操作人。', status: '已修复' },
+                        { level: 'P2', module: '评级变化', current: '评级顺序在 RatingComparator 中固定；未知评级或跨评级体系比较时按“未下降”处理。', evidence: 'RatingComparator.java', suggestion: '统一评级字典；无法比较时明确阻断或返回待确认。', status: '待确认' },
+                        { level: 'P2', module: '附件', current: '允许的文件扩展名和上传大小为固定白名单，默认落盘目录为 D:/data/uploads。', evidence: 'SysAttachmentService；application.yml', suggestion: '扩展名和路径按部署环境外置；大小继续保留服务端上限。', status: '待配置化' },
+                    ],
+                },
+                {
+                    title: '尚未接通或存在漏洞的校验',
+                    desc: '页面或数据库中已有配置，但运行时未执行、执行不完整，或不同链路口径不一致。',
+                    rows: [
+                        { level: 'P1', module: '流程条件路由', current: '条件规则可以维护和保存，但三条流程运行服务的 matchesConditionRoute 固定返回 false。', evidence: 'Security/Crmw/Forbidden PoolAdjustFlowService', suggestion: '当前若只按 routeAction 流转，应隐藏或禁用条件配置，并明确“暂未启用”。', status: '按设计暂缓' },
+                        { level: 'P1', module: '自动任务', current: '流程定义可配置自动任务，任务字典名称不完整，运行时只推进 auto_process 步骤，不执行具体任务。', evidence: 'FlowService；flow_definition.html；三条 Flow Service', suggestion: '未实现执行器前将配置标注为预留，防止用户误以为会执行。', status: '未接通' },
+                        { level: 'P1', module: '流程通知', current: '页面支持系统、邮件、短信和企业微信通知配置，后端只保存配置，没有发送实现。', evidence: 'flow_definition.html；FlowService', suggestion: '隐藏预留渠道或接入统一通知服务，并记录发送结果。', status: '未接通' },
+                        { level: 'P1', module: '流程发布', current: '图校验未完整覆盖不可达节点、死循环、断路、重复动作出边和审批节点无处理人。', evidence: 'FlowService.validateFlowGraph', suggestion: '发布前生成完整结构校验报告并阻止无处理人流程发布。', status: '待整改' },
+                        { level: 'P2', module: '证券 pending', current: '活动手工批次已关联同批全部活动手工、联动和互斥日志，派生项跨池组时完整占用。', evidence: 'SecurityPoolAdjustMapper.xml', suggestion: '继续按证券和顶级池组判断，不恢复证券全局 pending。', status: '已修复' },
+                        { level: 'P1', module: '证券市场', current: '正式校验只识别 SSE、SZSE、CIBM，前端同时存在 SH/SZ/IB/BJ/NBC、OTC、JWCW 等代码。', evidence: 'MarketCode；四类 Adjust Service；三个前端页面', suggestion: '统一市场 code 并补齐北京市场等证券字段推导。', status: '待整改' },
+                        { level: 'P1', module: '白名单流程', current: '四类调整服务的 WHITELIST_POOL_IDS 为空集合，因此白名单流程永远不会命中。', evidence: 'Security/Batch/Crmw/Forbidden Adjust Service', suggestion: '按老系统主体白名单池、剩余期限和排除债券类型实现，或移除无效入口。', status: '按要求暂缓' },
+                        { level: 'P2', module: '股票规则', current: '股票分管人限制和股票评级来源尚未迁移，当前入口会跳过相关评级约束。', evidence: 'SecurityPoolAdjustService TODO', suggestion: '保留 TODO，并在接入股票业务前补齐主数据和权限关系。', status: '按要求暂缓' },
+                        { level: 'P2', module: '行业限制', current: '池配置为农业、城投、电力等业务行业值，当前用 security.industryName 与 pool.industryCode 精确比较。', evidence: 'SecurityPoolAdjustService TODO', suggestion: '建立可靠的业务行业编码映射后再作为最终阻断规则。', status: '按要求暂缓' },
+                        { level: 'P1', module: '基金评分', current: '基金评分只在 checkAdjust 页面校验；正式提交不携带评分，也不会再次确认。', evidence: 'SecurityPoolAdjustService；security_pool_adjust.html', suggestion: '提交请求携带校验快照或服务端重新读取权威基金评分。', status: '按要求暂缓' },
+                        { level: 'P2', module: '评级下降', current: '未知评级、空评级或跨体系评级无法比较时返回“未下降”，可能错误选择简易流程。', evidence: 'RatingComparator.java', suggestion: '无法比较时返回明确状态并禁止自动选择简易流程。', status: '待确认' },
+                        { level: 'P1', module: 'CRMW/主体冻结期', current: '当 entry_time、调入日志 audit_time、状态 crte_time 全部为空时，CRMW 和主体链路可能跳过冻结期阻断。', evidence: 'CrmwPoolAdjustService；ForbiddenPoolAdjustService', suggestion: '对齐证券链路：时间全部缺失时阻断并提示数据修复。', status: '待整改' },
+                        { level: 'P2', module: '投资池隐藏配置', current: '行业、基金评分、开放日等字段在 BO 或数据库存在，但当前投资池维护页面和保存接口不能维护。', evidence: 'InvestmentPoolBo；InvestmentPoolReq；investment_pool.html', suggestion: '当前只维护锁池和冻结期；其余规则上线前再补充配置入口。', status: '按范围暂缓' },
+                    ],
+                },
+                {
+                    title: '已接受或明确暂缓的限制',
+                    desc: '这些内容已经做过业务取舍，当前不能当成遗漏反复整改，但应保留风险说明。',
+                    rows: [
+                        { level: 'P0', module: '身份与目标池权限', current: '内部演示环境允许前端携带用户和目标池信息，存在篡改请求提权的可能。', evidence: '前后端请求模型与用户既有决策', suggestion: '正式生产启用前仍建议接入服务端认证与授权。', status: '接受现状' },
+                        { level: 'P1', module: '无效流程', current: '停用流程、空处理人或找不到有效流程时可能生成无人处理的活动日志。', evidence: 'FlowService；三类 Adjust/Flow Service', suggestion: '当前暂缓；后续发布校验和提交前流程有效性校验一起处理。', status: '暂缓' },
+                        { level: 'P2', module: '提交防重复', current: '使用操作人最近 30 秒内容相同申请查询，不是严格幂等；真正并发仍可能同时通过。', evidence: '四类 Adjust Service', suggestion: '在低并发和前端按钮锁定前提下继续使用。', status: '接受现状' },
+                        { level: 'P2', module: '最终审批复核', current: '最终落池不重跑开放日、市场行业、到期退市、权限、流程选型和后来变化的联动互斥配置。', evidence: '最终审批复核既有设计', suggestion: '只复核动态落池状态，申请内容继续以申请时日志快照为准。', status: '既定口径' },
+                    ],
+                },
+                {
+                    title: '可以继续保留的正常业务常量',
+                    desc: '这些值具有稳定业务语义，适合由统一枚举或常量维护，不需要为了“去硬编码”全部改成数据库配置。',
+                    rows: [
+                        { level: 'P2', module: '审核状态', current: '-1、00、11、20、21、32、99 构成三条调库链路统一状态机。', evidence: 'AuditStatus 枚举', suggestion: '继续统一使用枚举，禁止页面和 Service 各自解释。', status: '正常常量' },
+                        { level: 'P2', module: '调整方向', current: '调入、调出使用稳定 code，影响校验与落池动作。', evidence: '调整方向枚举与日志字段', suggestion: '保留枚举并统一前端字典。', status: '正常常量' },
+                        { level: 'P2', module: '池与关系类型', current: '证券、主体、CRMW 及 in_restrict、out_restrict、联动、互斥等关系具有固定业务含义。', evidence: 'common/enums；ip_pool_relation', suggestion: '稳定类型继续由枚举管理。', status: '正常常量' },
+                        { level: 'P2', module: '防重复窗口', current: '近期内容相同申请使用 30 秒窗口。', evidence: '四类 Adjust Service', suggestion: '当前业务已确认低并发，可继续作为固定策略。', status: '既定口径' },
+                        { level: 'P2', module: '历史报告期限', current: '半年内存在符合条件且真实关联有效报告的调入记录时可豁免本次报告。', evidence: '报告校验公共逻辑', suggestion: '作为业务政策保留；政策变化时再配置化。', status: '既定口径' },
+                        { level: 'P2', module: '冻结期基准', current: '冻结期从实际入池时间开始计算，并按历史 audit_time、crte_time 回退。', evidence: '池状态查询与最终复核', suggestion: '继续保持三条链路一致。', status: '既定口径' },
+                    ],
+                },
+            ],
+            checks: [
+                { scene: '批次号并发', expected: '同一秒并行提交证券、批量和主体申请，批次号仍全部唯一，详情和步骤不串批。' },
+                { scene: '派生项跨池组 pending', expected: '手工项在信用债组、联动项在专户组时，两个池组都被活动批次占用。' },
+                { scene: '市场代码一致性', expected: '投资池配置、证券主数据和调库请求使用同一 code，北京、场外和境外市场有明确处理结果。' },
+                { scene: '冻结时间缺失', expected: '三条链路在全部生效时间缺失时统一阻断，不允许绕过冻结期。' },
+                { scene: '流程配置有效性', expected: '未启用的条件、自动任务和通知在页面有明确提示；空处理人或断路流程不能发布。' },
+                { scene: '暂缓项回归', expected: '暂缓问题不因相邻代码修改被误认为已解决，状态和风险说明保持可追溯。' },
+            ],
+            related: [
+                ['问题总览', 'business-issues-overview.html'],
+                ['流程定义与流转', 'workflow-engine-audit.html'],
+                ['投资池与权限', 'investment-pool-permission-audit.html'],
+                ['调库校验新旧对比', 'validation-comparison-audit.html'],
+                ['数据一致性与性能', 'data-consistency-performance-audit.html'],
+                ['全业务验收矩阵', 'business-acceptance-matrix.html'],
+            ],
+        }
+    },
+    methods: {
+        // 获取问题等级标签类型
+        levelTagType(level) {
+            if (level === 'P0') return 'danger'
+            if (level === 'P1') return 'warning'
+            return 'info'
+        },
+        // 获取状态标签类型
+        statusTagType(status) {
+            if (!status) return 'info'
+            if (status.indexOf('正常') > -1 || status.indexOf('既定') > -1 || status.indexOf('接受') > -1 || status.indexOf('已修复') > -1) return 'success'
+            if (status.indexOf('待') > -1 || status.indexOf('未接通') > -1) return 'warning'
+            return 'info'
+        },
+        // 滚动到页面内指定区域
+        scrollTo(id) {
+            const element = document.getElementById(id)
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+        },
+        // 通过父工作台打开关联文档页签
+        openDoc(page) {
+            const menuIndexMap = {
+                'business-issues-overview.html': 'doc-business-issues-overview',
+                'workflow-engine-audit.html': 'doc-workflow-engine-audit',
+                'investment-pool-permission-audit.html': 'doc-pool-permission-audit',
+                'validation-comparison-audit.html': 'doc-validation-comparison',
+                'data-consistency-performance-audit.html': 'doc-data-consistency-audit',
+                'business-acceptance-matrix.html': 'doc-business-acceptance',
+            }
+            const opener = window.parent && window.parent !== window ? window.parent.RrsWorkbenchOpenPage : null
+            if (typeof opener === 'function' && menuIndexMap[page]) {
+                opener(menuIndexMap[page])
+                return
+            }
+            window.location.href = page
+        },
+    },
+})
+</script>
+</body>
+</html>

@@ -41,6 +41,7 @@
 | `docs/script_module_reset.html` | 模块重置 | `css/script_module_reset.css`、`css/common.css` |
 | `docs/script_demo_scene.html` | 场景生成 | `css/script_demo_scene.css`、`css/common.css` |
 | `docs/business-issues-overview.html` | 业务问题总览 | HTML 内联样式 |
+| `docs/hardcoded-validation-audit.html` | 写死值与校验缺口 | HTML 内联样式 |
 | `docs/validation-comparison-audit.html` | 调库校验新旧对比 | HTML 内联样式 |
 | `docs/flow-type-comparison-audit.html` | 调库流程类型对比 | HTML 内联样式 |
 | `docs/bond-link-audit.html` | 老项目债券池调库链路梳理 | HTML 内联样式 |
