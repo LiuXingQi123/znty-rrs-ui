@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>查询范围新老差异</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #f4f7fb;
+        }
+        #query_scope_old_new {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, .08);
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+        #query_scope_old_new,
+        #query_scope_old_new * {
+            box-sizing: border-box;
+        }
+        #query_scope_old_new .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+        #query_scope_old_new .doc-header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0;
+        }
+        #query_scope_old_new .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82;
+        }
+        #query_scope_old_new h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25;
+            color: #fff;
+        }
+        #query_scope_old_new .desc {
+            max-width: 980px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px;
+        }
+        #query_scope_old_new .stats {
+            max-width: 980px;
+            margin-top: 16px;
+        }
+        #query_scope_old_new .stat-card {
+            margin-bottom: 10px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            box-shadow: none;
+            backdrop-filter: blur(8px);
+        }
+        #query_scope_old_new .stat-card .el-card__body {
+            padding: 10px 14px;
+        }
+        #query_scope_old_new .stat-value {
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        #query_scope_old_new .stat-label {
+            margin-top: 4px;
+            color: rgba(255, 255, 255, .78);
+            font-size: 12px;
+        }
+        #query_scope_old_new main {
+            padding: 28px 0 56px;
+        }
+        #query_scope_old_new .nav-card {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            margin-bottom: 24px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07);
+        }
+        #query_scope_old_new .nav-card .el-card__body {
+            display: flex;
+            gap: 8px;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        #query_scope_old_new .nav-btn.el-button {
+            flex: none;
+            margin: 0;
+            padding: 7px 12px;
+            color: #344054;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            font-size: 14px;
+        }
+        #query_scope_old_new .nav-btn.el-button:hover,
+        #query_scope_old_new .nav-btn.el-button:focus {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+        #query_scope_old_new .panel {
+            margin-bottom: 24px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px;
+        }
+        #query_scope_old_new .panel .el-card__header {
+            padding: 26px 26px 0;
+            border-bottom: 0;
+        }
+        #query_scope_old_new .panel .el-card__body {
+            padding: 20px 26px 26px;
+        }
+        #query_scope_old_new h2 {
+            margin: 0 0 6px;
+            color: var(--text);
+            font-size: 22px;
+            line-height: 1.35;
+            font-weight: 800;
+        }
+        #query_scope_old_new .sub {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        #query_scope_old_new .flow {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 16px;
+        }
+        #query_scope_old_new .step-card {
+            min-height: 132px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc;
+            box-shadow: none;
+        }
+        #query_scope_old_new .step-card .el-card__body {
+            padding: 18px;
+        }
+        #query_scope_old_new .step-card b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px;
+        }
+        #query_scope_old_new .step-card span {
+            color: var(--regular);
+        }
+        #query_scope_old_new .audit-table.el-table {
+            color: var(--regular);
+            font-size: 13px;
+        }
+        #query_scope_old_new .audit-table.el-table th {
+            color: var(--text);
+            background: #f8fafc;
+            font-weight: 700;
+        }
+        #query_scope_old_new .audit-table .cell {
+            line-height: 1.55;
+        }
+        #query_scope_old_new .cell-text {
+            display: inline-block;
+            max-width: 100%;
+            color: var(--regular);
+            vertical-align: middle;
+            white-space: pre-wrap;
+        }
+        #query_scope_old_new .issue-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+        }
+        #query_scope_old_new .issue-card {
+            height: 100%;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: none;
+        }
+        #query_scope_old_new .issue-card.level-p0 {
+            border-top: 4px solid var(--danger);
+        }
+        #query_scope_old_new .issue-card.level-p1 {
+            border-top: 4px solid #f59e0b;
+        }
+        #query_scope_old_new .issue-card.level-p2 {
+            border-top: 4px solid #94a3b8;
+        }
+        #query_scope_old_new .issue-card .el-card__body {
+            padding: 18px;
+        }
+        #query_scope_old_new .issue-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        #query_scope_old_new .issue-title {
+            margin: 0 0 8px;
+            color: var(--text);
+            font-size: 16px;
+            line-height: 1.45;
+        }
+        #query_scope_old_new .issue-desc {
+            margin: 0 0 12px;
+            color: var(--regular);
+            font-size: 13px;
+            line-height: 1.75;
+        }
+        #query_scope_old_new .issue-card .el-alert {
+            padding: 8px 10px;
+            border-radius: 8px;
+        }
+        #query_scope_old_new .check-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 14px;
+        }
+        #query_scope_old_new .check-card {
+            position: relative;
+            height: 100%;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            box-shadow: none;
+        }
+        #query_scope_old_new .check-card .el-card__body {
+            display: flex;
+            gap: 14px;
+            padding: 16px;
+        }
+        #query_scope_old_new .check-index {
+            flex: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            color: #fff;
+            background: var(--primary);
+            border-radius: 50%;
+            font-weight: 800;
+            box-shadow: 0 6px 14px rgba(39, 67, 164, .22);
+        }
+        #query_scope_old_new .check-body h3 {
+            margin: 0 0 6px;
+            color: var(--text);
+            font-size: 15px;
+            line-height: 1.45;
+        }
+        #query_scope_old_new .check-body p {
+            margin: 0;
+            color: var(--regular);
+            font-size: 13px;
+            line-height: 1.75;
+        }
+        #query_scope_old_new .related-block {
+            height: 100%;
+            padding: 16px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+        #query_scope_old_new .block-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 800;
+        }
+        #query_scope_old_new .block-title i {
+            color: var(--primary);
+            font-size: 17px;
+        }
+        #query_scope_old_new .source-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        #query_scope_old_new .source-list li {
+            padding: 7px 10px;
+            color: #344054;
+            background: #f8fafc;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            font-size: 12px;
+        }
+        #query_scope_old_new .topic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        #query_scope_old_new .topic-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            width: 100%;
+            padding: 12px 14px;
+            color: var(--text);
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 13px;
+        }
+        #query_scope_old_new .topic-card:hover {
+            color: var(--primary);
+            border-color: #c7d2fe;
+            background: var(--primary-light);
+        }
+        #query_scope_old_new .empty-tip {
+            color: var(--muted);
+            font-size: 13px;
+        }
+        @media (max-width: 900px) {
+            #query_scope_old_new .wrap {
+                width: calc(100% - 24px);
+            }
+            #query_scope_old_new .doc-header {
+                padding: 24px 0 22px;
+            }
+            #query_scope_old_new .panel .el-card__header {
+                padding: 20px 18px 0;
+            }
+            #query_scope_old_new .panel .el-card__body {
+                padding: 16px 18px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="query_scope_old_new" class="docs-business-issue-page">
+    <header class="doc-header">
+        <div class="wrap">
+            <p class="kicker">ZNTY RRS · BUSINESS ISSUE AUDIT</p>
+            <h1>{{ title }}</h1>
+            <p class="desc">{{ desc }}</p>
+            <el-row v-if="metrics.length" :gutter="10" class="stats">
+                <el-col v-for="metric in metrics" :key="metric[1]" :xs="12" :sm="8" :md="statSpan">
+                    <el-card shadow="never" class="stat-card">
+                        <div class="stat-value">{{ metric[0] }}</div>
+                        <div class="stat-label">{{ metric[1] }}</div>
+                    </el-card>
+                </el-col>
+            </el-row>
+        </div>
+    </header>
+
+    <main>
+        <div class="wrap">
+            <el-card shadow="never" class="nav-card">
+                <el-button v-if="steps.length" class="nav-btn" size="mini" @click="scrollTo('section-flow')">范围总览</el-button>
+                <el-button v-for="(table, index) in tables" :key="table.title" class="nav-btn" size="mini" @click="scrollTo('section-table-' + index)">{{ table.title }}</el-button>
+                <el-button v-if="findings.length" class="nav-btn" size="mini" @click="scrollTo('section-issues')">结论与建议</el-button>
+                <el-button v-if="checks.length" class="nav-btn" size="mini" @click="scrollTo('section-checks')">验收场景</el-button>
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-related')">依据专题</el-button>
+            </el-card>
+
+            <el-card v-if="steps.length" id="section-flow" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>范围总览</h2>
+                    <p class="sub">按查询入口拆分「选什么证券 / 选什么池」，对照老 investpool 与新 RRS 口径。</p>
+                </div>
+                <div class="flow">
+                    <el-card v-for="(step, index) in steps" :key="step" shadow="never" class="step-card">
+                        <b>{{ index + 1 }}. {{ step }}</b>
+                        <span>对应查询范围差异矩阵中的第 {{ index + 1 }} 类入口。</span>
+                    </el-card>
+                </div>
+            </el-card>
+
+            <el-card v-for="(table, index) in tables" :id="'section-table-' + index" :key="table.title" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ table.title }}</h2>
+                    <p class="sub">记录各查询入口的过滤条件、新老差异与当前代码落点。</p>
+                </div>
+                <el-table :data="table.rows" size="small" border class="audit-table">
+                    <el-table-column v-for="column in table.columns" :key="column[0]" :prop="column[0]" :label="column[1]" :min-width="column[2]" show-overflow-tooltip>
+                        <template slot-scope="scope">
+                            <el-tag v-if="column[0] === 'level'" size="mini" :type="levelTagType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <el-tag v-else-if="column[0] === 'status'" size="mini" :type="statusTagType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <span v-else class="cell-text">{{ scope.row[column[0]] }}</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+
+            <el-card v-if="findings.length" id="section-issues" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>结论、风险与整改建议</h2>
+                    <p class="sub">聚焦查询范围（列表/池树），不展开校验规则全量清单。</p>
+                </div>
+                <div class="issue-grid">
+                    <el-card v-for="finding in findings" :key="finding.title" shadow="never" class="issue-card" :class="'level-' + finding.level.toLowerCase()">
+                        <div class="issue-head">
+                            <el-tag size="mini" :type="levelTagType(finding.level)">{{ finding.level }}</el-tag>
+                            <el-tag size="mini" effect="plain">查询范围</el-tag>
+                        </div>
+                        <h3 class="issue-title">{{ finding.title }}</h3>
+                        <p class="issue-desc">{{ finding.desc }}</p>
+                        <el-alert v-if="finding.suggestion" :title="'建议：' + finding.suggestion" type="info" :closable="false"></el-alert>
+                    </el-card>
+                </div>
+            </el-card>
+
+            <el-card v-if="checks.length" id="section-checks" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>建议验收场景</h2>
+                    <p class="sub">修改查询过滤后，优先按这些场景确认范围是否正确。</p>
+                </div>
+                <div class="check-grid">
+                    <el-card v-for="(check, index) in checks" :key="check.scene" shadow="never" class="check-card">
+                        <div class="check-index">{{ index + 1 }}</div>
+                        <div class="check-body">
+                            <h3>{{ check.scene }}</h3>
+                            <p>{{ check.expected }}</p>
+                        </div>
+                    </el-card>
+                </div>
+            </el-card>
+
+            <el-card id="section-related" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>依据与相关专题</h2>
+                    <p class="sub">老项目 investpool 与新项目代码/需求对照入口。</p>
+                </div>
+                <el-row :gutter="16">
+                    <el-col :xs="24" :md="11">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-document-copy"></i><span>依据文件</span></div>
+                            <ul v-if="sources.length" class="source-list">
+                                <li v-for="source in sources" :key="source">{{ source }}</li>
+                            </ul>
+                            <div v-else class="empty-tip">暂无依据文件。</div>
+                        </div>
+                    </el-col>
+                    <el-col :xs="24" :md="13">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-connection"></i><span>相关专题</span></div>
+                            <div class="topic-grid">
+                                <button v-for="item in related" :key="item[1]" class="topic-card" type="button" @click="openDoc(item[1])">
+                                    <span>{{ item[0] }}</span>
+                                    <i class="el-icon-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </el-col>
+                </el-row>
+            </el-card>
+        </div>
+    </main>
+</div>
+<script>
+new Vue({
+    el: '#query_scope_old_new',
+    data() {
+        return {
+            title: '查询范围新老差异',
+            desc: '专门记录证券池/批量/禁投/CRMW 等链路「列表查谁、池树出谁」的新老系统差异。当前产品口径：证券池可调入与批量主列表排除 CRMW 池；主体相关池（禁投/观察等）不排除，允许单券入池。',
+            metrics: [['4', '主要查询入口'], ['2', '证券 vs 池'], ['1', '仅排 CRMW'], ['2026-07-13', '口径日期']],
+            steps: [
+                '证券列表（选标的）',
+                '可调入/可调出池树',
+                '批量调库主列表（选目标池）',
+                '其它链路查询隔离',
+            ],
+            tables: [
+                {
+                    title: '证券列表查询范围',
+                    columns: [
+                        ['entry', '入口', 160],
+                        ['oldScope', '老系统（investpool）', 320],
+                        ['newScope', '新系统（RRS）', 320],
+                        ['status', '差异状态', 140],
+                    ],
+                    rows: [
+                        {
+                            entry: '证券池调库列表',
+                            oldScope: '债券页 investpooladjustbond：findAllPoolBond 等，ptype=4000 债券大类；主体/CRMW/基金分页面',
+                            newScope: 'querySecurityPage：排除 security_type in (crmw, company)，排除 security_status=D；不强制仅 bond',
+                            status: '部分对齐',
+                        },
+                        {
+                            entry: '证券池批量-候选证券',
+                            oldScope: '批量股票/债券分模板与 ptype',
+                            newScope: 'querySecurityPage：排除 crmw、company；与单笔列表类似',
+                            status: '基本对齐',
+                        },
+                        {
+                            entry: '禁投池调整列表',
+                            oldScope: 'investpooladjustcompany：主体维度 companycode',
+                            newScope: 'queryCompanyPage：主体 ODS，独立链路',
+                            status: '分链路对齐',
+                        },
+                        {
+                            entry: 'CRMW 调库列表',
+                            oldScope: 'investpooladjustbondcrmw：凭证+标的组合',
+                            newScope: 'queryCrmwPage security_type=crmw；可绑定证券排除 crmw',
+                            status: '分链路对齐',
+                        },
+                    ],
+                },
+                {
+                    title: '池树 / 目标池查询范围',
+                    columns: [
+                        ['entry', '入口', 160],
+                        ['oldScope', '老系统', 320],
+                        ['newScope', '新系统（当前）', 320],
+                        ['status', '差异状态', 140],
+                    ],
+                    rows: [
+                        {
+                            entry: '证券池-可调入',
+                            oldScope: 'WRITE 权限 → 剔虚拟/锁池 → 已在池与来源池过滤 → filterVarietalPoolMaps(ptype) → 可选 include/exclude',
+                            newScope: '权限（管理员全量）→ 调入方向 filterOutCrmwPools（pool_type=crmw）→ 前端再剔已在池叶子；禁投/观察不排除',
+                            status: '已按产品收窄 CRMW',
+                        },
+                        {
+                            entry: '证券池-可调出',
+                            oldScope: '当前在池 ∩ WRITE，剔锁池，再 include/exclude',
+                            newScope: '权限池列表 + 前端仅保留当前在池及父节点；不强制剔 CRMW（一般无 CRMW 在池记录）',
+                            status: '可接受',
+                        },
+                        {
+                            entry: '证券池批量-主列表',
+                            oldScope: '按菜单与批量模板限定池',
+                            newScope: 'queryPoolPage：enabled 叶子池，排除 pool_type=crmw；禁投等主体相关池保留',
+                            status: '已按产品收窄 CRMW',
+                        },
+                        {
+                            entry: '老系统硬拦截（进页）',
+                            oldScope: '主体在 LIMITPOOLID_XYJJ 禁止池则整页不可调；观察池 ASTRICTPOOLS 仅跳过大库规则',
+                            newScope: '无整页禁止对等；禁投主要在校验 inCheckForbiddenPool',
+                            status: '行为不同',
+                        },
+                        {
+                            entry: '品种过滤',
+                            oldScope: '调入树 filterVarietalPoolMaps 必须支持该 ptype',
+                            newScope: '树层不按品种剔，提交/校验 inCheckVariety',
+                            status: '时机不同',
+                        },
+                        {
+                            entry: '锁池',
+                            oldScope: 'filterLockedPoolMaps 树直接剔除',
+                            newScope: '树可展示，校验 in/outCheckPoolLocked',
+                            status: '时机不同',
+                        },
+                    ],
+                },
+                {
+                    title: '当前产品明确口径（2026-07-13）',
+                    columns: [
+                        ['rule', '规则', 220],
+                        ['detail', '说明', 420],
+                        ['codePoint', '代码落点', 260],
+                    ],
+                    rows: [
+                        {
+                            rule: '可调入排除 CRMW',
+                            detail: '证券池单笔调库 adjustDirection=in 时，池列表去掉 pool_type=crmw；禁投/观察/黑名单等主体相关池不排除，支持单独券入',
+                            codePoint: 'SecurityPoolAdjustService.queryAdjustPoolList + filterOutCrmwPools',
+                        },
+                        {
+                            rule: '批量主列表排除 CRMW',
+                            detail: '批量调库选目标池分页仅排除 crmw；不再与 forbidden 一并排除',
+                            codePoint: 'BatchSecurityPoolAdjustMapper.queryPoolPage / queryEnabledLeafPoolCount',
+                        },
+                        {
+                            rule: '证券列表排除对象',
+                            detail: '单笔/批量候选证券排除 security_type crmw、company，排除退市 D',
+                            codePoint: 'SecurityPoolAdjustMapper / BatchSecurityPoolAdjustMapper querySecurityPage',
+                        },
+                        {
+                            rule: 'CRMW 独立链路',
+                            detail: '凭证与 CRMW 池在 crmw 页面与接口中处理，不与证券池混用',
+                            codePoint: 'CrmwPoolAdjust* / ip_pool_status_crmw',
+                        },
+                    ],
+                },
+            ],
+            findings: [
+                {
+                    level: 'P1',
+                    title: '新系统列表未强制仅债券大类',
+                    desc: '老债券页 ptype=4000；新证券池列表仍可能出现股/基等非 crmw/company 类型。若业务要求纯债入口，需另加品种过滤。',
+                    suggestion: '与产品确认是否在 querySecurityPage 增加 category_type=bond 或字典白名单。',
+                },
+                {
+                    level: 'P2',
+                    title: '老系统树过滤更早，新系统更依赖校验',
+                    desc: '老：锁池、品种、来源池在组树阶段剔除；新：多在 checkIn/Out 阶段拦截。用户可能先勾到再失败。',
+                    suggestion: '按体验需要逐步前移锁池/品种过滤；当前 CRMW 已在可调入树剔除。',
+                },
+                {
+                    level: 'P2',
+                    title: '主体禁止整页拦截老有新无',
+                    desc: '老 LIMITPOOLID_XYJJ 主体在禁止池则无法进入债券调库；新允许打开页面，提交时校验禁投。',
+                    suggestion: '若需对齐老体验，可在进详情时增加主体禁投提示或阻断。',
+                },
+            ],
+            checks: [
+                { scene: '证券池调库可调入', expected: '池树中不出现 pool_type=crmw 的节点；禁投/观察等仍可能出现（有权限时）。' },
+                { scene: '证券池调库可调出', expected: '仅当前在池及父节点；不因 CRMW 类型误挡普通池。' },
+                { scene: '批量调库主列表', expected: '分页结果中无 CRMW 叶子池；可出现禁投等池（若启用且为叶子）。' },
+                { scene: '批量候选证券', expected: '列表无 crmw、company 类型证券。' },
+                { scene: 'CRMW 页独立', expected: 'CRMW 调库页仍可正常选凭证与 CRMW 池，不受证券池过滤影响。' },
+            ],
+            sources: [
+                'D:/znty-rrs-0707 InvestPoolAdjustManageAction 池树组装',
+                'D:/znty-rrs-0707 InvestPoolUtils filter* / isAddAdjustInPool',
+                'D:/znty-rrs-0707 findAllPoolBond ptype=4000',
+                'SecurityPoolAdjustService.queryAdjustPoolList',
+                'SecurityPoolAdjustMapper.querySecurityPage',
+                'BatchSecurityPoolAdjustMapper.queryPoolPage',
+                'requirements/04、12',
+            ],
+            related: [
+                ['问题总览', 'business-issues-overview.html'],
+                ['老项目债券池调库链路', 'bond-link-audit.html'],
+                ['新老系统调库全量对比', 'full-comparison-audit.html'],
+                ['调库校验新旧对比', 'validation-comparison-audit.html'],
+                ['证券池单笔调库体检', 'security-pool-link-audit.html'],
+                ['证券池批量调整体检', 'batch-security-pool-link-audit.html'],
+                ['查询与历史口径体检', 'query-history-audit.html'],
+                ['投资池与权限体检', 'investment-pool-permission-audit.html'],
+            ],
+        }
+    },
+    computed: {
+        statSpan() {
+            if (this.metrics.length <= 3) return 8
+            if (this.metrics.length <= 4) return 6
+            return 4
+        },
+    },
+    methods: {
+        // 问题等级标签配色
+        levelTagType(level) {
+            if (level === 'P0') return 'danger'
+            if (level === 'P1') return 'warning'
+            return 'info'
+        },
+        // 状态标签配色
+        statusTagType(status) {
+            if (!status) return 'info'
+            if (status.indexOf('已') > -1 || status.indexOf('对齐') > -1 || status.indexOf('可接受') > -1) return 'success'
+            if (status.indexOf('部分') > -1 || status.indexOf('不同') > -1 || status.indexOf('时机') > -1) return 'warning'
+            return 'info'
+        },
+        // 锚点滚动
+        scrollTo(id) {
+            const el = document.getElementById(id)
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+        },
+        // 打开同目录其它业务问题页
+        openDoc(fileName) {
+            if (!fileName) return
+            if (window.parent && window.parent !== window && typeof window.parent.openWorkbenchPage === 'function') {
+                window.parent.openWorkbenchPage(fileName)
+                return
+            }
+            window.location.href = fileName
+        },
+    },
+})
+</script>
+</body>
+</html>
