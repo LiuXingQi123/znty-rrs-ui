@@ -585,7 +585,52 @@
 new Vue({
     el: '#business_issues_overview',
     data() {
-        return {"title":"业务问题总览","desc":"按业务链路和公共能力集中管理已确认缺陷、待确认口径、技术风险、整改建议与验收方式。","metrics":[["4","核心调整链路"],["8","公共能力专题"],["P0–P2","统一风险等级"],["闭环","问题—整改—验收"]],"steps":[],"tables":[{"title":"当前优先问题","columns":[["level","等级",90],["module","影响模块",160],["issue","问题",260],["impact","主要影响",300],["status","状态",110]],"rows":[{"level":"P0","module":"全站身份与权限","issue":"当前用户身份由前端请求体提供","impact":"传入用户 ID 1 可触发管理员特权，迁移后必须使用服务端认证上下文","status":"已确认"},{"level":"P0","module":"流程/投资池","issue":"删除或停用缺少完整业务引用检查","impact":"可能产生在途流程或当前池状态的悬空引用","status":"已确认"},{"level":"P1","module":"三条审批链路","issue":"流程语义已改为 route_action 稳定判断","impact":"发起/修改由 approval_strategy + submit/resubmit 区分，节点改名不再影响状态推进","status":"已修复"},{"level":"P1","module":"流程引擎","issue":"条件路由引擎仍为预留","impact":"已配置的复杂条件分支不能真正驱动运行路径","status":"已确认"},{"level":"P1","module":"禁投池查询","issue":"证券状态筛选字段不匹配","impact":"前端 bondStatus 无法绑定后端 securityStatus","status":"已确认"},{"level":"P1","module":"CRMW调整","issue":"可绑定标的未排除 company","impact":"公司主体可能混入标的证券候选","status":"已确认"},{"level":"P1","module":"当前池状态","issue":"缺少并发幂等兜底","impact":"极端并发下可能产生重复有效状态","status":"待整改"},{"level":"P2","module":"证券池批量调整","issue":"只有整批成功或整批失败","impact":"没有部分成功和完整失败明细语义","status":"待业务确认"}]}],"findings":[],"checks":[{"scene":"问题事实确认","expected":"每个问题必须关联页面、接口、Service、Mapper、表或测试证据"},{"scene":"整改跟踪","expected":"统一记录待排期、处理中、已修复、已验证或接受现状"},{"scene":"验收闭环","expected":"每项修复必须进入对应专题的可重复验收场景"}],"sources":["znty-rrs-parent/requirements/01–24","三条调库链路 Controller/Service/Mapper","znty-rrs-ui/pages 与 docs"],"related":[["调库校验新旧对比","validation-comparison-audit.html"],["调库流程类型对比","flow-type-comparison-audit.html"],["老项目债券池调库链路","bond-link-audit.html"],["新老系统调库全量对比","full-comparison-audit.html"],["证券池单笔调库","security-pool-link-audit.html"],["证券池批量调整","batch-security-pool-link-audit.html"],["禁投池调整","forbidden-pool-link-audit.html"],["CRMW池调整","crmw-pool-link-audit.html"],["查询与历史","query-history-audit.html"],["审批与我的事宜","approval-matters-audit.html"],["投资池与权限","investment-pool-permission-audit.html"],["流程定义与流转","workflow-engine-audit.html"],["规则评级与临时代码","rule-rating-temp-audit.html"],["附件与报告","attachment-report-audit.html"],["数据一致性与性能","data-consistency-performance-audit.html"],["全业务验收矩阵","business-acceptance-matrix.html"]]}
+        return {
+            title: '业务问题总览',
+            desc: '依据 2026-07-12 当前前后端代码重新核验。已修复问题单独归档，当前优先问题只保留仍真实存在或已明确暂缓的事项。',
+            metrics: [['4', '核心调整链路'], ['18', '业务问题专题'], ['10', '近期同步修复'], ['2026-07-12', '本次核验日期']],
+            steps: [],
+            tables: [
+                {
+                    title: '当前优先问题',
+                    columns: [['level', '等级', 90], ['module', '影响模块', 160], ['issue', '问题', 260], ['impact', '主要影响', 300], ['status', '状态', 110]],
+                    rows: [
+                        { level: 'P0', module: '全站身份与权限', issue: '当前用户身份仍由前端请求体提供', impact: '传入用户 ID 1 仍可触发管理员特权；流程操作人虽已不再固定为1，但来源仍不可信。', status: '按要求暂缓' },
+                        { level: 'P0', module: '流程/投资池', issue: '删除或停用缺少完整业务引用检查', impact: '可能产生在途流程或当前池状态的悬空引用。', status: '待整改' },
+                        { level: 'P1', module: '流程引擎', issue: '条件路由、自动任务和通知仍为预留', impact: '页面可以配置，但运行时不执行条件表达式、具体任务和通知发送。', status: '按设计暂缓' },
+                        { level: 'P1', module: 'CRMW调整', issue: '可绑定标的仍未排除 company', impact: '公司主体可能进入标的候选；提交层目前只禁止再次选择 CRMW。', status: '待整改' },
+                        { level: 'P1', module: 'CRMW/主体冻结期', issue: '生效时间全部缺失时会跳过冻结期', impact: '配置冻结天数的池可能允许异常历史记录提前调出。', status: '待整改' },
+                        { level: 'P1', module: '证券市场', issue: '市场代码体系仍不统一', impact: 'SSE/SZSE/CIBM 与 SH/SZ/IB/BJ/NBC、OTC、JWCW 并存；CRMW凭证已不再依赖市场码，但标的证券市场校验仍受影响。', status: '待整改' },
+                        { level: 'P1', module: '当前池状态', issue: '未建立数据库业务唯一约束', impact: '最终落池已有锁池和影响行数保护，但应用外写入或极端异常仍缺数据库唯一兜底。', status: '接受现状' },
+                        { level: 'P2', module: '证券池查询', issue: '当前查询仍可能关联已删除投资池', impact: 'SecurityPoolQueryMapper 对投资池使用 LEFT JOIN，未限制 p.is_deleted=0。', status: '待整改' },
+                    ],
+                },
+                {
+                    title: '近期已同步修复',
+                    columns: [['module', '模块', 170], ['issue', '已完成内容', 330], ['impact', '当前结果', 350], ['status', '状态', 110]],
+                    rows: [
+                        { module: '批次号', issue: '毫秒时间片与业务前缀拆分', impact: 'BOND/COMP/CRMW/AUTO 不再共用秒级批次号。', status: '已修复' },
+                        { module: 'pending', issue: '按对象、顶级池组和派生项判断', impact: '同组阻断、跨组并行，手工/联动/互斥项共同占用池组。', status: '已修复' },
+                        { module: '直通与审批', issue: '统一最终落池保护', impact: '证券、批量、主体和CRMW直通及最终审批均锁池、复核并检查影响行数。', status: '已修复' },
+                        { module: '批量调整', issue: '批量流程、放开规则和整批防重复', impact: '使用目标池批量流程；放开仅作用于主体评级×期限矩阵；日志标记手动批量调整。', status: '已修复' },
+                        { module: '报告校验', issue: '真实附件与半年报告口径', impact: '必须存在有效合法报告附件，内部报告不能由外部附件冒充。', status: '已修复' },
+                        { module: '证券信息', issue: '数据库对象合并可编辑字段', impact: '页面未提交的担保、回售、ABS等字段不再被清空。', status: '已修复' },
+                        { module: '禁投/主体查询', issue: '状态参数、viewable权限和日期边界', impact: '四个风险/主体查询页按查看权限隔离，结束日期覆盖当天。', status: '已修复' },
+                        { module: '主体同步', issue: '按老系统条件同步旗下债券', impact: '排除到期债和ABS，写入异常整批回滚并累计容量。', status: '已修复' },
+                        { module: '投资池维护', issue: '锁池与调入冻结期可维护', impact: '页面可保存并回显 lockFlag、frozenPeriodIn，运行时校验继续消费。', status: '已修复' },
+                        { module: 'CRMW组合', issue: '完整链路改用 crmwScode + securityCode', impact: '当前池、历史、pending、冻结期和落池不再依赖无业务价值的市场代码。', status: '已修复' },
+                    ],
+                },
+            ],
+            findings: [],
+            checks: [
+                { scene: '问题事实确认', expected: '每个问题必须关联页面、接口、Service、Mapper、表或测试证据。' },
+                { scene: '修复状态回归', expected: '已修复项对应代码仍存在，并有定向测试或可重复页面场景证明。' },
+                { scene: '暂缓项跟踪', expected: '已接受或暂缓问题不混入“已修复”，风险边界持续可见。' },
+            ],
+            sources: ['znty-rrs-parent/requirements/01–24', '三条调库链路 Controller/Service/Mapper', 'znty-rrs-ui/pages 与 docs', '2026-07-12 当前工作区代码'],
+            related: [['调库校验新旧对比', 'validation-comparison-audit.html'], ['调库流程类型对比', 'flow-type-comparison-audit.html'], ['老项目债券池调库链路', 'bond-link-audit.html'], ['新老系统调库全量对比', 'full-comparison-audit.html'], ['证券池单笔调库', 'security-pool-link-audit.html'], ['证券池批量调整', 'batch-security-pool-link-audit.html'], ['禁投池调整', 'forbidden-pool-link-audit.html'], ['CRMW池调整', 'crmw-pool-link-audit.html'], ['查询与历史', 'query-history-audit.html'], ['审批与我的事宜', 'approval-matters-audit.html'], ['投资池与权限', 'investment-pool-permission-audit.html'], ['流程定义与流转', 'workflow-engine-audit.html'], ['规则评级与临时代码', 'rule-rating-temp-audit.html'], ['附件与报告', 'attachment-report-audit.html'], ['数据一致性与性能', 'data-consistency-performance-audit.html'], ['全业务验收矩阵', 'business-acceptance-matrix.html']],
+        }
     },
     computed: {
         statSpan() {
@@ -607,7 +652,7 @@ new Vue({
                 { item: '池锁定', oldRule: 'LockFlag=1 禁止调入', newRule: '已有 inCheckPoolLocked', risk: '基本一致' },
                 { item: '投资品种', oldRule: '池配置 numeric ptype，证券类型映射后校验', newRule: 'variety_codes JSON + categoryType', risk: '迁移时需确保 numeric ptype 和新 code 映射准确' },
                 { item: '投资市场', oldRule: '池配置 numeric mktcode', newRule: 'market_codes JSON，按 wind_code_sh/sz/nib 推导', risk: '多市场证券可能比老系统更宽松' },
-                { item: '正在审批中', oldRule: '按证券 + 市场 + 类型 + poolGroupId 判断，部分批量场景可用批次排除', newRule: '按 security_code + pending step 判断', risk: '可能更严格，同一证券任意池有 pending 都会拦截' },
+                { item: '正在审批中', oldRule: '按证券 + 市场 + 类型 + poolGroupId 判断，部分批量场景可用批次排除', newRule: '按业务对象 + 顶级池组判断；由手工日志和 pending 步骤定位活动批次，再纳入同批派生项', risk: '已按老系统池组并行口径修复，不同顶级池组允许并行' },
                 { item: '已在目标池', oldRule: '已在池则不可重复调入', newRule: '已有', risk: '基本一致' },
                 { item: '来源池限制', oldRule: '当前已在来源池，或本次同批勾选调入来源池', newRule: '已补齐：当前已在来源池或 requestInPoolIds 包含来源池均通过', risk: '已修复并对齐老系统选择阶段口径' },
                 { item: '最大容量', oldRule: 'MaxCount != -1 且当前数 >= 上限则拦', newRule: 'maxCapacity > 0 且当前数 >= 上限则拦', risk: '迁移时需统一 -1/null/0 的不限制含义' },
@@ -622,37 +667,39 @@ new Vue({
                 { item: '债券到期', oldRule: '到期日早于当前日则拦', newRule: '已有', risk: '基本一致' },
                 { item: '债券大库/主体评级矩阵', oldRule: '观察池跳过、可转债跳过、担保人取低、期限档、私募/ABS/担保等分支', newRule: '已有信用债矩阵、观察池、担保人、期限档、可转债跳过', risk: '私募债、ABS、担保人等细分分支仍需单独核' },
                 { item: '基金评分', oldRule: '池配置 FundRateLimit，且传了 fundRate 才校验', newRule: '池配置后，未传 fundRate 也失败', risk: '新系统更严格，需确认前端是否总能提供基金评分' },
-                { item: '研报限制', oldRule: 'check/提交阶段均有逻辑，支持 RschDocMode > 100 自定义规则类', newRule: '提交阶段支持 none/any/internal', risk: '缺少自定义研报规则；批量跳过报告配置也未复刻' },
+                { item: '研报限制', oldRule: 'check/提交阶段均有逻辑，支持 RschDocMode > 100 自定义规则类', newRule: '支持 none/any/internal，并校验附件真实来源、分类、有效状态；半年豁免要求历史调入真实关联有效报告', risk: '自定义研报规则 RschDocMode > 100 仍未迁移' },
                 { item: '互斥池特殊审批模板', oldRule: '目标池+调入互斥池可配置审批模板', newRule: '已补齐第一期：命中当前所在 in_mutex 时固定走 bond:special-inbound', risk: '已补齐常量特殊流程；后续可扩展为配置表' },
-                { item: 'CRMW 必填/重复', oldRule: '通过 CRMWPOOLID_XYJJ 判断 CRMW 池，调入必须有 CRMW 代码，并校验 CRMW 是否已在池/审批中', newRule: 'CRMW 已拆独立链路', risk: 'CRMW 链路需单独确认是否完全覆盖' },
+                { item: 'CRMW 必填/重复', oldRule: '通过 CRMWPOOLID_XYJJ 判断 CRMW 池，调入必须有 CRMW 代码，并校验 CRMW 是否已在池/审批中', newRule: 'CRMW 已拆独立链路，凭证用 crmwScode，组合用 crmwScode + securityCode；不再依赖市场代码', risk: '预校验、提交、pending、历史和落池口径已统一' },
             ]
         },
         outValidationRows() {
             return [
                 { item: '池锁定', oldRule: 'LockFlag=1 禁止调出', newRule: '已有 outCheckPoolLocked', risk: '基本一致' },
-                { item: '正在审批中', oldRule: '按证券 + 市场 + 类型 + 池组/批次判断', newRule: '按证券 pending step 判断', risk: '同调入，新系统可能更严格' },
+                { item: '正在审批中', oldRule: '按证券 + 市场 + 类型 + 池组/批次判断', newRule: '按业务对象 + 顶级池组判断，并纳入同批联动、互斥项', risk: '已修复；同组阻断、跨组并行' },
                 { item: '不在目标池', oldRule: '不在池不可调出', newRule: '已有', risk: '基本一致' },
-                { item: '调出冻结期', oldRule: '用池 Frozenperiodin + 老状态 submitTime 计算', newRule: '用 ip_pool_status.entry_time 计算', risk: '基准字段不同；新系统更贴近实际入池时间，但不完全等同老系统' },
+                { item: '调出冻结期', oldRule: '用池 Frozenperiodin + 老状态 submitTime 计算', newRule: '按实际入池 entry_time 计算，并回退审批时间、状态创建时间', risk: '证券链路缺时间会阻断；CRMW和主体链路缺时间时仍可能跳过，需统一' },
                 { item: '调出限制池', oldRule: 'LimitedOutPoolId 命中则拦', newRule: '已有 out_restrict', risk: '基本一致' },
                 { item: '调出互斥池', oldRule: '老系统有调出互斥/限制关系', newRule: '已有 out_mutex + 同批互斥冲突', risk: '基本覆盖' },
                 { item: '调出弹性限制池', oldRule: '命中返回提示 code=2', newRule: 'warning', risk: '基本一致' },
                 { item: '开放日', oldRule: 'open_day_adjust=1 时调出也校验', newRule: '已有', risk: '基本一致' },
                 { item: '股票分管人限制', oldRule: '调出也校验 IsManage', newRule: '未实现', risk: '缺少' },
                 { item: '股票退市/债券到期', oldRule: '调出也会校验', newRule: '已有', risk: '股票退市仍存在“有退市日即拦 vs 早于今日才拦”的差异' },
-                { item: '调出研报限制', oldRule: 'RschDocOutMode，支持 any/internal/custom', newRule: '提交阶段支持基础 none/any/internal', risk: '缺少自定义规则、批量跳过配置' },
-                { item: 'CRMW 组合调出', oldRule: 'CRMW 池调出必须传 CRMW 代码，并校验证券+凭证组合在池', newRule: 'CRMW 独立链路中有组合校验', risk: '需单独确认“凭证+标的组合”覆盖所有老场景' },
+                { item: '调出研报限制', oldRule: 'RschDocOutMode，支持 any/internal/custom', newRule: '支持基础 none/any/internal，并校验附件真实来源、分类和有效状态', risk: '自定义研报规则仍未迁移' },
+                { item: 'CRMW 组合调出', oldRule: 'CRMW 池调出必须传 CRMW 代码，并校验证券+凭证组合在池', newRule: '预校验、提交和最终落池均按 crmwScode + securityCode + targetPoolId 精确校验', risk: '已修复，不再使用市场代码作为组合键' },
             ]
         },
         priorityIssueRows() {
             return [
-                { priority: '高', issue: 'pending 审批判断可能过严', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html', 'pages/forbidden_pool_adjust.html', 'pages/crmw_pool_adjust.html'], suggestion: '确认是否应按池组/链路隔离；否则同一证券在任意池审批中都会阻断全部调库。' },
                 { priority: '高', issue: '行业限制当前用 industry_name == industry_code', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html', 'pages/crmw_pool_adjust.html'], suggestion: '要么配置存行业名称，要么补行业编码字段，避免编码名称错配。' },
+                { priority: '高', issue: '证券市场代码体系仍不统一', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html', 'pages/crmw_pool_adjust.html'], suggestion: '统一池配置、证券主数据和标的证券校验使用的市场 code；CRMW 凭证已不再依赖市场码。' },
+                { priority: '中', issue: 'CRMW 候选证券仍可能包含公司主体', pages: ['pages/crmw_pool_adjust.html'], suggestion: '候选查询除排除 CRMW 凭证外，还应按证券业务类型排除 company。' },
+                { priority: '中', issue: 'CRMW和主体冻结时间缺失时可能放行', pages: ['pages/crmw_pool_adjust.html', 'pages/forbidden_pool_adjust.html'], suggestion: '与证券链路统一：回退时间仍为空时阻断，并提示补齐入池生效时间。' },
                 { priority: '中', issue: '股票分管人限制缺失', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html'], suggestion: '如果股票池还需要“只允许分管人调库”，需补 is_manage 和股票分管关系。' },
                 { priority: '中', issue: '股票退市口径不同', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html'], suggestion: '确认业务想按“退市日存在即拦”还是“退市日已到才拦”。' },
                 { priority: '中', issue: '研报自定义规则缺失', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html', 'pages/forbidden_pool_adjust.html', 'pages/crmw_pool_adjust.html'], suggestion: '如果老系统 RschDocMode > 100 有实际使用，需要设计新规则扩展点。' },
                 { priority: '中', issue: '基金评分新系统比老系统更严格', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html'], suggestion: '若前端不传 fundRate，配置了基金评分限制的池会无法调入。' },
                 { priority: '低', issue: '互斥池特殊审批模板配置化', pages: ['pages/security_pool_adjust.html', 'pages/batch_security_pool_adjust.html', 'pages/forbidden_pool_adjust.html', 'pages/crmw_pool_adjust.html'], suggestion: '已补齐第一期：常量特殊流程；如需完全复刻老系统，可新增目标池+调入互斥池+流程配置表和维护页面。' },
-                { priority: '低', issue: 'CRMW 设置型校验迁移口径不同', pages: ['pages/crmw_pool_adjust.html', 'pages/crmw_pool_adjust_detail.html', 'pages/crmw_pool_adjust_approve.html'], suggestion: '新系统独立 CRMW 链路更清晰，但要单独确认“CRMW 池必填凭证”和“凭证+标的组合”都覆盖。' },
+                { priority: '低', issue: 'CRMW独立服务与证券服务存在规则漂移风险', pages: ['pages/crmw_pool_adjust.html', 'pages/crmw_pool_adjust_detail.html', 'pages/crmw_pool_adjust_approve.html'], suggestion: '后续将通用落池复核、报告来源和冻结期规则抽成公共策略，避免三条链路再次分叉。' },
             ]
         },
     },
@@ -675,7 +722,7 @@ new Vue({
         // 获取状态标签类型
         statusTagType(status) {
             if (!status) return 'info'
-            if (status.indexOf('已确认') > -1 || status.indexOf('已验证') > -1 || status.indexOf('通过') > -1) return 'success'
+            if (status.indexOf('已确认') > -1 || status.indexOf('已验证') > -1 || status.indexOf('已修复') > -1 || status.indexOf('已对齐') > -1 || status.indexOf('既定') > -1 || status.indexOf('接受') > -1 || status.indexOf('通过') > -1) return 'success'
             if (status.indexOf('待') > -1 || status.indexOf('确认') > -1 || status.indexOf('整改') > -1) return 'warning'
             if (status.indexOf('失败') > -1 || status.indexOf('驳回') > -1 || status.indexOf('风险') > -1) return 'danger'
             return 'info'
