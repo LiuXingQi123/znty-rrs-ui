@@ -388,6 +388,12 @@
                                 {{ $index + 1 }}
                             </template>
                         </el-table-column>
+                        <el-table-column prop="securityCode" label="证券代码" min-width="140">
+                            <template slot-scope="{ row }">
+                                <span>{{ row.securityCode }}</span>
+                                <el-tag v-if="row.adjustType === '关联调整'" size="mini" type="info" style="margin-left:4px;">关联</el-tag>
+                            </template>
+                        </el-table-column>
                         <el-table-column prop="poolPath" label="投资池名称" min-width="180">
                             <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.poolPath }}</span></template>
                         </el-table-column>
@@ -1606,6 +1612,7 @@
             adjustTypeTagType(adjustType) {
                 if (adjustType === '联动调整') return 'warning'
                 if (adjustType === '互斥调整') return 'danger'
+                if (adjustType === '关联调整') return 'info'
                 return 'info'
             },
 
@@ -2410,7 +2417,7 @@
                     this.adjustCheckLoading = false;
                 }
 
-                const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' }
+                const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥', related: '关联' }
                 this.adjustReviewList = result.items.map((item, rowIndex) => {
                     const typePrefix = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode
                     const failReasonStr = (item.failReasons || []).join('；')
@@ -2418,6 +2425,10 @@
                     const recommendedFlow = rowFlowOptions.find(option => option.recommended && option.selectable)
                         || rowFlowOptions.find(option => option.selectable);
                     return {
+                        securityCode: item.securityCode || this.bondDetail.windCode || '',
+                        securityShortName: item.securityShortName || this.bondDetail.shortName || '',
+                        securityType: item.securityType || this.bondDetail.securityType || '',
+                        sourceSecurityCode: item.sourceSecurityCode || this.bondDetail.windCode || '',
                         poolId: item.targetPoolId,
                         poolName: item.poolName,
                         poolType: item.poolType,
@@ -2540,6 +2551,9 @@
                     adjusterId: this.currentLoginUserId,
                     adjusterName: this.currentLoginUserName,
                     items: validItems.map(r => ({
+                        securityCode: r.securityCode || this.bondDetail.windCode || '',
+                        securityShortName: r.securityShortName || this.bondDetail.shortName || '',
+                        securityType: r.securityType || this.bondDetail.securityType || '',
                         targetPoolId: r.poolId,
                         targetPoolName: r.poolName,
                         poolType: r.poolType || '',

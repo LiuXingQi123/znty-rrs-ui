@@ -630,6 +630,12 @@
                                 {{ $index + 1 }}
                             </template>
                         </el-table-column>
+                        <el-table-column prop="securityCode" label="证券代码" min-width="140">
+                            <template slot-scope="{ row }">
+                                <span>{{ row.securityCode }}</span>
+                                <el-tag v-if="row.itemTag === 'related'" size="mini" type="info" style="margin-left:4px;">关联</el-tag>
+                            </template>
+                        </el-table-column>
                         <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
                         <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center">
                     <template slot-scope="{ row }">
@@ -1287,6 +1293,7 @@
             adjustTypeTagType(adjustType) {
                 if (adjustType === '联动调整') return 'warning'
                 if (adjustType === '互斥调整') return 'danger'
+                if (adjustType === '关联调整') return 'info'
                 return 'info'
             },
 
@@ -1957,7 +1964,7 @@
 
             // 构建调库校验结果的调整说明
             buildAdjustNote(item, failReason, warning) {
-                const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' };
+                const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥', related: '关联' };
                 const typeLabel = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode;
                 if (failReason) {
                     if (item.itemTag === 'manual') {
@@ -1971,7 +1978,12 @@
 
             // 调库校验结果中的调整类型展示
             getAdjustTypeLabel(itemTag) {
-                const itemTagLabelMap = { manual: '手工调整', linkage: '联动调整', mutex: '互斥调整' };
+                const itemTagLabelMap = {
+                    manual: '手工调整',
+                    linkage: '联动调整',
+                    mutex: '互斥调整',
+                    related: '关联调整'
+                };
                 return itemTagLabelMap[itemTag] || '手工调整';
             },
 
@@ -2025,6 +2037,10 @@
                         const recommendedFlow = rowFlowOptions.find(option => option.recommended && option.selectable)
                             || rowFlowOptions.find(option => option.selectable);
                         return {
+                            securityCode: item.securityCode || this.bondDetail.windCode || '',
+                            securityShortName: item.securityShortName || this.bondDetail.shortName || '',
+                            securityType: item.securityType || this.bondDetail.securityType || '',
+                            sourceSecurityCode: item.sourceSecurityCode || this.bondDetail.windCode || '',
                             poolId: item.targetPoolId,
                             poolName: item.poolName,
                             poolType: item.poolType,
@@ -2159,6 +2175,9 @@
                     adjusterId: this.currentLoginUserId,
                     adjusterName: this.currentLoginUserName,
                     items: validItems.map(r => ({
+                        securityCode: r.securityCode || this.bondDetail.windCode || '',
+                        securityShortName: r.securityShortName || this.bondDetail.shortName || '',
+                        securityType: r.securityType || this.bondDetail.securityType || '',
                         targetPoolId: r.poolId,
                         targetPoolName: r.poolName,
                         poolType: r.poolType || '',

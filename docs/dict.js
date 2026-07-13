@@ -93,6 +93,7 @@ const DICT_ITEM_TYPE = {
     'manual':  '手工项',
     'linkage': '联动项',
     'mutex':   '互斥项',
+    'related': '关联项',
 };
 
 // ── 5. 调库流程类型（flow_type）───────────────────────────
