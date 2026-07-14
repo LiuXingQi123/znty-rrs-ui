@@ -52,6 +52,21 @@
                     style="width: 220px;"
                     @keyup.enter.native="handleSearch">
                 </el-input>
+                <el-select
+                    v-model="queryParam.statusList"
+                    size="small"
+                    multiple
+                    collapse-tags
+                    clearable
+                    placeholder="状态"
+                    style="width: 220px;">
+                    <el-option
+                        v-for="item in statusFilterOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value">
+                    </el-option>
+                </el-select>
                 <el-button size="small" type="primary" icon="el-icon-search" @click="handleSearch">查询</el-button>
                 <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
                 <el-button size="small" type="primary" icon="el-icon-plus" @click="openAddDialog">新增</el-button>
@@ -93,6 +108,11 @@
                 <el-table-column label="临时到期日期" width="118" align="center">
                     <template slot-scope="{ row }">{{ dateText(row.tempMaturityDate) }}</template>
                 </el-table-column>
+                <el-table-column label="状态" width="92" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.status" size="mini" :type="statusTagType(row.status)">{{ statusName(row.status) }}</el-tag>
+                    </template>
+                </el-table-column>
                 <el-table-column prop="securityName" label="证券名称" min-width="170" show-overflow-tooltip></el-table-column>
                 <el-table-column prop="securityCode" label="证券代码" min-width="150" show-overflow-tooltip></el-table-column>
                 <el-table-column label="证券市场" min-width="120" align="center">
@@ -107,11 +127,6 @@
                 </el-table-column>
                 <el-table-column label="更新时间" width="160" align="center">
                     <template slot-scope="{ row }">{{ datetimeText(row.updateTime) }}</template>
-                </el-table-column>
-                <el-table-column label="状态" width="92" align="center">
-                    <template slot-scope="{ row }">
-                        <el-tag v-if="row.status" size="mini" :type="statusTagType(row.status)">{{ statusName(row.status) }}</el-tag>
-                    </template>
                 </el-table-column>
                 <el-table-column label="操作" width="230" fixed="right" align="center">
                     <template slot-scope="{ row }">
@@ -242,100 +257,58 @@
         </span>
     </el-dialog>
 
-    <!-- ── 更新弹窗（临时证券信息 + 正式证券信息） ── -->
+    <!-- ── 更新弹窗（临时证券信息只读 + 正式证券远程选券） ── -->
     <el-dialog title="更新正式证券" :visible.sync="updateDialogVisible" width="720px" :close-on-click-modal="false">
-        <div class="form-tip">更新后状态变为已更新，系统会同步替换调库记录与池状态中的临时代码引用，并保留转正式痕迹。</div>
+        <div class="form-tip">临时证券信息仅供对照、不可修改。请在正式证券信息中按代码或名称远程选择已有证券，证券代码/市场/类型将自动带出。更新后会替换调库与池状态中的临时代码引用。</div>
         <el-form ref="updateFormRef" :model="updateForm" :rules="updateRules" label-width="132px" size="small">
-            <!-- 临时证券信息（可编辑） -->
+            <!-- 临时证券信息（只读） -->
             <div class="form-section">
                 <div class="section-title"><span class="section-title-line"></span>临时证券信息</div>
                 <el-row :gutter="16">
                     <el-col :span="12">
-                        <el-form-item label="临时证券名称" prop="tempSecurityName">
-                            <el-input v-model.trim="updateForm.tempSecurityName" maxlength="100"></el-input>
+                        <el-form-item label="临时证券名称">
+                            <el-input :value="updateForm.tempSecurityName" disabled></el-input>
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="临时证券代码" prop="tempSecurityCode">
-                            <el-input v-model.trim="updateForm.tempSecurityCode" maxlength="100"></el-input>
-                        </el-form-item>
-                    </el-col>
-                </el-row>
-                <el-row :gutter="16">
-                    <el-col :span="12">
-                        <el-form-item label="临时证券市场" prop="tempSecurityMarket">
-                            <el-select v-model="updateForm.tempSecurityMarket" style="width: 100%;">
-                                <el-option
-                                    v-for="item in marketOptions"
-                                    :key="item.value"
-                                    :label="item.label"
-                                    :value="item.value">
-                                </el-option>
-                            </el-select>
-                        </el-form-item>
-                    </el-col>
-                    <el-col :span="12">
-                        <el-form-item label="临时证券类型" prop="tempSecurityType">
-                            <el-select v-model="updateForm.tempSecurityType" filterable style="width: 100%;">
-                                <el-option
-                                    v-for="item in securityTypeOptions"
-                                    :key="item.securityType"
-                                    :label="item.securityTypeName"
-                                    :value="item.securityType">
-                                </el-option>
-                            </el-select>
+                        <el-form-item label="临时证券代码">
+                            <el-input :value="updateForm.tempSecurityCode" disabled></el-input>
                         </el-form-item>
                     </el-col>
                 </el-row>
                 <el-row :gutter="16">
                     <el-col :span="12">
-                        <el-form-item label="临时缓释凭证代码" prop="tempMitigationCode">
-                            <el-input v-model.trim="updateForm.tempMitigationCode" maxlength="100"></el-input>
+                        <el-form-item label="临时证券市场">
+                            <el-input :value="marketName(updateForm.tempSecurityMarket) || updateForm.tempSecurityMarket" disabled></el-input>
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="发行主体" prop="tempCompanyCode">
-                            <el-select
-                                v-model="updateForm.tempCompanyCode"
-                                filterable
-                                remote
-                                clearable
-                                reserve-keyword
-                                placeholder="输入主体名称或代码搜索"
-                                :remote-method="searchCompanyOptions"
-                                :loading="companyLoading"
-                                style="width: 100%;">
-                                <el-option
-                                    v-for="item in companyOptions"
-                                    :key="item.companyCode"
-                                    :label="companyLabel(item)"
-                                    :value="item.companyCode">
-                                </el-option>
-                            </el-select>
+                        <el-form-item label="临时证券类型">
+                            <el-input :value="securityTypeName(updateForm.tempSecurityType) || updateForm.tempSecurityType" disabled></el-input>
                         </el-form-item>
                     </el-col>
                 </el-row>
                 <el-row :gutter="16">
                     <el-col :span="12">
-                        <el-form-item label="发行日期" prop="tempIssueDate">
-                            <el-date-picker
-                                v-model="updateForm.tempIssueDate"
-                                type="date"
-                                value-format="yyyy-MM-dd"
-                                placeholder="选择发行日期"
-                                style="width: 100%;">
-                            </el-date-picker>
+                        <el-form-item label="临时缓释凭证代码">
+                            <el-input :value="updateForm.tempMitigationCode" disabled></el-input>
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="到期日期" prop="tempMaturityDate">
-                            <el-date-picker
-                                v-model="updateForm.tempMaturityDate"
-                                type="date"
-                                value-format="yyyy-MM-dd"
-                                placeholder="选择到期日期"
-                                style="width: 100%;">
-                            </el-date-picker>
+                        <el-form-item label="发行主体">
+                            <el-input :value="updateForm.tempCompanyDisplay" disabled></el-input>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+                <el-row :gutter="16">
+                    <el-col :span="12">
+                        <el-form-item label="发行日期">
+                            <el-input :value="dateText(updateForm.tempIssueDate)" disabled></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                        <el-form-item label="到期日期">
+                            <el-input :value="dateText(updateForm.tempMaturityDate)" disabled></el-input>
                         </el-form-item>
                     </el-col>
                 </el-row>
@@ -346,39 +319,43 @@
                 <div class="section-title"><span class="section-title-line"></span>正式证券信息</div>
                 <el-row :gutter="16">
                     <el-col :span="12">
-                        <el-form-item label="证券名称" prop="securityName">
-                            <el-input v-model.trim="updateForm.securityName" maxlength="100"></el-input>
+                        <el-form-item label="证券名称" prop="securityCode">
+                            <el-select
+                                v-model="updateForm.securityCode"
+                                filterable
+                                remote
+                                clearable
+                                reserve-keyword
+                                placeholder="输入证券代码或名称搜索"
+                                :remote-method="searchFormalSecurityOptions"
+                                :loading="formalSecurityLoading"
+                                style="width: 100%;"
+                                @change="handleFormalSecurityChange"
+                                @clear="clearFormalSecurity">
+                                <el-option
+                                    v-for="item in formalSecurityOptions"
+                                    :key="item.securityCode"
+                                    :label="formalSecurityLabel(item)"
+                                    :value="item.securityCode">
+                                </el-option>
+                            </el-select>
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="证券代码" prop="securityCode">
-                            <el-input v-model.trim="updateForm.securityCode" maxlength="100"></el-input>
+                        <el-form-item label="证券代码">
+                            <el-input :value="updateForm.securityCode" disabled placeholder="由所选证券带出"></el-input>
                         </el-form-item>
                     </el-col>
                 </el-row>
                 <el-row :gutter="16">
                     <el-col :span="12">
-                        <el-form-item label="证券市场" prop="securityMarket">
-                            <el-select v-model="updateForm.securityMarket" style="width: 100%;">
-                                <el-option
-                                    v-for="item in marketOptions"
-                                    :key="item.value"
-                                    :label="item.label"
-                                    :value="item.value">
-                                </el-option>
-                            </el-select>
+                        <el-form-item label="证券市场">
+                            <el-input :value="marketName(updateForm.securityMarket) || updateForm.securityMarket" disabled placeholder="由所选证券带出"></el-input>
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="证券类型" prop="securityType">
-                            <el-select v-model="updateForm.securityType" filterable style="width: 100%;">
-                                <el-option
-                                    v-for="item in securityTypeOptions"
-                                    :key="item.securityType"
-                                    :label="item.securityTypeName"
-                                    :value="item.securityType">
-                                </el-option>
-                            </el-select>
+                        <el-form-item label="证券类型">
+                            <el-input :value="securityTypeName(updateForm.securityType) || updateForm.securityTypeName || updateForm.securityType" disabled placeholder="由所选证券带出"></el-input>
                         </el-form-item>
                     </el-col>
                 </el-row>
@@ -405,11 +382,20 @@
                 tableData: [],              // 列表数据
                 companyOptions: [],         // 发行主体选项（远程搜索，最多 50 条）
                 companyLoading: false,      // 发行主体远程搜索 loading
+                formalSecurityOptions: [],  // 正式证券选项（远程搜索，最多 50 条）
+                formalSecurityLoading: false, // 正式证券远程搜索 loading
                 securityTypeOptions: [],    // 证券类型选项
                 queryParam: {
                     tempSecurityCode: '',
-                    tempSecurityName: ''
+                    tempSecurityName: '',
+                    statusList: []
                 },
+                statusFilterOptions: [
+                    { value: 'temporary', label: '临时' },
+                    { value: 'updated', label: '已更新' },
+                    { value: 'cancelled', label: '已取消' },
+                    { value: 'deleted', label: '已删除' }
+                ],
                 pagination: {
                     pageIndex: 1,
                     pageSize: 20,
@@ -443,17 +429,7 @@
                     tempMaturityDate: [{ required: true, message: '请选择到期日期', trigger: 'change' }]
                 },
                 updateRules: {
-                    tempSecurityName: [{ required: true, message: '请输入临时证券名称', trigger: 'blur' }],
-                    tempSecurityCode: [{ required: true, message: '请输入临时证券代码', trigger: 'blur' }],
-                    tempSecurityMarket: [{ required: true, message: '请选择临时证券市场', trigger: 'change' }],
-                    tempSecurityType: [{ required: true, message: '请选择临时证券类型', trigger: 'change' }],
-                    tempCompanyCode: [{ required: true, message: '请选择发行主体', trigger: 'change' }],
-                    tempIssueDate: [{ required: true, message: '请选择发行日期', trigger: 'change' }],
-                    tempMaturityDate: [{ required: true, message: '请选择到期日期', trigger: 'change' }],
-                    securityName: [{ required: true, message: '请输入证券名称', trigger: 'blur' }],
-                    securityCode: [{ required: true, message: '请输入证券代码', trigger: 'blur' }],
-                    securityMarket: [{ required: true, message: '请选择证券市场', trigger: 'change' }],
-                    securityType: [{ required: true, message: '请选择证券类型', trigger: 'change' }]
+                    securityCode: [{ required: true, message: '请选择正式证券', trigger: 'change' }]
                 }
             }
         },
@@ -564,7 +540,8 @@
             handleReset() {
                 this.queryParam = {
                     tempSecurityCode: '',
-                    tempSecurityName: ''
+                    tempSecurityName: '',
+                    statusList: []
                 }
                 this.pagination.pageIndex = 1
                 this.loadList()
@@ -572,15 +549,18 @@
 
             // 打开新增弹窗
             openAddDialog() {
+                // 默认：发行日当天、到期 2999-12-31、市场/类型取下拉第一项
+                const firstMarket = this.marketOptions.length > 0 ? this.marketOptions[0].value : ''
+                const firstType = this.securityTypeOptions.length > 0 ? this.securityTypeOptions[0].securityType : ''
                 this.addForm = {
                     tempSecurityName: '',
                     tempSecurityCode: '',
-                    tempSecurityMarket: '',
-                    tempSecurityType: '',
+                    tempSecurityMarket: firstMarket,
+                    tempSecurityType: firstType,
                     tempMitigationCode: '',
                     tempCompanyCode: '',
-                    tempIssueDate: '',
-                    tempMaturityDate: ''
+                    tempIssueDate: moment().format('YYYY-MM-DD'),
+                    tempMaturityDate: '2999-12-31'
                 }
                 this.companyOptions = []
                 this.addDialogVisible = true
@@ -606,39 +586,100 @@
                 }
             },
 
-            // 打开更新弹窗（回显临时证券信息 + 正式证券信息）
+            // 打开更新弹窗：临时信息只读回显；正式信息默认空白，须远程选券
             openUpdateDialog(row) {
+                const companyDisplay = row.tempCompanyNameSnapshot
+                    ? (row.tempCompanyNameSnapshot + (row.tempCompanyCode ? '（' + row.tempCompanyCode + '）' : ''))
+                    : (row.tempCompanyCode || '')
                 this.updateForm = {
                     id: row.id,
-                    // 临时证券信息（可编辑）
+                    // 临时证券信息（只读展示）
                     tempSecurityName: row.tempSecurityName || '',
                     tempSecurityCode: row.tempSecurityCode || '',
                     tempSecurityMarket: row.tempSecurityMarket || '',
                     tempSecurityType: row.tempSecurityType || '',
                     tempMitigationCode: row.tempMitigationCode || '',
                     tempCompanyCode: row.tempCompanyCode || '',
+                    tempCompanyDisplay: companyDisplay,
                     tempIssueDate: row.tempIssueDate || '',
                     tempMaturityDate: row.tempMaturityDate || '',
-                    // 正式证券信息
-                    securityName: row.securityName || row.tempSecurityName || '',
-                    securityCode: row.securityCode || row.tempSecurityCode || '',
-                    securityMarket: row.securityMarket || row.tempSecurityMarket || '',
-                    securityType: row.securityType || row.tempSecurityType || ''
+                    // 正式证券信息：默认空，不预填临时代码
+                    securityName: '',
+                    securityCode: '',
+                    securityMarket: '',
+                    securityType: '',
+                    securityTypeName: ''
                 }
+                this.formalSecurityOptions = []
                 this.updateDialogVisible = true
-                // 回显已选主体：按代码精确带入选项
-                this.ensureCompanyOption(row.tempCompanyCode, row.tempCompanyNameSnapshot)
                 this.$nextTick(() => {
                     this.$refs.updateFormRef.clearValidate()
                 })
             },
 
-            // 提交更新正式证券
+            // 远程搜索正式证券（rrs_securityinfo，代码/名称模糊，最多 50 条）
+            async searchFormalSecurityOptions(keyword) {
+                this.formalSecurityLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/tempSecurityCode/queryFormalSecurityOptionList', {
+                        securityKeyword: keyword || ''
+                    })
+                    this.formalSecurityOptions = data || []
+                } catch (e) {
+                    this.formalSecurityOptions = []
+                } finally {
+                    this.formalSecurityLoading = false
+                }
+            },
+
+            // 正式证券选项展示：名称（代码）
+            formalSecurityLabel(item) {
+                if (!item) {
+                    return ''
+                }
+                const name = item.securityName || ''
+                const code = item.securityCode || ''
+                if (name && code) {
+                    return name + '（' + code + '）'
+                }
+                return name || code
+            },
+
+            // 选中正式证券后回填代码/市场/类型
+            handleFormalSecurityChange(securityCode) {
+                if (!securityCode) {
+                    this.clearFormalSecurity()
+                    return
+                }
+                const item = this.formalSecurityOptions.find(option => option.securityCode === securityCode)
+                if (!item) {
+                    return
+                }
+                this.updateForm.securityCode = item.securityCode || ''
+                this.updateForm.securityName = item.securityName || ''
+                this.updateForm.securityMarket = item.securityMarket || ''
+                this.updateForm.securityType = item.securityType || ''
+                this.updateForm.securityTypeName = item.securityTypeName || ''
+            },
+
+            // 清空正式证券选择
+            clearFormalSecurity() {
+                this.updateForm.securityCode = ''
+                this.updateForm.securityName = ''
+                this.updateForm.securityMarket = ''
+                this.updateForm.securityType = ''
+                this.updateForm.securityTypeName = ''
+            },
+
+            // 提交更新正式证券（仅提交 id + 正式证券代码，其余由后端按主数据填充）
             async submitUpdate() {
                 await this.$refs.updateFormRef.validate()
                 this.submitLoading = true
                 try {
-                    await this.apiPost('/api/v1/tempSecurityCode/editTempSecurityCodeToUpdated', this.updateForm)
+                    await this.apiPost('/api/v1/tempSecurityCode/editTempSecurityCodeToUpdated', {
+                        id: this.updateForm.id,
+                        securityCode: this.updateForm.securityCode
+                    })
                     this.$message.success('更新成功')
                     this.updateDialogVisible = false
                     this.loadList()
@@ -686,9 +727,9 @@
                 return row.status === 'temporary'
             },
 
-            // 判断是否允许删除
+            // 判断是否允许删除（对齐老系统：仅「临时」状态可删，已更新/取消发行/已删除均无删除按钮）
             canDelete(row) {
-                return row.status !== 'deleted'
+                return row.status === 'temporary'
             },
 
             // 切换每页条数
@@ -708,6 +749,15 @@
             marketName(code) {
                 const item = this.marketOptions.find(option => option.value === code)
                 return item ? item.label : ''
+            },
+
+            // 获取证券类型名称
+            securityTypeName(typeCode) {
+                if (!typeCode) {
+                    return ''
+                }
+                const item = this.securityTypeOptions.find(option => option.securityType === typeCode)
+                return item ? item.securityTypeName : ''
             },
 
             // 获取状态名称
@@ -744,37 +794,6 @@
                 return name || code
             },
 
-            // 打开更新弹窗时保证当前主体在选项列表中
-            async ensureCompanyOption(companyCode, companyName) {
-                if (!companyCode) {
-                    await this.searchCompanyOptions('')
-                    return
-                }
-                this.companyLoading = true
-                try {
-                    const data = await this.apiPost('/api/v1/tempSecurityCode/queryTempSecurityCodeOptions', {
-                        tempCompanyCode: companyCode
-                    })
-                    const list = data.companies || []
-                    if (list.length > 0) {
-                        this.companyOptions = list
-                    } else {
-                        this.companyOptions = [{
-                            companyCode: companyCode,
-                            fullName: companyName || companyCode,
-                            shortName: companyName || companyCode
-                        }]
-                    }
-                } catch (e) {
-                    this.companyOptions = [{
-                        companyCode: companyCode,
-                        fullName: companyName || companyCode,
-                        shortName: companyName || companyCode
-                    }]
-                } finally {
-                    this.companyLoading = false
-                }
-            }
         }
     })
 </script>
