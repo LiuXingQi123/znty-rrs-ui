@@ -189,13 +189,22 @@
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="发行主体" prop="tempCompanyId">
-                            <el-select v-model="addForm.tempCompanyId" filterable style="width: 100%;">
+                        <el-form-item label="发行主体" prop="tempCompanyCode">
+                            <el-select
+                                v-model="addForm.tempCompanyCode"
+                                filterable
+                                remote
+                                clearable
+                                reserve-keyword
+                                placeholder="输入主体名称或代码搜索"
+                                :remote-method="searchCompanyOptions"
+                                :loading="companyLoading"
+                                style="width: 100%;">
                                 <el-option
                                     v-for="item in companyOptions"
-                                    :key="item.companyId"
+                                    :key="item.companyCode"
                                     :label="companyLabel(item)"
-                                    :value="item.companyId">
+                                    :value="item.companyCode">
                                 </el-option>
                             </el-select>
                         </el-form-item>
@@ -285,13 +294,22 @@
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="发行主体" prop="tempCompanyId">
-                            <el-select v-model="updateForm.tempCompanyId" filterable style="width: 100%;">
+                        <el-form-item label="发行主体" prop="tempCompanyCode">
+                            <el-select
+                                v-model="updateForm.tempCompanyCode"
+                                filterable
+                                remote
+                                clearable
+                                reserve-keyword
+                                placeholder="输入主体名称或代码搜索"
+                                :remote-method="searchCompanyOptions"
+                                :loading="companyLoading"
+                                style="width: 100%;">
                                 <el-option
                                     v-for="item in companyOptions"
-                                    :key="item.companyId"
+                                    :key="item.companyCode"
                                     :label="companyLabel(item)"
-                                    :value="item.companyId">
+                                    :value="item.companyCode">
                                 </el-option>
                             </el-select>
                         </el-form-item>
@@ -385,7 +403,8 @@
                 addDialogVisible: false,    // 新增弹窗状态
                 updateDialogVisible: false, // 更新弹窗状态
                 tableData: [],              // 列表数据
-                companyOptions: [],         // 发行主体选项
+                companyOptions: [],         // 发行主体选项（远程搜索，最多 50 条）
+                companyLoading: false,      // 发行主体远程搜索 loading
                 securityTypeOptions: [],    // 证券类型选项
                 queryParam: {
                     tempSecurityCode: '',
@@ -419,7 +438,7 @@
                     tempSecurityCode: [{ required: true, message: '请输入临时证券代码', trigger: 'blur' }],
                     tempSecurityMarket: [{ required: true, message: '请选择临时证券市场', trigger: 'change' }],
                     tempSecurityType: [{ required: true, message: '请选择临时证券类型', trigger: 'change' }],
-                    tempCompanyId: [{ required: true, message: '请选择发行主体', trigger: 'change' }],
+                    tempCompanyCode: [{ required: true, message: '请选择发行主体', trigger: 'change' }],
                     tempIssueDate: [{ required: true, message: '请选择发行日期', trigger: 'change' }],
                     tempMaturityDate: [{ required: true, message: '请选择到期日期', trigger: 'change' }]
                 },
@@ -428,7 +447,7 @@
                     tempSecurityCode: [{ required: true, message: '请输入临时证券代码', trigger: 'blur' }],
                     tempSecurityMarket: [{ required: true, message: '请选择临时证券市场', trigger: 'change' }],
                     tempSecurityType: [{ required: true, message: '请选择临时证券类型', trigger: 'change' }],
-                    tempCompanyId: [{ required: true, message: '请选择发行主体', trigger: 'change' }],
+                    tempCompanyCode: [{ required: true, message: '请选择发行主体', trigger: 'change' }],
                     tempIssueDate: [{ required: true, message: '请选择发行日期', trigger: 'change' }],
                     tempMaturityDate: [{ required: true, message: '请选择到期日期', trigger: 'change' }],
                     securityName: [{ required: true, message: '请输入证券名称', trigger: 'blur' }],
@@ -512,11 +531,27 @@
                 })
             },
 
-            // 加载下拉选项
+            // 加载下拉选项（证券类型全量；主体按需远程搜索）
             async loadOptions() {
                 const data = await this.apiPost('/api/v1/tempSecurityCode/queryTempSecurityCodeOptions', {})
-                this.companyOptions = data.companies || []
                 this.securityTypeOptions = data.securityTypes || []
+                // 初始预拉 50 条主体，便于直接点选
+                await this.searchCompanyOptions('')
+            },
+
+            // 远程搜索发行主体（wind_cbondissuer，关键字模糊，最多 50 条）
+            async searchCompanyOptions(keyword) {
+                this.companyLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/tempSecurityCode/queryTempSecurityCodeOptions', {
+                        companyKeyword: keyword || ''
+                    })
+                    this.companyOptions = data.companies || []
+                } catch (e) {
+                    this.companyOptions = []
+                } finally {
+                    this.companyLoading = false
+                }
             },
 
             // 执行查询
@@ -543,11 +578,13 @@
                     tempSecurityMarket: '',
                     tempSecurityType: '',
                     tempMitigationCode: '',
-                    tempCompanyId: null,
+                    tempCompanyCode: '',
                     tempIssueDate: '',
                     tempMaturityDate: ''
                 }
+                this.companyOptions = []
                 this.addDialogVisible = true
+                this.searchCompanyOptions('')
                 this.$nextTick(() => {
                     this.$refs.addFormRef.clearValidate()
                 })
@@ -579,7 +616,7 @@
                     tempSecurityMarket: row.tempSecurityMarket || '',
                     tempSecurityType: row.tempSecurityType || '',
                     tempMitigationCode: row.tempMitigationCode || '',
-                    tempCompanyId: row.tempCompanyId || null,
+                    tempCompanyCode: row.tempCompanyCode || '',
                     tempIssueDate: row.tempIssueDate || '',
                     tempMaturityDate: row.tempMaturityDate || '',
                     // 正式证券信息
@@ -589,6 +626,8 @@
                     securityType: row.securityType || row.tempSecurityType || ''
                 }
                 this.updateDialogVisible = true
+                // 回显已选主体：按代码精确带入选项
+                this.ensureCompanyOption(row.tempCompanyCode, row.tempCompanyNameSnapshot)
                 this.$nextTick(() => {
                     this.$refs.updateFormRef.clearValidate()
                 })
@@ -692,9 +731,49 @@
                 return value ? moment(value).format('YYYY-MM-DD HH:mm:ss') : ''
             },
 
-            // 生成主体选项展示名称
+            // 生成主体选项展示名称（名称 + 代码）
             companyLabel(item) {
-                return item.fullName || item.shortName || ''
+                if (!item) {
+                    return ''
+                }
+                const name = item.fullName || item.shortName || ''
+                const code = item.companyCode || ''
+                if (name && code) {
+                    return name + '（' + code + '）'
+                }
+                return name || code
+            },
+
+            // 打开更新弹窗时保证当前主体在选项列表中
+            async ensureCompanyOption(companyCode, companyName) {
+                if (!companyCode) {
+                    await this.searchCompanyOptions('')
+                    return
+                }
+                this.companyLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/tempSecurityCode/queryTempSecurityCodeOptions', {
+                        tempCompanyCode: companyCode
+                    })
+                    const list = data.companies || []
+                    if (list.length > 0) {
+                        this.companyOptions = list
+                    } else {
+                        this.companyOptions = [{
+                            companyCode: companyCode,
+                            fullName: companyName || companyCode,
+                            shortName: companyName || companyCode
+                        }]
+                    }
+                } catch (e) {
+                    this.companyOptions = [{
+                        companyCode: companyCode,
+                        fullName: companyName || companyCode,
+                        shortName: companyName || companyCode
+                    }]
+                } finally {
+                    this.companyLoading = false
+                }
             }
         }
     })
