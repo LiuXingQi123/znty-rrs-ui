@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>投资池开放日维护</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css" />
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <link rel="stylesheet" href="../css/pool_open_day.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="pool-open-day-page">
+<div id="pool_open_day" v-cloak>
+    <!-- ── 顶栏 ── -->
+    <header class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon">
+                <i class="el-icon-date"></i>
+            </div>
+            <h2>投资池开放日维护</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta">
+            <span class="topbar-date-badge">{{ currentDateText }}</span>
+        </div>
+    </header>
+
+    <!-- ── 列表主体 ── -->
+    <div class="list-body">
+        <!-- 搜索面板 -->
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+                <!-- 查询条件：投资池树（单选，根/目录节点不可选） -->
+                <el-popover
+                    placement="bottom-start"
+                    width="360"
+                    v-model="queryPoolTreeVisible"
+                    :append-to-body="false"
+                    @show="handleQueryPoolTreeShow"
+                    @hide="handleQueryPoolTreeHide">
+                    <div class="pool-popover-content">
+                        <el-input
+                            v-model="queryPoolTreeKeyword"
+                            class="pool-tree-search"
+                            size="small"
+                            clearable
+                            prefix-icon="el-icon-search"
+                            placeholder="搜索投资池"
+                            @input="filterQueryPoolTree">
+                        </el-input>
+                        <div class="pool-tree-scroll">
+                            <el-tree
+                                ref="queryPoolTreeRef"
+                                :data="poolTreeData"
+                                node-key="id"
+                                :props="treeProps"
+                                highlight-current
+                                default-expand-all
+                                :filter-node-method="filterPoolTreeNode"
+                                @node-click="handleQueryPoolTreeNodeClick">
+                                <span slot-scope="{ node, data }" class="tree-node" :class="{ 'is-disabled': isDirectoryNode(data) }">
+                                    <i :class="isDirectoryNode(data) ? 'el-icon-folder-opened tree-node-icon' : 'el-icon-document tree-node-icon'"></i>
+                                    <span class="tree-node-name">{{ node.label }}</span>
+                                </span>
+                            </el-tree>
+                        </div>
+                    </div>
+                    <div class="pool-popover-actions">
+                        <el-button size="mini" @click="clearQueryPool">清空</el-button>
+                        <el-button size="mini" @click="queryPoolTreeVisible = false">关闭</el-button>
+                    </div>
+                    <span
+                        slot="reference"
+                        class="pool-trigger"
+                        :class="{ 'has-selection': !!queryParam.poolId }">
+                        <i class="el-icon-folder-opened"></i>
+                        <span class="pool-trigger-text" :title="queryPoolDisplayName">
+                            {{ queryPoolDisplayName || '请选择投资池' }}
+                        </span>
+                        <i v-if="queryParam.poolId" class="el-icon-circle-close pool-trigger-clear" @click.stop="clearQueryPool"></i>
+                    </span>
+                </el-popover>
+                <el-date-picker
+                    v-model="queryDateRange"
+                    type="daterange"
+                    size="small"
+                    value-format="yyyy-MM-dd"
+                    range-separator="至"
+                    start-placeholder="起始日下限"
+                    end-placeholder="结束日上限"
+                    style="width: 280px;">
+                </el-date-picker>
+                <el-input
+                    v-model.trim="queryParam.description"
+                    size="small"
+                    clearable
+                    placeholder="描述关键字"
+                    style="width: 180px;"
+                    @keyup.enter.native="handleSearch">
+                </el-input>
+                <el-button size="small" type="primary" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <el-button size="small" type="primary" icon="el-icon-plus" @click="openAddDialog">新增</el-button>
+                <div class="total-badge">
+                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录
+                </div>
+            </div>
+        </div>
+
+        <!-- 表格卡片 -->
+        <div class="table-card">
+            <el-table
+                ref="openDayTableRef"
+                :data="tableData"
+                v-loading="loading"
+                border
+                stripe
+                size="small"
+                empty-text="暂无数据"
+                style="width:100%;">
+                <el-table-column label="序号" width="50" align="center" type="index"></el-table-column>
+                <el-table-column label="投资池" min-width="220" show-overflow-tooltip>
+                    <template slot-scope="{ row }">
+                        <span>{{ row.poolFullName || row.poolName || '' }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="区间状态" width="100" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag
+                            v-if="periodStatus(row).label"
+                            size="mini"
+                            :type="periodStatus(row).type">
+                            {{ periodStatus(row).label }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="开放起始日" width="120" align="center">
+                    <template slot-scope="{ row }">{{ dateText(row.beginDate) }}</template>
+                </el-table-column>
+                <el-table-column label="开放结束日" width="120" align="center">
+                    <template slot-scope="{ row }">{{ dateText(row.endDate) }}</template>
+                </el-table-column>
+                <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip></el-table-column>
+                <el-table-column label="创建时间" width="160" align="center">
+                    <template slot-scope="{ row }">{{ datetimeText(row.crteTime) }}</template>
+                </el-table-column>
+                <el-table-column label="修改时间" width="160" align="center">
+                    <template slot-scope="{ row }">{{ datetimeText(row.updtTime) }}</template>
+                </el-table-column>
+                <el-table-column label="操作" width="150" fixed="right" align="center">
+                    <template slot-scope="{ row }">
+                        <div class="op-buttons">
+                            <el-button class="row-action-btn" type="primary" size="mini" plain @click="openEditDialog(row)">编辑</el-button>
+                            <el-button class="row-action-btn" type="danger" size="mini" plain @click="handleDelete(row)">删除</el-button>
+                        </div>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+                <el-pagination
+                    small
+                    layout="total, sizes, prev, pager, next, jumper"
+                    :current-page="pagination.pageIndex"
+                    :page-size="pagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    :total="pagination.total"
+                    @size-change="handleSizeChange"
+                    @current-change="handlePageChange">
+                </el-pagination>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── 新增/编辑弹窗 ── -->
+    <el-dialog
+        :title="dialogMode === 'add' ? '新增开放日' : '编辑开放日'"
+        :visible.sync="dialogVisible"
+        width="560px"
+        :close-on-click-modal="false"
+        @closed="resetForm">
+        <div class="form-tip">仅当投资池启用「开放日校验」时，调库才会按本表 begin_date ~ end_date 区间校验。同一池可配置多段开放区间。目录/根节点（含子节点）不可选。</div>
+        <el-form ref="formRef" :model="form" :rules="formRules" label-width="110px" size="small">
+            <el-form-item label="投资池" prop="poolId">
+                <el-popover
+                    placement="bottom-start"
+                    width="360"
+                    v-model="formPoolTreeVisible"
+                    :append-to-body="true"
+                    @show="handleFormPoolTreeShow"
+                    @hide="handleFormPoolTreeHide">
+                    <div class="pool-popover-content">
+                        <el-input
+                            v-model="formPoolTreeKeyword"
+                            class="pool-tree-search"
+                            size="small"
+                            clearable
+                            prefix-icon="el-icon-search"
+                            placeholder="搜索投资池"
+                            @input="filterFormPoolTree">
+                        </el-input>
+                        <div class="pool-tree-scroll">
+                            <el-tree
+                                ref="formPoolTreeRef"
+                                :data="poolTreeData"
+                                node-key="id"
+                                :props="treeProps"
+                                highlight-current
+                                default-expand-all
+                                :filter-node-method="filterPoolTreeNode"
+                                @node-click="handleFormPoolTreeNodeClick">
+                                <span slot-scope="{ node, data }" class="tree-node" :class="{ 'is-disabled': isDirectoryNode(data) }">
+                                    <i :class="isDirectoryNode(data) ? 'el-icon-folder-opened tree-node-icon' : 'el-icon-document tree-node-icon'"></i>
+                                    <span class="tree-node-name">{{ node.label }}</span>
+                                </span>
+                            </el-tree>
+                        </div>
+                    </div>
+                    <div class="pool-popover-actions">
+                        <el-button size="mini" @click="clearFormPool">清空</el-button>
+                        <el-button size="mini" type="primary" @click="formPoolTreeVisible = false">确定</el-button>
+                    </div>
+                    <span
+                        slot="reference"
+                        class="pool-trigger form-pool-trigger"
+                        :class="{ 'has-selection': !!form.poolId }">
+                        <i class="el-icon-folder-opened"></i>
+                        <span class="pool-trigger-text" :title="formPoolDisplayName">
+                            {{ formPoolDisplayName || '请选择投资池' }}
+                        </span>
+                        <i class="el-icon-arrow-down pool-trigger-arrow"></i>
+                    </span>
+                </el-popover>
+            </el-form-item>
+            <el-form-item label="开放起始日" prop="beginDate">
+                <el-date-picker
+                    v-model="form.beginDate"
+                    type="date"
+                    value-format="yyyy-MM-dd"
+                    placeholder="选择起始日"
+                    style="width: 100%;">
+                </el-date-picker>
+            </el-form-item>
+            <el-form-item label="开放结束日" prop="endDate">
+                <el-date-picker
+                    v-model="form.endDate"
+                    type="date"
+                    value-format="yyyy-MM-dd"
+                    placeholder="选择结束日"
+                    style="width: 100%;">
+                </el-date-picker>
+            </el-form-item>
+            <el-form-item label="描述" prop="description">
+                <el-input
+                    v-model.trim="form.description"
+                    type="textarea"
+                    :rows="3"
+                    maxlength="200"
+                    show-word-limit
+                    placeholder="可选，说明本段开放区间用途">
+                </el-input>
+            </el-form-item>
+        </el-form>
+        <span slot="footer">
+            <el-button size="small" @click="dialogVisible = false">取消</el-button>
+            <el-button size="small" type="primary" :loading="submitLoading" @click="submitForm">确认</el-button>
+        </span>
+    </el-dialog>
+</div>
+
+<script>
+    new Vue({
+        el: '#pool_open_day',
+        data() {
+            return {
+                moment: moment, // 日期处理工具
+                loading: false,           // 列表加载状态
+                submitLoading: false,     // 表单提交状态
+                dialogVisible: false,     // 弹窗显示
+                dialogMode: 'add',        // add / edit
+                tableData: [],            // 列表数据
+                poolTreeData: [],         // 投资池树
+                poolNodeMap: {},          // id -> 节点（含 fullPath）
+                queryParam: {
+                    poolId: null,
+                    description: ''
+                },
+                queryPoolDisplayName: '', // 查询条件已选池全称
+                queryPoolTreeVisible: false,
+                queryPoolTreeKeyword: '',
+                queryDateRange: null,     // 查询日期区间
+                formPoolTreeVisible: false,
+                formPoolTreeKeyword: '',
+                formPoolDisplayName: '',  // 表单已选池全称
+                treeProps: {
+                    children: 'children',
+                    label: 'poolName',
+                    disabled(data) {
+                        // 有子节点的目录/根节点不可选
+                        return data.children && data.children.length > 0
+                    }
+                },
+                pagination: {
+                    pageIndex: 1,
+                    pageSize: 20,
+                    total: 0
+                },
+                form: {
+                    id: null,
+                    poolId: null,
+                    beginDate: '',
+                    endDate: '',
+                    description: ''
+                },
+                formRules: {
+                    poolId: [{ required: true, message: '请选择投资池', trigger: 'change' }],
+                    beginDate: [{ required: true, message: '请选择开放起始日', trigger: 'change' }],
+                    endDate: [
+                        { required: true, message: '请选择开放结束日', trigger: 'change' },
+                        { validator: (rule, value, callback) => this.validateEndDate(rule, value, callback), trigger: 'change' }
+                    ]
+                }
+            }
+        },
+        computed: {
+            currentDateText() {
+                return moment().format('YYYY年MM月DD日')
+            }
+        },
+        created() {
+            this.loadPoolTree()
+            this.loadList()
+        },
+        methods: {
+            // 是否为目录节点（含子节点，不可选）
+            isDirectoryNode(data) {
+                return !!(data && data.children && data.children.length > 0)
+            },
+            // 结束日不得早于起始日
+            validateEndDate(rule, value, callback) {
+                if (!value || !this.form.beginDate) {
+                    callback()
+                    return
+                }
+                if (moment(value).isBefore(moment(this.form.beginDate), 'day')) {
+                    callback(new Error('开放结束日不能早于起始日'))
+                    return
+                }
+                callback()
+            },
+            // 日期展示
+            dateText(value) {
+                if (!value) return ''
+                return moment(value).format('YYYY-MM-DD')
+            },
+            // 日期时间展示
+            datetimeText(value) {
+                if (!value) return ''
+                return moment(value).format('YYYY-MM-DD HH:mm:ss')
+            },
+            /**
+             * 开放区间状态（相对今天，按 begin_date ~ end_date 三段）
+             * 未开始：今天 < 起始日；开放中：起始日 ≤ 今天 ≤ 结束日；已结束：今天 > 结束日
+             */
+            periodStatus(row) {
+                if (!row || !row.beginDate || !row.endDate) {
+                    return { code: '', label: '', type: 'info' }
+                }
+                const today = moment().startOf('day')
+                const begin = moment(row.beginDate).startOf('day')
+                const end = moment(row.endDate).startOf('day')
+                if (!begin.isValid() || !end.isValid()) {
+                    return { code: '', label: '', type: 'info' }
+                }
+                if (today.isBefore(begin)) {
+                    return { code: 'pending', label: '未开始', type: 'info' }
+                }
+                if (today.isAfter(end)) {
+                    return { code: 'ended', label: '已结束', type: 'warning' }
+                }
+                return { code: 'open', label: '开放中', type: 'success' }
+            },
+            // 加载投资池树
+            async loadPoolTree() {
+                try {
+                    const list = await this.apiPost('/api/v1/common/queryPoolTreeList', {})
+                    this.poolTreeData = this.buildPoolTree(list || [])
+                } catch (e) {
+                    this.poolTreeData = []
+                    this.poolNodeMap = {}
+                }
+            },
+            // 扁平列表转嵌套树，并挂 fullPath
+            buildPoolTree(list) {
+                this.poolNodeMap = {}
+                if (!list || list.length === 0) return []
+                const map = {}
+                const roots = []
+                list.forEach(item => {
+                    map[item.id] = Object.assign({}, item, { children: [] })
+                })
+                list.forEach(item => {
+                    const node = map[item.id]
+                    if (item.parentId != null && map[item.parentId]) {
+                        const parent = map[item.parentId]
+                        node.fullPath = node.poolFullName || (parent.fullPath ? parent.fullPath + '/' + node.poolName : parent.poolName + '/' + node.poolName)
+                        parent.children.push(node)
+                    } else {
+                        node.fullPath = node.poolFullName || node.poolName
+                        roots.push(node)
+                    }
+                    this.poolNodeMap[node.id] = node
+                })
+                return roots
+            },
+            // 树节点搜索
+            filterPoolTreeNode(value, data) {
+                if (!value) return true
+                const text = data.fullPath || data.poolFullName || data.poolName || ''
+                return String(text).toLowerCase().indexOf(String(value).toLowerCase()) !== -1
+            },
+            // 查询树过滤
+            filterQueryPoolTree(value) {
+                if (this.$refs.queryPoolTreeRef) {
+                    this.$refs.queryPoolTreeRef.filter((value || '').trim())
+                }
+            },
+            // 表单树过滤
+            filterFormPoolTree(value) {
+                if (this.$refs.formPoolTreeRef) {
+                    this.$refs.formPoolTreeRef.filter((value || '').trim())
+                }
+            },
+            // 查询树打开时同步当前选中
+            handleQueryPoolTreeShow() {
+                this.$nextTick(() => {
+                    if (this.$refs.queryPoolTreeRef) {
+                        this.$refs.queryPoolTreeRef.setCurrentKey(this.queryParam.poolId || null)
+                    }
+                })
+            },
+            // 查询树关闭清空关键字
+            handleQueryPoolTreeHide() {
+                this.queryPoolTreeKeyword = ''
+                if (this.$refs.queryPoolTreeRef) {
+                    this.$refs.queryPoolTreeRef.filter('')
+                }
+            },
+            // 查询树点击选择
+            handleQueryPoolTreeNodeClick(data) {
+                if (this.isDirectoryNode(data)) {
+                    this.$message.warning('目录节点不可选，请选择子投资池')
+                    return
+                }
+                this.queryParam.poolId = data.id
+                this.queryPoolDisplayName = data.fullPath || data.poolFullName || data.poolName || ''
+                this.queryPoolTreeVisible = false
+            },
+            // 清空查询池
+            clearQueryPool() {
+                this.queryParam.poolId = null
+                this.queryPoolDisplayName = ''
+                if (this.$refs.queryPoolTreeRef) {
+                    this.$refs.queryPoolTreeRef.setCurrentKey(null)
+                }
+            },
+            // 表单树打开时同步当前选中
+            handleFormPoolTreeShow() {
+                this.$nextTick(() => {
+                    if (this.$refs.formPoolTreeRef) {
+                        this.$refs.formPoolTreeRef.setCurrentKey(this.form.poolId || null)
+                    }
+                })
+            },
+            // 表单树关闭清空关键字
+            handleFormPoolTreeHide() {
+                this.formPoolTreeKeyword = ''
+                if (this.$refs.formPoolTreeRef) {
+                    this.$refs.formPoolTreeRef.filter('')
+                }
+            },
+            // 表单树点击选择
+            handleFormPoolTreeNodeClick(data) {
+                if (this.isDirectoryNode(data)) {
+                    this.$message.warning('目录节点不可选，请选择子投资池')
+                    return
+                }
+                this.form.poolId = data.id
+                this.formPoolDisplayName = data.fullPath || data.poolFullName || data.poolName || ''
+                this.formPoolTreeVisible = false
+                if (this.$refs.formRef) {
+                    this.$refs.formRef.validateField('poolId')
+                }
+            },
+            // 清空表单池
+            clearFormPool() {
+                this.form.poolId = null
+                this.formPoolDisplayName = ''
+                if (this.$refs.formPoolTreeRef) {
+                    this.$refs.formPoolTreeRef.setCurrentKey(null)
+                }
+            },
+            // 按 id 回填展示全称
+            resolvePoolDisplayName(poolId, fallbackName) {
+                if (poolId == null) return ''
+                const node = this.poolNodeMap[poolId]
+                if (node) return node.fullPath || node.poolFullName || node.poolName || ''
+                return fallbackName || ''
+            },
+            // 构建列表查询参数
+            buildQueryBody() {
+                const body = {
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                    poolId: this.queryParam.poolId || null,
+                    description: this.queryParam.description || null,
+                    beginDateFrom: null,
+                    endDateTo: null
+                }
+                if (Array.isArray(this.queryDateRange) && this.queryDateRange.length === 2) {
+                    body.beginDateFrom = this.queryDateRange[0] || null
+                    body.endDateTo = this.queryDateRange[1] || null
+                }
+                return body
+            },
+            // 加载列表
+            async loadList() {
+                this.loading = true
+                try {
+                    const data = await this.apiPost('/api/v1/poolOpenDay/queryPoolOpenDayPage', this.buildQueryBody())
+                    this.tableData = (data && data.records) || []
+                    this.pagination.total = (data && data.total) || 0
+                } catch (e) {
+                    this.tableData = []
+                    this.pagination.total = 0
+                }
+                this.loading = false
+            },
+            // 查询
+            handleSearch() {
+                this.pagination.pageIndex = 1
+                this.loadList()
+            },
+            // 重置筛选
+            handleReset() {
+                this.queryParam = {
+                    poolId: null,
+                    description: ''
+                }
+                this.queryPoolDisplayName = ''
+                this.queryDateRange = null
+                this.pagination.pageIndex = 1
+                this.loadList()
+            },
+            // 分页大小变更
+            handleSizeChange(size) {
+                this.pagination.pageSize = size
+                this.pagination.pageIndex = 1
+                this.loadList()
+            },
+            // 页码变更
+            handlePageChange(page) {
+                this.pagination.pageIndex = page
+                this.loadList()
+            },
+            // 打开新增弹窗
+            openAddDialog() {
+                this.dialogMode = 'add'
+                this.form = {
+                    id: null,
+                    poolId: null,
+                    beginDate: '',
+                    endDate: '',
+                    description: ''
+                }
+                this.formPoolDisplayName = ''
+                this.dialogVisible = true
+                this.$nextTick(() => {
+                    if (this.$refs.formRef) this.$refs.formRef.clearValidate()
+                })
+            },
+            // 打开编辑弹窗
+            openEditDialog(row) {
+                this.dialogMode = 'edit'
+                this.form = {
+                    id: row.id,
+                    poolId: row.poolId,
+                    beginDate: this.dateText(row.beginDate),
+                    endDate: this.dateText(row.endDate),
+                    description: row.description || ''
+                }
+                this.formPoolDisplayName = this.resolvePoolDisplayName(
+                    row.poolId,
+                    row.poolFullName || row.poolName || ''
+                )
+                this.dialogVisible = true
+                this.$nextTick(() => {
+                    if (this.$refs.formRef) this.$refs.formRef.clearValidate()
+                })
+            },
+            // 关闭弹窗后重置表单
+            resetForm() {
+                this.form = {
+                    id: null,
+                    poolId: null,
+                    beginDate: '',
+                    endDate: '',
+                    description: ''
+                }
+                this.formPoolDisplayName = ''
+                this.formPoolTreeVisible = false
+                if (this.$refs.formRef) this.$refs.formRef.clearValidate()
+            },
+            // 提交新增/编辑
+            async submitForm() {
+                try {
+                    await this.$refs.formRef.validate()
+                } catch (e) {
+                    return
+                }
+                this.submitLoading = true
+                try {
+                    const body = {
+                        id: this.form.id,
+                        poolId: this.form.poolId,
+                        beginDate: this.form.beginDate,
+                        endDate: this.form.endDate,
+                        description: this.form.description || null
+                    }
+                    if (this.dialogMode === 'add') {
+                        await this.apiPost('/api/v1/poolOpenDay/addPoolOpenDay', body)
+                        this.$message.success('新增成功')
+                    } else {
+                        await this.apiPost('/api/v1/poolOpenDay/editPoolOpenDay', body)
+                        this.$message.success('保存成功')
+                    }
+                    this.dialogVisible = false
+                    this.loadList()
+                } catch (e) {
+                    // apiPost 已提示错误
+                }
+                this.submitLoading = false
+            },
+            // 删除
+            async handleDelete(row) {
+                const poolText = row.poolFullName || row.poolName || row.poolId
+                const rangeText = this.dateText(row.beginDate) + ' ~ ' + this.dateText(row.endDate)
+                try {
+                    await this.$confirm(
+                        '确认删除投资池「' + poolText + '」的开放日区间 ' + rangeText + ' ？',
+                        '删除确认',
+                        {
+                            type: 'warning',
+                            confirmButtonText: '删除',
+                            cancelButtonText: '取消'
+                        }
+                    )
+                } catch (e) {
+                    return
+                }
+                try {
+                    await this.apiPost('/api/v1/poolOpenDay/deletePoolOpenDay', { id: row.id })
+                    this.$message.success('删除成功')
+                    this.loadList()
+                } catch (e) {
+                    // apiPost 已提示错误
+                }
+            }
+        }
+    })
+</script>
+</body>
+</html>

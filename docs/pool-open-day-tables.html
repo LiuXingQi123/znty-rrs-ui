@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>投资池开放日维护｜表与业务逻辑</title>
+    <style>
+        body.docs-page-pool-open-day-tables {
+            --primary: #2743A4;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+        body.docs-page-pool-open-day-tables * { box-sizing: border-box }
+        .wrap { width: min(1100px, calc(100% - 32px)); margin: 0 auto }
+        header {
+            padding: 28px 0 24px; color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%)
+        }
+        h1 { margin: 0; font-size: 28px }
+        header p { margin: 8px 0 0; color: rgba(255,255,255,.86) }
+        main { padding: 28px 0 56px }
+        .card {
+            background: var(--panel); border: 1px solid var(--line);
+            border-radius: 12px; padding: 18px 20px; margin-bottom: 16px
+        }
+        h2 { margin: 0 0 12px; font-size: 18px; color: var(--primary) }
+        table { width: 100%; border-collapse: collapse; font-size: 13px }
+        th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left }
+        th { background: #F7F8FA }
+        code { background: #E9ECF6; padding: 1px 6px; border-radius: 4px; font-size: 12px }
+        .api { color: var(--muted); font-size: 13px }
+        ul { margin: 0; padding-left: 18px }
+        li { margin: 4px 0 }
+    </style>
+</head>
+<body class="docs-page-pool-open-day-tables">
+<header>
+    <div class="wrap">
+        <div style="font-size:12px;letter-spacing:.12em;opacity:.85;font-weight:700">RRS 配置</div>
+        <h1>投资池开放日维护</h1>
+        <p>维护 <code>ip_pool_open_day</code> 开放区间；池级开关 <code>open_day_adjust=1</code> 时参与调库校验。</p>
+    </div>
+</header>
+<main class="wrap">
+    <section class="card">
+        <h2>主表 ip_pool_open_day</h2>
+        <table>
+            <thead>
+            <tr><th>列</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+            <tr><td>id</td><td>主键</td></tr>
+            <tr><td>pool_id</td><td>投资池 ID → ip_investment_pool.id</td></tr>
+            <tr><td>begin_date / end_date</td><td>开放区间（含边界）</td></tr>
+            <tr><td>description</td><td>描述，最长 200</td></tr>
+            <tr><td>is_deleted</td><td>0 正常 / 1 已删除</td></tr>
+            <tr><td>crte_time / updt_time</td><td>创建 / 修改时间</td></tr>
+            </tbody>
+        </table>
+    </section>
+    <section class="card">
+        <h2>接口</h2>
+        <p class="api">POST /api/v1/poolOpenDay/* · 页面 pages/pool_open_day.html</p>
+        <ul>
+            <li><code>queryPoolOpenDayPage</code> — 分页查询（池、日期区间、描述），返回 <code>poolFullName</code></li>
+            <li><code>addPoolOpenDay</code> — 新增（目录节点不可选）</li>
+            <li><code>editPoolOpenDay</code> — 修改</li>
+            <li><code>deletePoolOpenDay</code> — 逻辑删除</li>
+            <li>前端投资池：树选择（查询/新增/编辑），展示全称，不展示池编码；有子节点的根/目录不可选</li>
+        </ul>
+    </section>
+    <section class="card">
+        <h2>调库关联</h2>
+        <p>证券池 / 禁投池 / CRMW / 批量调库：当目标池 <code>open_day_adjust=1</code> 时，查询当日是否落在开放区间：</p>
+        <p><code>begin_date &lt;= today AND end_date &gt;= today AND is_deleted = 0</code></p>
+    </section>
+</main>
+</body>
+</html>

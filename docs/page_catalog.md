@@ -32,6 +32,7 @@
 | `security_pool_adjust_history.html` | 证券池调整历史 | `css/security_pool_adjust_history.css`、`css/common.css` |
 | `security_pool_query.html` | 证券池查询 | `css/security_pool_query.css`、`css/common.css` |
 | `temp_security_code.html` | 临时代码管理 | `css/temp_security_code.css`、`css/common.css` |
+| `pool_open_day.html` | 投资池开放日维护 | `css/pool_open_day.css`、`css/common.css` |
 | `docs/script_tool.html` | 数据初始化 | `css/script_tool.css`、`css/common.css` |
 | `docs/script_table_clear.html` | 表数据清空 | `css/script_table_clear.css`、`css/common.css` |
 | `docs/script_overview.html` | 脚本总览 | `css/script_overview.css`、`css/common.css` |
@@ -99,6 +100,7 @@
 | `css/script_table_clear.css` | 表数据清空页面样式 | `docs/script_table_clear.html` |
 | `css/script_tool.css` | 数据初始化页面样式 | `docs/script_tool.html` |
 | `css/temp_security_code.css` | 临时代码管理页面样式 | `temp_security_code.html` |
+| `css/pool_open_day.css` | 投资池开放日维护页面样式 | `pool_open_day.html` |
 
 ## 业务文档页面
 
