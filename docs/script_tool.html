@@ -15,10 +15,10 @@
 <body class="script-tool-page">
 <div id="script_tool">
     <section class="tool-hero">
-        <div>
+        <div class="tool-hero-main">
             <p class="tool-kicker">RRS SCRIPT TOOL</p>
             <h1>数据初始化</h1>
-            <p class="tool-desc">用于开发和演示环境快速执行建表、Demo 数据初始化、完整重建和调库运行态数据清理。</p>
+            <p class="tool-desc">用于开发和演示环境快速执行建表、Demo 数据初始化、完整重建和调库运行态数据清理。主库批量任务已排除外部导入表与 AIS 库，二者均有独立入口。</p>
         </div>
         <el-button size="small" icon="el-icon-refresh" :loading="loadingTasks" @click="loadTasks">刷新任务</el-button>
     </section>
@@ -35,29 +35,57 @@
     </el-alert>
 
     <section class="task-grid" v-loading="loadingTasks">
-        <article v-for="task in tasks" :key="task.taskCode" class="task-card" :class="'risk-' + task.riskLevel">
+        <article
+            v-for="task in tasks"
+            :key="task.taskCode"
+            class="task-card"
+            :class="['risk-' + task.riskLevel, { 'task-card-full': task.taskCode === 'RESET_ALL' }]">
+
             <div class="task-card-head">
-                <div>
+                <div class="task-title-row">
                     <h2>{{ task.taskName }}</h2>
-                    <p>{{ task.description }}</p>
+                    <el-tag size="mini" :type="riskTagType(task.riskLevel)">{{ riskLabel(task.riskLevel) }}</el-tag>
+                    <el-tag size="mini" type="info">{{ task.tableCount || 0 }} 张表</el-tag>
                 </div>
-                <el-tag size="mini" :type="riskTagType(task.riskLevel)">{{ riskLabel(task.riskLevel) }}</el-tag>
+                <p class="task-desc">{{ task.description }}</p>
             </div>
 
-            <div class="task-info">
-                <span class="info-label">影响范围</span>
-                <span class="info-text">{{ task.affectScope }}</span>
-            </div>
-
-            <div class="confirm-box">
-                <span>确认文本</span>
-                <code>{{ task.confirmText }}</code>
-            </div>
-
-            <div class="item-list">
-                <div class="item-list-title">包含脚本 / 表</div>
-                <div class="item-chip-wrap">
-                    <span v-for="item in task.items" :key="task.taskCode + '-' + item" class="item-chip">{{ item }}</span>
+            <div class="task-info-list">
+                <div class="info-row">
+                    <span class="info-label">影响范围</span>
+                    <span class="info-value">{{ task.affectScope }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">表数量</span>
+                    <span class="info-value">{{ task.tableCount || 0 }} 张</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">确认文本</span>
+                    <span class="info-value"><code>{{ task.confirmText }}</code></span>
+                </div>
+                <div v-if="task.excludedItems && task.excludedItems.length" class="info-row">
+                    <span class="info-label">已排除</span>
+                    <span class="info-value info-value-chips" :title="(task.excludedItems || []).join('、')">
+                        <span
+                            v-for="item in task.excludedItems"
+                            :key="task.taskCode + '-excl-' + item"
+                            class="item-chip item-chip-excluded"
+                            :title="item">
+                            {{ item }}
+                        </span>
+                    </span>
+                </div>
+                <div class="info-row info-row-items">
+                    <span class="info-label">包含脚本 / 表</span>
+                    <span class="info-value info-value-chips info-value-items">
+                        <span
+                            v-for="item in task.items"
+                            :key="task.taskCode + '-' + item"
+                            class="item-chip"
+                            :title="item">
+                            {{ item }}
+                        </span>
+                    </span>
                 </div>
             </div>
 
@@ -86,7 +114,11 @@
                     {{ resultMap[task.taskCode].errorMessage }}
                 </div>
                 <div v-if="resultMap[task.taskCode].executedItems && resultMap[task.taskCode].executedItems.length" class="executed-list">
-                    <span v-for="item in resultMap[task.taskCode].executedItems" :key="task.taskCode + '-done-' + item">{{ item }}</span>
+                    <span
+                        v-for="item in resultMap[task.taskCode].executedItems"
+                        :key="task.taskCode + '-done-' + item">
+                        {{ item }}
+                    </span>
                 </div>
             </div>
         </article>
