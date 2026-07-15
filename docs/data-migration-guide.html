@@ -321,6 +321,15 @@
             white-space: nowrap;
         }
 
+        #data_migration_guide .code-block {
+            display: block;
+            max-width: 560px;
+            overflow-x: auto;
+            white-space: pre;
+            padding: 8px 10px;
+            line-height: 1.55;
+        }
+
         #data_migration_guide .note-box {
             margin-top: 12px;
             padding: 13px 14px;
@@ -608,6 +617,63 @@
                     <td><code class="code-line">'#/48/10024/fd/analysis/sirm/pages/crmw_pool_adjust_detail'</code></td>
                     <td><code>pages/my_matters.html</code>、<code>index.html</code></td>
                     <td>如果公司详情页按业务类型复用，建议统一传 <code>businessType=crmw</code> 或等价字段。</td>
+                </tr>
+                <tr>
+                    <td>页面依赖 CDN 整块替换</td>
+                    <td><code class="code-block">&lt;link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css"&gt;
+&lt;script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"&gt;&lt;/script&gt;
+&lt;script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"&gt;&lt;/script&gt;</code></td>
+                    <td><code class="code-block">&lt;link rel="stylesheet" href="../css/element-ui-2.15.14.css"&gt;
+&lt;script src="../js/vue.dev-2.5.16.js"&gt;&lt;/script&gt;
+&lt;script src="../js/element-ui-2.15.14.js"&gt;&lt;/script&gt;
+&lt;script src="../js/jquery-3.1.1.min.js"&gt;&lt;/script&gt;
+&lt;script src="../js/moment.js"&gt;&lt;/script&gt;</code></td>
+                    <td><code>pages/*.html</code>、<code>index.html</code>、<code>login.html</code>、<code>docs/*.html</code></td>
+                    <td>页面 <code>&lt;head&gt;</code> 中 5 个公网 CDN 依赖可整块替换为公司本地静态资源；相对路径按目标页面所在目录层级调整。下面 5 行是逐项拆分，便于全局搜索。</td>
+                </tr>
+                <tr>
+                    <td>Element UI 样式 CDN</td>
+                    <td><code class="code-line">https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css</code></td>
+                    <td><code class="code-line">../css/element-ui-2.15.14.css</code></td>
+                    <td><code>pages/*.html</code>、<code>index.html</code>、<code>login.html</code>、<code>docs/*.html</code>、<code>js/resource_loader.js</code></td>
+                    <td>内网/离线环境无法访问 unpkg 时，改为公司本地静态资源路径；相对路径按目标页面所在目录层级调整。</td>
+                </tr>
+                <tr>
+                    <td>Vue 脚本 CDN</td>
+                    <td><code class="code-line">https://unpkg.com/vue@2.5.16/dist/vue.min.js</code></td>
+                    <td><code class="code-line">../js/vue.dev-2.5.16.js</code></td>
+                    <td><code>pages/*.html</code>、<code>index.html</code>、<code>login.html</code>、<code>docs/*.html</code>、<code>js/resource_loader.js</code></td>
+                    <td>替换时保持 Vue 2.5.x 主版本一致；若公司已有统一 Vue 包路径，以公司实际路径为准。</td>
+                </tr>
+                <tr>
+                    <td>Element UI 脚本 CDN</td>
+                    <td><code class="code-line">https://unpkg.com/element-ui@2.15.14/lib/index.js</code></td>
+                    <td><code class="code-line">../js/element-ui-2.15.14.js</code></td>
+                    <td><code>pages/*.html</code>、<code>index.html</code>、<code>login.html</code>、<code>docs/*.html</code>、<code>js/resource_loader.js</code></td>
+                    <td>样式与脚本版本需配套（同为 2.15.14）；引入顺序仍为 CSS → Vue → Element UI JS。</td>
+                </tr>
+                <tr>
+                    <td>Axios 脚本 CDN</td>
+                    <td><code class="code-line">https://unpkg.com/axios@1.7.9/dist/axios.min.js</code></td>
+                    <td><code class="code-line">../js/jquery-3.1.1.min.js</code></td>
+                    <td><code>pages/*.html</code>、<code>index.html</code>、<code>login.html</code>、<code>docs/*.html</code>、<code>js/resource_loader.js</code></td>
+                    <td>公司侧若统一用 jQuery 封装请求，可按此替换；若仍走 axios，则改为公司本地 axios 路径，并同步处理 <code>js/api.js</code> 请求封装。</td>
+                </tr>
+                <tr>
+                    <td>Moment 脚本 CDN</td>
+                    <td><code class="code-line">https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js</code></td>
+                    <td><code class="code-line">../js/moment.js</code></td>
+                    <td>使用日期筛选/格式化的业务页、<code>js/resource_loader.js</code></td>
+                    <td>仅页面实际引用了 Moment 时才替换；若还引用了中文 locale，需一并改为公司本地 locale 资源。</td>
+                </tr>
+                <tr>
+                    <td>Base64 文件下载方法</td>
+                    <td><code class="code-line">this.downloadBase64File</code></td>
+                    <td><code class="code-line">downloadBase64</code></td>
+                    <td><code>pages/security_pool_adjust*.html</code>、<code>pages/forbidden_pool_adjust*.html</code>、<code>pages/crmw_pool_adjust*.html</code>、<code>pages/batch_security_pool_adjust.html</code>、<code>js/api.js</code></td>
+                    <td>迁移到公司 RequireJS 页面后，下载方法通常不再挂在 Vue 实例 <code>this</code> 上，改为直接调用公司公共方法 <code>downloadBase64</code>。</td>
                 </tr>
                 <tr>
                     <td>工作台当前用户</td>
