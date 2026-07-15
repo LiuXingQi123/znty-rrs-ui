@@ -45,7 +45,9 @@
                 <div class="task-title-row">
                     <h2>{{ task.taskName }}</h2>
                     <el-tag size="mini" :type="riskTagType(task.riskLevel)">{{ riskLabel(task.riskLevel) }}</el-tag>
-                    <el-tag size="mini" type="info">{{ task.tableCount || 0 }} 张表</el-tag>
+                    <el-tag size="mini" type="info" :title="affectedTableTip(task)">
+                        受影响 {{ task.tableCount || 0 }} 张表
+                    </el-tag>
                 </div>
                 <p class="task-desc">{{ task.description }}</p>
             </div>
@@ -56,8 +58,14 @@
                     <span class="info-value">{{ task.affectScope }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">表数量</span>
-                    <span class="info-value">{{ task.tableCount || 0 }} 张</span>
+                    <span class="info-label">{{ itemCountLabel(task) }}</span>
+                    <span class="info-value">{{ (task.items && task.items.length) || 0 }} {{ itemCountUnit(task) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">受影响表</span>
+                    <span class="info-value" :title="affectedTableTip(task)">
+                        {{ task.tableCount || 0 }} 张（按建表/清空/写入目标去重统计）
+                    </span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">确认文本</span>
@@ -165,6 +173,32 @@ new Vue({
             if (riskLevel === 'danger') return '高危'
             if (riskLevel === 'high') return '高风险'
             return '中风险'
+        },
+
+        // 任务 items 是否为 SQL 脚本（否则视为直接表名，如清空调库流程数据）
+        isScriptItems(task) {
+            const items = (task && task.items) || []
+            if (!items.length) return true
+            return items.every(item => typeof item === 'string' && item.indexOf('.sql') >= 0)
+        },
+
+        // 包含项数量标签
+        itemCountLabel(task) {
+            return this.isScriptItems(task) ? '脚本数量' : '清单表数'
+        },
+
+        // 包含项数量单位
+        itemCountUnit(task) {
+            return this.isScriptItems(task) ? '个' : '张'
+        },
+
+        // 受影响表数量提示（避免与脚本文件个数混淆）
+        affectedTableTip(task) {
+            const n = (task && task.tableCount) || 0
+            if (this.isScriptItems(task)) {
+                return '受影响表 ' + n + ' 张：按本任务脚本内 CREATE/TRUNCATE/INSERT 的目标表去重统计，不是脚本文件数量'
+            }
+            return '受影响表 ' + n + ' 张：本任务将直接处理的表数量'
         },
 
         // 确认并执行脚本任务
