@@ -46,6 +46,7 @@
 | `docs/validation-comparison-audit.html` | 调库校验新旧对比 | HTML 内联样式 |
 | `docs/flow-type-comparison-audit.html` | 调库流程类型对比 | HTML 内联样式 |
 | `docs/query-scope-old-new-comparison.html` | 查询范围新老差异 | HTML 内联样式 |
+| `docs/temp-security-code-old-new-comparison.html` | 临时代码管理新老对比 | HTML 内联样式 |
 | `docs/bond-link-audit.html` | 老项目债券池调库链路梳理 | HTML 内联样式 |
 | `docs/full-comparison-audit.html` | 新老系统调库全量对比 | HTML 内联样式 |
 | `docs/security-pool-link-audit.html` | 证券池单笔调库体检 | HTML 内联样式 |
