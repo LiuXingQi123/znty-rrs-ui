@@ -898,7 +898,7 @@
                     <i :class="sectionExpanded.adjustReview ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
                 <div v-show="sectionExpanded.adjustReview" class="section-body" style="padding:0;">
-                    <el-table :data="adjustReviewList" size="small" stripe border style="width:100%;"
+                    <el-table :data="adjustReviewList" size="small" stripe border style="width:100%;" :row-class-name="getAdjustReviewRowClass"
                               :empty-text="'暂无数据'">
                         <el-table-column label="序号" width="50" align="center">
                             <template slot-scope="{ $index }">
@@ -2386,6 +2386,27 @@
             getFlowRowColorClass(index) {
                 return 'flow-row-color-' + (index % 5);
             },
+            // 为校验结果按 adjustGroupKey 分配同组底色序号（手工+联动/互斥/关联共用）
+            applyAdjustGroupColors(list) {
+                const keyToIndex = {}
+                let next = 0
+                return (list || []).map(row => {
+                    const key = row.adjustGroupKey
+                        || ('__solo_' + (row.poolId || '') + '_' + (row.direction || '') + '_' + (row.securityCode || ''))
+                    if (keyToIndex[key] === undefined) {
+                        keyToIndex[key] = next % 5
+                        next++
+                    }
+                    return Object.assign({}, row, { groupColorIndex: keyToIndex[key] })
+                })
+            },
+
+            // 调库校验结果表格行 class：同组同色
+            getAdjustReviewRowClass({ row }) {
+                const idx = row && row.groupColorIndex != null ? row.groupColorIndex : 0
+                return 'adjust-group-color-' + (idx % 5)
+            },
+
 
             // 进入步骤2（调用后端校验接口）
             async goToStep2() {
@@ -2417,7 +2438,7 @@
                 }
 
                 const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' }
-                this.adjustReviewList = result.items.map((item, rowIndex) => {
+                this.adjustReviewList = this.applyAdjustGroupColors(result.items.map((item, rowIndex) => {
                     const typePrefix = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode
                     const failReasonStr = (item.failReasons || []).join('；')
                     const rowFlowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex);
@@ -2444,7 +2465,7 @@
                         flowType: recommendedFlow ? recommendedFlow.flowType : '',
                         flowName: recommendedFlow ? recommendedFlow.flowName : ''
                     }
-                });
+                }));
                 this.pendingAdjustReviewList = this.adjustReviewList;
                 this.flowOptions = (result.flowOptions || []).map((option, index) => ({
                     optionKey: (option.flowKey || option.flowType || 'flow') + '_' + index,

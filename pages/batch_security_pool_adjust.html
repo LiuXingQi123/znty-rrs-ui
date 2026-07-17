@@ -317,7 +317,7 @@
                         <span class="summary-chip">步骤 {{ adjustStep }}/2</span>
                     </div>
                 </div>
-                <el-table ref="adjustReviewTableRef" :data="adjustReviewList" stripe border size="small" style="width:100%;" empty-text="暂无校验结果">
+                <el-table ref="adjustReviewTableRef" :data="adjustReviewList" stripe border size="small" style="width:100%;" :row-class-name="getAdjustReviewRowClass" empty-text="暂无校验结果">
                     <el-table-column label="序号" width="50" align="center">
                         <template slot-scope="{ $index }">{{ $index + 1 }}</template>
                     </el-table-column>
@@ -1210,7 +1210,7 @@
                         }))
                     };
                     const data = await this.apiPost('/api/v1/batchSecurityPoolAdjust/checkAdjust', checkParams)
-                    this.adjustReviewList = (data.items || []).map((item, index) => this.buildReviewRow(item, index))
+                    this.adjustReviewList = this.applyAdjustGroupColors((data.items || []).map((item, index) => this.buildReviewRow(item, index)))
                     this.adjustStep = 2
                     // 校验结果显示后同步右侧固定列
                     this.refreshTableLayout('adjustReviewTableRef')
@@ -1438,6 +1438,27 @@
             getFlowRowColorClass(index) {
                 return 'flow-row-color-' + (index % 5)
             },
+            // 为校验结果按 adjustGroupKey 分配同组底色序号（手工+联动/互斥/关联共用）
+            applyAdjustGroupColors(list) {
+                const keyToIndex = {}
+                let next = 0
+                return (list || []).map(row => {
+                    const key = row.adjustGroupKey
+                        || ('__solo_' + (row.poolId || '') + '_' + (row.direction || '') + '_' + (row.securityCode || ''))
+                    if (keyToIndex[key] === undefined) {
+                        keyToIndex[key] = next % 5
+                        next++
+                    }
+                    return Object.assign({}, row, { groupColorIndex: keyToIndex[key] })
+                })
+            },
+
+            // 调库校验结果表格行 class：同组同色
+            getAdjustReviewRowClass({ row }) {
+                const idx = row && row.groupColorIndex != null ? row.groupColorIndex : 0
+                return 'adjust-group-color-' + (idx % 5)
+            },
+
 
             // 流程候选项 el-tag type
             getFlowOptionTagType(option) {
