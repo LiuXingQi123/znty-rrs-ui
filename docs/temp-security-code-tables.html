@@ -359,66 +359,91 @@
 <header>
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>临时代码管理</h1>
-        <p class="desc">维护未取得正式 Wind 代码的临时证券；更新为正式证券时同步 upsert
-            证券主数据，也可取消发行或软删除。</p>
-        <div class="stats"><span class="stat">4 项表/表组</span><span class="stat">6 个主要接口</span><span
-                class="stat">依据当前代码实现</span></div>
+        <p class="desc">维护未取得正式 Wind 代码的临时证券；转正式时按老系统分叉处理在途日志与已在池出/入，也可取消发行或软删除。</p>
+        <div class="stats"><span class="stat">7 项表/表组</span><span class="stat">7 个主要接口</span><span
+                class="stat">对齐老系统转正分叉</span></div>
     </div>
 </header>
 <main class="wrap">
     <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">查询与下拉选项</a><a href="#logic-2">新增、转正式、取消与删除</a><a
-            href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
+            href="#logic-3">转正调库日志</a><a href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
     <section class="panel" id="overview"><h2>业务流程总览</h2>
         <p class="sub">从页面操作到数据库读写的主要路径。</p>
         <div class="flow">
             <div class="step"><b>1. 查询列表</b><span>按临时代码、名称分页并展示临时及正式信息。</span></div>
-            <div class="step"><b>2. 加载选项</b><span>查询发行主体和证券类型。</span></div>
-            <div class="step"><b>3. 新增临时证券</b><span>校验主体、市场、类型、日期和代码唯一性。</span></div>
-            <div class="step"><b>4. 转正式/取消</b><span>临时状态可更新为正式证券或取消发行。</span></div>
-            <div class="step"><b>5. 删除</b><span>任意未删除状态均可软删除。</span></div>
+            <div class="step"><b>2. 加载选项</b><span>查询发行主体和证券类型；转正时远程搜正式证券。</span></div>
+            <div class="step"><b>3. 新增临时证券</b><span>写主表 + 同步 rrs_securityinfo 占位（security_source=temporary）。</span></div>
+            <div class="step"><b>4. 转正式</b><span>选正式主数据；在途改字段、已在池出/入；临时占位置 D。</span></div>
+            <div class="step"><b>5. 取消/删除</b><span>取消仅 temporary；删除仅 temporary 且无核心引用。</span></div>
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>查询与下拉选项</h2>
-        <p class="sub">列表与详情的删除过滤口径存在差异。</p><span class="api">POST /api/v1/tempSecurityCode/queryTempSecurityCodePage · queryTempSecurityCodeOptions</span>
+        <p class="sub">列表与详情的删除过滤口径存在差异。</p><span class="api">POST /api/v1/tempSecurityCode/queryTempSecurityCodePage · queryTempSecurityCodeOptions · queryFormalSecurityOptionList</span>
         <div class="logic">
             <article class="card"><h3>列表查询</h3>
                 <ul>
                     <li>主表为 <code>rrs_temp_security_code</code>，关联两次证券类型字典。</li>
-                    <li>支持临时代码、临时名称模糊查询，按创建时间和ID倒序。</li>
-                    <li>当前列表未过滤 is_deleted，因此已删除记录仍可显示；详情按ID会过滤已删除。</li>
+                    <li>支持临时代码、临时名称模糊查询；排序对齐老系统状态优先。</li>
+                    <li>当前列表未过滤 is_deleted，已删除记录仍可显示；详情按 ID 过滤已删除。</li>
                 </ul>
             </article>
-            <article class="card"><h3>选项数据</h3>
+            <article class="card"><h3>选项与正式选券</h3>
                 <ul>
                     <li>发行主体来自 <code>ais_inv_ods.wind_cbondissuer</code>（远程搜索，最多 50 条）。</li>
                     <li>证券类型来自未删除且 category_type!='company' 的字典。</li>
+                    <li>转正正式证券：<code>queryFormalSecurityOptionList</code> 搜 <code>rrs_securityinfo</code>（排除 temporary 占位与退市，最多 50 条）。</li>
                 </ul>
             </article>
         </div>
     </section>
     <section class="panel" id="logic-2"><h2>新增、转正式、取消与删除</h2>
-        <p class="sub">所有变更操作均在事务中执行。</p><span class="api">POST /api/v1/tempSecurityCode/addTempSecurityCode · editTempSecurityCodeToUpdated · editTempSecurityCodeToCancelled · deleteTempSecurityCode</span>
+        <p class="sub">所有变更操作均在事务中执行；转正式对齐老系统 refreshTempSecurity 分叉。</p><span class="api">POST /api/v1/tempSecurityCode/addTempSecurityCode · editTempSecurityCodeToUpdated · editTempSecurityCodeToCancelled · deleteTempSecurityCode</span>
         <div class="logic">
-            <article class="card"><h3>新增和转正式</h3>
+            <article class="card"><h3>新增</h3>
                 <ul>
-                    <li>新增状态固定 temporary，仅写临时字段。</li>
-                    <li>转正式仅允许 temporary；先按正式 securityCode 对 <code>rrs_securityinfo</code> 做
-                        INSERT/UPDATE，再更新临时代码状态为 updated。
-                    </li>
-                    <li>正式证券 issuer 使用主体名称快照。</li>
+                    <li>状态固定 temporary，仅写临时字段。</li>
+                    <li>同步插入 <code>rrs_securityinfo</code>（wind_code=临时代码，security_source=temporary）。</li>
+                    <li>若临时码已在主数据存在则拒绝新增。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>转正式（核心）</h3>
+                <ul>
+                    <li>仅 temporary；正式码从主数据选券，临时信息只读；正式码不能等于临时码。</li>
+                    <li><b>在途</b>（ip_adjust_log audit_status=00/11）：只改日志上证券/CRMW 字段为正式码，不写出/入业务单。</li>
+                    <li><b>已在池</b>（ip_pool_status 等 audit_status=20）：每池写「债券临时代码调出」+ 软删临时状态；正式未在池再写正式调入 + 新建池状态。</li>
+                    <li>正式主数据已存在则不再 upsert；临时占位置 security_status=D。</li>
                 </ul>
             </article>
             <article class="card"><h3>取消和删除</h3>
                 <ul>
-                    <li>取消发行仅允许 temporary，状态改为 cancelled，不写正式证券。</li>
-                    <li>删除只要求记录存在且未删除，temporary/updated/cancelled 均可删。</li>
-                    <li>删除更新 status=deleted、operation_type=delete、is_deleted=1。</li>
+                    <li>取消发行仅 temporary：主数据到期/止息改为前一日并置 D，状态 cancelled。</li>
+                    <li>删除仅 temporary，且无调库/池引用；status=deleted、is_deleted=1。</li>
+                    <li>updated / cancelled 不可再删除（对齐老系统）。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-3"><h2>转正时调库日志条数（对齐老系统）</h2>
+        <p class="sub">以「临时已在池 → 转正式」且正式尚未在同池为例。</p>
+        <div class="logic">
+            <article class="card"><h3>完整时间线常见 3 条</h3>
+                <ul>
+                    <li><b>① 历史</b>：当初临时代码调入时产生的调入日志（转正不改不删）。</li>
+                    <li><b>② 转正当下</b>：临时代码调出（reason=债券临时代码调出，audit_status=20）。</li>
+                    <li><b>③ 转正当下</b>：正式代码调入（继承原原因/调整人，audit_status=20）。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>分支差异</h3>
+                <ul>
+                    <li>正式码已在同池：转正只新增出库 1 条，不写正式入库。</li>
+                    <li>仅在途未在池：不新增出/入业务单，只改在途日志字段。</li>
+                    <li>池/日志上 CRMW 字段指向临时码：仅字段替换（对齐老 findInvestPoolStatusLC）。</li>
                 </ul>
             </article>
         </div>
     </section>
     <section class="panel" id="tables"><h2>涉及表、用途与触发场景</h2>
-        <p class="sub">读写口径包含页面初始化、主业务接口及其正常后续流程。</p>
+        <p class="sub">读写口径包含页面初始化、主业务接口及转正联动调库表。</p>
         <div class="table-wrap">
             <table>
                 <thead>
@@ -438,11 +463,31 @@
                     <td>列表、新增、转正式、取消、软删除</td>
                 </tr>
                 <tr>
+                    <td><span class="name">rrs_temp_security_code_update_log</span></td>
+                    <td>转正时字段替换/出池等技术替换明细</td>
+                    <td><span class='tag w'>新增</span></td>
+                    <td>在途日志改码、池状态出/入过程记录</td>
+                </tr>
+                <tr>
                     <td><span class="name">rrs_securityinfo</span></td>
-                    <td>正式证券基础信息</td>
+                    <td>证券主数据（临时占位 + 正式选券）</td>
                     <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span class='tag u'>更新</span>
                     </td>
-                    <td>临时代码更新为正式证券时按 wind_code upsert</td>
+                    <td>新增写 temporary 占位；转正选正式、禁用临时；取消发行改到期/D</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_adjust_log</span></td>
+                    <td>调库业务日志</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span class='tag u'>更新</span>
+                    </td>
+                    <td>在途转正改字段；已在池转正写出/入日志</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_status / ip_pool_status_crmw</span></td>
+                    <td>当前在池状态</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span class='tag u'>更新</span>
+                    </td>
+                    <td>已在池转正：软删临时、正式未在池则新建；CRMW 字段仅替换</td>
                 </tr>
                 <tr>
                     <td><span class="name">dict_security_type</span></td>
@@ -454,7 +499,7 @@
                     <td><span class="name">ais_inv_ods.wind_cbondissuer</span></td>
                     <td>发行主体选项与主体名称</td>
                     <td><span class='tag r'>查询</span></td>
-                    <td>新增或变更关联主体</td>
+                    <td>新增关联主体</td>
                 </tr>
                 </tbody>
             </table>
@@ -462,13 +507,15 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>状态流转：temporary → updated / cancelled / deleted；updated、cancelled 只能继续删除。</li>
-            <li>正式证券 upsert 以 <code>wind_code=securityCode</code> 判重，后更新的同代码记录可能覆盖既有主数据。</li>
+            <li>状态流转：temporary → updated / cancelled；删除仅 temporary → deleted。updated/cancelled 为冻结态，不可再转正式/取消/删除。</li>
+            <li>转正式必须从主数据选已有正式券，不再对正式 wind_code 做 upsert 覆盖。</li>
+            <li>O32 识别：按 <code>temp_security_code</code> + status=temporary 判断，临时代码转人工 pending。</li>
+            <li>调入信用债大库：临时占位无主体内评时默认 grade_code=4（对齐老系统 lon 默认 8.0 最低档语义）。</li>
             <li>列表未过滤软删除而详情过滤软删除，是当前实现的明确不一致点。</li>
-            <li>临时主体ID不变时保留名称快照，即使主体主数据名称后来变化也不会自动刷新。</li>
+            <li>临时主体代码不变时保留名称快照，即使主体主数据名称后来变化也不会自动刷新。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
-            XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
+            XML、需求文档 24-temp-security-code 与老系统 TempSecurityInfoTableAction 对照整理；后续代码规则变化时应同步维护。
         </div>
     </section>
     <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p></main>
