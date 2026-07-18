@@ -1,7 +1,7 @@
 # 前端开发规范（CLAUDE.md）
 
 > 适用项目：Vue 2.x 管理系统类前端项目（`znty-rrs-ui`）  
-> 说明：本目录 `AGENTS.md` 与 `CLAUDE.md` 内容同步（仅文件名不同），修改时须两边同时更新。
+> 说明：本目录 `CLAUDE.md` 与 `AGENTS.md` 内容同步（仅文件名不同），修改时须两边同时更新。
 
 > 仓库级总览（业务模块、调库三链路、常用命令等）见上级 `../CLAUDE.md` / `../AGENTS.md`。本文件聚焦前端编码约定与本工程架构要点，不重复上级文档已有内容。
 
@@ -9,16 +9,17 @@
 
 ## 技术栈
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| Vue | 2.5.16 | 核心框架 |
-| Element UI | 2.15.0 | UI 组件库 |
-| Axios | latest | HTTP 请求 |
-| ECharts | latest | 图表可视化 |
-| Moment.js | latest | 日期时间处理 |
+| 技术 | 版本 / 引入方式 | 用途 |
+|------|----------------|------|
+| Vue | 2.5.x（页面 CDN 或本地文件，以页面实际引用为准） | 核心框架 |
+| Element UI | 2.15.x（同上） | UI 组件库 |
+| Axios | 页面 CDN 或本地文件（**不要写死 latest**，以仓库内引用为准） | HTTP 请求 |
+| ECharts | 按需在页面引入（有图表的页才引） | 图表可视化 |
+| Moment.js | 按需在页面引入 | 日期时间处理 |
 | JavaScript | ES6+ | 业务逻辑 |
 | HTML5 | — | 页面结构 |
 
+> 依赖通过各页 `<script>` / `<link>` 引入（无 npm 构建）。**版本以页面实际引用的 CDN 地址或本地文件为准**，本文表格仅作对照，避免写 `latest` 造成漂移。  
 > 引入上述以外的第三方库前，必须先询问用户并获得确认。
 
 ---
@@ -53,23 +54,46 @@
 
 ### 字典与文档
 
-- `docs/dict.js` 是 code→中文名称的**参考字典**（与后端 `com.znty.rrs.common.enums` 核对），**当前不是运行时依赖**：各业务页仍 inline 维护各自字典与 `xxxLabel() / xxxTagType()` helper。后续统一字典接入时以 `dict.js` 为准。
-- `docs/*.html` 是业务文档页（表结构 / 字段说明，HTML 内联样式），由 `docs/module-tables-index.html` 索引。
+- `docs/dict.js` 是 code→中文名称的**对照参考**（应与后端 `com.znty.rrs.common.enums` 一致），**当前多数业务页未在运行时直接 `import` / 引入该文件**：页面内仍用 inline 字典 + `xxxLabel()` / `xxxTagType()` helper 做展示。
+- **改枚举或新增枚举值时**：先更新 / 对照 `docs/dict.js`，再同步改各业务页 inline 字典与 helper，保证全站文案与配色一致；不要只改一页。
+- `docs/*.html` 是工作台「**业务文档**」菜单下的功能说明页（表结构 / 字段 / 流程说明等，HTML 内联样式），总览入口为 `docs/module-tables-index.html`；菜单注册在 `index.html` 的「业务文档」分组。
 - `docs/page_catalog.md` 是「页面 ↔ CSS」对照清单；新增 / 重命名 / 删除页面或样式文件时必须同步更新该清单。
+
+### 重要：新增 / 修改功能时同步更新业务文档（强制）
+
+> **此点优先级高。** 只改业务页、不改对应业务文档，视为交付不完整。
+
+- 在 `pages/` 新增功能、或修改既有功能的**字段、接口、流程步骤、校验规则、状态含义、表格列、操作按钮**等时，必须同步更新 `docs/` 下**相对应**的业务文档页（一般为 `docs/*-tables.html`，名称与业务模块对应，如证券池调库 ↔ `security-pool-adjust-*.html`）。
+- 新增业务模块 / 新页面时：除页面与 CSS、`page_catalog.md`、菜单外，还须新增或补全对应业务文档页，并在 `docs/module-tables-index.html` 与 `index.html`「业务文档」菜单中登记（若该模块应对用户可见）。
+- 文档内容应与实现一致：接口路径与入参出参、关键字段含义、状态枚举、操作路径等；实现已变而文档仍写旧逻辑的，必须改文档。
+- 若无法判断应对应哪份文档：先查 `docs/module-tables-index.html`、`index.html` 业务文档菜单、`docs/page_catalog.md`；仍不确定时**主动询问用户**（给出候选文档路径选项），不要跳过文档更新。
 
 ### 本地预览与调试
 
 - 前端无构建。推荐入口：`login.html` → 登录后跳 `index.html` 工作台 → 通过菜单打开业务页（iframe）。直接打开 `pages/xxx.html` 可看布局，但脱离工作台 iframe 时 `common.css` 的隐藏 / 固定规则会失效，且无真实登录用户。
 - 业务页请求 `http://localhost:18090`，需后端 `znty-rrs-parent` 服务在跑；跨域由后端处理，前端无需额外配置。用任意静态服务器（如 `python -m http.server`、VS Code Live Server）托管 UI 目录即可，避免 `file://` 协议下部分浏览器限制。
+
+---
+
 ## 页面风格与 UI 设计规范
 
-项目整体 UI 设计规范以 `project_ui_design_guidelines.md` 为准。新增页面、页面重构、页面样式调整、AI 生成页面和 UI 走查时，必须先参考该文件；本节只保留关键摘要和执行原则，避免多份文档重复维护后产生偏差。
+**整体页面风格与 UI 以 `project_ui_design_guidelines.md` 为准**（权威源）。新增页面、页面重构、样式调整、AI 生成页面和 UI 走查时，必须先阅读该文件。  
+本节仅保留执行时常用摘要与本仓库编码侧约束；**若本节摘要与 `project_ui_design_guidelines.md` 冲突，以设计规范文件为准**。
 
 ### 核心风格
 
 - 项目定位为金融投研类 B 端后台系统，整体气质应稳重、克制、专业、数据优先。
 - 页面风格以白色内容面板、浅灰页面背景、深蓝主色、高密度表格为主。
 - 信息组织优先服务查询、筛选、表格扫描、批量操作和详情查看，不做营销式展示页。
+
+### 重要：全站风格一致 + 同类型页面一致（强制）
+
+> **此点优先级高。** 改 UI 时宁可先问清，也不要在单页另起一套风格。
+
+- **全站整体风格必须一致**：主色、字号密度、查询区/表格/分页/弹窗骨架、按钮与 Tag 用法等，均服从 `project_ui_design_guidelines.md` 与现有业务页基准实现，禁止单页「自成体系」。
+- **同类型页面必须一致**：例如证券池 / 禁投池 / CRMW 的调库申请、审核、详情；各类查询列表、历史列表；同类选择弹窗、报告选择面板等。改其中一页的布局、列宽约定、状态 Tag、流程选择交互时，须对照同类页，避免只改一处造成分裂。
+- 新增或改版前：先在项目中找到**同类已有页面**作为基准，复用其结构、类名、配色 helper 与交互；不要凭空设计。
+- **拿不准时必须主动询问用户**（用选项让用户选，不要自行猜）：例如「跟 A 页对齐 / 跟 B 页对齐 / 全站统一成某套 / 仅本页特殊处理（需说明业务原因）」。风格取舍、列宽、是否改多页、是否动公共 CSS 等，有歧义时先问再改。
 
 ### 重要：同类内容一致性
 
@@ -169,7 +193,7 @@ data() {
     currentRow: null,     // 当前操作行
     queryParam: {},       // 查询条件
     pagination: {
-      page: 1,            // 当前页码
+      pageIndex: 1,       // 当前页码（后端字段 pageIndex）
       pageSize: 20,       // 每页条数
       total: 0,           // 总条数
     }
@@ -213,9 +237,11 @@ handleDelete(row) {},
 el → data() → computed → watch → created / mounted → methods
 ```
 
-### 标准页面模板
+### 标准页面模板（`pages/` 业务页）
 
-以下为公司内网 / 离线环境的本地依赖写法；可连接外网时，可沿用项目现有公网 CDN 写法，不要求强制改成本地资源。
+以下按**本仓库真实约定**编写（路径相对 `pages/xxx.html`）。CDN 版本号可随项目现有页对齐，**不要**省略 `../js/api.js` 与 `../css/common.css`。
+
+**新建页还需同步**：`index.html` 的 `menuGroups` 注册菜单、`docs/page_catalog.md` 登记「页面 ↔ CSS」、新增同名 `css/xxx.css`。
 
 ```html
 <!DOCTYPE html>
@@ -223,23 +249,28 @@ el → data() → computed → watch → created / mounted → methods
 <head>
   <meta charset="UTF-8" />
   <title>页面标题</title>
-  <link rel="stylesheet" href="element-ui/index.css" />
-  <script src="vue/vue.min.js"></script>
-  <script src="element-ui/index.js"></script>
-  <script src="axios/axios.min.js"></script>
+  <!-- 引入顺序：Element UI CSS → Vue → Element UI → axios → api.js → 按需 moment → 页面 CSS → common.css -->
+  <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css" />
+  <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+  <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+  <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+  <link rel="stylesheet" href="../css/demo_page.css" />
+  <link rel="stylesheet" href="../css/common.css" />
 </head>
-<body>
+<body class="demo-page">
 
-<div id="app">
+<div id="demo_page">
   <!-- 搜索区 -->
   <div class="toolbar">
-    <el-input v-model="queryParam.name" placeholder="请输入姓名" style="width: 200px;"></el-input>
-    <el-button type="primary" @click="loadList">查询</el-button>
-    <el-button @click="handleReset">重置</el-button>
+    <el-input v-model="queryParam.name" placeholder="请输入名称" size="small" style="width: 200px;"></el-input>
+    <el-button type="primary" size="small" @click="handleSearch">查询</el-button>
+    <el-button size="small" @click="handleReset">重置</el-button>
   </div>
 
   <!-- 表格区 -->
-  <el-table :data="dataSource" v-loading="loading" border stripe>
+  <el-table :data="dataSource" v-loading="loading" border stripe size="small">
     <el-table-column prop="name" label="名称"></el-table-column>
     <el-table-column label="操作" width="160">
       <template slot-scope="{ row }">
@@ -249,10 +280,10 @@ el → data() → computed → watch → created / mounted → methods
     </el-table-column>
   </el-table>
 
-  <!-- 分页区 -->
+  <!-- 分页区：与后端约定使用 pageIndex / pageSize -->
   <el-pagination
     :total="pagination.total"
-    :current-page="pagination.page"
+    :current-page="pagination.pageIndex"
     :page-size="pagination.pageSize"
     layout="total, prev, pager, next"
     @current-change="handlePageChange">
@@ -260,21 +291,21 @@ el → data() → computed → watch → created / mounted → methods
 
   <!-- 编辑弹窗 -->
   <el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="500px">
-    <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
+    <el-form :model="form" :rules="rules" ref="formRef" label-width="80px" size="small">
       <el-form-item label="名称" prop="name">
         <el-input v-model="form.name"></el-input>
       </el-form-item>
     </el-form>
     <span slot="footer">
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" @click="handleSubmit">确认</el-button>
+      <el-button size="small" @click="dialogVisible = false">取消</el-button>
+      <el-button type="primary" size="small" @click="handleSubmit">确认</el-button>
     </span>
   </el-dialog>
 </div>
 
 <script>
 new Vue({
-  el: '#app',
+  el: '#demo_page',
   data() {
     return {
       dataSource: [],       // 列表数据
@@ -283,10 +314,10 @@ new Vue({
       dialogTitle: '',      // 弹窗标题
       form: {},             // 表单数据（新增/编辑）
       queryParam: {
-        name: '',           // 姓名
+        name: '',           // 名称
       },
       pagination: {
-        page: 1,            // 当前页码
+        pageIndex: 1,       // 当前页码（后端字段 pageIndex）
         pageSize: 20,       // 每页条数
         total: 0,           // 总条数
       },
@@ -300,16 +331,30 @@ new Vue({
     // 加载列表
     async loadList() {
       this.loading = true
-      const data = await this.apiPost('/api/list', { ...this.queryParam, ...this.pagination })
-      this.loading = false
-      this.dataSource = data.list
-      this.pagination.total = data.total
+      try {
+        // apiPost 已解包 data；分页列表常见返回 { records/list, total } 以实际接口为准
+        const data = await this.apiPost('/api/v1/demo/queryDemoPage', {
+          ...this.queryParam,
+          pageIndex: this.pagination.pageIndex,
+          pageSize: this.pagination.pageSize
+        })
+        this.dataSource = data.records || data.list || []
+        this.pagination.total = data.total || 0
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // 查询（回到第一页）
+    handleSearch() {
+      this.pagination.pageIndex = 1
+      this.loadList()
     },
 
     // 搜索重置
     handleReset() {
       this.queryParam = { name: '' }
-      this.pagination.page = 1
+      this.pagination.pageIndex = 1
       this.loadList()
     },
 
@@ -330,7 +375,7 @@ new Vue({
     // 提交表单
     async handleSubmit() {
       await this.$refs.formRef.validate()
-      await this.apiPost('/api/save', this.form)
+      await this.apiPost('/api/v1/demo/saveDemo', this.form)
       this.$message.success('操作成功')
       this.dialogVisible = false
       this.loadList()
@@ -339,7 +384,7 @@ new Vue({
     // 删除确认
     handleDelete(row) {
       this.$confirm('确认删除？', '提示', { type: 'warning' }).then(async () => {
-        await this.apiPost('/api/delete', { id: row.id })
+        await this.apiPost('/api/v1/demo/deleteDemo', { id: row.id })
         this.$message.success('删除成功')
         this.loadList()
       })
@@ -347,23 +392,17 @@ new Vue({
 
     // 分页切换
     handlePageChange(page) {
-      this.pagination.page = page
+      this.pagination.pageIndex = page
       this.loadList()
     }
   }
 })
 </script>
-
-<style>
-/* 页面容器 */
-#app { padding: 16px; }
-
-/* 顶部操作栏 */
-.toolbar { margin-bottom: 16px; display: flex; gap: 8px; align-items: center; }
-</style>
 </body>
 </html>
 ```
+
+> 说明：示例中的 `/api/v1/demo/*`、`demo_page` 仅为示意；真实接口 path、根容器 id、CSS 文件名按业务模块命名。页面私有样式写在 `css/页面名.css`，并用根容器 id 做选择器前缀。
 
 ---
 
@@ -389,6 +428,8 @@ new Vue({
 - 本次需求未要求修改的功能和表现，默认必须保持原样；不得因为重构、统一风格、简化实现或赶进度而删减、弱化或替换。
 - 只允许修改用户明确要求的范围，以及为完成该需求确实必需的最小关联范围。
 - 修改完成后，必须对照原页面检查是否存在功能缺失、字段减少、按钮丢失、弹窗内容缺少、校验弱化、接口调用改变或状态展示删减。
+- **风格类改动**：须满足「全站 / 同类型页面一致」；拿不准对齐哪一页或是否改多页时，**先向用户提供选项再改**（见上文「全站风格一致 + 同类型页面一致」）。
+- **功能类改动**：须同步更新「业务文档」中对应功能描述页（见上文「新增 / 修改功能时同步更新业务文档」）；未更新文档不得视为完成。
 
 ---
 
@@ -499,17 +540,20 @@ methods: {
 | 6 | 组件销毁不释放 ECharts 实例 | 导致内存泄漏 |
 | 7 | 未经确认引入新的第三方库 | 避免冗余依赖和包体积膨胀 |
 | 8 | 未先参考 `project_ui_design_guidelines.md` 就新增、重构或大改页面 | 容易偏离项目整体 UI 规范 |
-| 9 | 为同类组件、字段、弹窗、选择面板、业务功能片段新增另一套视觉或交互模式 | 破坏同类内容一致性 |
-| 10 | 页面级 CSS 不加当前页面根容器 id 前缀 | 容易污染其他页面或被其他页面样式影响 |
-| 11 | 在页面末尾不断追加重复覆盖规则或生成近似重复样式 | 增加样式冗余和维护成本 |
-| 12 | 未确认引用关系就盲目删除历史样式 | 可能破坏仍在使用的页面效果 |
-| 13 | 未理解原页面结构、交互、接口、字段和状态就直接重写 | 容易造成原有功能丢失 |
-| 14 | 删减、弱化或替换本次需求未要求修改的功能和表现 | 破坏功能完整性 |
-| 15 | 顺手改动当前任务无关的功能、接口、字段、按钮、弹窗、校验和状态展示 | 扩大改动范围，增加回归风险 |
-| 16 | 把原有业务效果改成低配版本 | 降低页面信息完整性和交互质量 |
-| 17 | 复制切图导出的绝对定位 DOM 作为业务页面实现 | 不符合 Vue2 + ElementUI 落地方式 |
-| 18 | 为逐像素复刻设计稿而大量改写 ElementUI 复杂组件内部结构 | 维护成本高，容易破坏组件稳定性 |
-| 19 | 表格中状态、类型、方向、评级等枚举字段不使用 el-tag，改用纯文本或自定义 span class | 破坏同类字段一致性，无法统一配色，偏离 ElementUI 落地原则 |
+| 9 | 单页另起一套风格，或同类型页面（如多条调库链路）视觉/交互不一致却不对照基准页 | 破坏全站与同类型一致性 |
+| 10 | 风格取舍拿不准时不询问用户、自行猜测改法 | 易改错范围或多页分裂；应给选项请用户选择 |
+| 11 | 新增/修改功能后不更新 `docs/` 下对应业务文档页（及必要的索引/菜单） | 业务文档与实现脱节，交付不完整 |
+| 12 | 为同类组件、字段、弹窗、选择面板、业务功能片段新增另一套视觉或交互模式 | 破坏同类内容一致性 |
+| 13 | 页面级 CSS 不加当前页面根容器 id 前缀 | 容易污染其他页面或被其他页面样式影响 |
+| 14 | 在页面末尾不断追加重复覆盖规则或生成近似重复样式 | 增加样式冗余和维护成本 |
+| 15 | 未确认引用关系就盲目删除历史样式 | 可能破坏仍在使用的页面效果 |
+| 16 | 未理解原页面结构、交互、接口、字段和状态就直接重写 | 容易造成原有功能丢失 |
+| 17 | 删减、弱化或替换本次需求未要求修改的功能和表现 | 破坏功能完整性 |
+| 18 | 顺手改动当前任务无关的功能、接口、字段、按钮、弹窗、校验和状态展示 | 扩大改动范围，增加回归风险 |
+| 19 | 把原有业务效果改成低配版本 | 降低页面信息完整性和交互质量 |
+| 20 | 复制切图导出的绝对定位 DOM 作为业务页面实现 | 不符合 Vue2 + ElementUI 落地方式 |
+| 21 | 为逐像素复刻设计稿而大量改写 ElementUI 复杂组件内部结构 | 维护成本高，容易破坏组件稳定性 |
+| 22 | 表格中状态、类型、方向、评级等枚举字段不使用 el-tag，改用纯文本或自定义 span class | 破坏同类字段一致性，无法统一配色，偏离 ElementUI 落地原则 |
 
 ---
 
