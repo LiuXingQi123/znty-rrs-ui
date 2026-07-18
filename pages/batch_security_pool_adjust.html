@@ -338,13 +338,21 @@
                             <el-tag size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
                         </template>
                     </el-table-column>
-                    <el-table-column label="审批流程" min-width="210">
+                    <el-table-column label="审批流程" min-width="175">
                         <template slot-scope="{ row }">
-                            <span v-if="row.valid && row.itemTag === 'manual'">{{ row.batchFlowName }}</span>
+                            <el-select v-if="row.valid && row.itemTag === 'manual'" v-model="row.selectedFlowKey" size="small" placeholder="请选择流程"
+                                       popper-class="batch-flow-select-dropdown"  @change="handleRowFlowChange(row)">
+                                <el-option v-for="option in row.flowOptions" :key="option.optionKey" :label="option.flowName" :value="option.optionKey" :disabled="!option.selectable">
+                                    <span class="batch-flow-option-name">{{ option.flowName }}</span>
+                                    <span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">
+                                        {{ flowTypeLabel(option.flowType) }}
+                                    </span>
+                                </el-option>
+                            </el-select>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="adjustNote" label="调整说明" min-width="210" show-overflow-tooltip></el-table-column>
-                    <el-table-column label="校验结果" width="180" fixed="right" align="center">
+                    <el-table-column prop="adjustNote" label="调整说明" min-width="350" show-overflow-tooltip></el-table-column>
+                    <el-table-column label="校验结果" width="150" fixed="right" align="center">
                         <template slot-scope="{ row }">
                             <span style="display:inline-flex;align-items:center;gap:5px;">
                                 <span class="status-dot" :class="{ green: row.valid && !row.hasWarning, yellow: row.valid && row.hasWarning, red: !row.valid }"></span>
@@ -833,6 +841,7 @@
             // 有效手工调整项是否都已选择审批流程（仅手工项需要选流程）
             allValidRowsHaveFlow() {
                 return this.validManualAdjustReviewList.length > 0
+                    && this.validManualAdjustReviewList.every(item => !!this.selectedRowFlowOption(item))
             },
 
             // 内部报告当前页数据
@@ -1305,9 +1314,15 @@
                 }))
             },
 
+            // 当前行已选中的流程候选项
+            selectedRowFlowOption(row) {
+                if (!row || !row.selectedFlowKey) return null
+                return (row.flowOptions || []).find(option => option.optionKey === row.selectedFlowKey) || null
+            },
+
             // 行内流程选择变化
             handleRowFlowChange(row) {
-                const option = row.flowOptions.find(item => item.optionKey === row.selectedFlowKey)
+                const option = this.selectedRowFlowOption(row)
                 row.flowId = option ? option.flowId : null
                 row.flowKey = option ? option.flowKey : ''
                 row.flowType = option ? option.flowType : ''
@@ -1319,13 +1334,17 @@
                 this.adjustStep = 1
             },
 
-            // 提交批量调库申请，审批流程由目标池批量流程配置决定
+            // 提交批量调库申请：先弹窗确认调库流程，再执行提交
             async submitAdjust() {
                 if (this.validCount === 0) {
                     this.$message.warning('没有可提交的' + this.directionLabel + '申请，请检查校验结果')
                     return
                 }
-                await this.confirmFlowSelection()
+                if (!this.allValidRowsHaveFlow) {
+                    this.$message.warning('请为所有可提交的手工调整项选择审批流程')
+                    return
+                }
+                this.flowDialogVisible = true
             },
 
             // 确认调库流程后执行提交
