@@ -1,7 +1,9 @@
-# CLAUDE.md — 前端开发规范
+# 前端开发规范（AGENTS.md）
 
-> 适用项目：Vue 2.x 管理系统类前端项目  
-> 版本：v1.0 | 更新：2026-05
+> 适用项目：Vue 2.x 管理系统类前端项目（`znty-rrs-ui`）  
+> 说明：本目录 `CLAUDE.md` 与 `AGENTS.md` 内容同步（仅文件名不同），修改时须两边同时更新。
+
+> 仓库级总览（业务模块、调库三链路、常用命令等）见上级 `../CLAUDE.md` / `../AGENTS.md`。本文件聚焦前端编码约定与本工程架构要点，不重复上级文档已有内容。
 
 ---
 
@@ -59,13 +61,6 @@
 
 - 前端无构建。推荐入口：`login.html` → 登录后跳 `index.html` 工作台 → 通过菜单打开业务页（iframe）。直接打开 `pages/xxx.html` 可看布局，但脱离工作台 iframe 时 `common.css` 的隐藏 / 固定规则会失效，且无真实登录用户。
 - 业务页请求 `http://localhost:18090`，需后端 `znty-rrs-parent` 服务在跑；跨域由后端处理，前端无需额外配置。用任意静态服务器（如 `python -m http.server`、VS Code Live Server）托管 UI 目录即可，避免 `file://` 协议下部分浏览器限制。
-
-### 仓库同步
-
-- `AGENTS.md` 与 `CLAUDE.md` 内容保持一致（供 Codex 等 agent 工具读取）；改 `CLAUDE.md` 时同步更新 `AGENTS.md`。
-
----
-
 ## 页面风格与 UI 设计规范
 
 项目整体 UI 设计规范以 `project_ui_design_guidelines.md` 为准。新增页面、页面重构、页面样式调整、AI 生成页面和 UI 走查时，必须先参考该文件；本节只保留关键摘要和执行原则，避免多份文档重复维护后产生偏差。
