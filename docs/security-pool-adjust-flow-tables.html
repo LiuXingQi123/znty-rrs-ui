@@ -685,7 +685,8 @@
                         <li>主表为 <code>rrs_securityinfo</code>。</li>
                         <li>左连接 <code>dict_security_type</code> 获取 <code>security_type_name</code>。</li>
                         <li>三个筛选字段均使用包含式模糊匹配：<code>LIKE %条件%</code>。</li>
-                        <li>按 <code>rrs_securityinfo.id DESC</code> 排序，最新记录优先。</li>
+                        <li>按 <code>rrs_securityinfo.ts DESC</code> 排序，最新更新优先。</li>
+                        <li>固定排除 <code>security_type IN ('crmw','company')</code>，避免 CRMW 凭证与主体混入证券池调库。</li>
                     </ul>
                 </article>
             </div>
@@ -805,55 +806,54 @@
             </div>
             <div class="rule-grid" style="margin-top: 16px;">
                 <article class="rule-panel">
-                    <h3>调入校验顺序</h3>
+                    <h3>调入校验（通用 + 类型特有）</h3>
                     <ol>
-                        <li>证券是否已经到期。</li>
-                        <li>是否存在 <code>pending</code> 的进行中调库步骤。</li>
-                        <li>证券是否已经在目标池，防止重复调入。</li>
-                        <li>目标池是否达到 <code>maxCapacity</code> 持仓上限。</li>
-                        <li>若配置来源池，证券是否已在至少一个来源池。</li>
-                        <li>是否命中 <code>in_restrict</code> 调入限制池。</li>
-                        <li>本次请求是否同时调入互斥池。</li>
-                        <li>是否命中 <code>in_soft_restrict</code> 弹性禁投池。</li>
+                        <li><strong>通用</strong>：池锁定 → 品种 → 市场 → pending 进行中流程 → 是否已在目标池 → 容量 → 来源池 → <code>in_restrict</code> → 本次是否同时调入互斥池 → 全局禁止池（forbidden/blacklist）→ 行业限制 → 开放日。</li>
+                        <li><code>in_soft_restrict</code> 弹性禁投池：只写 <code>warnings</code>，<strong>不阻断</strong>。</li>
+                        <li><strong>债券</strong>：到期校验；调入信用债大库时按「主体内评分档 × 期限档」矩阵（<code>credit_bond_pool_grade_rule</code>）校验允许池；可转债跳过矩阵；观察池命中可跳过矩阵；临时占位无内评时默认 grade_code=4。</li>
+                        <li><strong>股票</strong>：退市校验 + 评级限制入口；基金评分等类型特有规则按需扩展。</li>
+                        <li>报告必填（<code>in_report_restriction</code>）在<strong>提交</strong>阶段校验；半年内同主体已有有效报告可豁免（bondfileflag 语义）。</li>
                     </ol>
                 </article>
                 <article class="rule-panel outbound">
-                    <h3>调出校验顺序</h3>
+                    <h3>调出校验（通用 + 类型特有）</h3>
                     <ol>
-                        <li>证券是否已经到期。</li>
-                        <li>是否存在 <code>pending</code> 的进行中调库步骤。</li>
-                        <li>证券当前是否确实在目标池中。</li>
-                        <li>是否命中 <code>out_restrict</code> 调出限制池。</li>
-                        <li>是否命中 <code>out_mutex</code> 调出互斥池。</li>
-                        <li>本次请求是否同时调出互斥池。</li>
-                        <li>是否命中 <code>out_soft_restrict</code> 弹性禁投池。</li>
+                        <li><strong>通用</strong>：池锁定 → pending 进行中流程 → 证券是否确在目标池 → 冻结期 → <code>out_restrict</code> → <code>out_mutex</code> → 本次是否同时调出互斥池 → 开放日。</li>
+                        <li><code>out_soft_restrict</code> 弹性禁投池：只写 <code>warnings</code>，不阻断。</li>
+                        <li><strong>债券/股票</strong>：到期或退市等类型特有规则；报告必填在提交阶段按 <code>out_report_restriction</code> 校验。</li>
                     </ol>
                 </article>
             </div>
             <div class="logic-grid" style="margin-top: 14px;">
                 <article class="logic-card">
-                    <h3>自动生成联动 / 互斥项</h3>
+                    <h3>自动生成联动 / 互斥 / 关联码</h3>
                     <ul>
-                        <li>调入目标池时，<code>in_linked</code> 关联池自动生成联动调入项。</li>
+                        <li>调入目标池时，<code>in_linked</code> 自动生成联动调入项。</li>
                         <li>调入目标池时，若证券已在 <code>in_mutex</code> 池中，自动生成该池的互斥调出项。</li>
-                        <li>调出目标池时，<code>out_linked</code> 关联池自动生成联动调出项。</li>
-                        <li>使用“池 ID + 方向”去重；用户手工项优先于自动项。</li>
-                        <li>手工项失败时，同组自动项继承阻断状态。</li>
+                        <li>调出目标池时，<code>out_linked</code> 自动生成联动调出项。</li>
+                        <li>多市场关联码（同一证券多市场代码）可同批调库：关联项独立校验在池/容量等，与主券共用批次与流程。</li>
+                        <li>使用「池 ID + 方向」去重；用户手工项优先于自动项。</li>
+                        <li>手工项失败时，同组自动联动/互斥项继承阻断状态。</li>
+                        <li><strong>反阻断</strong>：同组互斥配套调出失败时，反阻断同组手工调入，避免只入目标池形成双池。</li>
                     </ul>
                 </article>
                 <article class="logic-card">
                     <h3>候选流程匹配</h3>
                     <ul>
-                        <li>调出：使用目标池配置的标准调出流程。</li>
-                        <li>非信用债大库调入：使用目标池默认调入流程。</li>
-                        <li>信用债已在库：同父级下按 <code>innerSort</code> 判断上调或下调流程。</li>
-                        <li>信用债未在库：按“白名单 &gt; 简易 &gt; 默认调入”确定推荐优先级。</li>
-                        <li>当前白名单流程默认关闭；简易流程会校验剩余期限、同主体期限、近一年简易入池及评级条件。</li>
+                        <li>调出：目标池标准调出流程。</li>
+                        <li>调入且当前已在目标池的 <code>in_mutex</code> 互斥池中：优先特殊审批（<code>bond:special-inbound</code>）；<strong>信用债大库默认排除</strong>，仍走白名单/简易/升降级/默认调入。</li>
+                        <li>非信用债大库调入（未命中特殊审批）：目标池默认调入流程。</li>
+                        <li>信用债已在库：同父级下按 <code>innerSort</code> 判断上调/下调流程。</li>
+                        <li>信用债未在库：候选「白名单 / 简易 / 默认调入」，推荐优先级白名单 &gt; 简易 &gt; 默认。</li>
+                        <li>白名单：五条件判定（剩余期限≤3年、非永续/私募/ABS、债券类、主体在白名单池、非担保债）；当前 <code>WHITELIST_POOL_IDS</code> 为空，主体池条件固定不成立，故通常未命中。</li>
+                        <li>简易：目标池为一/二/三级信用债库、剩余期限可解析、不超过同主体在池最大期限、180 天内一般流程入过目标池、评级未下调（或下调时担保人未下调）。</li>
                     </ul>
                 </article>
             </div>
-            <div class="implementation-note"><strong>当前实现说明：</strong>白名单流程入口固定返回未命中（白名单尚未实现）；主体评级、展望评级和担保人评级下调标识已接入真实查询（RatingDowngradeChecker 查 wind_cbondissuerrating：主体评级比较 b_info_creditrating/b_info_precreditrating，展望读 rrs_securityinfo.rating_outlook 是否负面，担保人由前端下拉框选择传 guarantorCode 后查 wind）。页面展示的是当前代码实际行为。</div>
-            <div class="data-strip"><code>rrs_securityinfo：读</code><code>ip_investment_pool：读</code><code>ip_pool_status：读</code><code>ip_pool_relation：读</code><code>ip_adjust_log：读</code><code>ip_adjust_step：读</code><code>wf_flow_definition：读</code></div>
+            <div class="implementation-note"><strong>当前实现说明：</strong>
+                校验结果带 <code>failReasons</code> 与 <code>warnings</code>；前端「调整说明」失败时<strong>仅展示不通过原因</strong>（不再加固定前缀），警告单独展示。同组（同一 <code>adjustGroupKey</code>）手工+联动/互斥行用底色区分。评级下调由 RatingDowngradeChecker 查 wind：主体比较 creditrating/precreditrating，展望读 <code>rating_outlook</code> 是否负面，担保人由前端下拉传 <code>guarantorCode</code>。直通与最终审批通过前均会锁池并动态复核容量/在池状态。
+            </div>
+            <div class="data-strip"><code>rrs_securityinfo：读</code><code>ip_investment_pool：读</code><code>ip_pool_status：读</code><code>ip_pool_relation：读</code><code>ip_adjust_log：读</code><code>ip_adjust_step：读</code><code>wf_flow_definition：读</code><code>credit_bond_pool_grade_rule：读</code><code>credit_bond_term_bucket：读</code></div>
         </section>
 
         <section id="submit-approval" class="section">
@@ -863,21 +863,21 @@
                 <article class="logic-card">
                     <h3>提交申请：五阶段</h3>
                     <ol>
-                        <li><strong>前置校验：</strong>检查证券代码、调整人和调库项等请求字段。</li>
-                        <li><strong>参数初始化：</strong>加载证券、池关系、当前状态及每个唯一流程的运行快照。</li>
-                        <li><strong>调入处理：</strong>按调库组写入手工、联动、互斥记录并绑定附件。</li>
+                        <li><strong>前置校验：</strong>检查证券代码、调整人和调库项等请求字段；按池配置校验报告必填。</li>
+                        <li><strong>参数初始化：</strong>加载证券、池关系、当前状态及每个唯一流程的运行快照；同一次提交统一 <code>submit_time</code>，保证同批历史聚拢。</li>
+                        <li><strong>调入处理：</strong>按调库组写入手工、联动、互斥、关联码记录并绑定附件。</li>
                         <li><strong>调出处理：</strong>同样写入申请记录，并保持同组批次关系。</li>
-                        <li><strong>后续处理：</strong>同步详情页传入的证券基础信息。</li>
+                        <li><strong>后续处理：</strong>服务端合并页面可编辑证券字段后同步主数据（不全量覆盖）。</li>
                     </ol>
                 </article>
                 <article class="logic-card">
                     <h3>直通与人工审批</h3>
                     <ul>
                         <li>无流程或流程为 <code>start → end</code> 时视为直通。</li>
-                        <li>直通调入：申请直接记为通过并新增 <code>ip_pool_status</code>。</li>
-                        <li>直通调出：申请直接记为通过并逻辑删除对应池状态。</li>
-                        <li>非直通：申请记为已提交，创建开始、提交人和首个待审批步骤。</li>
+                        <li>直通：先锁池并动态复核，再写或逻辑删除 <code>ip_pool_status</code>（与最终审批同一套保护）。</li>
+                        <li>非直通：申请记为流程中（<code>audit_status=00</code>），创建开始、提交人和首个待审批步骤。</li>
                         <li>后续节点采用懒创建，审批到达时再写入 <code>ip_adjust_step</code>。</li>
+                        <li><strong>仅 <code>audit_status=20</code> 落地池状态</strong>；驳回/撤回等不改当前在池。</li>
                     </ul>
                 </article>
                 <article class="logic-card">
@@ -1105,12 +1105,13 @@
         <section id="notes" class="section">
             <h2 class="section-title">口径与阅读说明</h2>
             <ul class="note-list">
-                <li>完整口径共 21 张表，包含页面查询、发起校验、运行步骤、用户角色、附件和报告。</li>
+                <li>完整口径共 21 张表，包含页面查询、发起校验、运行步骤、用户角色、附件和报告；信用债矩阵另读 <code>credit_bond_pool_grade_rule</code> / <code>credit_bond_term_bucket</code>。</li>
                 <li>若只关注流程运行与最终落库，核心是 <code>ip_adjust_log</code>、<code>ip_adjust_step</code>、<code>ip_pool_status</code>。</li>
+                <li><code>audit_status</code>：仅 <code>20</code> 落地池状态；<code>00</code> 流程中、<code>11</code> 驳回待修改、<code>21</code> 驳回、<code>99</code> 撤回等只改日志/步骤。</li>
                 <li><code>wf_*</code> 表保存流程模板配置，运行过程中主要读取，不写入流程设计数据。</li>
                 <li><code>*_evt</code> 事件表用于流程设计或投资池配置变更审计，不是本次调库实例运行的写入表。</li>
                 <li><code>wf_node_auto_config</code>、<code>wf_node_notify_config</code>、<code>wf_node_condition_config</code> 当前未被证券池调库运行服务读取。</li>
-                <li>本页依据后端 Service、Mapper XML 与 SQL 建表脚本梳理，适用于当前代码版本。</li>
+                <li>本页依据当前 Controller / Service / Mapper XML 与前端页面整理，适用于当前代码版本；规则变化须同步维护。</li>
             </ul>
         </section>
     </main>

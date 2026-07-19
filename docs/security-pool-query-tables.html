@@ -379,7 +379,7 @@
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>证券池分页查询</h2>
-        <p class="sub">只展示已经生效且未删除的证券池状态。</p><span class="api">POST /api/v1/securityPoolQuery/querySecurityPoolPage</span>
+        <p class="sub">只展示已经生效且未删除的证券池状态。</p><span class="api">POST /api/v1/securityPoolQuery/querySecurityPoolPage · querySecurityTypeList · querySecurityStatusList</span>
         <div class="logic">
             <article class="card"><h3>查询主线</h3>
                 <ul>
@@ -387,14 +387,16 @@
                         <code>audit_status='20'</code>、<code>is_deleted=0</code>。
                     </li>
                     <li>关联投资池、证券信息和证券类型字典。</li>
-                    <li>按入池时间、状态ID倒序分页，Service 回填池全路径。</li>
+                    <li>按 <code>entry_time DESC</code>（及状态主键）倒序分页，Service 回填池全路径。</li>
+                    <li>列表为空时单元格留白，不使用「-」占位；状态/类型等枚举用 <code>el-tag</code> 展示。</li>
                 </ul>
             </article>
             <article class="card"><h3>筛选条件</h3>
                 <ul>
-                    <li>支持多池、证券代码/简称/类型、入池日期、调整人和发行人。</li>
-                    <li>存续/到期由 <code>maturity_date</code> 与当前日期比较。</li>
-                    <li>“我的证券”通过当前用户的有效 <code>my_security_pool</code> 记录过滤。</li>
+                    <li>支持多池树、证券代码/简称/类型、入池日期区间、调整人和发行人。</li>
+                    <li>存续/到期由 <code>maturity_date</code> 与当前日期比较（动态计算，非表字段）。</li>
+                    <li>「我的证券」通过当前用户有效 <code>my_security_pool</code> 记录过滤。</li>
+                    <li>投资池树来自 <code>/api/v1/common/queryPoolTreeList</code>；类型选项来自本模块接口。</li>
                 </ul>
             </article>
         </div>
@@ -410,8 +412,9 @@
             </article>
             <article class="card"><h3>取消与回显</h3>
                 <ul>
-                    <li>取消时按用户+证券代码更新收藏状态。</li>
-                    <li>列表初始化可一次查询当前用户收藏证券代码集合。</li>
+                    <li>取消时按用户+证券代码更新收藏状态（逻辑取消，非物理删行）。</li>
+                    <li>列表分页结果回填 <code>mySecurityPoolId</code>（关联当前用户有效收藏），前端据此展示星标；另有 <code>queryFavoritedCodeList</code> 接口但当前页面未单独调用。</li>
+                    <li>取消收藏不会产生调出日志，也不会改 <code>ip_pool_status</code>。</li>
                 </ul>
             </article>
         </div>
@@ -466,10 +469,11 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>正式池查询只认 <code>ip_pool_status.audit_status='20'</code>。</li>
-            <li>证券状态不是独立表字段，当前查询通过证券到期日动态计算。</li>
+            <li>正式池查询只认 <code>ip_pool_status.audit_status='20'</code> 且 <code>is_deleted=0</code>。</li>
+            <li>证券状态不是独立表字段，当前查询通过证券到期日动态计算存续/到期。</li>
             <li>收藏表与正式证券池状态完全分离，取消收藏不会调出证券。</li>
-            <li>前端状态下拉为本地字典；后端也提供 active/matured 选项接口。</li>
+            <li>前端状态下拉可使用本地字典；后端亦提供 <code>querySecurityStatusList</code>（active/matured 等）选项接口。</li>
+            <li>本页只读查询 + 收藏维护，不发起调库申请；调库请走「证券池调整 / 批量调整」。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

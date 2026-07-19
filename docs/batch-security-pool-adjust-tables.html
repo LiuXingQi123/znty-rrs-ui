@@ -369,13 +369,13 @@
     <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">目标池与候选证券查询</a><a href="#logic-2">批量校验与提交</a><a
             href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
     <section class="panel" id="overview"><h2>业务流程总览</h2>
-        <p class="sub">从页面操作到数据库读写的主要路径。</p>
+        <p class="sub">从页面操作到数据库读写的主要路径。页面为单页两步工作台（池列表 → 选券/校验/提交），不依赖独立选择页回传。</p>
         <div class="flow">
-            <div class="step"><b>1. 选择目标池</b><span>按用户可调整权限查询启用叶子池并回填当前数量。</span></div>
-            <div class="step"><b>2. 筛选证券</b><span>调入排除已在池证券，调出仅保留已在池证券。</span></div>
-            <div class="step"><b>3. 批量校验</b><span>逐证券执行到期、在池、容量、关系及流程匹配。</span></div>
-            <div class="step"><b>4. 批量提交</b><span>按证券分组写申请、步骤和附件，共享批量上下文。</span></div>
-            <div class="step"><b>5. 审批生效</b><span>统一审批通过后更新证券池状态并按条件沉淀报告。</span></div>
+            <div class="step"><b>1. 选择目标池</b><span>按可调整权限查询启用叶子池，操作列调入/调出进入工作台。</span></div>
+            <div class="step"><b>2. 筛选证券</b><span>步骤1：选券+材料；调入排除已在池，调出仅已在池。</span></div>
+            <div class="step"><b>3. 批量校验</b><span>步骤2：逐券复用单券校验，展示结果表与材料汇总。</span></div>
+            <div class="step"><b>4. 批量提交</b><span>整批事务按证券分组写申请/步骤/附件，统一 submit_time。</span></div>
+            <div class="step"><b>5. 审批生效</b><span>仅 audit_status=20 落池；直通亦先锁池复核。</span></div>
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>目标池与候选证券查询</h2>
@@ -385,33 +385,37 @@
                 <ul>
                     <li>管理员可查看全部；普通用户依据 <code>ip_pool_permission</code> 的 adjustable 权限过滤。</li>
                     <li>只返回 <code>status='enabled'</code>、未删除且没有启用子节点的叶子池。</li>
-                    <li>汇总 <code>ip_pool_status</code> 的有效证券数量并回填完整池路径。</li>
+                    <li>汇总 <code>ip_pool_status</code> 的有效证券数量并回填完整池路径（按 <code>outer_sort</code> 等排序）。</li>
                 </ul>
             </article>
             <article class="card"><h3>候选证券查询</h3>
                 <ul>
                     <li>目标池必须存在、启用、为叶子池且当前用户有调整权限。</li>
                     <li>调入使用 NOT EXISTS 排除目标池有效状态；调出使用 EXISTS 仅保留目标池有效状态。</li>
-                    <li>支持证券代码、简称和市场过滤，按证券主键倒序分页。</li>
+                    <li>支持证券代码、简称和市场过滤；固定排除 <code>security_type IN ('crmw','company')</code>。</li>
+                    <li>按 <code>rrs_securityinfo.ts DESC</code> 分页；跨页多选由前端 <code>selectedSecurityMap</code> 缓存。</li>
                 </ul>
             </article>
         </div>
     </section>
     <section class="panel" id="logic-2"><h2>批量校验与提交</h2>
-        <p class="sub">批量层负责聚合，单券规则与证券池调库保持一致。</p><span class="api">POST /api/v1/batchSecurityPoolAdjust/checkAdjust · addAdjustLogWithFiles</span>
+        <p class="sub">批量层负责聚合，单券规则与证券池调库一致；页面步骤2侧重结果展示与流程选择。</p><span class="api">POST /api/v1/batchSecurityPoolAdjust/checkAdjust · addAdjustLogWithFiles</span>
         <div class="logic">
-            <article class="card"><h3>逐券校验</h3>
+            <article class="card"><h3>逐券校验与页面展示</h3>
                 <ul>
-                    <li>每个证券转换为单证券 <code>AdjustCheckReq</code>。</li>
-                    <li>自动扩展 in_linked、out_linked 和 in_mutex 调出项，并用池ID+方向去重。</li>
-                    <li>仅校验通过的手工项选择流程，联动/互斥项继承同组手工流程。</li>
+                    <li>每个证券转换为单证券 <code>AdjustCheckReq</code>，复用通用/类型特有校验、联动互斥扩展与反阻断。</li>
+                    <li>仅校验通过的<strong>手工项</strong>行内选择审批流程（<code>el-select</code> + flowOptions）；联动/互斥/关联项继承同组手工流程。</li>
+                    <li>步骤2表头以 chips 汇总信评报告数、其他附件数、是否放开规则、结果条数；表格<strong>无</strong>每行材料列。</li>
+                    <li>「调整说明」失败时仅展示不通过原因；同组行按 <code>adjustGroupKey</code> 底色区分。</li>
                 </ul>
             </article>
             <article class="card"><h3>提交和审批</h3>
                 <ul>
-                    <li>按 securityCode 分组，逐组创建 <code>ip_adjust_log</code>。</li>
-                    <li>直通流程立即写入或删除 <code>ip_pool_status</code>；非直通创建 <code>ip_adjust_step</code>。</li>
-                    <li>同一次批量提交共享附件上下文；后续由证券池调库审批服务推进。</li>
+                    <li>整个批量请求<strong>一个事务</strong>，任一失败全部回滚；约 30 秒窗口内防重复提交（按证券集合+手工项+流程+原因意见比较）。</li>
+                    <li>按证券分组写 <code>ip_adjust_log</code>（手工标记为手动批量调整）；同次提交统一 <code>submit_time</code> 与共享附件上下文。</li>
+                    <li>目标池可配批量专用流程；未配置或 start→end 时直通，落池前锁池并动态复核。</li>
+                    <li><code>releaseRules=yes</code> 仅跳过主体内评×期限矩阵，容量/来源/硬限制等仍执行。</li>
+                    <li>后续审批复用证券池调库流程服务（会签/抢占/驳回/终态落库）。</li>
                 </ul>
             </article>
         </div>
@@ -520,10 +524,13 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>批量不是一条总申请：后端按证券分组，再为手工、联动、互斥明细分别保存调库日志。</li>
+            <li>批量不是一条总申请：后端按证券分组，再为手工、联动、互斥、关联码明细分别保存调库日志。</li>
             <li>方向只允许 <code>in</code> 或 <code>out</code>；手工明细方向必须与本次批量方向一致。</li>
-            <li>手工项必须指定审批流程；联动和互斥项复用同组手工项流程。</li>
-            <li>审批运行、会签/抢占、驳回和最终落库复用证券池调库流程逻辑。</li>
+            <li>手工项必须指定审批流程；联动/互斥/关联项复用同组手工项流程与批次号。</li>
+            <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；弹性禁投为警告不阻断，与单券一致。</li>
+            <li>步骤2原因/建议为整批共享文案，与单券调库页「每券可回填日志原因」场景不同。</li>
+            <li>审批运行、会签/抢占、驳回和最终落库复用证券池调库流程逻辑；细节见
+                <a href="security-pool-adjust-flow-tables.html">证券池调库</a> 文档。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

@@ -360,8 +360,8 @@
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>禁投池调整</h1>
         <p class="desc">
-            以发行主体为调整对象，完成主体级禁投池调入/调出；生效时自动同步旗下全部债券，并复用统一审批、附件与报告机制。</p>
-        <div class="stats"><span class="stat">14 项表/表组</span><span class="stat">12 个主要接口</span><span
+            以发行主体为调整对象（主数据来自 Wind 主体表），对手工限定池做调入/调出；仅 <code>audit_status=20</code> 落地后按条件同步旗下债券，并复用统一审批、附件与报告机制。</p>
+        <div class="stats"><span class="stat">15 项表/表组</span><span class="stat">12 个主要接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
 </header>
@@ -370,48 +370,53 @@
             href="#logic-2">校验、提交和审批</a><a href="#tables">涉及表</a><a href="#notes">规则说明</a><a
             href="module-tables-index.html">文档目录</a></nav>
     <section class="panel" id="overview"><h2>业务流程总览</h2>
-        <p class="sub">从页面操作到数据库读写的主要路径。</p>
+        <p class="sub">从页面操作到数据库读写的主要路径；与证券池调库同构，差异在对象=主体与生效后债券同步。</p>
         <div class="flow">
-            <div class="step"><b>1. 查询主体</b><span>分页查询 company 类型主体并回填旗下债券数量。</span></div>
-            <div class="step"><b>2. 加载详情</b><span>查询主体、旗下债券、当前池和可调整池。</span></div>
-            <div class="step"><b>3. 校验调整</b><span>执行主体在池、容量、限制、联动、互斥及流程匹配。</span></div>
-            <div class="step"><b>4. 提交审批</b><span>写主体申请、附件和初始审批步骤。</span></div>
-            <div class="step"><b>5. 生效同步</b><span>通过后更新主体池状态并自动同步旗下债券。</span></div>
+            <div class="step"><b>1. 查询主体</b><span>分页查 wind_cbondissuer，回填旗下债券数量。</span></div>
+            <div class="step"><b>2. 加载详情</b><span>主体详情、主体/债券在池、可调池树（ID 15/16/17）。</span></div>
+            <div class="step"><b>3. 校验调整</b><span>主体校验（跳过品种/市场）+ 联动互斥反阻断 + 流程。</span></div>
+            <div class="step"><b>4. 提交审批</b><span>security_type 固定 company；写日志/附件/步骤。</span></div>
+            <div class="step"><b>5. 生效同步</b><span>主体落池后按条件同步旗下非 ABS 债券。</span></div>
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>主体查询与池状态</h2>
-        <p class="sub">调整对象是 company 类型证券主数据，旗下债券通过 issuer_code 关联。</p><span class="api">POST /api/v1/forbiddenPoolAdjust/queryCompanyPage · queryCompanyPoolStatus · queryCompanyBondList</span>
+        <p class="sub">主体主数据来自跨库 Wind 表，不依赖 rrs_securityinfo 的 company 行；旗下债券经 issuer_code 关联。</p><span class="api">POST /api/v1/forbiddenPoolAdjust/queryCompanyPage · queryCompanyDetail · queryCompanyPoolStatus · queryCompanyBondList · queryAdjustPoolList</span>
         <div class="logic">
             <article class="card"><h3>主体与债券</h3>
                 <ul>
-                    <li>主体列表仅查 <code>dict_security_type.category_type='company'</code>。</li>
-                    <li>批量回填旗下债券数量；详情校验主体记录存在且类型正确。</li>
-                    <li>池状态分别返回主体所在池和旗下债券所在池，并回填完整路径。</li>
+                    <li>列表/详情：<code>ais_inv_ods.wind_cbondissuer</code>（<code>used=1</code>），代码 <code>s_info_compcode</code>；筛选代码/名称/行业。</li>
+                    <li>旗下债券数量：按 <code>rrs_securityinfo.issuer_code</code> + 债券大类批量回填。</li>
+                    <li>池状态：主体在池（security_code=主体码 且字典 category_type=company）+ 旗下债券在池分组（含 bondCount）。</li>
+                    <li>旗下债券明细：<code>queryCompanyBondList</code>，路径由 Service 全路径回填。</li>
                 </ul>
             </article>
             <article class="card"><h3>可调整池</h3>
                 <ul>
-                    <li>限制在主体禁投池配置范围内，并按当前用户 adjustable 权限过滤。</li>
-                    <li>返回互斥关系、容量和层级，前端再生成调入/调出树。</li>
+                    <li>手工目标池硬编码 <code>ALLOWED_MANUAL_POOL_IDS = {15,16,17}</code>（禁投池/观察池/黑名单质押库），三池须均存在且启用。</li>
+                    <li>校验/提交时手工项 targetPoolId 必须属于上述集合，否则拒绝。</li>
+                    <li>按当前用户 adjustable 权限过滤；返回互斥、容量与层级，前端再按在池状态生成调入/调出树。</li>
                 </ul>
             </article>
         </div>
     </section>
     <section class="panel" id="logic-2"><h2>校验、提交和审批</h2>
-        <p class="sub">主体级流程与证券池调库同构，但生效后增加旗下债券同步。</p><span class="api">POST /api/v1/forbiddenPoolAdjust/checkAdjust · addAdjustLogWithFiles · /forbiddenPoolAdjustFlow/submitAdjustAudit</span>
+        <p class="sub">主体级流程与证券池调库同构；调库类型固定 company，生效后增加旗下债券同步。</p><span class="api">POST /api/v1/forbiddenPoolAdjust/checkAdjust · addAdjustLogWithFiles · /api/v1/forbiddenPoolAdjustFlow/submitAdjustAudit</span>
         <div class="logic">
             <article class="card"><h3>校验与申请</h3>
                 <ul>
-                    <li>校验主体当前池、进行中步骤、容量、来源/限制、联动和互斥。</li>
-                    <li>手工项选择流程；自动项继承同组流程和批次。</li>
-                    <li>直通立即生效；非直通写 <code>ip_adjust_step</code> 进入审批。</li>
+                    <li>主体<strong>跳过</strong>品种/市场校验；保留池锁定、pending、重复入/未入池、容量、来源/限制、互斥冲突、全局禁止池、行业、开放日等。</li>
+                    <li>弹性禁投（soft_restrict）写 <code>warnings</code> 不阻断；互斥配套调出失败<strong>反阻断</strong>同组手工调入。</li>
+                    <li>自动扩展 in_linked / out_linked / in_mutex 调出项；手工项选流程，自动项继承同组流程与批次。</li>
+                    <li>前端调整说明失败时仅展示不通过原因；同组行底色区分；约 30s 防重复提交。</li>
+                    <li>直通：先锁池复核再落池并 <code>syncCompanyBonds</code>；非直通写 <code>ip_adjust_step</code>，仅最终 20 落池。</li>
                 </ul>
             </article>
-            <article class="card"><h3>主体级生效</h3>
+            <article class="card"><h3>主体级生效（syncCompanyBonds）</h3>
                 <ul>
-                    <li>审批通过后更新主体 <code>ip_pool_status</code>。</li>
-                    <li>查询主体旗下全部债券，为每只债券新增“自动调整”日志并同步相同目标池状态。</li>
-                    <li>驳回/终止不改变池状态；手工信评附件可沉淀内部报告。</li>
+                    <li>先写/软删主体 <code>ip_pool_status</code>，再同步旗下债券（非「仅改主体」）。</li>
+                    <li><b>调入</b>：未到期且非 ABS、且尚不在目标池的债券 → 自动调入日志 + 入池。</li>
+                    <li><b>调出</b>：当前在目标池且非 ABS 的债券 → 自动调出日志 + 软删在池。</li>
+                    <li>自动日志与主体共用 <code>submit_time</code> / 批次语义，便于历史同批聚拢；驳回/终止不改池、不同步债券。</li>
                 </ul>
             </article>
         </div>
@@ -430,22 +435,28 @@
                 </thead>
                 <tbody>
                 <tr>
-                    <td><span class="name">rrs_securityinfo</span></td>
-                    <td>主体及旗下债券基础信息</td>
+                    <td><span class="name">ais_inv_ods.wind_cbondissuer</span></td>
+                    <td>发行主体主数据（列表/详情）</td>
                     <td><span class='tag r'>查询</span></td>
-                    <td>主体分页、详情、债券同步</td>
+                    <td>主体分页、详情、名称展示</td>
+                </tr>
+                <tr>
+                    <td><span class="name">rrs_securityinfo</span></td>
+                    <td>旗下债券基础信息与同步候选</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>债券数量、在池明细、自动同步筛选</td>
                 </tr>
                 <tr>
                     <td><span class="name">dict_security_type</span></td>
-                    <td>识别 company 主体与证券大类</td>
+                    <td>company/bond 大类识别</td>
                     <td><span class='tag r'>查询</span></td>
-                    <td>主体过滤、报告类型判断</td>
+                    <td>主体在池过滤、债券同步、报告类型</td>
                 </tr>
                 <tr>
                     <td><span class="name">ip_investment_pool</span></td>
-                    <td>禁投池定义、容量和流程配置</td>
+                    <td>禁投/观察/黑名单池定义与流程</td>
                     <td><span class='tag r'>查询</span></td>
-                    <td>可调池、路径、容量、流程选择</td>
+                    <td>可调池 15/16/17、路径、容量、流程</td>
                 </tr>
                 <tr>
                     <td><span class="name">ip_pool_permission</span></td>
@@ -464,7 +475,7 @@
                     <td>主体及旗下债券当前池状态</td>
                     <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span
                             class='tag u'>逻辑删除</span></td>
-                    <td>查询、直通、审批通过及债券同步</td>
+                    <td>查询、直通/审批通过及债券同步</td>
                 </tr>
                 <tr>
                     <td><span class="name">ip_adjust_log</span></td>
@@ -522,13 +533,15 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>主体调整生效后会为旗下债券新增自动调整日志，不是仅修改主体一条状态。</li>
-            <li>发起人不能参与后续审批节点，管理员和发起/修改语义节点除外。</li>
-            <li>步骤更新使用 pending 条件乐观锁；会签等待全部完成，抢占会跳过同节点其他待办。</li>
-            <li>修改节点通过 resubmit 连线重新提交，reject 表示终止；附件变更只允许修改节点重新提交。</li>
+            <li>调库日志 <code>security_type</code> 固定为 <code>company</code>；对象代码为 Wind 主体码，不是债券 wind_code。</li>
+            <li>主体生效后同步的是<strong>符合条件</strong>的旗下债券（非 ABS；调入还要求未到期且未在目标池），不是无差别全量。</li>
+            <li>债券自动同步日志为大类 bond，会出现在禁投池历史中，但<strong>不会</strong>进入「主体池调整历史」（按 company 过滤）。</li>
+            <li>仅 <code>audit_status=20</code> 落地主体与债券池状态；驳回/撤回等只改日志与步骤。</li>
+            <li>发起人不能参与后续审批节点，管理员和发起/修改语义节点除外；会签全员完成，抢占跳过同节点其他待办。</li>
+            <li>修改节点通过 resubmit 重新提交；附件变更仅允许修改节点重提。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
-            XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
+            XML、需求文档 15/16/17 和前端调用链整理；后续代码规则变化时应同步维护。
         </div>
     </section>
     <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p></main>

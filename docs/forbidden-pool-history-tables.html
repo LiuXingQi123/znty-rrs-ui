@@ -359,9 +359,9 @@
 <header>
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>禁投池历史</h1>
-        <p class="desc">从调库日志中查询目标池类型为 forbidden
-            的历史调整，覆盖主体与证券代码、调入调出、审核状态和操作人员。</p>
-        <div class="stats"><span class="stat">4 项表/表组</span><span class="stat">1 个主要接口</span><span
+        <p class="desc">从调库日志中查询目标池类型为 forbidden / observe / blacklist
+            的历史调整，覆盖主体与证券、调入调出、审核状态和操作人员，并按可查看权限过滤。</p>
+        <div class="stats"><span class="stat">5 项表/表组</span><span class="stat">1 个主要接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
 </header>
@@ -371,10 +371,10 @@
     <section class="panel" id="overview"><h2>业务流程总览</h2>
         <p class="sub">从页面操作到数据库读写的主要路径。</p>
         <div class="flow">
-            <div class="step"><b>1. 输入条件</b><span>主体、证券、日期、调整人、方向及状态。</span></div>
-            <div class="step"><b>2. 限定范围</b><span>目标投资池必须是未删除的 forbidden 池。</span></div>
-            <div class="step"><b>3. 关联资料</b><span>补充证券大类、发行主体和目标池名称。</span></div>
-            <div class="step"><b>4. 分页排序</b><span>按提交时间、日志ID倒序。</span></div>
+            <div class="step"><b>1. 权限范围</b><span>按 currentUserId 解析 viewable 可查看池。</span></div>
+            <div class="step"><b>2. 输入条件</b><span>主体、证券、日期、调整人、方向及状态。</span></div>
+            <div class="step"><b>3. 限定范围</b><span>目标池 pool_type ∈ 三类风险池。</span></div>
+            <div class="step"><b>4. 分页排序</b><span>submit_time / adjust_batch_no / id 倒序。</span></div>
             <div class="step"><b>5. 路径回填</b><span>Service 将叶子池名替换为完整路径。</span></div>
         </div>
     </section>
@@ -383,16 +383,18 @@
         <div class="logic">
             <article class="card"><h3>查询主线</h3>
                 <ul>
-                    <li>以 <code>ip_adjust_log</code> 为主表，过滤日志未删除。</li>
-                    <li>内连接未删除且 <code>pool_type='forbidden'</code> 的投资池。</li>
-                    <li>关联证券类型字典和证券基础信息。</li>
+                    <li>以 <code>ip_adjust_log</code> 为主表，过滤 <code>is_deleted=0</code>。</li>
+                    <li>内连接投资池：<code>pool_type IN ('forbidden','observe','blacklist')</code>。</li>
+                    <li>注入 <code>viewablePoolIds</code>（VIEWABLE）；空集合无数据。</li>
+                    <li>左连字典、证券主数据、Wind 主体表（company 行取发行人名）。</li>
+                    <li>排序与证券/主体/CRMW 历史统一：<code>submit_time DESC, adjust_batch_no DESC, id DESC</code>。</li>
                 </ul>
             </article>
             <article class="card"><h3>筛选口径</h3>
                 <ul>
-                    <li>主体代码使用 <code>rrs_securityinfo.issuer_code</code> 模糊查询。</li>
-                    <li>主体名称使用 issuer，证券字段使用日志代码和简称。</li>
-                    <li>支持提交日期、调整人、方向和审核状态。</li>
+                    <li>主体代码：Wind 主体码 或 债券 <code>issuer_code</code> 模糊。</li>
+                    <li>主体名称：COALESCE(wind 主体名, 债券 issuer) 模糊。</li>
+                    <li>证券代码/简称匹配日志字段；另支持提交日期、调整人、方向、审核状态。</li>
                 </ul>
             </article>
         </div>
@@ -412,13 +414,13 @@
                 <tbody>
                 <tr>
                     <td><span class="name">ip_adjust_log</span></td>
-                    <td>禁投池调整历史主表</td>
+                    <td>风险池调整历史主表</td>
                     <td><span class='tag r'>查询</span></td>
                     <td>分页和全部历史筛选</td>
                 </tr>
                 <tr>
                     <td><span class="name">ip_investment_pool</span></td>
-                    <td>限定 forbidden 池、提供池名和路径</td>
+                    <td>限定三类风险池、提供池名和路径</td>
                     <td><span class='tag r'>查询</span></td>
                     <td>范围过滤与路径回填</td>
                 </tr>
@@ -430,9 +432,15 @@
                 </tr>
                 <tr>
                     <td><span class="name">rrs_securityinfo</span></td>
-                    <td>发行主体代码和名称</td>
+                    <td>债券发行人代码与名称</td>
                     <td><span class='tag r'>查询</span></td>
-                    <td>主体条件筛选</td>
+                    <td>主体/发行人条件筛选</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ais_inv_ods.wind_cbondissuer</span></td>
+                    <td>主体名称（security_type=company）</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>主体级日志发行人展示与筛选</td>
                 </tr>
                 </tbody>
             </table>
@@ -441,8 +449,9 @@
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
             <li>页面只读，不修改调库记录。</li>
-            <li>查询以目标池类型过滤，因此主体级禁投调整和证券级禁投调整都可能进入结果。</li>
-            <li>历史排序不按批次聚合，同一批次的手工/联动/互斥/自动日志仍是多行。</li>
+            <li>以目标池类型过滤：主体级手工申请、联动/互斥、以及旗下债券自动同步日志都可能出现。</li>
+            <li>同批多行仍分条展示；靠统一 <code>submit_time</code> + 批次号排序聚拢，不是合并为一行。</li>
+            <li>审核状态展示原始 code，中文由前端字典映射。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

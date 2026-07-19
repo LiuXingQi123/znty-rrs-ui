@@ -390,7 +390,7 @@
             <article class="card"><h3>新增与编辑</h3>
                 <ul>
                     <li>顶级池可复制模板；子池强制继承父池类型并可复制模板/父配置。</li>
-                    <li>基础编辑只更新指定字段和六组 flowId/flowKey/flowName 快照。</li>
+                    <li>基础编辑更新容量、排序、<code>lock_flag</code>（锁定不可调入出）、<code>frozen_period_in</code>（入池后 N 天不可调出）、<code>open_day_adjust</code>（启用则读开放日表）及六组 flow 快照等。</li>
                     <li>新增、修改均写 <code>ip_investment_pool_evt</code>。</li>
                 </ul>
             </article>
@@ -510,11 +510,13 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>投资池表没有物理外键，所有父子和配置引用由业务代码维护。</li>
-            <li>删除节点没有运行中流程/当前池状态引用拦截，当前实现直接递归逻辑删除配置。</li>
+            <li>投资池表没有物理外键，父子与配置引用由业务代码维护。</li>
+            <li>调库运行时硬拦截：<code>lock_flag=1</code> 不可调入出；<code>frozen_period_in</code> 控制调出冻结；<code>open_day_adjust=1</code> 时校验 <code>ip_pool_open_day</code> 区间（见开放日维护页）。</li>
+            <li>删除节点无运行中流程/在池引用拦截，直接递归逻辑删除配置（含关系/权限/规则）。</li>
             <li>页面没有启停入口；编辑基础配置不会更新 status。</li>
-            <li>自动规则一期只保存 rule_id 和描述，调库 Service 当前主要消费池关系而非自动执行这些规则。</li>
-            <li>流程名称、Key在池表保存快照，流程后续改名不会自动刷新旧池配置。</li>
+            <li>自动规则一期只存 rule_id/描述，调库 Service 主要消费池关系而非自动执行这些规则。</li>
+            <li>流程 Id/Key/Name 在池表保存快照，流程改名不会自动刷新旧池配置。</li>
+            <li>关系类型含 source、in/out restrict、linked、mutex、soft_restrict（弹性禁投=警告不阻断）。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
