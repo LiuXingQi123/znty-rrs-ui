@@ -38,7 +38,7 @@
 
 - `login.html` 是**纯前端演示登录**（无后端校验，演示用户密码统一 `123456`）：选中用户 → `RrsAuth.authenticate(...)` 写入 `localStorage`（key `rrs-login-user`）→ `buildPageUrl('index.html', user)` 跳转工作台。
 - 业务页无登录信息时 `RrsAuth.getCurrentUser()` 兜底返回管理员 `{ userId: '1', userName: '管理员' }`，因此直接打开 `pages/xxx.html` 也能跑通布局，但提交后端时拿不到真实操作人。
-- 业务页提交后端时，把 `loginUser.userId / userName` 作为字段传入（参考 `pages/script_tool.html` 的 `currentUserId / currentUserName`），后端按此记录操作人。
+- 业务页提交后端时，把 `loginUser.userId / userName` 作为字段传入（参考 `docs/script_tool.html` 的 `currentUserId / currentUserName`），后端按此记录操作人。
 
 ### 统一请求封装（`js/api.js`）
 
