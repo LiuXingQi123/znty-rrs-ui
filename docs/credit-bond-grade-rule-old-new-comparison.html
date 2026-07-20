@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RRS配置 · 主体内评分档规则新老对比</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #f4f7fb;
+        }
+        #credit_bond_grade_rule_old_new {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, .08);
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+        #credit_bond_grade_rule_old_new,
+        #credit_bond_grade_rule_old_new * { box-sizing: border-box; }
+        #credit_bond_grade_rule_old_new .wrap { width: min(1760px, calc(100% - 32px)); margin: 0 auto; }
+        #credit_bond_grade_rule_old_new .doc-header {
+            padding: 28px 0 24px; color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+        }
+        #credit_bond_grade_rule_old_new .kicker {
+            margin: 0 0 4px; color: #fff; font-size: 12px; font-weight: 700;
+            letter-spacing: .14em; opacity: .82;
+        }
+        #credit_bond_grade_rule_old_new h1 {
+            margin: 0; font-size: clamp(26px, 3vw, 36px); line-height: 1.25; color: #fff;
+        }
+        #credit_bond_grade_rule_old_new .desc {
+            max-width: 1040px; margin: 8px 0 0; color: rgba(255, 255, 255, .86); font-size: 14px;
+        }
+        #credit_bond_grade_rule_old_new .stats { max-width: 980px; margin-top: 16px; }
+        #credit_bond_grade_rule_old_new .stat-card {
+            margin-bottom: 10px; color: #fff; border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px; background: rgba(255, 255, 255, .1);
+        }
+        #credit_bond_grade_rule_old_new .stat-card .el-card__body { padding: 10px 14px; }
+        #credit_bond_grade_rule_old_new .stat-value { font-size: 18px; font-weight: 800; line-height: 1.2; }
+        #credit_bond_grade_rule_old_new .stat-label { margin-top: 4px; color: rgba(255, 255, 255, .78); font-size: 12px; }
+        #credit_bond_grade_rule_old_new main { padding: 28px 0 56px; }
+        #credit_bond_grade_rule_old_new .nav-card {
+            position: sticky; top: 10px; z-index: 10; margin-bottom: 24px;
+            border: 1px solid var(--line); border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07);
+        }
+        #credit_bond_grade_rule_old_new .nav-card .el-card__body {
+            display: flex; gap: 8px; padding: 10px; overflow-x: auto;
+        }
+        #credit_bond_grade_rule_old_new .nav-btn.el-button {
+            flex: none; margin: 0; padding: 7px 12px; color: #344054;
+            border: 0; border-radius: 8px; background: transparent; font-size: 14px;
+        }
+        #credit_bond_grade_rule_old_new .nav-btn.el-button:hover,
+        #credit_bond_grade_rule_old_new .nav-btn.el-button:focus {
+            color: var(--primary); background: var(--primary-light);
+        }
+        #credit_bond_grade_rule_old_new .panel {
+            margin-bottom: 24px; border: 1px solid var(--line); border-radius: 16px;
+            background: var(--panel); box-shadow: var(--shadow); scroll-margin-top: 78px;
+        }
+        #credit_bond_grade_rule_old_new .panel .el-card__header { padding: 26px 26px 0; border-bottom: 0; }
+        #credit_bond_grade_rule_old_new .panel .el-card__body { padding: 20px 26px 26px; }
+        #credit_bond_grade_rule_old_new h2 { margin: 0 0 6px; color: var(--text); font-size: 22px; line-height: 1.35; }
+        #credit_bond_grade_rule_old_new .sub { margin: 0; color: var(--muted); font-size: 13px; }
+        #credit_bond_grade_rule_old_new .flow {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;
+        }
+        #credit_bond_grade_rule_old_new .step-card {
+            border: 1px solid var(--line); border-radius: 12px; background: #fafbfd;
+        }
+        #credit_bond_grade_rule_old_new .step-card .el-card__body { padding: 14px 16px; }
+        #credit_bond_grade_rule_old_new .step-card b { display: block; margin-bottom: 6px; color: var(--primary); font-size: 14px; }
+        #credit_bond_grade_rule_old_new .step-card span { color: var(--regular); font-size: 13px; }
+        #credit_bond_grade_rule_old_new .audit-table.el-table th { background: #f5f7fb; color: #344054; }
+        #credit_bond_grade_rule_old_new .audit-table .cell { line-height: 1.55; }
+        #credit_bond_grade_rule_old_new .cell-text { white-space: pre-wrap; word-break: break-word; }
+        #credit_bond_grade_rule_old_new .issue-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;
+        }
+        #credit_bond_grade_rule_old_new .issue-card {
+            border: 1px solid var(--line); border-radius: 12px; border-left-width: 4px;
+        }
+        #credit_bond_grade_rule_old_new .issue-card.level-p0 { border-left-color: var(--danger); }
+        #credit_bond_grade_rule_old_new .issue-card.level-p1 { border-left-color: var(--warn); }
+        #credit_bond_grade_rule_old_new .issue-card.level-p2 { border-left-color: #64748b; }
+        #credit_bond_grade_rule_old_new .issue-card .el-card__body { padding: 16px 18px; }
+        #credit_bond_grade_rule_old_new .issue-head { display: flex; gap: 8px; margin-bottom: 8px; }
+        #credit_bond_grade_rule_old_new .issue-title { margin: 0 0 8px; font-size: 16px; line-height: 1.4; }
+        #credit_bond_grade_rule_old_new .issue-desc { margin: 0 0 10px; color: var(--regular); font-size: 13px; }
+        #credit_bond_grade_rule_old_new .check-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;
+        }
+        #credit_bond_grade_rule_old_new .check-card {
+            display: flex; gap: 12px; border: 1px solid var(--line);
+            border-radius: 12px; background: #fafbfd;
+        }
+        #credit_bond_grade_rule_old_new .check-card .el-card__body {
+            display: flex; gap: 12px; padding: 14px 16px; width: 100%;
+        }
+        #credit_bond_grade_rule_old_new .check-index {
+            flex: none; width: 28px; height: 28px; border-radius: 50%;
+            background: var(--primary-light); color: var(--primary);
+            font-weight: 700; line-height: 28px; text-align: center;
+        }
+        #credit_bond_grade_rule_old_new .check-body h3 { margin: 0 0 6px; font-size: 14px; }
+        #credit_bond_grade_rule_old_new .check-body p { margin: 0; color: var(--regular); font-size: 13px; }
+        #credit_bond_grade_rule_old_new .related-block { min-height: 180px; padding: 4px 2px; }
+        #credit_bond_grade_rule_old_new .block-title {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 700;
+        }
+        #credit_bond_grade_rule_old_new .block-title i { color: var(--primary); }
+        #credit_bond_grade_rule_old_new .topic-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+        #credit_bond_grade_rule_old_new .topic-card {
+            display: flex; justify-content: space-between; align-items: center;
+            width: 100%; padding: 10px 12px; color: var(--text);
+            border: 1px solid var(--line); border-radius: 10px; background: #fff;
+            cursor: pointer; text-align: left; font: inherit;
+        }
+        #credit_bond_grade_rule_old_new .topic-card:hover {
+            border-color: #b7c6ef; background: var(--primary-light); color: var(--primary);
+        }
+        #credit_bond_grade_rule_old_new .topic-card i { color: var(--muted); }
+        #credit_bond_grade_rule_old_new .topic-card:hover i { color: var(--primary); }
+        #credit_bond_grade_rule_old_new .source-list { margin: 0; padding-left: 18px; color: var(--regular); }
+        #credit_bond_grade_rule_old_new .source-list li { margin-bottom: 8px; word-break: break-all; }
+        #credit_bond_grade_rule_old_new .empty-tip { color: var(--muted); }
+        #credit_bond_grade_rule_old_new .alert-box {
+            margin-bottom: 16px; padding: 12px 14px; border-radius: 10px;
+            border: 1px solid var(--line); background: #f8fafc; color: var(--regular);
+            font-size: 13px; line-height: 1.6;
+        }
+        #credit_bond_grade_rule_old_new .alert-box.ok {
+            border-color: #bbf7d0; background: var(--success-bg); color: #166534;
+        }
+        #credit_bond_grade_rule_old_new code {
+            padding: 1px 5px; border-radius: 4px;
+            background: rgba(39, 67, 164, .08); font-size: 12px;
+        }
+        @media (max-width: 768px) {
+            #credit_bond_grade_rule_old_new .wrap { width: calc(100% - 20px); }
+            #credit_bond_grade_rule_old_new .doc-header { padding: 24px 0 22px; }
+            #credit_bond_grade_rule_old_new .panel .el-card__header { padding: 20px 18px 0; }
+            #credit_bond_grade_rule_old_new .panel .el-card__body { padding: 16px 18px 20px; }
+        }
+
+
+
+    </style>
+</head>
+<body>
+<div id="credit_bond_grade_rule_old_new" class="docs-business-issue-page">
+    <header class="doc-header">
+        <div class="wrap">
+            <p class="kicker">ZNTY RRS · RRS配置 · 业务问题专题</p>
+            <h1>{{ title }}</h1>
+            <p class="desc">{{ desc }}</p>
+            <el-row v-if="metrics.length" :gutter="10" class="stats">
+                <el-col v-for="metric in metrics" :key="metric[1]" :xs="12" :sm="8" :md="statSpan">
+                    <el-card shadow="never" class="stat-card">
+                        <div class="stat-value">{{ metric[0] }}</div>
+                        <div class="stat-label">{{ metric[1] }}</div>
+                    </el-card>
+                </el-col>
+            </el-row>
+        </div>
+    </header>
+    <main>
+        <div class="wrap">
+            <el-card shadow="never" class="nav-card">
+                <el-button v-if="steps.length" class="nav-btn" size="mini" @click="scrollTo('section-flow')">流程总览</el-button>
+                <el-button v-for="(table, index) in tables" :key="table.title" class="nav-btn" size="mini" @click="scrollTo('section-table-' + index)">{{ table.title }}</el-button>
+                <el-button v-if="findings.length" class="nav-btn" size="mini" @click="scrollTo('section-issues')">结论与建议</el-button>
+                <el-button v-if="checks.length" class="nav-btn" size="mini" @click="scrollTo('section-checks')">验收场景</el-button>
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-related')">依据专题</el-button>
+            </el-card>
+            <el-card v-if="steps.length" id="section-flow" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ flowTitle }}</h2>
+                    <p class="sub">{{ flowSub }}</p>
+                </div>
+                <div class="alert-box ok" v-html="alertHtml"></div>
+                <div class="flow">
+                    <el-card v-for="(step, index) in steps" :key="step" shadow="never" class="step-card">
+                        <b>{{ index + 1 }}. {{ step }}</b>
+                        <span>{{ stepHints[index] || '' }}</span>
+                    </el-card>
+                </div>
+            </el-card>
+            <el-card v-for="(table, index) in tables" :id="'section-table-' + index" :key="table.title" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ table.title }}</h2>
+                    <p class="sub">{{ table.sub || '对照老 SIRM 与新 RRS 的配置能力与消费口径。' }}</p>
+                </div>
+                <el-table :data="table.rows" size="small" border class="audit-table">
+                    <el-table-column v-for="column in table.columns" :key="column[0]" :prop="column[0]" :label="column[1]" :min-width="column[2]">
+                        <template slot-scope="scope">
+                            <el-tag v-if="column[0] === 'level'" size="mini" :type="levelTagType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <el-tag v-else-if="column[0] === 'status'" size="mini" :type="statusTagType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <span v-else class="cell-text">{{ scope.row[column[0]] }}</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+            <el-card v-if="findings.length" id="section-issues" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>结论、差异原因与整改建议</h2>
+                    <p class="sub">{{ issuesSub }}</p>
+                </div>
+                <div class="issue-grid">
+                    <el-card v-for="finding in findings" :key="finding.title" shadow="never" class="issue-card" :class="'level-' + finding.level.toLowerCase()">
+                        <div class="issue-head">
+                            <el-tag size="mini" :type="levelTagType(finding.level)">{{ finding.level }}</el-tag>
+                            <el-tag size="mini" effect="plain">{{ tag }}</el-tag>
+                        </div>
+                        <h3 class="issue-title">{{ finding.title }}</h3>
+                        <p class="issue-desc">{{ finding.desc }}</p>
+                        <el-alert v-if="finding.suggestion" :title="'建议：' + finding.suggestion" type="info" :closable="false"></el-alert>
+                    </el-card>
+                </div>
+            </el-card>
+            <el-card v-if="checks.length" id="section-checks" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>建议验收场景</h2>
+                    <p class="sub">{{ checksSub }}</p>
+                </div>
+                <div class="check-grid">
+                    <el-card v-for="(check, index) in checks" :key="check.scene" shadow="never" class="check-card">
+                        <div class="check-index">{{ index + 1 }}</div>
+                        <div class="check-body">
+                            <h3>{{ check.scene }}</h3>
+                            <p>{{ check.expected }}</p>
+                        </div>
+                    </el-card>
+                </div>
+            </el-card>
+            <el-card id="section-related" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>依据与相关专题</h2>
+                    <p class="sub">{{ relatedSub }}</p>
+                </div>
+                <el-row :gutter="16">
+                    <el-col :xs="24" :md="11">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-document-copy"></i><span>依据文件</span></div>
+                            <ul v-if="sources.length" class="source-list">
+                                <li v-for="source in sources" :key="source">{{ source }}</li>
+                            </ul>
+                            <div v-else class="empty-tip">暂无依据文件。</div>
+                        </div>
+                    </el-col>
+                    <el-col :xs="24" :md="13">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-connection"></i><span>相关专题</span></div>
+                            <div class="topic-grid">
+                                <button v-for="item in related" :key="item[1]" class="topic-card" type="button" @click="openDoc(item[1])">
+                                    <span>{{ item[0] }}</span>
+                                    <i class="el-icon-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </el-col>
+                </el-row>
+            </el-card>
+        </div>
+    </main>
+</div>
+<script>
+new Vue({
+    el: '#credit_bond_grade_rule_old_new',
+    data() {
+        return {
+    "title": "RRS配置 · 主体内评分档规则新老对比",
+    "desc": "对照老信用债主体评级×期限准入与新 RRS「主体内评分档规则」：期限档、评分档、信用债池矩阵、调库矩阵校验消费，以及 parent_id=1 与硬删除无事件表问题。",
+    "metrics": [
+        [
+            "3",
+            "矩阵相关表"
+        ],
+        [
+            "期限×评分",
+            "准入"
+        ],
+        [
+            "调库消费",
+            "校验"
+        ],
+        [
+            "2026-07-20",
+            "分析日期"
+        ]
+    ],
+    "steps": [
+        "维护期限档",
+        "维护评分档",
+        "配置池准入矩阵",
+        "保存重建关系",
+        "调库读取矩阵"
+    ],
+    "stepHints": [
+        "期限分段",
+        "内评档位",
+        "信用债池叶子",
+        "硬删除重建",
+        "主体评级×期限"
+    ],
+    "flowTitle": "评分档矩阵到调库",
+    "flowSub": "矩阵为信用债大库调入重要准入；观察池/可转债等分支在调库侧另有跳过逻辑。",
+    "alertHtml": "<b>直接结论：</b>矩阵维护与调库消费主路径已通。P1：评级池查询依赖 parent_id=1 演示主键；矩阵硬删除重建且无事件表，审计弱。",
+    "issuesSub": "主键依赖与审计。",
+    "checksSub": "档位准入、跳过分支、主键迁移。",
+    "relatedSub": "需求 23、CreditBondGradeRule*、调库矩阵校验。",
+    "tables": [
+        {
+            "title": "一句话结论",
+            "columns": [
+                [
+                    "q",
+                    "问题",
+                    220
+                ],
+                [
+                    "a",
+                    "结论",
+                    520
+                ],
+                [
+                    "status",
+                    "对齐度",
+                    120
+                ]
+            ],
+            "rows": [
+                {
+                    "q": "谁消费矩阵？",
+                    "a": "证券/批量调库主体评级×期限规则（信用债相关）。",
+                    "status": "已对齐"
+                },
+                {
+                    "q": "批量放开规则？",
+                    "a": "releaseRules=yes 仅跳过该矩阵，其它硬规则仍执行。",
+                    "status": "已对齐"
+                },
+                {
+                    "q": "根池怎么找？",
+                    "a": "当前查询依赖 parent_id=1 等固定结构。",
+                    "status": "待整改"
+                },
+                {
+                    "q": "谁改过矩阵？",
+                    "a": "硬删除重建，无事件表，难审计。",
+                    "status": "待整改"
+                }
+            ]
+        },
+        {
+            "title": "新老差异",
+            "columns": [
+                [
+                    "dim",
+                    "维度",
+                    140
+                ],
+                [
+                    "oldScope",
+                    "老系统",
+                    300
+                ],
+                [
+                    "newScope",
+                    "新系统",
+                    300
+                ],
+                [
+                    "status",
+                    "对齐度",
+                    120
+                ]
+            ],
+            "rows": [
+                {
+                    "dim": "矩阵模型",
+                    "oldScope": "评级档/期限档配置",
+                    "newScope": "三表：期限、评分、池矩阵",
+                    "status": "已对齐重构"
+                },
+                {
+                    "dim": "跳过",
+                    "oldScope": "观察池/可转债等",
+                    "newScope": "调库侧保留跳过分支",
+                    "status": "部分对齐"
+                },
+                {
+                    "dim": "主键",
+                    "oldScope": "业务编码",
+                    "newScope": "演示 parent_id=1 风险",
+                    "status": "固定ID风险"
+                }
+            ]
+        }
+    ],
+    "findings": [
+        {
+            "level": "P1",
+            "title": "评级池依赖 parent_id=1",
+            "desc": "迁移主键变化导致无可选池。",
+            "suggestion": "按稳定根池编码/类型查询。"
+        },
+        {
+            "level": "P2",
+            "title": "矩阵无事件审计",
+            "desc": "硬删除重建无法回看删除人。",
+            "suggestion": "版本或 _evt 表。"
+        }
+    ],
+    "checks": [
+        {
+            "scene": "准入命中",
+            "expected": "主体评级与期限落在矩阵内可调入。"
+        },
+        {
+            "scene": "不在矩阵",
+            "expected": "调入被拦。"
+        },
+        {
+            "scene": "批量放开",
+            "expected": "仅矩阵跳过，容量等仍拦。"
+        }
+    ],
+    "sources": [
+        "requirements/23-credit-bond-grade-rule.md",
+        "CreditBondGradeRuleService/Mapper",
+        "docs/credit-bond-grade-rule-tables.html",
+        "docs/rule-rating-temp-audit.html"
+    ],
+    "related": [
+        [
+            "问题总览",
+            "business-issues-overview.html"
+        ],
+        [
+            "规则管理中心新老对比",
+            "rule-manager-old-new-comparison.html"
+        ],
+        [
+            "规则评级与临时代码体检",
+            "rule-rating-temp-audit.html"
+        ],
+        [
+            "证券池调整新老对比",
+            "security-pool-adjust-old-new-comparison.html"
+        ],
+        [
+            "业务文档·评分档规则",
+            "credit-bond-grade-rule-tables.html"
+        ]
+    ],
+    "tag": "主体内评分档规则"
+}
+    },
+    computed: {
+        statSpan() {
+            if (this.metrics.length <= 3) return 8
+            if (this.metrics.length <= 4) return 6
+            return 4
+        },
+    },
+    methods: {
+        levelTagType(level) {
+            if (level === 'P0') return 'danger'
+            if (level === 'P1') return 'warning'
+            return 'info'
+        },
+        statusTagType(status) {
+            if (!status) return 'info'
+            if (status.indexOf('对齐') > -1 || status.indexOf('一致') > -1 || status.indexOf('明确') > -1 || status.indexOf('已修复') > -1 || status.indexOf('可接受') > -1) return 'success'
+            if (status.indexOf('不同') > -1 || status.indexOf('不一致') > -1 || status.indexOf('未迁移') > -1 || status.indexOf('收窄') > -1 || status.indexOf('合并') > -1 || status.indexOf('重构') > -1 || status.indexOf('更严') > -1 || status.indexOf('部分') > -1 || status.indexOf('时机') > -1 || status.indexOf('分层') > -1 || status.indexOf('体验') > -1 || status.indexOf('待整改') > -1 || status.indexOf('模型') > -1 || status.indexOf('产品') > -1 || status.indexOf('既定') > -1 || status.indexOf('增强') > -1 || status.indexOf('固定') > -1 || status.indexOf('独立') > -1 || status.indexOf('预留') > -1 || status.indexOf('暂缓') > -1 || status.indexOf('隐藏') > -1) return 'warning'
+            if (status.indexOf('风险') > -1 || status.indexOf('失败') > -1) return 'danger'
+            return 'info'
+        },
+        scrollTo(id) {
+            const el = document.getElementById(id)
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        },
+        openDoc(page) {
+            if (!page) return
+            const menuIndexMap = {
+                'business-issues-overview.html': 'doc-business-issues-overview',
+                'investment-pool-old-new-comparison.html': 'doc-investment-pool-comparison',
+                'pool-open-day-old-new-comparison.html': 'doc-pool-open-day-comparison',
+                'flow-definition-old-new-comparison.html': 'doc-flow-definition-comparison',
+                'rule-manager-old-new-comparison.html': 'doc-rule-manager-comparison',
+                'credit-bond-grade-rule-old-new-comparison.html': 'doc-credit-grade-rule-comparison',
+                'investment-pool-permission-audit.html': 'doc-pool-permission-audit',
+                'workflow-engine-audit.html': 'doc-workflow-engine-audit',
+                'rule-rating-temp-audit.html': 'doc-rule-rating-temp-audit',
+                'investment-pool-tables.html': 'doc-investment-pool',
+                'pool-open-day-tables.html': 'doc-pool-open-day',
+                'flow-definition-tables.html': 'doc-flow-definition',
+                'rule-manager-tables.html': 'doc-rule-manager',
+                'credit-bond-grade-rule-tables.html': 'doc-credit-grade-rule',
+                'business-acceptance-matrix.html': 'doc-business-acceptance',
+                'hardcoded-validation-audit.html': 'doc-hardcoded-validation-audit',
+                'security-pool-adjust-old-new-comparison.html': 'doc-security-adjust-comparison',
+                'forbidden-pool-adjust-old-new-comparison.html': 'doc-forbidden-adjust-comparison',
+                'crmw-pool-adjust-old-new-comparison.html': 'doc-crmw-adjust-comparison',
+            }
+            const opener = window.parent && window.parent !== window ? window.parent.RrsWorkbenchOpenPage : null
+            if (opener && menuIndexMap[page]) {
+                opener(menuIndexMap[page])
+                return
+            }
+            window.location.href = page
+        },
+    },
+})
+</script>
+</body>
+</html>

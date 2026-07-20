@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RRS配置 · 规则管理中心新老对比</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #f4f7fb;
+        }
+        #rule_manager_old_new {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, .08);
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+        #rule_manager_old_new,
+        #rule_manager_old_new * { box-sizing: border-box; }
+        #rule_manager_old_new .wrap { width: min(1760px, calc(100% - 32px)); margin: 0 auto; }
+        #rule_manager_old_new .doc-header {
+            padding: 28px 0 24px; color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+        }
+        #rule_manager_old_new .kicker {
+            margin: 0 0 4px; color: #fff; font-size: 12px; font-weight: 700;
+            letter-spacing: .14em; opacity: .82;
+        }
+        #rule_manager_old_new h1 {
+            margin: 0; font-size: clamp(26px, 3vw, 36px); line-height: 1.25; color: #fff;
+        }
+        #rule_manager_old_new .desc {
+            max-width: 1040px; margin: 8px 0 0; color: rgba(255, 255, 255, .86); font-size: 14px;
+        }
+        #rule_manager_old_new .stats { max-width: 980px; margin-top: 16px; }
+        #rule_manager_old_new .stat-card {
+            margin-bottom: 10px; color: #fff; border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px; background: rgba(255, 255, 255, .1);
+        }
+        #rule_manager_old_new .stat-card .el-card__body { padding: 10px 14px; }
+        #rule_manager_old_new .stat-value { font-size: 18px; font-weight: 800; line-height: 1.2; }
+        #rule_manager_old_new .stat-label { margin-top: 4px; color: rgba(255, 255, 255, .78); font-size: 12px; }
+        #rule_manager_old_new main { padding: 28px 0 56px; }
+        #rule_manager_old_new .nav-card {
+            position: sticky; top: 10px; z-index: 10; margin-bottom: 24px;
+            border: 1px solid var(--line); border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07);
+        }
+        #rule_manager_old_new .nav-card .el-card__body {
+            display: flex; gap: 8px; padding: 10px; overflow-x: auto;
+        }
+        #rule_manager_old_new .nav-btn.el-button {
+            flex: none; margin: 0; padding: 7px 12px; color: #344054;
+            border: 0; border-radius: 8px; background: transparent; font-size: 14px;
+        }
+        #rule_manager_old_new .nav-btn.el-button:hover,
+        #rule_manager_old_new .nav-btn.el-button:focus {
+            color: var(--primary); background: var(--primary-light);
+        }
+        #rule_manager_old_new .panel {
+            margin-bottom: 24px; border: 1px solid var(--line); border-radius: 16px;
+            background: var(--panel); box-shadow: var(--shadow); scroll-margin-top: 78px;
+        }
+        #rule_manager_old_new .panel .el-card__header { padding: 26px 26px 0; border-bottom: 0; }
+        #rule_manager_old_new .panel .el-card__body { padding: 20px 26px 26px; }
+        #rule_manager_old_new h2 { margin: 0 0 6px; color: var(--text); font-size: 22px; line-height: 1.35; }
+        #rule_manager_old_new .sub { margin: 0; color: var(--muted); font-size: 13px; }
+        #rule_manager_old_new .flow {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;
+        }
+        #rule_manager_old_new .step-card {
+            border: 1px solid var(--line); border-radius: 12px; background: #fafbfd;
+        }
+        #rule_manager_old_new .step-card .el-card__body { padding: 14px 16px; }
+        #rule_manager_old_new .step-card b { display: block; margin-bottom: 6px; color: var(--primary); font-size: 14px; }
+        #rule_manager_old_new .step-card span { color: var(--regular); font-size: 13px; }
+        #rule_manager_old_new .audit-table.el-table th { background: #f5f7fb; color: #344054; }
+        #rule_manager_old_new .audit-table .cell { line-height: 1.55; }
+        #rule_manager_old_new .cell-text { white-space: pre-wrap; word-break: break-word; }
+        #rule_manager_old_new .issue-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;
+        }
+        #rule_manager_old_new .issue-card {
+            border: 1px solid var(--line); border-radius: 12px; border-left-width: 4px;
+        }
+        #rule_manager_old_new .issue-card.level-p0 { border-left-color: var(--danger); }
+        #rule_manager_old_new .issue-card.level-p1 { border-left-color: var(--warn); }
+        #rule_manager_old_new .issue-card.level-p2 { border-left-color: #64748b; }
+        #rule_manager_old_new .issue-card .el-card__body { padding: 16px 18px; }
+        #rule_manager_old_new .issue-head { display: flex; gap: 8px; margin-bottom: 8px; }
+        #rule_manager_old_new .issue-title { margin: 0 0 8px; font-size: 16px; line-height: 1.4; }
+        #rule_manager_old_new .issue-desc { margin: 0 0 10px; color: var(--regular); font-size: 13px; }
+        #rule_manager_old_new .check-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;
+        }
+        #rule_manager_old_new .check-card {
+            display: flex; gap: 12px; border: 1px solid var(--line);
+            border-radius: 12px; background: #fafbfd;
+        }
+        #rule_manager_old_new .check-card .el-card__body {
+            display: flex; gap: 12px; padding: 14px 16px; width: 100%;
+        }
+        #rule_manager_old_new .check-index {
+            flex: none; width: 28px; height: 28px; border-radius: 50%;
+            background: var(--primary-light); color: var(--primary);
+            font-weight: 700; line-height: 28px; text-align: center;
+        }
+        #rule_manager_old_new .check-body h3 { margin: 0 0 6px; font-size: 14px; }
+        #rule_manager_old_new .check-body p { margin: 0; color: var(--regular); font-size: 13px; }
+        #rule_manager_old_new .related-block { min-height: 180px; padding: 4px 2px; }
+        #rule_manager_old_new .block-title {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 700;
+        }
+        #rule_manager_old_new .block-title i { color: var(--primary); }
+        #rule_manager_old_new .topic-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+        #rule_manager_old_new .topic-card {
+            display: flex; justify-content: space-between; align-items: center;
+            width: 100%; padding: 10px 12px; color: var(--text);
+            border: 1px solid var(--line); border-radius: 10px; background: #fff;
+            cursor: pointer; text-align: left; font: inherit;
+        }
+        #rule_manager_old_new .topic-card:hover {
+            border-color: #b7c6ef; background: var(--primary-light); color: var(--primary);
+        }
+        #rule_manager_old_new .topic-card i { color: var(--muted); }
+        #rule_manager_old_new .topic-card:hover i { color: var(--primary); }
+        #rule_manager_old_new .source-list { margin: 0; padding-left: 18px; color: var(--regular); }
+        #rule_manager_old_new .source-list li { margin-bottom: 8px; word-break: break-all; }
+        #rule_manager_old_new .empty-tip { color: var(--muted); }
+        #rule_manager_old_new .alert-box {
+            margin-bottom: 16px; padding: 12px 14px; border-radius: 10px;
+            border: 1px solid var(--line); background: #f8fafc; color: var(--regular);
+            font-size: 13px; line-height: 1.6;
+        }
+        #rule_manager_old_new .alert-box.ok {
+            border-color: #bbf7d0; background: var(--success-bg); color: #166534;
+        }
+        #rule_manager_old_new code {
+            padding: 1px 5px; border-radius: 4px;
+            background: rgba(39, 67, 164, .08); font-size: 12px;
+        }
+        @media (max-width: 768px) {
+            #rule_manager_old_new .wrap { width: calc(100% - 20px); }
+            #rule_manager_old_new .doc-header { padding: 24px 0 22px; }
+            #rule_manager_old_new .panel .el-card__header { padding: 20px 18px 0; }
+            #rule_manager_old_new .panel .el-card__body { padding: 16px 18px 20px; }
+        }
+
+
+
+    </style>
+</head>
+<body>
+<div id="rule_manager_old_new" class="docs-business-issue-page">
+    <header class="doc-header">
+        <div class="wrap">
+            <p class="kicker">ZNTY RRS · RRS配置 · 业务问题专题</p>
+            <h1>{{ title }}</h1>
+            <p class="desc">{{ desc }}</p>
+            <el-row v-if="metrics.length" :gutter="10" class="stats">
+                <el-col v-for="metric in metrics" :key="metric[1]" :xs="12" :sm="8" :md="statSpan">
+                    <el-card shadow="never" class="stat-card">
+                        <div class="stat-value">{{ metric[0] }}</div>
+                        <div class="stat-label">{{ metric[1] }}</div>
+                    </el-card>
+                </el-col>
+            </el-row>
+        </div>
+    </header>
+    <main>
+        <div class="wrap">
+            <el-card shadow="never" class="nav-card">
+                <el-button v-if="steps.length" class="nav-btn" size="mini" @click="scrollTo('section-flow')">流程总览</el-button>
+                <el-button v-for="(table, index) in tables" :key="table.title" class="nav-btn" size="mini" @click="scrollTo('section-table-' + index)">{{ table.title }}</el-button>
+                <el-button v-if="findings.length" class="nav-btn" size="mini" @click="scrollTo('section-issues')">结论与建议</el-button>
+                <el-button v-if="checks.length" class="nav-btn" size="mini" @click="scrollTo('section-checks')">验收场景</el-button>
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-related')">依据专题</el-button>
+            </el-card>
+            <el-card v-if="steps.length" id="section-flow" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ flowTitle }}</h2>
+                    <p class="sub">{{ flowSub }}</p>
+                </div>
+                <div class="alert-box ok" v-html="alertHtml"></div>
+                <div class="flow">
+                    <el-card v-for="(step, index) in steps" :key="step" shadow="never" class="step-card">
+                        <b>{{ index + 1 }}. {{ step }}</b>
+                        <span>{{ stepHints[index] || '' }}</span>
+                    </el-card>
+                </div>
+            </el-card>
+            <el-card v-for="(table, index) in tables" :id="'section-table-' + index" :key="table.title" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ table.title }}</h2>
+                    <p class="sub">{{ table.sub || '对照老 SIRM 与新 RRS 的配置能力与消费口径。' }}</p>
+                </div>
+                <el-table :data="table.rows" size="small" border class="audit-table">
+                    <el-table-column v-for="column in table.columns" :key="column[0]" :prop="column[0]" :label="column[1]" :min-width="column[2]">
+                        <template slot-scope="scope">
+                            <el-tag v-if="column[0] === 'level'" size="mini" :type="levelTagType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <el-tag v-else-if="column[0] === 'status'" size="mini" :type="statusTagType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <span v-else class="cell-text">{{ scope.row[column[0]] }}</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+            <el-card v-if="findings.length" id="section-issues" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>结论、差异原因与整改建议</h2>
+                    <p class="sub">{{ issuesSub }}</p>
+                </div>
+                <div class="issue-grid">
+                    <el-card v-for="finding in findings" :key="finding.title" shadow="never" class="issue-card" :class="'level-' + finding.level.toLowerCase()">
+                        <div class="issue-head">
+                            <el-tag size="mini" :type="levelTagType(finding.level)">{{ finding.level }}</el-tag>
+                            <el-tag size="mini" effect="plain">{{ tag }}</el-tag>
+                        </div>
+                        <h3 class="issue-title">{{ finding.title }}</h3>
+                        <p class="issue-desc">{{ finding.desc }}</p>
+                        <el-alert v-if="finding.suggestion" :title="'建议：' + finding.suggestion" type="info" :closable="false"></el-alert>
+                    </el-card>
+                </div>
+            </el-card>
+            <el-card v-if="checks.length" id="section-checks" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>建议验收场景</h2>
+                    <p class="sub">{{ checksSub }}</p>
+                </div>
+                <div class="check-grid">
+                    <el-card v-for="(check, index) in checks" :key="check.scene" shadow="never" class="check-card">
+                        <div class="check-index">{{ index + 1 }}</div>
+                        <div class="check-body">
+                            <h3>{{ check.scene }}</h3>
+                            <p>{{ check.expected }}</p>
+                        </div>
+                    </el-card>
+                </div>
+            </el-card>
+            <el-card id="section-related" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>依据与相关专题</h2>
+                    <p class="sub">{{ relatedSub }}</p>
+                </div>
+                <el-row :gutter="16">
+                    <el-col :xs="24" :md="11">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-document-copy"></i><span>依据文件</span></div>
+                            <ul v-if="sources.length" class="source-list">
+                                <li v-for="source in sources" :key="source">{{ source }}</li>
+                            </ul>
+                            <div v-else class="empty-tip">暂无依据文件。</div>
+                        </div>
+                    </el-col>
+                    <el-col :xs="24" :md="13">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-connection"></i><span>相关专题</span></div>
+                            <div class="topic-grid">
+                                <button v-for="item in related" :key="item[1]" class="topic-card" type="button" @click="openDoc(item[1])">
+                                    <span>{{ item[0] }}</span>
+                                    <i class="el-icon-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </el-col>
+                </el-row>
+            </el-card>
+        </div>
+    </main>
+</div>
+<script>
+new Vue({
+    el: '#rule_manager_old_new',
+    data() {
+        return {
+    "title": "RRS配置 · 规则管理中心新老对比",
+    "desc": "对照老规则/脚本能力与新 RRS「规则管理中心」：QLExpress 规则定义、参数与选项、测试用例、运行日志落库，以及前端对历史/用例编辑能力缺口。",
+    "metrics": [
+        [
+            "QLExpress",
+            "引擎"
+        ],
+        [
+            "用例",
+            "回归"
+        ],
+        [
+            "运行日志",
+            "落库"
+        ],
+        [
+            "2026-07-20",
+            "分析日期"
+        ]
+    ],
+    "steps": [
+        "维护规则分类与定义",
+        "配置参数类型",
+        "编写脚本",
+        "维护/执行测试用例",
+        "查看运行结果"
+    ],
+    "stepHints": [
+        "规则表",
+        "string/number→BigDecimal",
+        "ExpressRunner",
+        "t_rule_test_*",
+        "前端历史能力弱"
+    ],
+    "flowTitle": "规则配置与试运行",
+    "flowSub": "后端可执行并持久化运行日志；页面侧部分接口未充分暴露。",
+    "alertHtml": "<b>直接结论：</b>QLExpress 执行与 number 精确解析已落地；运行写入 t_rule_test_run/log。P1：脚本编辑需严格权限。P2：运行历史与用例全量编辑前端未充分使用。",
+    "issuesSub": "权限与前端能力。",
+    "checksSub": "脚本执行、参数类型、日志。",
+    "relatedSub": "需求 03、RuleService、rule-rating-temp-audit。",
+    "tables": [
+        {
+            "title": "一句话结论",
+            "columns": [
+                [
+                    "q",
+                    "问题",
+                    220
+                ],
+                [
+                    "a",
+                    "结论",
+                    520
+                ],
+                [
+                    "status",
+                    "对齐度",
+                    120
+                ]
+            ],
+            "rows": [
+                {
+                    "q": "用什么引擎？",
+                    "a": "QLExpress ExpressRunner。",
+                    "status": "明确对齐"
+                },
+                {
+                    "q": "number 怎么解析？",
+                    "a": "BigDecimal；含小数→Double，否则 Long。",
+                    "status": "已对齐增强"
+                },
+                {
+                    "q": "有运行历史吗？",
+                    "a": "后端落库；前端历史查看不足。",
+                    "status": "部分对齐"
+                },
+                {
+                    "q": "生产风险？",
+                    "a": "脚本在服务端执行，需限制编辑角色并审计。",
+                    "status": "待整改"
+                }
+            ]
+        },
+        {
+            "title": "模块职责",
+            "columns": [
+                [
+                    "module",
+                    "模块",
+                    160
+                ],
+                [
+                    "data",
+                    "核心数据",
+                    320
+                ],
+                [
+                    "purpose",
+                    "用途",
+                    320
+                ]
+            ],
+            "rows": [
+                {
+                    "module": "规则定义",
+                    "data": "分类、脚本、参数、选项",
+                    "purpose": "可配置校验逻辑"
+                },
+                {
+                    "module": "测试用例",
+                    "data": "参数快照与期望",
+                    "purpose": "回归"
+                },
+                {
+                    "module": "运行日志",
+                    "data": "run + step log",
+                    "purpose": "排障与审计"
+                }
+            ]
+        }
+    ],
+    "findings": [
+        {
+            "level": "P1",
+            "title": "规则脚本权限",
+            "desc": "任意可登录用户若能改脚本则风险高。",
+            "suggestion": "生产限制角色并记审计。"
+        },
+        {
+            "level": "P2",
+            "title": "运行历史前端未用",
+            "desc": "后端已存日志。",
+            "suggestion": "页面增加执行历史与错误步骤。"
+        },
+        {
+            "level": "P2",
+            "title": "用例全量编辑接口未用",
+            "desc": "参数变更后维护不便。",
+            "suggestion": "开放用例参数编辑并提示快照差异。"
+        }
+    ],
+    "checks": [
+        {
+            "scene": "简单脚本",
+            "expected": "返回 success 与结果写入 run 表。"
+        },
+        {
+            "scene": "number 小数",
+            "expected": "按 Double 参与运算且结果符合预期。"
+        },
+        {
+            "scene": "失败步骤",
+            "expected": "log 表有步骤错误信息。"
+        }
+    ],
+    "sources": [
+        "requirements/03-rule-manager.md",
+        "RuleService / TestCase*",
+        "docs/rule-manager-tables.html",
+        "docs/rule-rating-temp-audit.html"
+    ],
+    "related": [
+        [
+            "问题总览",
+            "business-issues-overview.html"
+        ],
+        [
+            "规则评级与临时代码体检",
+            "rule-rating-temp-audit.html"
+        ],
+        [
+            "主体内评分档规则新老对比",
+            "credit-bond-grade-rule-old-new-comparison.html"
+        ],
+        [
+            "业务文档·规则管理",
+            "rule-manager-tables.html"
+        ]
+    ],
+    "tag": "规则管理中心"
+}
+    },
+    computed: {
+        statSpan() {
+            if (this.metrics.length <= 3) return 8
+            if (this.metrics.length <= 4) return 6
+            return 4
+        },
+    },
+    methods: {
+        levelTagType(level) {
+            if (level === 'P0') return 'danger'
+            if (level === 'P1') return 'warning'
+            return 'info'
+        },
+        statusTagType(status) {
+            if (!status) return 'info'
+            if (status.indexOf('对齐') > -1 || status.indexOf('一致') > -1 || status.indexOf('明确') > -1 || status.indexOf('已修复') > -1 || status.indexOf('可接受') > -1) return 'success'
+            if (status.indexOf('不同') > -1 || status.indexOf('不一致') > -1 || status.indexOf('未迁移') > -1 || status.indexOf('收窄') > -1 || status.indexOf('合并') > -1 || status.indexOf('重构') > -1 || status.indexOf('更严') > -1 || status.indexOf('部分') > -1 || status.indexOf('时机') > -1 || status.indexOf('分层') > -1 || status.indexOf('体验') > -1 || status.indexOf('待整改') > -1 || status.indexOf('模型') > -1 || status.indexOf('产品') > -1 || status.indexOf('既定') > -1 || status.indexOf('增强') > -1 || status.indexOf('固定') > -1 || status.indexOf('独立') > -1 || status.indexOf('预留') > -1 || status.indexOf('暂缓') > -1 || status.indexOf('隐藏') > -1) return 'warning'
+            if (status.indexOf('风险') > -1 || status.indexOf('失败') > -1) return 'danger'
+            return 'info'
+        },
+        scrollTo(id) {
+            const el = document.getElementById(id)
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        },
+        openDoc(page) {
+            if (!page) return
+            const menuIndexMap = {
+                'business-issues-overview.html': 'doc-business-issues-overview',
+                'investment-pool-old-new-comparison.html': 'doc-investment-pool-comparison',
+                'pool-open-day-old-new-comparison.html': 'doc-pool-open-day-comparison',
+                'flow-definition-old-new-comparison.html': 'doc-flow-definition-comparison',
+                'rule-manager-old-new-comparison.html': 'doc-rule-manager-comparison',
+                'credit-bond-grade-rule-old-new-comparison.html': 'doc-credit-grade-rule-comparison',
+                'investment-pool-permission-audit.html': 'doc-pool-permission-audit',
+                'workflow-engine-audit.html': 'doc-workflow-engine-audit',
+                'rule-rating-temp-audit.html': 'doc-rule-rating-temp-audit',
+                'investment-pool-tables.html': 'doc-investment-pool',
+                'pool-open-day-tables.html': 'doc-pool-open-day',
+                'flow-definition-tables.html': 'doc-flow-definition',
+                'rule-manager-tables.html': 'doc-rule-manager',
+                'credit-bond-grade-rule-tables.html': 'doc-credit-grade-rule',
+                'business-acceptance-matrix.html': 'doc-business-acceptance',
+                'hardcoded-validation-audit.html': 'doc-hardcoded-validation-audit',
+                'security-pool-adjust-old-new-comparison.html': 'doc-security-adjust-comparison',
+                'forbidden-pool-adjust-old-new-comparison.html': 'doc-forbidden-adjust-comparison',
+                'crmw-pool-adjust-old-new-comparison.html': 'doc-crmw-adjust-comparison',
+            }
+            const opener = window.parent && window.parent !== window ? window.parent.RrsWorkbenchOpenPage : null
+            if (opener && menuIndexMap[page]) {
+                opener(menuIndexMap[page])
+                return
+            }
+            window.location.href = page
+        },
+    },
+})
+</script>
+</body>
+</html>

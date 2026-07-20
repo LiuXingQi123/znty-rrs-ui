@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RRS配置 · 流程定义新老对比</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #f4f7fb;
+        }
+        #flow_definition_old_new {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, .08);
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+        #flow_definition_old_new,
+        #flow_definition_old_new * { box-sizing: border-box; }
+        #flow_definition_old_new .wrap { width: min(1760px, calc(100% - 32px)); margin: 0 auto; }
+        #flow_definition_old_new .doc-header {
+            padding: 28px 0 24px; color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+        }
+        #flow_definition_old_new .kicker {
+            margin: 0 0 4px; color: #fff; font-size: 12px; font-weight: 700;
+            letter-spacing: .14em; opacity: .82;
+        }
+        #flow_definition_old_new h1 {
+            margin: 0; font-size: clamp(26px, 3vw, 36px); line-height: 1.25; color: #fff;
+        }
+        #flow_definition_old_new .desc {
+            max-width: 1040px; margin: 8px 0 0; color: rgba(255, 255, 255, .86); font-size: 14px;
+        }
+        #flow_definition_old_new .stats { max-width: 980px; margin-top: 16px; }
+        #flow_definition_old_new .stat-card {
+            margin-bottom: 10px; color: #fff; border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px; background: rgba(255, 255, 255, .1);
+        }
+        #flow_definition_old_new .stat-card .el-card__body { padding: 10px 14px; }
+        #flow_definition_old_new .stat-value { font-size: 18px; font-weight: 800; line-height: 1.2; }
+        #flow_definition_old_new .stat-label { margin-top: 4px; color: rgba(255, 255, 255, .78); font-size: 12px; }
+        #flow_definition_old_new main { padding: 28px 0 56px; }
+        #flow_definition_old_new .nav-card {
+            position: sticky; top: 10px; z-index: 10; margin-bottom: 24px;
+            border: 1px solid var(--line); border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07);
+        }
+        #flow_definition_old_new .nav-card .el-card__body {
+            display: flex; gap: 8px; padding: 10px; overflow-x: auto;
+        }
+        #flow_definition_old_new .nav-btn.el-button {
+            flex: none; margin: 0; padding: 7px 12px; color: #344054;
+            border: 0; border-radius: 8px; background: transparent; font-size: 14px;
+        }
+        #flow_definition_old_new .nav-btn.el-button:hover,
+        #flow_definition_old_new .nav-btn.el-button:focus {
+            color: var(--primary); background: var(--primary-light);
+        }
+        #flow_definition_old_new .panel {
+            margin-bottom: 24px; border: 1px solid var(--line); border-radius: 16px;
+            background: var(--panel); box-shadow: var(--shadow); scroll-margin-top: 78px;
+        }
+        #flow_definition_old_new .panel .el-card__header { padding: 26px 26px 0; border-bottom: 0; }
+        #flow_definition_old_new .panel .el-card__body { padding: 20px 26px 26px; }
+        #flow_definition_old_new h2 { margin: 0 0 6px; color: var(--text); font-size: 22px; line-height: 1.35; }
+        #flow_definition_old_new .sub { margin: 0; color: var(--muted); font-size: 13px; }
+        #flow_definition_old_new .flow {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;
+        }
+        #flow_definition_old_new .step-card {
+            border: 1px solid var(--line); border-radius: 12px; background: #fafbfd;
+        }
+        #flow_definition_old_new .step-card .el-card__body { padding: 14px 16px; }
+        #flow_definition_old_new .step-card b { display: block; margin-bottom: 6px; color: var(--primary); font-size: 14px; }
+        #flow_definition_old_new .step-card span { color: var(--regular); font-size: 13px; }
+        #flow_definition_old_new .audit-table.el-table th { background: #f5f7fb; color: #344054; }
+        #flow_definition_old_new .audit-table .cell { line-height: 1.55; }
+        #flow_definition_old_new .cell-text { white-space: pre-wrap; word-break: break-word; }
+        #flow_definition_old_new .issue-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;
+        }
+        #flow_definition_old_new .issue-card {
+            border: 1px solid var(--line); border-radius: 12px; border-left-width: 4px;
+        }
+        #flow_definition_old_new .issue-card.level-p0 { border-left-color: var(--danger); }
+        #flow_definition_old_new .issue-card.level-p1 { border-left-color: var(--warn); }
+        #flow_definition_old_new .issue-card.level-p2 { border-left-color: #64748b; }
+        #flow_definition_old_new .issue-card .el-card__body { padding: 16px 18px; }
+        #flow_definition_old_new .issue-head { display: flex; gap: 8px; margin-bottom: 8px; }
+        #flow_definition_old_new .issue-title { margin: 0 0 8px; font-size: 16px; line-height: 1.4; }
+        #flow_definition_old_new .issue-desc { margin: 0 0 10px; color: var(--regular); font-size: 13px; }
+        #flow_definition_old_new .check-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;
+        }
+        #flow_definition_old_new .check-card {
+            display: flex; gap: 12px; border: 1px solid var(--line);
+            border-radius: 12px; background: #fafbfd;
+        }
+        #flow_definition_old_new .check-card .el-card__body {
+            display: flex; gap: 12px; padding: 14px 16px; width: 100%;
+        }
+        #flow_definition_old_new .check-index {
+            flex: none; width: 28px; height: 28px; border-radius: 50%;
+            background: var(--primary-light); color: var(--primary);
+            font-weight: 700; line-height: 28px; text-align: center;
+        }
+        #flow_definition_old_new .check-body h3 { margin: 0 0 6px; font-size: 14px; }
+        #flow_definition_old_new .check-body p { margin: 0; color: var(--regular); font-size: 13px; }
+        #flow_definition_old_new .related-block { min-height: 180px; padding: 4px 2px; }
+        #flow_definition_old_new .block-title {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 700;
+        }
+        #flow_definition_old_new .block-title i { color: var(--primary); }
+        #flow_definition_old_new .topic-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+        #flow_definition_old_new .topic-card {
+            display: flex; justify-content: space-between; align-items: center;
+            width: 100%; padding: 10px 12px; color: var(--text);
+            border: 1px solid var(--line); border-radius: 10px; background: #fff;
+            cursor: pointer; text-align: left; font: inherit;
+        }
+        #flow_definition_old_new .topic-card:hover {
+            border-color: #b7c6ef; background: var(--primary-light); color: var(--primary);
+        }
+        #flow_definition_old_new .topic-card i { color: var(--muted); }
+        #flow_definition_old_new .topic-card:hover i { color: var(--primary); }
+        #flow_definition_old_new .source-list { margin: 0; padding-left: 18px; color: var(--regular); }
+        #flow_definition_old_new .source-list li { margin-bottom: 8px; word-break: break-all; }
+        #flow_definition_old_new .empty-tip { color: var(--muted); }
+        #flow_definition_old_new .alert-box {
+            margin-bottom: 16px; padding: 12px 14px; border-radius: 10px;
+            border: 1px solid var(--line); background: #f8fafc; color: var(--regular);
+            font-size: 13px; line-height: 1.6;
+        }
+        #flow_definition_old_new .alert-box.ok {
+            border-color: #bbf7d0; background: var(--success-bg); color: #166534;
+        }
+        #flow_definition_old_new code {
+            padding: 1px 5px; border-radius: 4px;
+            background: rgba(39, 67, 164, .08); font-size: 12px;
+        }
+        @media (max-width: 768px) {
+            #flow_definition_old_new .wrap { width: calc(100% - 20px); }
+            #flow_definition_old_new .doc-header { padding: 24px 0 22px; }
+            #flow_definition_old_new .panel .el-card__header { padding: 20px 18px 0; }
+            #flow_definition_old_new .panel .el-card__body { padding: 16px 18px 20px; }
+        }
+
+
+
+    </style>
+</head>
+<body>
+<div id="flow_definition_old_new" class="docs-business-issue-page">
+    <header class="doc-header">
+        <div class="wrap">
+            <p class="kicker">ZNTY RRS · RRS配置 · 业务问题专题</p>
+            <h1>{{ title }}</h1>
+            <p class="desc">{{ desc }}</p>
+            <el-row v-if="metrics.length" :gutter="10" class="stats">
+                <el-col v-for="metric in metrics" :key="metric[1]" :xs="12" :sm="8" :md="statSpan">
+                    <el-card shadow="never" class="stat-card">
+                        <div class="stat-value">{{ metric[0] }}</div>
+                        <div class="stat-label">{{ metric[1] }}</div>
+                    </el-card>
+                </el-col>
+            </el-row>
+        </div>
+    </header>
+    <main>
+        <div class="wrap">
+            <el-card shadow="never" class="nav-card">
+                <el-button v-if="steps.length" class="nav-btn" size="mini" @click="scrollTo('section-flow')">流程总览</el-button>
+                <el-button v-for="(table, index) in tables" :key="table.title" class="nav-btn" size="mini" @click="scrollTo('section-table-' + index)">{{ table.title }}</el-button>
+                <el-button v-if="findings.length" class="nav-btn" size="mini" @click="scrollTo('section-issues')">结论与建议</el-button>
+                <el-button v-if="checks.length" class="nav-btn" size="mini" @click="scrollTo('section-checks')">验收场景</el-button>
+                <el-button class="nav-btn" size="mini" @click="scrollTo('section-related')">依据专题</el-button>
+            </el-card>
+            <el-card v-if="steps.length" id="section-flow" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ flowTitle }}</h2>
+                    <p class="sub">{{ flowSub }}</p>
+                </div>
+                <div class="alert-box ok" v-html="alertHtml"></div>
+                <div class="flow">
+                    <el-card v-for="(step, index) in steps" :key="step" shadow="never" class="step-card">
+                        <b>{{ index + 1 }}. {{ step }}</b>
+                        <span>{{ stepHints[index] || '' }}</span>
+                    </el-card>
+                </div>
+            </el-card>
+            <el-card v-for="(table, index) in tables" :id="'section-table-' + index" :key="table.title" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>{{ table.title }}</h2>
+                    <p class="sub">{{ table.sub || '对照老 SIRM 与新 RRS 的配置能力与消费口径。' }}</p>
+                </div>
+                <el-table :data="table.rows" size="small" border class="audit-table">
+                    <el-table-column v-for="column in table.columns" :key="column[0]" :prop="column[0]" :label="column[1]" :min-width="column[2]">
+                        <template slot-scope="scope">
+                            <el-tag v-if="column[0] === 'level'" size="mini" :type="levelTagType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <el-tag v-else-if="column[0] === 'status'" size="mini" :type="statusTagType(scope.row[column[0]])">{{ scope.row[column[0]] }}</el-tag>
+                            <span v-else class="cell-text">{{ scope.row[column[0]] }}</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+            <el-card v-if="findings.length" id="section-issues" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>结论、差异原因与整改建议</h2>
+                    <p class="sub">{{ issuesSub }}</p>
+                </div>
+                <div class="issue-grid">
+                    <el-card v-for="finding in findings" :key="finding.title" shadow="never" class="issue-card" :class="'level-' + finding.level.toLowerCase()">
+                        <div class="issue-head">
+                            <el-tag size="mini" :type="levelTagType(finding.level)">{{ finding.level }}</el-tag>
+                            <el-tag size="mini" effect="plain">{{ tag }}</el-tag>
+                        </div>
+                        <h3 class="issue-title">{{ finding.title }}</h3>
+                        <p class="issue-desc">{{ finding.desc }}</p>
+                        <el-alert v-if="finding.suggestion" :title="'建议：' + finding.suggestion" type="info" :closable="false"></el-alert>
+                    </el-card>
+                </div>
+            </el-card>
+            <el-card v-if="checks.length" id="section-checks" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>建议验收场景</h2>
+                    <p class="sub">{{ checksSub }}</p>
+                </div>
+                <div class="check-grid">
+                    <el-card v-for="(check, index) in checks" :key="check.scene" shadow="never" class="check-card">
+                        <div class="check-index">{{ index + 1 }}</div>
+                        <div class="check-body">
+                            <h3>{{ check.scene }}</h3>
+                            <p>{{ check.expected }}</p>
+                        </div>
+                    </el-card>
+                </div>
+            </el-card>
+            <el-card id="section-related" shadow="never" class="panel">
+                <div slot="header">
+                    <h2>依据与相关专题</h2>
+                    <p class="sub">{{ relatedSub }}</p>
+                </div>
+                <el-row :gutter="16">
+                    <el-col :xs="24" :md="11">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-document-copy"></i><span>依据文件</span></div>
+                            <ul v-if="sources.length" class="source-list">
+                                <li v-for="source in sources" :key="source">{{ source }}</li>
+                            </ul>
+                            <div v-else class="empty-tip">暂无依据文件。</div>
+                        </div>
+                    </el-col>
+                    <el-col :xs="24" :md="13">
+                        <div class="related-block">
+                            <div class="block-title"><i class="el-icon-connection"></i><span>相关专题</span></div>
+                            <div class="topic-grid">
+                                <button v-for="item in related" :key="item[1]" class="topic-card" type="button" @click="openDoc(item[1])">
+                                    <span>{{ item[0] }}</span>
+                                    <i class="el-icon-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </el-col>
+                </el-row>
+            </el-card>
+        </div>
+    </main>
+</div>
+<script>
+new Vue({
+    el: '#flow_definition_old_new',
+    data() {
+        return {
+    "title": "RRS配置 · 流程定义新老对比",
+    "desc": "对照老工作流配置与新 RRS「流程定义」：定义/版本/画布节点边、审批策略与处理人、条件路由与自动任务/通知预留、发布校验与停用删除引用检查缺口。",
+    "metrics": [
+        [
+            "1",
+            "定义主表"
+        ],
+        [
+            "版本",
+            "草稿/发布"
+        ],
+        [
+            "4",
+            "节点专属配置"
+        ],
+        [
+            "2026-07-20",
+            "分析日期"
+        ]
+    ],
+    "steps": [
+        "维护流程定义",
+        "保存草稿版本",
+        "配置节点与连线",
+        "发布 active",
+        "调库读取快照",
+        "步骤按语义推进"
+    ],
+    "stepHints": [
+        "flowKey 稳定",
+        "wf_flow_version",
+        "策略/处理人/自动/通知",
+        "结构校验仍可加强",
+        "日志绑定流程快照",
+        "routeAction 为主"
+    ],
+    "flowTitle": "流程配置到运行",
+    "flowSub": "发布后调库按快照运行；条件表达式与通知发送仍为预留。",
+    "alertHtml": "<b>直接结论：</b>版本与画布模型完整；运行时以 routeAction/审批策略推进。P0：停用/删除缺完整在途引用检查。P1：条件路由 matches 固定 false，自动任务不执行具体逻辑，通知只存配置。",
+    "issuesSub": "发布治理与预留能力。",
+    "checksSub": "发布、调库命中、停用保护。",
+    "relatedSub": "需求 01、FlowService、workflow-engine-audit。",
+    "tables": [
+        {
+            "title": "一句话结论",
+            "columns": [
+                [
+                    "q",
+                    "问题",
+                    220
+                ],
+                [
+                    "a",
+                    "结论",
+                    520
+                ],
+                [
+                    "status",
+                    "对齐度",
+                    120
+                ]
+            ],
+            "rows": [
+                {
+                    "q": "条件路由生效吗？",
+                    "a": "配置可存，运行时条件匹配仍预留（固定 false）。",
+                    "status": "按设计暂缓"
+                },
+                {
+                    "q": "通知会发吗？",
+                    "a": "只保存配置，无发送实现。",
+                    "status": "未接通"
+                },
+                {
+                    "q": "自动任务？",
+                    "a": "推进 auto_process 步骤，不执行具体任务体。",
+                    "status": "未接通"
+                },
+                {
+                    "q": "停用安全？",
+                    "a": "Service 仍有 TODO，未充分检查运行中申请。",
+                    "status": "待整改"
+                },
+                {
+                    "q": "删除安全？",
+                    "a": "说明有引用不可删，实现可能直接软删。",
+                    "status": "待整改"
+                }
+            ]
+        },
+        {
+            "title": "模型层次",
+            "columns": [
+                [
+                    "layer",
+                    "层次",
+                    160
+                ],
+                [
+                    "tables",
+                    "主要表",
+                    300
+                ],
+                [
+                    "usage",
+                    "运行用途",
+                    360
+                ]
+            ],
+            "rows": [
+                {
+                    "layer": "流程定义",
+                    "tables": "wf_flow_definition",
+                    "usage": "flowKey、名称、类型、状态"
+                },
+                {
+                    "layer": "流程版本",
+                    "tables": "wf_flow_version",
+                    "usage": "草稿/发布/停用与画布 JSON"
+                },
+                {
+                    "layer": "节点配置",
+                    "tables": "wf_flow_node + 专属配置",
+                    "usage": "审批策略、处理人、自动、通知"
+                },
+                {
+                    "layer": "连线条件",
+                    "tables": "wf_flow_edge / wf_edge_cond_rule",
+                    "usage": "routeAction 与条件表达式"
+                },
+                {
+                    "layer": "运行快照",
+                    "tables": "ip_adjust_log / ip_adjust_step",
+                    "usage": "申请时流程与步骤处理人"
+                }
+            ]
+        },
+        {
+            "title": "新老差异",
+            "columns": [
+                [
+                    "dim",
+                    "维度",
+                    140
+                ],
+                [
+                    "oldScope",
+                    "老系统",
+                    300
+                ],
+                [
+                    "newScope",
+                    "新系统",
+                    300
+                ],
+                [
+                    "status",
+                    "对齐度",
+                    120
+                ]
+            ],
+            "rows": [
+                {
+                    "dim": "驱动",
+                    "oldScope": "异步工作流回调",
+                    "newScope": "FlowService 同步自驱",
+                    "status": "已对齐重构"
+                },
+                {
+                    "dim": "特殊流程 key",
+                    "oldScope": "配置/硬编码",
+                    "newScope": "白名单/升降级/special-inbound 等固定 flowKey",
+                    "status": "固定key风险"
+                },
+                {
+                    "dim": "操作人审计",
+                    "oldScope": "会话用户",
+                    "newScope": "页面传 operatorId，不再写死 1",
+                    "status": "已修复"
+                }
+            ]
+        }
+    ],
+    "findings": [
+        {
+            "level": "P0",
+            "title": "停用/删除缺引用检查",
+            "desc": "在途申请或投资池绑定可能悬空。",
+            "suggestion": "停用前检查在途；删除检查绑定与历史策略。"
+        },
+        {
+            "level": "P1",
+            "title": "发布结构校验不完整",
+            "desc": "不可达、断路、无处理人等未全拦。",
+            "suggestion": "发布前完整图校验报告。"
+        },
+        {
+            "level": "P1",
+            "title": "条件/自动/通知预留",
+            "desc": "页面可配易误导。",
+            "suggestion": "UI 标注暂未启用。"
+        }
+    ],
+    "checks": [
+        {
+            "scene": "发布后调库",
+            "expected": "申请绑定 active 版本快照并生成步骤。"
+        },
+        {
+            "scene": "空处理人",
+            "expected": "理想应禁止发布（当前可能仍可）。"
+        },
+        {
+            "scene": "停用有在途",
+            "expected": "应阻止或明确快照独立运行策略。"
+        }
+    ],
+    "sources": [
+        "requirements/01-flow-definition.md",
+        "FlowService / Designer",
+        "docs/flow-definition-tables.html",
+        "docs/workflow-engine-audit.html"
+    ],
+    "related": [
+        [
+            "问题总览",
+            "business-issues-overview.html"
+        ],
+        [
+            "流程定义与流转体检",
+            "workflow-engine-audit.html"
+        ],
+        [
+            "调库流程类型对比",
+            "flow-type-comparison-audit.html"
+        ],
+        [
+            "投资池维护新老对比",
+            "investment-pool-old-new-comparison.html"
+        ],
+        [
+            "业务文档·流程定义",
+            "flow-definition-tables.html"
+        ]
+    ],
+    "tag": "流程定义"
+}
+    },
+    computed: {
+        statSpan() {
+            if (this.metrics.length <= 3) return 8
+            if (this.metrics.length <= 4) return 6
+            return 4
+        },
+    },
+    methods: {
+        levelTagType(level) {
+            if (level === 'P0') return 'danger'
+            if (level === 'P1') return 'warning'
+            return 'info'
+        },
+        statusTagType(status) {
+            if (!status) return 'info'
+            if (status.indexOf('对齐') > -1 || status.indexOf('一致') > -1 || status.indexOf('明确') > -1 || status.indexOf('已修复') > -1 || status.indexOf('可接受') > -1) return 'success'
+            if (status.indexOf('不同') > -1 || status.indexOf('不一致') > -1 || status.indexOf('未迁移') > -1 || status.indexOf('收窄') > -1 || status.indexOf('合并') > -1 || status.indexOf('重构') > -1 || status.indexOf('更严') > -1 || status.indexOf('部分') > -1 || status.indexOf('时机') > -1 || status.indexOf('分层') > -1 || status.indexOf('体验') > -1 || status.indexOf('待整改') > -1 || status.indexOf('模型') > -1 || status.indexOf('产品') > -1 || status.indexOf('既定') > -1 || status.indexOf('增强') > -1 || status.indexOf('固定') > -1 || status.indexOf('独立') > -1 || status.indexOf('预留') > -1 || status.indexOf('暂缓') > -1 || status.indexOf('隐藏') > -1) return 'warning'
+            if (status.indexOf('风险') > -1 || status.indexOf('失败') > -1) return 'danger'
+            return 'info'
+        },
+        scrollTo(id) {
+            const el = document.getElementById(id)
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        },
+        openDoc(page) {
+            if (!page) return
+            const menuIndexMap = {
+                'business-issues-overview.html': 'doc-business-issues-overview',
+                'investment-pool-old-new-comparison.html': 'doc-investment-pool-comparison',
+                'pool-open-day-old-new-comparison.html': 'doc-pool-open-day-comparison',
+                'flow-definition-old-new-comparison.html': 'doc-flow-definition-comparison',
+                'rule-manager-old-new-comparison.html': 'doc-rule-manager-comparison',
+                'credit-bond-grade-rule-old-new-comparison.html': 'doc-credit-grade-rule-comparison',
+                'investment-pool-permission-audit.html': 'doc-pool-permission-audit',
+                'workflow-engine-audit.html': 'doc-workflow-engine-audit',
+                'rule-rating-temp-audit.html': 'doc-rule-rating-temp-audit',
+                'investment-pool-tables.html': 'doc-investment-pool',
+                'pool-open-day-tables.html': 'doc-pool-open-day',
+                'flow-definition-tables.html': 'doc-flow-definition',
+                'rule-manager-tables.html': 'doc-rule-manager',
+                'credit-bond-grade-rule-tables.html': 'doc-credit-grade-rule',
+                'business-acceptance-matrix.html': 'doc-business-acceptance',
+                'hardcoded-validation-audit.html': 'doc-hardcoded-validation-audit',
+                'security-pool-adjust-old-new-comparison.html': 'doc-security-adjust-comparison',
+                'forbidden-pool-adjust-old-new-comparison.html': 'doc-forbidden-adjust-comparison',
+                'crmw-pool-adjust-old-new-comparison.html': 'doc-crmw-adjust-comparison',
+            }
+            const opener = window.parent && window.parent !== window ? window.parent.RrsWorkbenchOpenPage : null
+            if (opener && menuIndexMap[page]) {
+                opener(menuIndexMap[page])
+                return
+            }
+            window.location.href = page
+        },
+    },
+})
+</script>
+</body>
+</html>
