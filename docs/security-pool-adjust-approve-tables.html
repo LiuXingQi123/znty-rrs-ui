@@ -320,7 +320,7 @@
             <article class="step"><b>1. 加载申请</b>
                 <p>并行读取证券详情、当前池、申请日志、步骤和附件。</p></article>
             <article class="step"><b>2. 校验待办</b>
-                <p>确认步骤仍为 pending 且当前用户是实际处理人。</p></article>
+                <p>确认步骤仍为待处理（<code>pending</code>）且当前用户是实际处理人。</p></article>
             <article class="step"><b>3. 记录动作</b>
                 <p>写入同意、驳回、修改重提、意见、附件和处理时间。</p></article>
             <article class="step"><b>4. 推进流程</b>
@@ -337,11 +337,10 @@
                     定位申请，读取详情、池状态、日志、步骤与附件。页面展示的是申请快照及当前状态，不把历史日志当作最终在池事实。</p>
             </article>
             <article class="logic-card"><h3>并发与权限</h3>
-                <p>提交前重新查询当前步骤；只有 pending 状态和合法处理人才能更新。Mapper
+                <p>提交前重新查询当前步骤；只有待处理（<code>pending</code>）状态和合法处理人才能更新。Mapper
                     采用状态条件更新防止重复审批，管理员也必须遵循步骤状态。</p></article>
             <article class="logic-card"><h3>会签与抢占</h3>
-                <p>会签节点等待配置人员全部处理；抢占节点由首位处理人完成后，其余 pending 步骤标记
-                    skipped。之后依据动作和条件边寻找下一节点。</p></article>
+                <p>会签节点等待配置人员全部处理；抢占节点由首位处理人完成后，其余待处理（<code>pending</code>）步骤标记为已跳过（<code>skipped</code>）。之后依据动作和条件边寻找下一节点。</p></article>
             <article class="logic-card"><h3>修改后重提</h3>
                 <p>修改节点重新 check
                     校验；可增删附件。前端回填调整原因与建议；校验失败时调整说明为「类型+方向」前缀拼接原因（与申请主页“仅展示原因”不同）；同组底色区分。首次提交走详情/申请页。</p>
@@ -474,11 +473,9 @@
         <p class="sub">帮助区分当前状态、历史记录和流程实例。</p>
         <div class="rules">
             <article class="rule"><h3>乐观并发</h3>
-                <p>当前步骤必须仍是 pending；已处理步骤不能再次提交。</p></article>
+                <p>当前步骤必须仍是待处理（<code>pending</code>）；已处理步骤不能再次提交。</p></article>
             <article class="rule"><h3>状态机</h3>
-                <p><code>audit_status</code>：-1 无效 / 00 流程中 / 11 驳回待修改 / 20 通过 / 21 驳回 / 32 O32 预留 / 99
-                    撤回。<strong>仅 20 落地池状态</strong>。节点策略用 approval_strategy 编码（会签/抢占），不用中文 label
-                    判断。</p></article>
+                <p><code>audit_status</code>：无效（<code>-1</code>）/ 流程中（<code>00</code>）/ 驳回待修改（<code>11</code>）/ 审批通过（<code>20</code>）/ 审批驳回（<code>21</code>）/ O32自动审批（<code>32</code>）/ 已撤回（<code>99</code>）。<strong>仅审批通过（<code>20</code>）落地池状态</strong>。节点策略用 approval_strategy 编码（会签/抢占），不用中文 label 判断。</p></article>
             <article class="rule"><h3>流程快照</h3>
                 <p>审批读取申请锁定的 flowVersionId，不随流程定义后来发布的新版本漂移。</p></article>
         </div>

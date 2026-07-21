@@ -190,7 +190,7 @@ new Vue({
                     rows: [
                         { oldCode: '1', oldRule: '股票分管(stype=2)', newRule: '无', newCode: '-', status: '❌ 未迁移' },
                         { oldCode: '2', oldRule: 'CRMW凭证已在池', newRule: 'CRMW独立链路按crmwScode检查目标池凭证重复', newCode: 'CRMW', status: '✅ 已对齐' },
-                        { oldCode: '3', oldRule: 'CRMW审批中', newRule: '按crmwScode+securityCode+顶级池组检查pending', newCode: 'CRMW', status: '✅ 已对齐' },
+                        { oldCode: '3', oldRule: 'CRMW审批中', newRule: '按crmwScode+securityCode+顶级池组检查待处理（pending）', newCode: 'CRMW', status: '✅ 已对齐' },
                         { oldCode: '4', oldRule: 'CRMW池必填凭证', newRule: '预校验和提交要求crmwScode，crmwStype确认凭证类型', newCode: 'CRMW', status: '✅ 已对齐' },
                         { oldCode: '5', oldRule: '观察池标记(isgcc)', newRule: 'inCheckMainGradeRule 观察池跳过', newCode: '特有', status: '✅ 已对齐' },
                         { oldCode: '6', oldRule: '投资评级(gradeAstrict)', newRule: 'inCheckGradeAstrict', newCode: '12', status: '✅ 已对齐' },
@@ -256,11 +256,11 @@ new Vue({
                 },
                 {
                     title: '提交落地对比',
-                    sub: '老系统提交重跑完整校验；新系统按已确认方案分层：提交做防重复与池组pending，直通/最终审批落池前做动态复核。',
+                    sub: '老系统提交重跑完整校验；新系统按已确认方案分层：提交做防重复与池组待处理（pending），直通/最终审批落池前做动态复核。',
                     columns: [['dim','维度',130],['old','老系统',320],['now','新系统',320],['status','差异',100]],
                     rows: [
-                        { dim: 'submit 重跑校验', old: 'addAdjustLog 调 checkBasisAndProductInPool(type=8) 完整重跑', now: '不重跑静态规则；保留近期防重复和池组pending', status: '既定分层' },
-                        { dim: '报告必填', old: '预览+落地都查（bondfileflag 跳过）', now: 'submit校验none/any/internal及附件真实来源；历史豁免要求有效报告', status: '✅ 已补强' },
+                        { dim: '提交（submit）重跑校验', old: 'addAdjustLog 调 checkBasisAndProductInPool(type=8) 完整重跑', now: '不重跑静态规则；保留近期防重复和池组待处理（pending）', status: '既定分层' },
+                        { dim: '报告必填', old: '预览+落地都查（bondfileflag 跳过）', now: '提交（submit）校验none/any/internal及附件真实来源；历史豁免要求有效报告', status: '✅ 已补强' },
                         { dim: '直通落地', old: 'approveStatus=100 + saveInvestPoolStatus', now: '锁池并按最终审批口径动态复核后，audit_status=20并落池', status: '✅ 已补强' },
                         { dim: '非直通', old: 'approveStatus=10 + startProcess', now: 'audit_status=00 + createInitialSteps', status: '✅ 已对齐' },
                         { dim: '评级联动', old: 'inquestInvestPoolByAccordMaingrade(adjustType=15) 跳过校验', now: 'redirectPoolId 改判（校验矩阵允许范围）', status: '✅ 优化替代' },
@@ -302,7 +302,7 @@ new Vue({
                 },
             ],
             findings: [
-                { level: 'P2', cat: '既定差异', title: 'submit 与最终落池按动态性分层', desc: '新系统不在submit重跑开放日、市场、行业等静态规则；提交保留防重复和池组pending，直通/最终审批落池前锁池复核当前状态、容量、来源池、限制池和冻结期。', suggestion: '维持已确认口径，配置变化不回溯申请快照' },
+                { level: 'P2', cat: '既定差异', title: '提交（submit）与最终落池按动态性分层', desc: '新系统不在提交（submit）重跑开放日、市场、行业等静态规则；提交保留防重复和池组待处理（pending），直通/最终审批落池前锁池复核当前状态、容量、来源池、限制池和冻结期。', suggestion: '维持已确认口径，配置变化不回溯申请快照' },
                 { level: 'P1', cat: '架构差异', title: '联动级联无后端兜底', desc: '新项目联动/互斥前移到 checkAdjust 生成自动项(不落库)，依赖前端把自动项作为 items 一起提交。前端绕过则联动/互斥不生效。老项目 autoInAdjust/autoOutAdjust 落地后二次扫描兜底。', suggestion: 'finishAdjustBatch 落地后补二次扫描兜底' },
                 { level: 'P2', cat: '未迁移', title: '股票分管(stype=2)', desc: '老项目 stockAssignExists 校验股票分管，新项目无。债券链路不用。', suggestion: '确认是否需要，债券链路可跳过' },
                 { level: 'P2', cat: '已补强', title: '半年历史报告豁免已校验真实附件', desc: '只有同主体最近6个月审批通过调入且日志真实关联未删除合法信评报告时才允许豁免。', suggestion: '继续覆盖无附件、已删除和分类错误附件测试' },
