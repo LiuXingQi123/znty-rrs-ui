@@ -394,6 +394,14 @@
                             <span style="font-size:13px;color:var(--c-text-2);">基金评分</span>
                             <el-input v-model="fundRate" size="small" placeholder="请输入基金评分（调入基金池时校验）" style="width:260px;"></el-input>
                         </div>
+                        <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:13px;color:var(--c-text-2);">是否放开规则</span>
+                            <el-radio-group v-model="releaseRules" size="small" @change="onReleaseRulesChange">
+                                <el-radio-button label="no">否</el-radio-button>
+                                <el-radio-button label="yes">是</el-radio-button>
+                            </el-radio-group>
+                            <span style="font-size:12px;color:var(--c-text-3);">是=跳过主体债入库矩阵校验</span>
+                        </div>
                         <div class="adjust-dual-panels">
                             <!-- 可调入库 -->
                             <div class="adjust-panel panel-in">
@@ -1098,6 +1106,7 @@
                 attachmentFiles: {},          // 各池附件文件映射 { poolId: [File, ...] }
                 materialFiles: {},            // 各池其他材料文件映射 { poolId: [File, ...] }
                 adjustStep: 1,           // 调库步骤：1=选择池, 2=校验确认
+                releaseRules: 'no',       // 是否放开规则（否/是，是=跳过主体债入库矩阵校验）
                 adjustCheckLoading: false, // 下一步校验接口加载状态
                 adjustCheckSeq: 0,      // 调库校验请求序号，避免旧请求覆盖新结果
                 currentLoginUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
@@ -1365,7 +1374,7 @@
             async loadDetailData(securityCode) {
                 this.detailLoading = true;
                 try {
-                    const inPoolParams = { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
+                    const inPoolParams = { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId, releaseRules: this.releaseRules === 'yes' };
                     const outPoolParams = { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
                     const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail',     { securityCode: securityCode }),
@@ -1433,6 +1442,41 @@
                     this.otherMaterialSelections = {};
                 } catch (e) {}
                 this.detailLoading = false;
+            },
+            // 切换"是否放开规则"后重查可调入库树（releaseRules=no 时信用债大库需满足矩阵才显示可调）
+            async onReleaseRulesChange() {
+                if (!this.bondDetail || !this.bondDetail.windCode) return;
+                const inPoolParams = {
+                    securityCode: this.bondDetail.windCode,
+                    adjustDirection: 'in',
+                    currentUserId: this.currentLoginUserId,
+                    releaseRules: this.releaseRules === 'yes'
+                };
+                try {
+                    const inPools = await this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', inPoolParams);
+                    const inPoolsData = inPools || [];
+                    const currentSecurityPoolIds = new Set(
+                        this.securityCurrentPools.map(p => p.targetPoolId).filter(id => id != null)
+                    );
+                    const inPoolsFiltered = inPoolsData.filter(p => {
+                        if (currentSecurityPoolIds.has(p.id)) return false;
+                        const isLeaf = !inPoolsData.some(c => c.parentId === p.id);
+                        if (isLeaf) return true;
+                        return inPoolsData.some(c => c.parentId === p.id && !currentSecurityPoolIds.has(c.id));
+                    });
+                    this.adjustInTree = this.buildPoolTree(inPoolsFiltered);
+                    // 矩阵过滤可能移除已选调入池，清空不再可调的已选项
+                    const leafIds = new Set(inPoolsFiltered.map(p => p.id));
+                    this.selectedInPools = (this.selectedInPools || []).filter(id => leafIds.has(id));
+                    // 同步互斥映射（可调入池列表变化后重新挂载）
+                    const inMap = {};
+                    inPoolsData.forEach(p => {
+                        if (p.inMutexPoolIds && p.inMutexPoolIds.length > 0) {
+                            inMap[p.id] = p.inMutexPoolIds;
+                        }
+                    });
+                    this.inMutexMap = inMap;
+                } catch (e) {}
             },
             // 由扁平的投资池列表组装树结构
             buildPoolTree(list) {
@@ -2035,6 +2079,7 @@
                         securityType: this.bondDetail.securityType || '',
                         fundRate: this.fundRate || '',
                         guarantorCode: this.bondDetail.selectedGuarantorCode || '',
+                        releaseRules: this.releaseRules === 'yes',
                         items
                     };
                     const result = await this.apiPost('/api/v1/securityPoolAdjust/checkAdjust', checkParams);
