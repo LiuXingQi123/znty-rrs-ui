@@ -130,3 +130,78 @@ Vue.prototype.downloadBase64File = function(base64, fileName, contentType) {
         URL.revokeObjectURL(url)
     }
 }
+
+/**
+ * 【参考实现，业务页请各自复制 methods 内写法，便于页面独立迁移】
+ * 重算 el-table 固定列布局（Element UI fixed 列在异步数据/分页后需 doLayout）
+ * @param {string|Object} tableRefOrName ref 名或表格组件实例
+ *
+ * 页面内推荐写法：
+ * refreshTableLayout(refName) {
+ *   this.$nextTick(() => {
+ *     window.requestAnimationFrame(() => {
+ *       const table = this.$refs[refName]
+ *       if (table) {
+ *         table.doLayout()
+ *         window.setTimeout(() => table.doLayout(), 80)
+ *         window.setTimeout(() => table.doLayout(), 180)
+ *       }
+ *     })
+ *   })
+ * }
+ */
+Vue.prototype.refreshElTableLayout = function(tableRefOrName) {
+    const run = (table) => {
+        if (!table || typeof table.doLayout !== 'function') return
+        table.doLayout()
+        window.setTimeout(() => table.doLayout(), 80)
+        window.setTimeout(() => table.doLayout(), 180)
+    }
+    this.$nextTick(() => {
+        window.requestAnimationFrame(() => {
+            let table = tableRefOrName
+            if (typeof tableRefOrName === 'string') {
+                const ref = this.$refs[tableRefOrName]
+                table = Array.isArray(ref) ? ref[0] : ref
+            }
+            run(table)
+        })
+    })
+}
+
+/**
+ * 【参考实现，业务页请各自复制 methods 内写法，便于页面独立迁移】
+ * 重算当前页面所有带 doLayout 的表格（窗口 resize / 步骤切换时用）
+ *
+ * 页面内推荐写法：
+ * refreshAllTableLayout() {
+ *   this.$nextTick(() => {
+ *     window.requestAnimationFrame(() => {
+ *       Object.keys(this.$refs).forEach(refName => {
+ *         const ref = this.$refs[refName]
+ *         const table = Array.isArray(ref) ? ref[0] : ref
+ *         if (table && typeof table.doLayout === 'function') {
+ *           table.doLayout()
+ *           window.setTimeout(() => table.doLayout(), 80)
+ *           window.setTimeout(() => table.doLayout(), 180)
+ *         }
+ *       })
+ *     })
+ *   })
+ * }
+ */
+Vue.prototype.refreshAllElTableLayout = function() {
+    this.$nextTick(() => {
+        window.requestAnimationFrame(() => {
+            Object.keys(this.$refs || {}).forEach(refName => {
+                const ref = this.$refs[refName]
+                const table = Array.isArray(ref) ? ref[0] : ref
+                if (table && typeof table.doLayout === 'function') {
+                    table.doLayout()
+                    window.setTimeout(() => table.doLayout(), 80)
+                    window.setTimeout(() => table.doLayout(), 180)
+                }
+            })
+        })
+    })
+}
