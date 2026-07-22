@@ -130,3 +130,31 @@ Vue.prototype.downloadBase64File = function(base64, fileName, contentType) {
         URL.revokeObjectURL(url)
     }
 }
+
+/**
+ * 证券主数据日期工具：库内/接口存 yyyyMMdd，页面展示可用 yyyy-MM-dd
+ */
+window.RrsDate = {
+    // 格式化为展示用 yyyy-MM-dd（兼容 yyyyMMdd / yyyy-MM-dd）
+    formatYmd(val) {
+        if (val == null || val === '') return ''
+        const s = String(val).trim()
+        if (/^\d{8}$/.test(s)) {
+            return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8)
+        }
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+            return s.slice(0, 10)
+        }
+        return s
+    },
+}
+
+// 列表/只读场景：{{ value | securityDate }}
+Vue.filter('securityDate', function(val) {
+    return window.RrsDate.formatYmd(val)
+})
+
+// 组件内也可 this.formatSecurityDate(value)
+Vue.prototype.formatSecurityDate = function(val) {
+    return window.RrsDate.formatYmd(val)
+}
