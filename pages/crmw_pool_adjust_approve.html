@@ -1823,56 +1823,55 @@
                 });
                 return roots;
             },
-            // 调入池选择互斥校验
+            // 调入池选择互斥校验（互斥项改为替换：保留后勾选的，自动取消先选的冲突项）
             handleInPoolSelect(selection, row) {
                 const id = row.id;
                 const wasSelected = this.selectedInPools.some(p => p.id === id);
                 const isNowSelected = selection.some(p => p.id === id);
                 if (!wasSelected && isNowSelected) {
                     const mutexIds = this.inMutexMap[id] || [];
-                    // 同面板：调入 vs 调入
+                    // 同面板调入 + 跨面板调出，收集全部冲突项
                     const conflictIn = this.selectedInPools.filter(p => mutexIds.includes(p.id));
-                    if (conflictIn.length > 0) {
-                        const names = conflictIn.map(p => p.poolName).join('、');
-                        this.$message.warning('「' + row.poolName + '」与已选调入的「' + names + '」存在互斥关系，不能同时勾选');
-                        this.$refs.inTableRef.toggleRowSelection(row, false);
-                        return;
-                    }
-                    // 跨面板：调入 vs 已选调出
                     const conflictOut = this.selectedOutPools.filter(p => mutexIds.includes(p.id));
-                    if (conflictOut.length > 0) {
-                        const names = conflictOut.map(p => p.poolName).join('、');
-                        this.$message.warning('「' + row.poolName + '」与已选调出的「' + names + '」存在互斥关系，不能同时勾选');
-                        this.$refs.inTableRef.toggleRowSelection(row, false);
+                    if (conflictIn.length > 0 || conflictOut.length > 0) {
+                        const removedNames = [...conflictIn, ...conflictOut].map(p => p.poolName).join('、');
+                        // 取消冲突项的表格勾选
+                        conflictIn.forEach(p => this.$refs.inTableRef.toggleRowSelection(p, false));
+                        conflictOut.forEach(p => this.$refs.outTableRef.toggleRowSelection(p, false));
+                        // selection 是事件快照，需手动剔除被取消的冲突项
+                        this.selectedInPools = selection.filter(p => !mutexIds.includes(p.id));
+                        this.selectedOutPools = this.selectedOutPools.filter(p => !mutexIds.includes(p.id));
+                        this.$message.warning('「' + removedNames + '」与「' + row.poolName + '」互斥，已自动取消「' + removedNames + '」改选「' + row.poolName + '」');
                         return;
                     }
                 }
                 this.selectedInPools = selection;
             },
-            // 调出池选择互斥校验
+            // 调出池选择互斥校验（互斥项改为替换：保留后勾选的，自动取消先选的冲突项）
             handleOutPoolSelect(selection, row) {
                 const id = row.id;
                 const wasSelected = this.selectedOutPools.some(p => p.id === id);
                 const isNowSelected = selection.some(p => p.id === id);
                 if (!wasSelected && isNowSelected) {
                     const mutexIds = this.outMutexMap[id] || [];
-                    // 同面板：调出 vs 调出
+                    // 同面板调出 + 跨面板调入，收集全部冲突项
                     const conflictOut = this.selectedOutPools.filter(p => mutexIds.includes(p.id));
-                    if (conflictOut.length > 0) {
-                        const names = conflictOut.map(p => p.poolName).join('、');
-                        this.$message.warning('「' + row.poolName + '」与已选调出的「' + names + '」存在互斥关系，不能同时勾选');
-                        this.$refs.outTableRef.toggleRowSelection(row, false);
-                        return;
-                    }
-                    // 跨面板：调出 vs 已选调入
                     const conflictIn = this.selectedInPools.filter(p => {
                         const inMutexOfP = this.inMutexMap[p.id] || [];
                         return inMutexOfP.includes(id);
                     });
-                    if (conflictIn.length > 0) {
-                        const names = conflictIn.map(p => p.poolName).join('、');
-                        this.$message.warning('「' + row.poolName + '」与已选调入的「' + names + '」存在互斥关系，不能同时勾选');
-                        this.$refs.outTableRef.toggleRowSelection(row, false);
+                    if (conflictOut.length > 0 || conflictIn.length > 0) {
+                        const removedNames = [...conflictOut, ...conflictIn].map(p => p.poolName).join('、');
+                        // 取消冲突项的表格勾选
+                        conflictOut.forEach(p => this.$refs.outTableRef.toggleRowSelection(p, false));
+                        conflictIn.forEach(p => this.$refs.inTableRef.toggleRowSelection(p, false));
+                        // selection 是事件快照，需手动剔除被取消的冲突项
+                        this.selectedOutPools = selection.filter(p => !mutexIds.includes(p.id));
+                        this.selectedInPools = this.selectedInPools.filter(p => {
+                            const inMutexOfP = this.inMutexMap[p.id] || [];
+                            return !inMutexOfP.includes(id);
+                        });
+                        this.$message.warning('「' + removedNames + '」与「' + row.poolName + '」互斥，已自动取消「' + removedNames + '」改选「' + row.poolName + '」');
                         return;
                     }
                 }
