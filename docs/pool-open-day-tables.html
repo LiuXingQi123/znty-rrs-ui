@@ -4,93 +4,527 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>投资池开放日维护｜表与业务逻辑</title>
-    <style>
+<style>
         body.docs-page-pool-open-day-tables {
             --primary: #2743A4;
+            --primary-light: #E9ECF6;
             --bg: #f4f7fb;
             --panel: #ffffff;
             --text: #1f2937;
+            --regular: #475467;
             --muted: #64748b;
             --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body.docs-page-pool-open-day-tables, body.docs-page-pool-open-day-tables * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body.docs-page-pool-open-day-tables {
             margin: 0;
             background: var(--bg);
             color: var(--text);
             font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
         }
-        body.docs-page-pool-open-day-tables * { box-sizing: border-box }
-        .wrap { width: min(1100px, calc(100% - 32px)); margin: 0 auto }
-        header {
-            padding: 28px 0 24px; color: #fff;
-            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%)
+
+        .docs-page-pool-open-day-tables .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
         }
-        h1 { margin: 0; font-size: 28px }
-        header p { margin: 8px 0 0; color: rgba(255,255,255,.86) }
-        main { padding: 28px 0 56px }
-        .card {
-            background: var(--panel); border: 1px solid var(--line);
-            border-radius: 12px; padding: 18px 20px; margin-bottom: 16px
+
+        .docs-page-pool-open-day-tables header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
         }
-        h2 { margin: 0 0 12px; font-size: 18px; color: var(--primary) }
-        table { width: 100%; border-collapse: collapse; font-size: 13px }
-        th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left }
-        th { background: #F7F8FA }
-        code { background: #E9ECF6; padding: 1px 6px; border-radius: 4px; font-size: 12px }
-        .api { color: var(--muted); font-size: 13px }
-        ul { margin: 0; padding-left: 18px }
-        li { margin: 4px 0 }
+
+        .docs-page-pool-open-day-tables .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        .docs-page-pool-open-day-tables h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        .docs-page-pool-open-day-tables header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        .docs-page-pool-open-day-tables .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        .docs-page-pool-open-day-tables .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        .docs-page-pool-open-day-tables main {
+            padding: 28px 0 56px
+        }
+
+        .docs-page-pool-open-day-tables .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        .docs-page-pool-open-day-tables .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        .docs-page-pool-open-day-tables .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .docs-page-pool-open-day-tables .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        .docs-page-pool-open-day-tables h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        .docs-page-pool-open-day-tables .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        .docs-page-pool-open-day-tables .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        .docs-page-pool-open-day-tables .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .docs-page-pool-open-day-tables .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        .docs-page-pool-open-day-tables .step span {
+            color: var(--regular)
+        }
+
+        .docs-page-pool-open-day-tables .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        .docs-page-pool-open-day-tables .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .docs-page-pool-open-day-tables .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        .docs-page-pool-open-day-tables .card ul,.docs-page-pool-open-day-tables .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .docs-page-pool-open-day-tables .card li + li {
+            margin-top: 6px
+        }
+
+        .docs-page-pool-open-day-tables .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        .docs-page-pool-open-day-tables .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        .docs-page-pool-open-day-tables table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        .docs-page-pool-open-day-tables th,.docs-page-pool-open-day-tables td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        .docs-page-pool-open-day-tables th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        .docs-page-pool-open-day-tables tr:last-child td {
+            border-bottom: 0
+        }
+
+        .docs-page-pool-open-day-tables tbody tr:hover {
+            background: #f8fbff
+        }
+
+        .docs-page-pool-open-day-tables code,.docs-page-pool-open-day-tables .name {
+            font-family: Consolas, monospace
+        }
+
+        .docs-page-pool-open-day-tables .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        .docs-page-pool-open-day-tables .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        .docs-page-pool-open-day-tables .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .docs-page-pool-open-day-tables .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        .docs-page-pool-open-day-tables .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        .docs-page-pool-open-day-tables .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        .docs-page-pool-open-day-tables .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        .docs-page-pool-open-day-tables .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .docs-page-pool-open-day-tables .notes li + li {
+            margin-top: 5px
+        }
+
+        .docs-page-pool-open-day-tables .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        .docs-page-pool-open-day-tables footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            .docs-page-pool-open-day-tables .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            .docs-page-pool-open-day-tables .flow,.docs-page-pool-open-day-tables .logic {
+                grid-template-columns: 1fr
+            }
+
+            .docs-page-pool-open-day-tables .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            .docs-page-pool-open-day-tables .wrap {
+                width: calc(100% - 24px)
+            }
+
+            .docs-page-pool-open-day-tables header {
+                padding: 24px 0 20px
+            }
+
+            .docs-page-pool-open-day-tables .stats {
+                grid-template-columns: 1fr
+            }
+
+            .docs-page-pool-open-day-tables .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            .docs-page-pool-open-day-tables .nav {
+                display: none
+            }
+
+            .docs-page-pool-open-day-tables .panel {
+                break-inside: avoid
+            }
+        }
     </style>
 </head>
-<body class="docs-page-pool-open-day-tables">
+<body class="docs-page docs-page-pool-open-day-tables">
 <header>
     <div class="wrap">
-        <div style="font-size:12px;letter-spacing:.12em;opacity:.85;font-weight:700">RRS 配置</div>
+        <p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>投资池开放日维护</h1>
-        <p>维护 <code>ip_pool_open_day</code> 开放区间；池级开关 <code>open_day_adjust=1</code> 时参与调库校验。</p>
+        <p class="desc">维护投资池开放区间（begin_date ~ end_date）。仅当投资池开启 open_day_adjust 时，证券池 / 禁投 / CRMW / 批量调库才会按本表校验调库当日是否处于开放窗口。</p>
+        <div class="stats">
+            <span class="stat">1 张主配置表</span>
+            <span class="stat">4 个主要接口</span>
+            <span class="stat">页面 pages/pool_open_day.html</span>
+        </div>
     </div>
 </header>
 <main class="wrap">
-    <section class="card">
-        <h2>主表 ip_pool_open_day</h2>
-        <table>
-            <thead>
-            <tr><th>列</th><th>说明</th></tr>
-            </thead>
-            <tbody>
-            <tr><td>id</td><td>主键</td></tr>
-            <tr><td>pool_id</td><td>投资池 ID → ip_investment_pool.id</td></tr>
-            <tr><td>begin_date / end_date</td><td>开放区间（含边界）</td></tr>
-            <tr><td>description</td><td>描述，最长 200</td></tr>
-            <tr><td>is_deleted</td><td>0 正常 / 1 已删除</td></tr>
-            <tr><td>crte_time / updt_time</td><td>创建 / 修改时间</td></tr>
-            </tbody>
-        </table>
+    <nav class="nav">
+        <a href="#overview">流程总览</a>
+        <a href="#logic-1">查询与列表展示</a>
+        <a href="#logic-2">新增、修改与删除</a>
+        <a href="#logic-3">调库校验关联</a>
+        <a href="#tables">涉及表</a>
+        <a href="#notes">规则说明</a>
+        <a href="module-tables-index.html">文档目录</a>
+    </nav>
+
+    <section class="panel" id="overview">
+        <h2>业务流程总览</h2>
+        <p class="sub">从页面操作到数据库读写的主要路径。</p>
+        <div class="flow">
+            <div class="step"><b>1. 加载池树</b><span>读取未删除投资池树，供筛选与表单选择叶子池。</span></div>
+            <div class="step"><b>2. 分页查询</b><span>按池、日期区间、描述筛选开放日配置。</span></div>
+            <div class="step"><b>3. 新增区间</b><span>校验叶子池与起止日，写入 ip_pool_open_day。</span></div>
+            <div class="step"><b>4. 修改区间</b><span>按主键更新池、起止日与描述。</span></div>
+            <div class="step"><b>5. 逻辑删除</b><span>is_deleted=1，调库校验不再命中该区间。</span></div>
+        </div>
     </section>
-    <section class="card">
-        <h2>接口</h2>
-        <p class="api">POST /api/v1/poolOpenDay/* · 页面 pages/pool_open_day.html</p>
-        <ul>
-            <li><code>queryPoolOpenDayPage</code> — 分页（池、日期区间、描述），返回 <code>poolFullName</code> / <code>openDayAdjust</code></li>
-            <li><code>addPoolOpenDay</code> — 新增（有子节点的目录不可配置；起止日校验）</li>
-            <li><code>editPoolOpenDay</code> — 修改</li>
-            <li><code>deletePoolOpenDay</code> — 逻辑删除 is_deleted=1</li>
-            <li>排序：begin_date DESC, id DESC；列表「区间状态」前端按今天算：未开始 / 开放中 / 已结束</li>
-            <li>投资池选项：树选择展示全称，不展示池编码</li>
-        </ul>
+
+    <section class="panel" id="logic-1">
+        <h2>查询与列表展示</h2>
+        <p class="sub">列表关联投资池展示全称与池级开放日开关快照。</p>
+        <span class="api">POST /api/v1/poolOpenDay/queryPoolOpenDayPage · 投资池树同 investmentPool 查询</span>
+        <div class="logic">
+            <article class="card">
+                <h3>筛选条件</h3>
+                <ul>
+                    <li>投资池：树单选，目录/根节点（含子节点）不可选，与表单选择规则一致。</li>
+                    <li>日期区间：按 begin_date / end_date 与查询上下限交叉过滤（前端 daterange）。</li>
+                    <li>描述：模糊匹配 description。</li>
+                    <li>仅 is_deleted=0；排序 begin_date DESC, id DESC。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>列表字段与前端状态</h3>
+                <ul>
+                    <li>返回池全称 poolFullName、池级 openDayAdjust（是否启用开放日校验）。</li>
+                    <li>「区间状态」前端按当天计算：未开始 / 开放中 / 已结束（不入库）。</li>
+                    <li>操作列固定右侧：编辑、删除；数据加载后 doLayout 防固定列错位。</li>
+                </ul>
+            </article>
+        </div>
     </section>
-    <section class="card">
-        <h2>调库关联</h2>
-        <p>证券池 / 禁投 / CRMW / 批量：目标池 <code>open_day_adjust=1</code> 时，调入与调出均校验当日是否落在开放区间：</p>
-        <p><code>begin_date &lt;= today AND end_date &gt;= today AND is_deleted = 0</code></p>
-        <p>池级开关在「投资池维护」配置；本页只维护区间行。开关=0 时本表不参与校验。</p>
+
+    <section class="panel" id="logic-2">
+        <h2>新增、修改与删除</h2>
+        <p class="sub">写操作均校验参数与叶子池；修改/删除按主键定位未删除记录。</p>
+        <span class="api">POST /api/v1/poolOpenDay/addPoolOpenDay · editPoolOpenDay · deletePoolOpenDay</span>
+        <div class="logic">
+            <article class="card">
+                <h3>新增 / 修改</h3>
+                <ul>
+                    <li>必填：poolId、beginDate、endDate；endDate 不得早于 beginDate。</li>
+                    <li>投资池须存在且未删除；有子池的目录节点禁止配置。</li>
+                    <li>description 可空；前端 maxlength=100（库字段 VARCHAR(1000)）。</li>
+                    <li>新增后回查详情；修改更新 updt_time。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>删除</h3>
+                <ul>
+                    <li>逻辑删除：is_deleted=1，写 updt_time。</li>
+                    <li>已删除记录不可再改；调库开放日命中仅统计 is_deleted=0 区间。</li>
+                </ul>
+            </article>
+        </div>
     </section>
-    <section class="card">
-        <h2>关键规则</h2>
-        <ul>
-            <li>页面只维护开放日配置，不改池树本身。</li>
-            <li>同一池可配置多段历史/未来区间；调库只认「当日命中」的未删除区间。</li>
-            <li>与 lock_flag / 冻结期独立：锁定优先硬拦；开放日是日期窗口约束。</li>
-        </ul>
+
+    <section class="panel" id="logic-3">
+        <h2>调库校验关联</h2>
+        <p class="sub">本页只维护区间行；池级开关在「投资池维护」的 open_day_adjust。</p>
+        <div class="logic">
+            <article class="card">
+                <h3>何时生效</h3>
+                <ul>
+                    <li>目标池 open_day_adjust=1 时，证券池 / 禁投 / CRMW / 批量等调入与调出均校验开放日。</li>
+                    <li>命中条件：begin_date ≤ 当天 ≤ end_date 且 is_deleted=0（日期口径与实现一致）。</li>
+                    <li>open_day_adjust=0 时本表不参与校验；未命中任何区间时由各调库服务按「不在开放日」处理。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>与其他约束的关系</h3>
+                <ul>
+                    <li>与 lock_flag（池锁定）、frozen_period_in（入池冻结期）相互独立。</li>
+                    <li>同一池可配置多段历史/未来区间；调库只认「当日命中」的未删除行。</li>
+                    <li>不修改投资池树本身；叶子池与开关配置见投资池维护文档。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+
+    <section class="panel" id="tables">
+        <h2>涉及表、用途与触发场景</h2>
+        <p class="sub">读写口径包含页面初始化、主业务接口及调库校验读取。</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>表名</th>
+                    <th>用途</th>
+                    <th>读写</th>
+                    <th>触发场景</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="name">ip_pool_open_day</span></td>
+                    <td>投资池开放区间主表（pool_id + begin/end + description）</td>
+                    <td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag u">更新/逻辑删除</span></td>
+                    <td>列表、新增、编辑、删除；调库开放日校验读取</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_investment_pool</span></td>
+                    <td>池树与 open_day_adjust 开关；列表联查全称</td>
+                    <td><span class="tag r">查询</span></td>
+                    <td>树选择、详情联查、目录节点校验（子池数）</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="note" style="margin-top:16px">
+            <strong>主表字段要点（ip_pool_open_day）</strong>
+            <ul class="notes">
+                <li><code>id</code>：主键</li>
+                <li><code>pool_id</code>：投资池 ID → ip_investment_pool.id</li>
+                <li><code>begin_date</code> / <code>end_date</code>：开放区间（DATE，含边界）</li>
+                <li><code>description</code>：描述，库 VARCHAR(1000)，前端录入限制 100</li>
+                <li><code>is_deleted</code>：0 正常 / 1 已删除</li>
+                <li><code>crte_time</code> / <code>updt_time</code>：创建 / 修改时间</li>
+            </ul>
+        </div>
+    </section>
+
+    <section class="panel" id="notes">
+        <h2>规则说明</h2>
+        <p class="sub">实现与页面口径摘要。</p>
+        <div class="note">
+            <ul class="notes">
+                <li>业务页：<code>pages/pool_open_day.html</code>；接口前缀 <code>/api/v1/poolOpenDay/</code>。</li>
+                <li>池级开关在投资池维护配置；本页不改 open_day_adjust。</li>
+                <li>有子节点的目录/根池不可配置开放日，须选叶子池。</li>
+                <li>Schema 脚本：<code>rrs_pool_init_schema.sql</code> 中 <code>ip_pool_open_day</code>。</li>
+            </ul>
+        </div>
+        <p style="margin-top:18px">
+            <a class="back" href="module-tables-index.html">← 返回业务文档目录</a>
+            · <a class="back" href="investment-pool-tables.html">投资池维护</a>
+            · <a class="back" href="pool-open-day-old-new-comparison.html">新老对比</a>
+        </p>
     </section>
 </main>
+<footer>
+    <div class="wrap">投资池开放日维护 · 表与业务逻辑 · 与当前代码实现保持一致</div>
+</footer>
 </body>
 </html>
