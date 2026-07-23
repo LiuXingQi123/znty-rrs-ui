@@ -100,17 +100,6 @@ window.RrsAuth = {
 
 axios.defaults.baseURL = 'http://localhost:18090'
 
-/**
- * 剩余期限展示：库字段 date_exists 为天，前端 ÷365 显示为年（保留两位小数）。
- * 空值 / 非数字返回空串。
- */
-Vue.prototype.formatRemainTermYears = function(days) {
-    if (days === null || days === undefined || days === '') return ''
-    const n = Number(days)
-    if (!isFinite(n)) return ''
-    return (n / 365).toFixed(2)
-}
-
 Vue.prototype.apiPost = async function(path, body, config) {
     const resp = await axios.post(path, body || {}, config || {})
     if (config && config.responseType === 'blob') return resp
