@@ -1462,6 +1462,8 @@
                     this.materialFiles = {};
                     this.creditReportSelections = {};
                     this.otherMaterialSelections = {};
+                    // 加载可调入/出库后，按老系统口径预填最近信评报告（信用债叶子池）
+                    await this.applyLastCreditReportToPools(securityCode, [...inPoolsFiltered, ...outPoolsFiltered]);
                 } catch (e) {}
                 this.detailLoading = false;
             },
@@ -1498,7 +1500,62 @@
                         }
                     });
                     this.inMutexMap = inMap;
+                    // 可调入池集合变化后，重新按信用债叶子池回填最近信评报告
+                    await this.applyLastCreditReportToPools(this.bondDetail.windCode, inPoolsFiltered);
                 } catch (e) {}
+            },
+
+            /**
+             * 加载可调入/出库后自动回填最近信评报告（对齐老 getLastReprotDocs）。
+             * 查询时机：当前为「查询池列表后」预填；后续若改为勾选时再查，可改调用点。
+             * 门禁：仅信用债大库下 1～5 级（pool_code 写死，对齐老 polidEnum；禁止库等不回填）。
+             */
+            async applyLastCreditReportToPools(securityCode, poolList) {
+                if (!securityCode) {
+                    return;
+                }
+                // 与后端 CreditBondPoolCodes 保持一致（写死 1～5 级，不含大库根）
+                const autofillPoolCodes = {
+                    credit_bond_level_1: true,
+                    credit_bond_level_2: true,
+                    credit_bond_level_3: true,
+                    credit_bond_level_4: true,
+                    credit_bond_level_5: true
+                };
+                const targetPools = (poolList || []).filter(p =>
+                    p && p.id != null && p.poolCode && autofillPoolCodes[p.poolCode]
+                );
+                if (targetPools.length === 0) {
+                    return;
+                }
+                let lastReport = null;
+                try {
+                    lastReport = await this.apiPost('/api/v1/securityPoolAdjust/queryLastCreditReport', {
+                        securityCode: securityCode
+                    });
+                } catch (e) {
+                    return;
+                }
+                if (!lastReport || !lastReport.id) {
+                    return;
+                }
+                const selection = {
+                    id: lastReport.id,
+                    title: lastReport.title || '',
+                    reportType: lastReport.reportType || '',
+                    source: lastReport.source === 'external' ? 'external' : 'internal',
+                    attachments: lastReport.attachments || []
+                };
+                targetPools.forEach(pool => {
+                    // 仅在该池尚无已选信评报告时预填，避免覆盖用户手工选择
+                    const existing = this.creditReportSelections[pool.id];
+                    if (existing && existing.length > 0) {
+                        return;
+                    }
+                    this.$set(this.creditReportSelections, pool.id, [Object.assign({}, selection, {
+                        attachments: (selection.attachments || []).slice()
+                    })]);
+                });
             },
             // 由扁平的投资池列表组装树结构
             buildPoolTree(list) {
