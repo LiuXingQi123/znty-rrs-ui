@@ -892,7 +892,17 @@
                                 </div>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="adjustNote" label="调整说明" min-width="200" show-overflow-tooltip></el-table-column>
+                        <el-table-column label="调整说明" min-width="260">
+                            <template slot-scope="{ row }">
+                                <div v-if="!row.valid && row.failReasons && row.failReasons.length" class="fail-reason-block">
+                                    <div class="fail-reason-title">未通过（共 {{ row.failReasons.length }} 项）</div>
+                                    <ol class="fail-reason-list">
+                                        <li v-for="(reason, ri) in row.failReasons" :key="ri">{{ reason }}</li>
+                                    </ol>
+                                </div>
+                                <span v-else class="fail-reason-pass">{{ row.adjustNote || '' }}</span>
+                            </template>
+                        </el-table-column>
                         <el-table-column label="校验结果" width="150" align="center">
                             <template slot-scope="{ row }">
                                 <span style="display:inline-flex;align-items:center;gap:5px;">
@@ -2389,10 +2399,14 @@
                 const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' }
                 this.adjustReviewList = this.applyAdjustGroupColors(result.items.map((item, rowIndex) => {
                     const typePrefix = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode
-                    const failReasonStr = (item.failReasons || []).join('；')
+                    const failReasons = item.failReasons || []
+                    const failReasonStr = failReasons.join('；')
                     const rowFlowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex);
                     const recommendedFlow = rowFlowOptions.find(option => option.recommended && option.selectable)
                         || rowFlowOptions.find(option => option.selectable);
+                    const adjustNote = failReasons.length > 0
+                        ? ('未通过（共 ' + failReasons.length + ' 项）：' + failReasons.map((r, i) => (i + 1) + '. ' + r).join(' '))
+                        : typePrefix
                     return {
                         poolId: item.targetPoolId,
                         poolName: item.poolName,
@@ -2401,8 +2415,9 @@
                         itemTag: item.itemTag,
                         adjustGroupKey: item.adjustGroupKey,
                         valid: item.canAdjust,
+                        failReasons: failReasons,
                         failReason: failReasonStr,
-                        adjustNote: failReasonStr ? typePrefix + '；' + failReasonStr : typePrefix,
+                        adjustNote: adjustNote,
                         attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
                         materialFiles: this.getMaterialFiles(item.targetPoolId),
                         creditReports: this.getCreditReportSelections(item.targetPoolId),

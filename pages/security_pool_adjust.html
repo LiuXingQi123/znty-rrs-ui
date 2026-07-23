@@ -712,7 +712,17 @@
                                 </div>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="adjustNote" label="调整说明" min-width="200" show-overflow-tooltip></el-table-column>
+                        <el-table-column label="调整说明" min-width="260">
+                            <template slot-scope="{ row }">
+                                <div v-if="!row.valid && row.failReasons && row.failReasons.length" class="fail-reason-block">
+                                    <div class="fail-reason-title">未通过（共 {{ row.failReasons.length }} 项）</div>
+                                    <ol class="fail-reason-list">
+                                        <li v-for="(reason, ri) in row.failReasons" :key="ri">{{ reason }}</li>
+                                    </ol>
+                                </div>
+                                <span v-else class="fail-reason-pass">{{ row.adjustNote || '' }}</span>
+                            </template>
+                        </el-table-column>
                         <el-table-column label="校验结果" width="150" fixed="right" align="center">
                             <template slot-scope="{ row }">
                                 <span style="display:inline-flex;align-items:center;gap:5px;">
@@ -2006,13 +2016,15 @@
                 return 'info';
             },
 
-            // 构建调库校验结果的调整说明
-            buildAdjustNote(item, failReason, warning) {
+            // 构建调库校验结果的调整说明（通过/警告时的简要文案；失败原因见 failReasons 列表）
+            buildAdjustNote(item, failReasons, warning) {
                 const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥', related: '关联' };
                 const typeLabel = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode;
-                // 不通过时直接展示原因，不加「调入失败：」等前缀
-                if (failReason) {
-                    return failReason;
+                const reasons = Array.isArray(failReasons) ? failReasons : (failReasons ? [failReasons] : []);
+                // 失败：生成可落库的编号文本（表格用 failReasons 分条展示）
+                if (reasons.length > 0) {
+                    return '未通过（共 ' + reasons.length + ' 项）：'
+                        + reasons.map((r, i) => (i + 1) + '. ' + r).join(' ');
                 }
                 // 可调整但有警告（如弹性禁投池命中）时追加警告文案
                 return warning ? typeLabel + '（警告：' + warning + '）' : typeLabel;
@@ -2095,7 +2107,8 @@
                     if (currentSeq !== this.adjustCheckSeq) return;
 
                     this.adjustReviewList = this.applyAdjustGroupColors(result.items.map((item, rowIndex) => {
-                        const failReasonStr = (item.failReasons || []).join('；')
+                        const failReasons = item.failReasons || []
+                        const failReasonStr = failReasons.join('；')
                         const warningStr = (item.warnings || []).join('；')
                         const rowFlowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex);
                         const recommendedFlow = rowFlowOptions.find(option => option.recommended && option.selectable)
@@ -2114,9 +2127,10 @@
                             adjustGroupKey: item.adjustGroupKey,
                             valid: item.canAdjust,
                             hasWarning: warningStr !== '',
+                            failReasons: failReasons,
                             failReason: failReasonStr,
                             warningStr: warningStr,
-                            adjustNote: this.buildAdjustNote(item, failReasonStr, warningStr),
+                            adjustNote: this.buildAdjustNote(item, failReasons, warningStr),
                             attachmentFiles: this.getAttachmentFiles(item.targetPoolId),
                             materialFiles: this.getMaterialFiles(item.targetPoolId),
                             creditReports: this.getCreditReportSelections(item.targetPoolId),
