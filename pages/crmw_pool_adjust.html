@@ -1624,18 +1624,27 @@
                     ? this.normalizeSelectedPools([...this.selectedInPools, row])
                     : this.selectedInPools.filter(p => p.id !== id);
             },
-            // 调入池表头全选，同步业务已选数组并复用单行互斥校验
-            handleInPoolSelectAll(selection) {
-                const selectedIds = new Set(this.normalizeSelectedPools(selection).map(row => row.id));
+            // 调入池表头全选：父节点禁用时 Element 不会勾选其子节点，这里强制勾选/取消全部叶子
+            handleInPoolSelectAll() {
                 const leafRows = this.flattenPoolTree(this.adjustInTree);
-                if (selectedIds.size === 0) {
+                if (leafRows.length === 0) return;
+                // 以业务已选叶子是否已全，判断本次是全选还是取消全选
+                const selectedLeafCount = leafRows.filter(row =>
+                    this.selectedInPools.some(item => item.id === row.id)
+                ).length;
+                const intendSelectAll = selectedLeafCount < leafRows.length;
+                if (!intendSelectAll) {
+                    leafRows.forEach(row => {
+                        if (this.$refs.inTableRef) this.$refs.inTableRef.toggleRowSelection(row, false);
+                    });
                     const leafIds = new Set(leafRows.map(row => row.id));
                     this.selectedInPools = this.selectedInPools.filter(row => !leafIds.has(row.id));
                     return;
                 }
                 leafRows.forEach(row => {
-                    if (selectedIds.has(row.id) && !this.selectedInPools.some(item => item.id === row.id)) {
-                        this.handleInPoolSelect(selection, row);
+                    if (this.$refs.inTableRef) this.$refs.inTableRef.toggleRowSelection(row, true);
+                    if (!this.selectedInPools.some(item => item.id === row.id)) {
+                        this.handleInPoolSelect(null, row);
                     }
                 });
             },
@@ -1670,18 +1679,27 @@
                     ? this.normalizeSelectedPools([...this.selectedOutPools, row])
                     : this.selectedOutPools.filter(p => p.id !== id);
             },
-            // 调出池表头全选，同步业务已选数组并复用单行互斥校验
-            handleOutPoolSelectAll(selection) {
-                const selectedIds = new Set(this.normalizeSelectedPools(selection).map(row => row.id));
+            // 调出池表头全选：父节点禁用时 Element 不会勾选其子节点，这里强制勾选/取消全部叶子
+            handleOutPoolSelectAll() {
                 const leafRows = this.flattenPoolTree(this.adjustOutTree);
-                if (selectedIds.size === 0) {
+                if (leafRows.length === 0) return;
+                // 以业务已选叶子是否已全，判断本次是全选还是取消全选
+                const selectedLeafCount = leafRows.filter(row =>
+                    this.selectedOutPools.some(item => item.id === row.id)
+                ).length;
+                const intendSelectAll = selectedLeafCount < leafRows.length;
+                if (!intendSelectAll) {
+                    leafRows.forEach(row => {
+                        if (this.$refs.outTableRef) this.$refs.outTableRef.toggleRowSelection(row, false);
+                    });
                     const leafIds = new Set(leafRows.map(row => row.id));
                     this.selectedOutPools = this.selectedOutPools.filter(row => !leafIds.has(row.id));
                     return;
                 }
                 leafRows.forEach(row => {
-                    if (selectedIds.has(row.id) && !this.selectedOutPools.some(item => item.id === row.id)) {
-                        this.handleOutPoolSelect(selection, row);
+                    if (this.$refs.outTableRef) this.$refs.outTableRef.toggleRowSelection(row, true);
+                    if (!this.selectedOutPools.some(item => item.id === row.id)) {
+                        this.handleOutPoolSelect(null, row);
                     }
                 });
             },
