@@ -89,6 +89,7 @@
             <div class="pool-header">
                 <div class="pool-header-meta">
                     <div class="pool-header-name">{{ currentPool.poolName || '请选择投资池' }}</div>
+                    <div v-if="currentPool.poolCode" class="pool-header-code">编码：{{ currentPool.poolCode }}</div>
                 </div>
                 <div class="pool-header-right">
           <span v-if="currentPool.status" class="status-badge active">
@@ -116,15 +117,39 @@
                                 <div class="section-line"></div>
                             </div>
 
-                            <!-- el-form：基础信息表单（名称/市场/品种/上限/排序/描述） -->
+                            <!-- el-form：基础信息表单（名称/编码/恒生名/市场/品种/上限/排序/描述） -->
                             <el-form ref="baseFormRef" :model="baseForm" :rules="baseRules" label-width="130px" class="base-config-form">
-                                <!-- 基础信息字段：名称/恒生名称/市场/品种/上限/排序/描述 -->
+                                <!-- 基础信息字段：名称/编码/恒生名称/市场/品种/上限/排序/描述 -->
                                 <el-row :gutter="20">
                                     <el-col :span="12">
                                         <el-form-item label="投资池名称" prop="poolName">
                                             <el-input v-model="baseForm.poolName" maxlength="30" clearable placeholder="请输入投资池名称"></el-input>
                                         </el-form-item>
                                     </el-col>
+                                    <el-col :span="12">
+                                        <el-form-item label="投资池编码" prop="poolCode">
+                                            <el-select
+                                                    v-model="baseForm.poolCode"
+                                                    class="full-width"
+                                                    filterable
+                                                    allow-create
+                                                    default-first-option
+                                                    clearable
+                                                    popper-class="pool-code-select-dropdown"
+                                                    placeholder="选择或输入编码，如 credit_bond_level_1">
+                                                <el-option
+                                                        v-for="item in poolCodeOptions"
+                                                        :key="'base-' + item.code"
+                                                        :label="item.code"
+                                                        :value="item.code">
+                                                    <span class="pool-code-opt-code">{{ item.code }}</span>
+                                                    <span class="pool-code-opt-name">{{ item.name }}</span>
+                                                </el-option>
+                                            </el-select>
+                                        </el-form-item>
+                                    </el-col>
+                                </el-row>
+                                <el-row :gutter="20">
                                     <el-col :span="12">
                                         <el-form-item label="恒生池名称">
                                             <el-input v-model="baseForm.hsPoolName" maxlength="30" clearable placeholder="请输入恒生系统名称"></el-input>
@@ -456,6 +481,26 @@
             <el-form-item label="子节点名称" prop="poolName">
                 <el-input v-model="childForm.poolName" maxlength="30" clearable placeholder="请输入节点名称"></el-input>
             </el-form-item>
+            <el-form-item label="投资池编码" prop="poolCode">
+                <el-select
+                        v-model="childForm.poolCode"
+                        class="full-width"
+                        filterable
+                        allow-create
+                        default-first-option
+                        clearable
+                        popper-class="pool-code-select-dropdown"
+                        placeholder="选择或输入编码，如 credit_bond_level_1">
+                    <el-option
+                            v-for="item in poolCodeOptions"
+                            :key="'child-' + item.code"
+                            :label="item.code"
+                            :value="item.code">
+                        <span class="pool-code-opt-code">{{ item.code }}</span>
+                        <span class="pool-code-opt-name">{{ item.name }}</span>
+                    </el-option>
+                </el-select>
+            </el-form-item>
             <el-form-item label="内部排序">
                 <el-input-number v-model="childForm.innerSort" :min="0" :max="9999" class="full-width" controls-position="right"></el-input-number>
             </el-form-item>
@@ -489,6 +534,26 @@
         <el-form ref="rootFormRef" :model="rootForm" :rules="rootRules" label-width="110px">
             <el-form-item label="投资池名称" prop="poolName">
                 <el-input v-model="rootForm.poolName" maxlength="30" clearable placeholder="请输入投资池名称"></el-input>
+            </el-form-item>
+            <el-form-item label="投资池编码" prop="poolCode">
+                <el-select
+                        v-model="rootForm.poolCode"
+                        class="full-width"
+                        filterable
+                        allow-create
+                        default-first-option
+                        clearable
+                        popper-class="pool-code-select-dropdown"
+                        placeholder="选择或输入编码，如 credit_bond_root">
+                    <el-option
+                            v-for="item in poolCodeOptions"
+                            :key="'root-' + item.code"
+                            :label="item.code"
+                            :value="item.code">
+                        <span class="pool-code-opt-code">{{ item.code }}</span>
+                        <span class="pool-code-opt-name">{{ item.name }}</span>
+                    </el-option>
+                </el-select>
             </el-form-item>
             <el-form-item label="投资池类型" prop="poolType">
                 <el-select v-model="rootForm.poolType" class="full-width" placeholder="请选择投资池类型">
@@ -820,6 +885,7 @@
                 baseForm: {              // 投资池基础信息表单
                     id: null,                   // 当前编辑的投资池 ID
                     poolName: '',               // 投资池名称
+                    poolCode: '',               // 投资池编码（系统识别，如 credit_bond_level_1）
                     marketCodes: [],            // 投资市场（多选）
                     varietyCodes: ['bond'],     // 投资品种（多选，默认证券）
                     hsPoolName: '',             // 恒生系统对应池名称
@@ -851,15 +917,42 @@
                     parentName: '',         // 父节点名称（展示用）
                     parentTypeName: '',     // 父节点类型名称（展示用）
                     poolName: '',           // 新子节点名称
+                    poolCode: '',           // 投资池编码
                     innerSort: null,        // 内部排序
                     templatePoolId: null    // 配置模板池 ID
                 },
                 rootForm: {              // 新增根池表单
                     poolName: '',           // 新顶级池名称
+                    poolCode: '',           // 投资池编码
                     poolType: '',           // 投资池类型（如 credit_bond）
                     outerSort: null,        // 外部排序
                     templatePoolId: null    // 配置模板池 ID
                 },
+                // 投资池编码下拉（前端写死，不查库；可 allow-create 手输新编码）
+                poolCodeOptions: [
+                    { code: 'credit_bond_root', name: '信用债大库' },
+                    { code: 'credit_bond_level_1', name: '一级库' },
+                    { code: 'credit_bond_level_2', name: '二级库' },
+                    { code: 'credit_bond_level_3', name: '三级库' },
+                    { code: 'credit_bond_level_4', name: '四级库' },
+                    { code: 'credit_bond_level_5', name: '五级库' },
+                    { code: 'offshore_bond_root', name: '境外债库' },
+                    { code: 'convertible_bond_root', name: '转债库' },
+                    { code: 'special_account_root', name: '专户产品' },
+                    { code: 'special_account_level_1', name: '专户一级库' },
+                    { code: 'special_account_level_2', name: '专户二级库' },
+                    { code: 'special_account_level_3', name: '专户三级库' },
+                    { code: 'special_account_level_4', name: '专户四级库' },
+                    { code: 'special_account_level_5', name: '专户五级库' },
+                    { code: 'forbidden_root', name: '禁投池' },
+                    { code: 'observe_root', name: '观察池' },
+                    { code: 'pledge_blacklist_root', name: '黑名单质押库' },
+                    { code: 'crmw_root', name: 'CRMW库' },
+                    { code: 'crmw_core_pool', name: 'CRMW核心库' },
+                    { code: 'crmw_watch_pool', name: 'CRMW关注库' },
+                    { code: 'crmw_exit_watch_pool', name: 'CRMW退出观察库' },
+                    { code: 'fund_pool_root', name: '基金池' },
+                ],
                 poolTypeOptions: [  // 顶级投资池类型枚举
                     { label: '信用债', value: 'credit_bond' }, { label: '境外债', value: 'offshore_bond' },
                     { label: '转债', value: 'convertible_bond' }, { label: '专户产品', value: 'special_account' },
@@ -895,10 +988,17 @@
                     { key: 'in_mutex', label: '调入互斥池' }, { key: 'out_mutex', label: '调出互斥池' },
                     { key: 'in_soft_restrict', label: '调入弹性禁投池' }, { key: 'out_soft_restrict', label: '调出弹性禁投池' }
                 ],
-                baseRules: { poolName: [{ required: true, message: '请输入投资池名称', trigger: 'blur' }] },    // 基础配置表单校验规则
-                childRules: { poolName: [{ required: true, message: '请输入子节点名称', trigger: 'blur' }] },   // 新增子节点表单校验规则
+                baseRules: {    // 基础配置表单校验规则
+                    poolName: [{ required: true, message: '请输入投资池名称', trigger: 'blur' }],
+                    poolCode: [{ required: true, message: '请选择或输入投资池编码', trigger: 'change' }]
+                },
+                childRules: {   // 新增子节点表单校验规则
+                    poolName: [{ required: true, message: '请输入子节点名称', trigger: 'blur' }],
+                    poolCode: [{ required: true, message: '请选择或输入投资池编码', trigger: 'change' }]
+                },
                 rootRules: {    // 新增顶级池表单校验规则
                     poolName: [{ required: true, message: '请输入投资池名称', trigger: 'blur' }],
+                    poolCode: [{ required: true, message: '请选择或输入投资池编码', trigger: 'change' }],
                     poolType: [{ required: true, message: '请选择投资池类型', trigger: 'change' }]
                 },
                 // 关系池选择弹窗状态
@@ -1227,7 +1327,7 @@
             handlePoolClick(data) { this.loadPoolDetail(data.id) },
             // 打开新增顶级投资池弹窗
             handleOpenAddRoot() {
-                this.rootForm = { poolName: '', poolType: '', outerSort: null, templatePoolId: null }
+                this.rootForm = { poolName: '', poolCode: '', poolType: '', outerSort: null, templatePoolId: null }
                 this.rootDialogVisible = true
             },
             // 顶级弹窗关闭时清除表单校验状态
@@ -1238,9 +1338,13 @@
                 this.rootSubmitLoading = true
                 try {
                     const submitParams = {
-                        poolName: this.rootForm.poolName, poolType: this.rootForm.poolType,
-                        outerSort: this.rootForm.outerSort, templatePoolId: this.rootForm.templatePoolId, operatorId: window.RrsAuth.getCurrentUser().userId
-                    };
+                        poolName: this.rootForm.poolName,
+                        poolCode: this.rootForm.poolCode,
+                        poolType: this.rootForm.poolType,
+                        outerSort: this.rootForm.outerSort,
+                        templatePoolId: this.rootForm.templatePoolId,
+                        operatorId: window.RrsAuth.getCurrentUser().userId,
+                    }
                     const data = await this.apiPost('/api/v1/investmentPool/addRootPool', submitParams)
                     this.$message.success('顶级投资池已新增')
                     this.rootDialogVisible = false
@@ -1250,7 +1354,15 @@
             },
             // 打开新增子节点弹窗，预填父节点信息并以父节点作为默认模板
             handleOpenAddChild(data) {
-                this.childForm = { parentId: data.id, parentName: data.poolName, parentTypeName: this.getPoolTypeName(data.poolType), poolName: '', innerSort: null, templatePoolId: data.id }
+                this.childForm = {
+                    parentId: data.id,
+                    parentName: data.poolName,
+                    parentTypeName: this.getPoolTypeName(data.poolType),
+                    poolName: '',
+                    poolCode: '',
+                    innerSort: null,
+                    templatePoolId: data.id,
+                }
                 this.childDialogVisible = true
             },
             // 子节点弹窗关闭时清除表单校验状态
@@ -1261,9 +1373,13 @@
                 this.childSubmitLoading = true
                 try {
                     const childPoolParams = {
-                        parentId: this.childForm.parentId, poolName: this.childForm.poolName,
-                        innerSort: this.childForm.innerSort, templatePoolId: this.childForm.templatePoolId, operatorId: window.RrsAuth.getCurrentUser().userId
-                    };
+                        parentId: this.childForm.parentId,
+                        poolName: this.childForm.poolName,
+                        poolCode: this.childForm.poolCode,
+                        innerSort: this.childForm.innerSort,
+                        templatePoolId: this.childForm.templatePoolId,
+                        operatorId: window.RrsAuth.getCurrentUser().userId,
+                    }
                     const data = await this.apiPost('/api/v1/investmentPool/addChildPool', childPoolParams)
                     this.$message.success('子节点已新增')
                     this.childDialogVisible = false
@@ -1302,7 +1418,10 @@
             // 将接口返回的详情数据填充到基础配置表单
             fillBaseForm(data) {
                 this.baseForm = {
-                    id: data.id, poolName: data.poolName || '', marketCodes: data.marketCodes || [],
+                    id: data.id,
+                    poolName: data.poolName || '',
+                    poolCode: data.poolCode || '',
+                    marketCodes: data.marketCodes || [],
                     varietyCodes: data.varietyCodes && data.varietyCodes.length ? data.varietyCodes : ['bond'],
                     hsPoolName: data.hsPoolName || '',
                     inFlowId: this.getFlowValue(data.inFlow), outFlowId: this.getFlowValue(data.outFlow),
@@ -1345,8 +1464,12 @@
                 this.baseSubmitLoading = true
                 try {
                     const body = {
-                        id: this.baseForm.id, poolName: this.baseForm.poolName, marketCodes: this.baseForm.marketCodes,
-                        varietyCodes: this.baseForm.varietyCodes, hsPoolName: this.baseForm.hsPoolName,
+                        id: this.baseForm.id,
+                        poolName: this.baseForm.poolName,
+                        poolCode: this.baseForm.poolCode,
+                        marketCodes: this.baseForm.marketCodes,
+                        varietyCodes: this.baseForm.varietyCodes,
+                        hsPoolName: this.baseForm.hsPoolName,
                         inFlow: this.getFlowOption(this.baseForm.inFlowId), outFlow: this.getFlowOption(this.baseForm.outFlowId),
                         simpleInFlow: this.getFlowOption(this.baseForm.simpleInFlowId), simpleOutFlow: this.getFlowOption(this.baseForm.simpleOutFlowId),
                         batchInFlow: this.getFlowOption(this.baseForm.batchInFlowId), batchOutFlow: this.getFlowOption(this.baseForm.batchOutFlowId),
