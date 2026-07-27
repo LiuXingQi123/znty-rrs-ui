@@ -85,6 +85,7 @@
 | `docs/attachment-report-audit.html` | 附件与报告体检 | HTML 内联样式 |
 | `docs/data-consistency-performance-audit.html` | 数据一致性与性能体检 | HTML 内联样式 |
 | `docs/business-acceptance-matrix.html` | 全业务验收矩阵 | HTML 内联样式 |
+| `docs/version-changelog-20260726.html` | 版本说明 · 2026-07-26 变更 | HTML 内联样式 |
 
 ## CSS 样式
 

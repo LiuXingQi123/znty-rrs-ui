@@ -126,6 +126,7 @@ const DICT_STEP_STATUS = {
 // 表：ip_adjust_step.process_action
 const DICT_PROCESS_ACTION = {
     'submit':       '提交',
+    'resubmit':     '重新提交',
     'approve':      '通过',
     'reject':       '驳回',
     'auto_process': '自动处理',
@@ -272,7 +273,6 @@ const DICT_SECURITY_TYPE_STR = {
     'policy_financial_bond':      '政策性金融债',
     'gov_institution_bond':       '政府支持机构债',
     'intl_dev_bond':              '国际开发机构债券',
-    'enterprise_bond':            '企业债',
     'corporate_bond':             '企业债',
     'company_bond':               '公司债',
     'bank_bond':                  '商业银行债',
@@ -398,20 +398,35 @@ const DICT_RATING_AGENCY = {
     '惠誉':       '惠誉（Fitch）',
 };
 
-// ── 27. 主体内部评级（inner_issuer_rating）───────────────
-// 表：rrs_securityinfo（无独立后端枚举）
-// 1级最优，10级最差（对应外评 AAA → D）
+// ── 27. 主体内评分档（inner_issuer_rating / 调库矩阵）──────
+// 表：rrs_securityinfo.inner_issuer_rating；字典表 credit_bond_inner_rating_grade
+// 说明：信用债大库准入矩阵（credit_bond_pool_grade_rule）使用本套 8 档 code；
+//       演示数据与调库校验均为 grade_code=1 / 2+ / 2 / 2- / 3+ / 3 / 3- / 4（1 最优，4 最低）。
+//       规则引擎预设选项「主体内评」另有 1级～10级，见 DICT_RULE_INNER_RATING，勿与本字典混用。
 const DICT_INNER_RATING = {
-    '1级': '1级（对应外评 AAA+/AAA）',
-    '2级': '2级（对应外评 AA+）',
-    '3级': '3级（对应外评 AA）',
-    '4级': '4级（对应外评 AA-）',
-    '5级': '5级（对应外评 A+/A）',
-    '6级': '6级（对应外评 A-/BBB+）',
-    '7级': '7级（对应外评 BBB/BBB-）',
-    '8级': '8级（对应外评 BB+/BB）',
-    '9级': '9级（对应外评 BB-/B）',
-    '10级':'10级（对应外评 CCC 及以下）',
+    '1':  '1（最高档）',
+    '2+': '2+',
+    '2':  '2',
+    '2-': '2-',
+    '3+': '3+',
+    '3':  '3',
+    '3-': '3-',
+    '4':  '4（最低档；临时代码无内评时默认按此档走矩阵）',
+};
+
+// ── 27b. 规则引擎预设「主体内评」（rule_preset_option，非调库矩阵）
+// 表：rule_preset_option（选项集「主体内评」）；仅规则管理参数用，不参与信用债入库矩阵匹配
+const DICT_RULE_INNER_RATING = {
+    '1级':  '1级',
+    '2级':  '2级',
+    '3级':  '3级',
+    '4级':  '4级',
+    '5级':  '5级',
+    '6级':  '6级',
+    '7级':  '7级',
+    '8级':  '8级',
+    '9级':  '9级',
+    '10级': '10级',
 };
 
 // ── 28. 证券内部分类（inner_class）─────────────────
@@ -533,6 +548,7 @@ const DICT_APPROVAL_STRATEGY = {
     'preempt':   '抢占审批（任一人通过即可）',
     'all':       '全部处理（所有人均须处理）',
     'initiator': '流程发起人处理',
+    'o32':       'O32 系统自动审批',
 };
 
 // ── 37. 自动任务类型（task_code）─────────────────────────
