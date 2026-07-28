@@ -249,7 +249,7 @@ const DICT_SECURITY_TYPE_INT = {
 // 表：dict_security_type（字段 security_type / security_type_name）
 // 说明：与 sql/rrs_dict_demo_data.sql 中 dict_security_type 演示数据逐项核对；
 //      页面实际从后端 /queryTempSecurityCodeOptions 等接口动态加载，本字典仅作参考。
-//      大类 bond=债券 / stock=股票 / fund=基金 / company=公司主体 / 其他
+//      大类见 DICT_SECURITY_CATEGORY（与 rrs_dict_demo_data 去重后的 category_type 一致）
 const DICT_SECURITY_TYPE_STR = {
     // 股票（stock）
     'a_share':                    'A股',
@@ -312,13 +312,19 @@ const DICT_SECURITY_TYPE_STR = {
 };
 
 // ── 19. 证券大类（category_type）─────────────────────────
-// 枚举：CategoryType
-// 表：dict_security_type
+// 枚举：CategoryType；表：dict_security_type.category_type
+// 说明：与 sql/rrs_dict_demo_data.sql 中 category_type 去重后的取值一致；
+//      投资池 variety_codes JSON 数组元素亦取本字典 code。
 const DICT_SECURITY_CATEGORY = {
-    'bond':    '债券',
-    'stock':   '股票',
-    'fund':    '基金',
-    'company': '公司主体',
+    'bond':            '债券',
+    'stock':           '股票',
+    'fund':            '基金',
+    'company':         '公司主体',
+    'index':           '指数',
+    'warrant':         '权证',
+    'trust':           '信托',
+    'private_wealth':  '私募理财',
+    'unknown':         '未知',
 };
 
 // ── 20. 利率类型（interest_type）───────────────────
