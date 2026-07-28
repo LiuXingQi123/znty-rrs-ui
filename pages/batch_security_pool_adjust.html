@@ -260,7 +260,8 @@
                     <el-table-column label="序号" width="72" align="center" fixed="left">
                         <template slot-scope="{ $index }">{{ (securityPagination.pageIndex - 1) * securityPagination.pageSize + $index + 1 }}</template>
                     </el-table-column>
-                    <el-table-column prop="securityShortName" label="证券简称" min-width="150" fixed="left" show-overflow-tooltip></el-table-column>
+                    <!-- 固定列须用 width 不用 min-width，否则 Element UI 列宽计算不稳定导致错位 -->
+                    <el-table-column prop="securityShortName" label="证券简称" width="150" fixed="left" show-overflow-tooltip></el-table-column>
                     <el-table-column prop="securityCode" label="证券代码" min-width="130">
                         <template slot-scope="{ row }"><span class="security-code">{{ row.securityCode || '' }}</span></template>
                     </el-table-column>
@@ -950,12 +951,10 @@
                         excludePoolTypes: ['crmw', 'forbidden'],
                     })
                     this.poolTreeData = this.buildPoolTree(poolTreeList || [])
-                    // 分页加载当前用户可调整投资池
+                    // 分页加载当前用户可调整投资池（内部会 doLayout）
                     await this.loadPoolPage()
                 } finally {
                     this.loading = false
-                    // 数据渲染后同步投资池列表固定列
-                    this.refreshTableLayout('poolTableRef')
                 }
             },
 
@@ -1072,6 +1071,8 @@
                 } finally {
                     this.loading = false
                 }
+                // 数据渲染后同步右侧固定操作列
+                this.refreshTableLayout('poolTableRef')
             },
 
             // 翻页查询
@@ -1093,15 +1094,20 @@
                 this.direction = direction
                 this.resetWorkbench()
                 this.pageMode = 'adjustWorkbench'
-                this.loadSecurityList()
+                // v-if 切换后等表格挂载再加载候选证券
+                this.$nextTick(() => {
+                    this.loadSecurityList()
+                })
             },
 
             // 返回投资池列表
             backToPoolList() {
                 this.pageMode = 'poolList'
                 this.resetWorkbench()
-                // 返回列表后同步投资池列表固定列
-                this.refreshTableLayout('poolTableRef')
+                // v-if 切回列表后同步投资池表格固定列
+                this.$nextTick(() => {
+                    this.refreshTableLayout('poolTableRef')
+                })
             },
 
             // 重置工作台状态
@@ -1148,14 +1154,14 @@
                     })
                     this.securityTableData = records
                     this.securityPagination.total = data.total || 0
-                    // 固定列（勾选/序号/简称）依赖 doLayout，数据与勾选恢复后重算布局
-                    this.$nextTick(() => {
-                        this.restoreCurrentPageSelection()
-                        this.refreshTableLayout('securityTableRef')
-                    })
                 } finally {
                     this.securityLoading = false
                 }
+                // 关 loading 后恢复跨页勾选，并同步左侧固定列
+                this.$nextTick(() => {
+                    this.restoreCurrentPageSelection()
+                    this.refreshTableLayout('securityTableRef')
+                })
             },
 
             // 恢复当前页已选状态
@@ -1262,42 +1268,33 @@
                     const data = await this.apiPost('/api/v1/batchSecurityPoolAdjust/checkAdjust', checkParams)
                     this.adjustReviewList = this.applyAdjustGroupColors((data.items || []).map((item, index) => this.buildReviewRow(item, index)))
                     this.adjustStep = 2
-                    // 校验结果显示后同步右侧固定列
-                    this.refreshTableLayout('adjustReviewTableRef')
                 } catch (e) {
                     this.$message.error(e.message || '操作失败')
                 } finally {
                     this.checkLoading = false
                 }
+                // 校验结果表渲染后同步右侧固定列
+                this.refreshTableLayout('adjustReviewTableRef')
             },
 
-            // 重新计算指定表格固定列布局
+            // 重新计算指定表格固定列布局（loading=false 后调用，$nextTick + doLayout）
             refreshTableLayout(refName) {
                 this.$nextTick(() => {
-                    window.requestAnimationFrame(() => {
-                        const table = this.$refs[refName]
-                        if (table) {
-                            table.doLayout()
-                            window.setTimeout(() => table.doLayout(), 80)
-                            window.setTimeout(() => table.doLayout(), 180)
-                        }
-                    })
+                    const table = this.$refs[refName]
+                    if (table && typeof table.doLayout === 'function') {
+                        table.doLayout()
+                    }
                 })
             },
 
-            // 重新计算当前页面所有表格固定列布局
+            // 重新计算当前页面所有表格固定列布局（窗口 resize 等）
             refreshAllTableLayout() {
                 this.$nextTick(() => {
-                    window.requestAnimationFrame(() => {
-                        Object.keys(this.$refs).forEach(refName => {
-                            const ref = this.$refs[refName]
-                            const table = Array.isArray(ref) ? ref[0] : ref
-                            if (table && typeof table.doLayout === 'function') {
-                                table.doLayout()
-                                window.setTimeout(() => table.doLayout(), 80)
-                                window.setTimeout(() => table.doLayout(), 180)
-                            }
-                        })
+                    Object.keys(this.$refs || {}).forEach(refName => {
+                        const table = this.$refs[refName]
+                        if (table && typeof table.doLayout === 'function') {
+                            table.doLayout()
+                        }
                     })
                 })
             },

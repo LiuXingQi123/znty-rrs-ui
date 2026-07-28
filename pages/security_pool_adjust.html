@@ -1788,47 +1788,35 @@
                 }
             },
 
-            // 在动态内容渲染后重新同步校验结果表格的固定列行高
+            // 校验结果表固定列布局（动态内容渲染后 $nextTick + doLayout）
             refreshAdjustReviewTableLayout() {
                 this.$nextTick(() => {
-                    window.requestAnimationFrame(() => {
-                        const table = this.$refs.adjustReviewTable;
-                        if (table) {
-                            table.doLayout();
-                            window.setTimeout(() => table.doLayout(), 80);
-                            window.setTimeout(() => table.doLayout(), 180);
-                        }
-                    });
+                    const table = this.$refs.adjustReviewTable;
+                    if (table && typeof table.doLayout === 'function') {
+                        table.doLayout();
+                    }
                 });
             },
 
-            // 在列表页显示或数据变化后重新同步列表表格固定列
+            // 列表页固定列布局（列表显示/数据变化后 $nextTick + doLayout）
             refreshListTableLayout() {
                 this.$nextTick(() => {
-                    window.requestAnimationFrame(() => {
-                        const table = this.$refs.listTable;
-                        if (table) {
-                            table.doLayout();
-                            window.setTimeout(() => table.doLayout(), 80);
-                            window.setTimeout(() => table.doLayout(), 180);
-                        }
-                    });
+                    const table = this.$refs.listTable;
+                    if (table && typeof table.doLayout === 'function') {
+                        table.doLayout();
+                    }
                 });
             },
 
-            // 重新计算当前页面所有表格固定列布局
+            // 重新计算当前页面所有表格固定列布局（窗口 resize 等）
             refreshAllTableLayout() {
                 this.$nextTick(() => {
-                    window.requestAnimationFrame(() => {
-                        Object.keys(this.$refs).forEach(refName => {
-                            const ref = this.$refs[refName];
-                            const table = Array.isArray(ref) ? ref[0] : ref;
-                            if (table && typeof table.doLayout === 'function') {
-                                table.doLayout();
-                                window.setTimeout(() => table.doLayout(), 80);
-                                window.setTimeout(() => table.doLayout(), 180);
-                            }
-                        });
+                    Object.keys(this.$refs || {}).forEach(refName => {
+                        const ref = this.$refs[refName];
+                        const table = Array.isArray(ref) ? ref[0] : ref;
+                        if (table && typeof table.doLayout === 'function') {
+                            table.doLayout();
+                        }
                     });
                 });
             },
@@ -2245,8 +2233,6 @@
                     this.selectedFlowKey = recommended ? recommended.optionKey : '';
                     this.flowDialogVisible = false;
                     this.adjustStep = 2;
-                    // 校验结果渲染完成后同步固定列与主表行高
-                    this.refreshAdjustReviewTableLayout();
                 } catch (e) {
                     this.$message.error(e.message || '操作失败');
                 } finally {
@@ -2254,6 +2240,8 @@
                         this.adjustCheckLoading = false;
                     }
                 }
+                // loading 关闭后再同步校验结果固定列
+                this.refreshAdjustReviewTableLayout();
             },
 
             // 返回步骤1

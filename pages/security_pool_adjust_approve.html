@@ -1806,8 +1806,6 @@
                     this.inMutexMap = inMap;
                     this.outMutexMap = outMap;
                     this.adjustLogList = logList || [];
-                    // 调库记录渲染后同步审核状态固定列
-                    this.refreshTableLayout('adjustLogTable');
                     // 加载调库日志关联附件
                     await this.loadLogAttachments(this.adjustLogList);
                     // 查找当前活跃的调库记录并加载流程步骤
@@ -1825,6 +1823,8 @@
                     await this.applyLastCreditReportToPools(securityCode, [...inPoolsFiltered, ...outPoolsFiltered]);
                 } catch (e) {}
                 this.detailLoading = false;
+                // 详情与附件渲染完成后同步调库记录固定列
+                this.refreshTableLayout('adjustLogTable');
             },
             /**
              * 加载可调入/出库后自动回填最近信评报告（当前券→同主体，近6个月）。
@@ -2014,33 +2014,25 @@
                 }
             },
 
-            // 重新计算指定表格固定列布局
+            // 重新计算指定表格固定列布局（数据渲染后 $nextTick + doLayout）
             refreshTableLayout(refName) {
                 this.$nextTick(() => {
-                    window.requestAnimationFrame(() => {
-                        const table = this.$refs[refName];
-                        if (table) {
-                            table.doLayout();
-                            window.setTimeout(() => table.doLayout(), 80);
-                            window.setTimeout(() => table.doLayout(), 180);
-                        }
-                    });
+                    const table = this.$refs[refName];
+                    if (table && typeof table.doLayout === 'function') {
+                        table.doLayout();
+                    }
                 });
             },
 
             // 重新计算当前页面所有表格固定列布局
             refreshAllTableLayout() {
                 this.$nextTick(() => {
-                    window.requestAnimationFrame(() => {
-                        Object.keys(this.$refs).forEach(refName => {
-                            const ref = this.$refs[refName];
-                            const table = Array.isArray(ref) ? ref[0] : ref;
-                            if (table && typeof table.doLayout === 'function') {
-                                table.doLayout();
-                                window.setTimeout(() => table.doLayout(), 80);
-                                window.setTimeout(() => table.doLayout(), 180);
-                            }
-                        });
+                    Object.keys(this.$refs || {}).forEach(refName => {
+                        const ref = this.$refs[refName];
+                        const table = Array.isArray(ref) ? ref[0] : ref;
+                        if (table && typeof table.doLayout === 'function') {
+                            table.doLayout();
+                        }
                     });
                 });
             },
