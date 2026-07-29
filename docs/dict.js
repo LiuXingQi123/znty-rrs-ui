@@ -142,11 +142,11 @@ const DICT_POOL_TYPE = {
     'convertible_bond':  '转债',     // 可转债/可交换债库
     'special_account':   '专户产品', // 专户产品库及子库
     'crmw':              'CRMW库',
-    'forbidden':         '禁投池',   // 禁止交易池
-    'observe':           '观察池',   // 观察池（禁投池调整目标池之一，id=16）
+    'forbidden':         '禁止库',   // 禁止交易池（demo id=15）
+    'observe':           '观察池',   // 观察池（主体风险池调整目标之一，id=16）
     'research':          '研究池',
     'fund':              '基金池',
-    'restricted':        '限制池',
+    'restricted':        '限制池',   // demo 重点观察名单 id=23
     'industry':          '行业池',
     'whitelist':         '白名单',
     'blacklist':         '黑名单',
@@ -157,7 +157,7 @@ const DICT_POOL_TYPE = {
 // ── 9. 投资池层级（pool_level）────────────────────────────
 // 表：ip_investment_pool
 const DICT_POOL_LEVEL = {
-    1: '顶级池',   // 一级目录，如"信用债大库"、"禁投池"
+    1: '顶级池',   // 一级目录，如"信用债大库"、"禁止库"
     2: '子级池',   // 叶子节点，如"一级库"、"二级库"
 };
 
@@ -555,6 +555,7 @@ const DICT_APPROVAL_STRATEGY = {
     'all':       '全部处理（所有人均须处理）',
     'initiator': '流程发起人处理',
     'o32':       'O32 系统自动审批',
+    'auto':      '自动审批（系统自动通过）',
 };
 
 // ── 37. 自动任务类型（task_code）─────────────────────────

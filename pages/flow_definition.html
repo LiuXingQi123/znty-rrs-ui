@@ -83,19 +83,19 @@
                     <el-table-column label="流程名称" min-width="160" show-overflow-tooltip>
                         <template slot-scope="scope"><div class="proc-name">{{ scope.row.name }}</div></template>
                     </el-table-column>
-                    <el-table-column label="描述" min-width="220" show-overflow-tooltip>
+                    <el-table-column label="描述" min-width="320" show-overflow-tooltip>
                         <template slot-scope="scope"><div class="proc-desc">{{ scope.row.desc || '' }}</div></template>
                     </el-table-column>
-                    <el-table-column label="流程 Key" min-width="170" show-overflow-tooltip>
+                    <el-table-column label="流程 Key" min-width="120" show-overflow-tooltip>
                         <template slot-scope="scope"><div class="cell-mono">{{ scope.row.key }}</div></template>
                     </el-table-column>
-                    <el-table-column label="业务分类" width="90">
+                    <el-table-column label="业务分类" width="90" align="center">
                         <template slot-scope="scope"><el-tag :type="catTagType(scope.row.category)" size="small">{{ catLabel(scope.row.category) }}</el-tag></template>
                     </el-table-column>
-                    <el-table-column label="版本" width="65">
+                    <el-table-column label="版本" width="65" align="center">
                         <template slot-scope="scope"><span class="cell-ver">{{ scope.row.ver }}</span></template>
                     </el-table-column>
-                    <el-table-column label="状态" width="95">
+                    <el-table-column label="状态" width="95" align="center">
                         <template slot-scope="scope">
                             <el-tooltip v-if="scope.row.status === 'draft' && scope.row.hasPublishedVersion" content="已有已发布版本，当前正在更新中" placement="top">
                             <span class="status-cell" style="cursor:help;">
@@ -442,6 +442,7 @@
                                             <el-option label="指定特定人（全部处理）" value="all"></el-option>
                                             <el-option label="流程发起人" value="initiator"></el-option>
                                             <el-option label="O32自动审批（系统代审，临时代码转人工）" value="o32"></el-option>
+                                            <el-option label="自动审批（系统自动通过）" value="auto"></el-option>
                                         </el-select>
                                     </el-form-item>
                                     <el-form-item v-if="selNode.approvalStrategy !== 'initiator'" label="处理人">
@@ -1046,7 +1047,7 @@
                 hist: [],                       // 撤销历史栈
                 histIdx: -1,                    // 当前历史位置（-1 表示空）
                 isRestoringHistory: false,      // 是否正在执行撤销/恢复，避免选中项 watcher 污染历史栈
-                seq: 100,                       // 节点/连线自增 ID 序号
+                seq: 100,                       // 节点/连线自增序号（从 100 起，首个节点 n101、连线 e101）
                 dragNode: null,                 // 当前拖拽中的节点 ID
                 dragMoved: false,               // 拖拽是否发生实际位移
                 dOx: 0, dOy: 0,                 // 拖拽时鼠标相对于节点左上角的偏移
@@ -1629,6 +1630,7 @@
                         this.panY = ver.panY != null ? ver.panY : 50;
                         this.zoom = ver.zoom != null ? ver.zoom : 1;
                         this.selId = null;
+                        this.syncSeqFromCanvas();
                         this.hist = [];
                         this.histIdx = -1;
                         this.pushH();
@@ -1768,6 +1770,7 @@
                             this.panX = flow.draft.panX != null ? flow.draft.panX : 60;
                             this.panY = flow.draft.panY != null ? flow.draft.panY : 50;
                             this.zoom = flow.draft.zoom != null ? flow.draft.zoom : 1;
+                            this.syncSeqFromCanvas();
                         } else {
                             // 无草稿数据，初始化演示画布
                             this.initCanvas(false);
@@ -2364,6 +2367,21 @@
                     this.renderAll();
                 }
             },
+            // 按画布已有 n### / e### 标识回写自增序号，避免加载后新建节点 ID 冲突
+            syncSeqFromCanvas() {
+                let max = 100;
+                const take = (id) => {
+                    if (!id || typeof id !== 'string') return;
+                    const m = id.match(/^[ne](\d+)$/);
+                    if (m) {
+                        const num = parseInt(m[1], 10);
+                        if (!isNaN(num) && num > max) max = num;
+                    }
+                };
+                (this.nodes || []).forEach(n => take(n.id));
+                (this.edges || []).forEach(e => take(e.id));
+                this.seq = max;
+            },
             // 初始化/重置画布（empty=true 空白画布，否则创建演示流程）
             initCanvas(empty) {
                 // 重置所有画布状态
@@ -2371,7 +2389,7 @@
                 this.hist = []; this.histIdx = -1;
                 this.panX = 60; this.panY = 50; this.zoom = 1;
                 if (empty) { this.pushH(); this.renderAll(); return; }
-                // 创建节点辅助函数
+                // 创建节点辅助函数（seq 从 100 起，首个节点为 n101）
                 const a = (type, label, x, y, sub) => {
                     const id = 'n' + (++this.seq);
                     this.nodes.push({ id, type, label, x, y, shape: this.NCfg[type].shape, sub, ...this.nodeDefaults(type) });
