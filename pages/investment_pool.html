@@ -837,14 +837,28 @@
             <div class="selected-summary-row">
                 <span class="selected-label">已选角色</span>
                 <template v-if="selectedRoles.length">
-                    <el-tag v-for="r in selectedRoles" :key="'r_' + r.id" size="small" type="warning">{{ r.roleName }}</el-tag>
+                    <el-tag
+                            v-for="r in selectedRoles"
+                            :key="'r_' + r.id"
+                            size="small"
+                            type="warning"
+                            closable
+                            :disable-transitions="false"
+                            @close="handleRemoveSelectedRole(r)">{{ r.roleName }}</el-tag>
                 </template>
                 <span v-else class="selected-empty">暂无</span>
             </div>
             <div class="selected-summary-row">
                 <span class="selected-label">已选人员</span>
                 <template v-if="selectedUsers.length">
-                    <el-tag v-for="u in selectedUsers" :key="'u_' + u.id" size="small" type="primary">{{ u.userName }}</el-tag>
+                    <el-tag
+                            v-for="u in selectedUsers"
+                            :key="'u_' + u.id"
+                            size="small"
+                            type="primary"
+                            closable
+                            :disable-transitions="false"
+                            @close="handleRemoveSelectedUser(u)">{{ u.userName }}</el-tag>
                 </template>
                 <span v-else class="selected-empty">暂无</span>
             </div>
@@ -1567,6 +1581,29 @@
                     if (role) this.selectedRoles.push(role)
                 })
             },
+            // 从弹窗「已选角色」中删除，并同步角色树勾选
+            handleRemoveSelectedRole(role) {
+                this.selectedRoles = this.selectedRoles.filter(r => String(r.id) !== String(role.id))
+                this.$nextTick(() => {
+                    if (this.$refs.roleTreeRef) {
+                        this.$refs.roleTreeRef.setCheckedKeys(this.selectedRoles.map(r => r.id))
+                    }
+                })
+            },
+            // 从弹窗「已选人员」中删除，并同步人员表格勾选
+            handleRemoveSelectedUser(user) {
+                this.selectedUsers = this.selectedUsers.filter(u => String(u.id) !== String(user.id))
+                this.$nextTick(() => {
+                    if (!this.$refs.userTableRef) return
+                    // 若当前表格中仍有该行，取消勾选
+                    const row = this.filteredUserTableData.find(r => String(r.id) === String(user.id))
+                    if (row) {
+                        this.restoringSelection = true
+                        this.$refs.userTableRef.toggleRowSelection(row, false)
+                        this.$nextTick(() => { this.restoringSelection = false })
+                    }
+                })
+            },
             // 显示全部人员（不按角色过滤）
             async handleShowAllUsers() {
                 this.currentRoleId = '__all__'; this.userTableLoading = true
@@ -1644,7 +1681,9 @@
                 const dbType = dbTypeMap[type] || type; const list = []
                 this.selectedRoles.forEach(role => { list.push({ handlerType: 'role', handlerId: role.id, handlerName: role.roleName, permissionType: dbType }) })
                 this.selectedUsers.forEach(user => { list.push({ handlerType: 'user', handlerId: user.id, handlerName: user.userName, permissionType: dbType }) })
-                this.permissionForm[type] = list; this.permissionDialogVisible = false; this.$message.success('已添加')
+                // 仅写回表单待「保存权限配置」后生效，不提示「已添加」以免误导
+                this.permissionForm[type] = list
+                this.permissionDialogVisible = false
             },
             // 保存权限配置（将三类权限合并后提交）
             async handleSavePermission() {
