@@ -134,23 +134,30 @@ const DICT_PROCESS_ACTION = {
 };
 
 // ── 8. 投资池类型（pool_type）─────────────────────────────
-// 枚举：PoolType
+// 枚举：PoolType（业务域可扩展；同一类型下可挂多棵树，如多个信用债根）
 // 表：ip_investment_pool, ip_adjust_log, ip_pool_status
+// 硬逻辑：credit_bond / crmw / forbidden+blacklist=全局禁止 / observe=观察跳过矩阵
+// 扩展：新增 code 时同步本字典 + PoolType + 投资池维护「新建顶级」分组选项
 const DICT_POOL_TYPE = {
-    'credit_bond':       '信用债',   // 信用债大库及子库（一至五级库）
-    'offshore_bond':     '境外债',   // 境外债库
-    'convertible_bond':  '转债',     // 可转债/可交换债库
-    'special_account':   '专户产品', // 专户产品库及子库
-    'crmw':              'CRMW库',
-    'forbidden':         '禁止库',   // 禁止交易池（demo id=15）
-    'observe':           '观察池',   // 观察池（主体风险池调整目标之一，id=16）
-    'research':          '研究池',
-    'fund':              '基金池',
-    'restricted':        '限制池',   // demo 重点观察名单 id=23
-    'industry':          '行业池',
-    'whitelist':         '白名单',
+    // 固收/债券
+    'credit_bond':       '信用债',       // 信用债大库、中高等级信用债等
+    'offshore_bond':     '境外债',
+    'convertible_bond':  '转债',         // 转债库、转债产品库
+    'bond_product':      '债券产品',     // 债券产品库（产品维度）
+    'special_account':   '专户',         // 专户债券/专户产品库
+    // 权益
+    'stock':             '股票',         // 公司股票库、公司港股库等
+    'stock_product':     '股票产品',     // 股票产品库(A股/H股)
+    // 基金
+    'fund':              '基金',         // 公司基金库、基金产品库
+    // 风险控制
+    'forbidden':         '禁止库',       // 含量化/指数禁止等；全局禁止
+    'observe':           '观察池',
     'blacklist':         '黑名单',
-    'private_placement': '私募池',
+    'restricted':        '限制名单',     // 重点观察名单等
+    'whitelist':         '白名单',       // 白名单库（预留流程/规则）
+    // 独立/兜底
+    'crmw':              'CRMW库',
     'other':             '其他',
 };
 
