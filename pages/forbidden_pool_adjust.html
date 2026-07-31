@@ -37,71 +37,180 @@
             </div>
         </div>
 
-        <!-- 列表主体：搜索条件 + 数据表格 -->
+        <!-- 列表主体：主体 / ABS债 双 Tab（同页单一白底内容区，避免 Tab 单独成卡） -->
         <div class="list-body">
-            <!-- 搜索条件区 -->
-            <div class="search-panel">
-                <span class="search-label">
-                    <i class="el-icon-search"></i>筛选
-                </span>
-                <el-input v-model="searchForm.companyCode" placeholder="主体代码" clearable
-                          size="small" style="width:148px;" @keyup.enter.native="handleSearch">
-                    <i slot="prefix" class="el-input__icon el-icon-document"></i>
-                </el-input>
-                <el-input v-model="searchForm.companyFullName" placeholder="主体名称" clearable
-                          size="small" style="width:180px;" @keyup.enter.native="handleSearch">
-                    <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
-                </el-input>
-                <el-input v-model="searchForm.industryName" placeholder="所属行业" clearable
-                          size="small" style="width:140px;" @keyup.enter.native="handleSearch"></el-input>
-                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
-                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
-                <div class="total-badge">
-                    <i class="el-icon-data-line"></i>
-                    共 {{ pagination.total }} 条记录
-                </div>
-            </div>
+            <div class="list-main-card">
+                <el-tabs v-model="listTab" class="list-tabs" @tab-click="handleListTabClick">
+                    <!-- 主体 Tab（原逻辑不变） -->
+                    <el-tab-pane label="主体" name="company">
+                        <div class="search-panel">
+                            <span class="search-label">
+                                <i class="el-icon-search"></i>筛选
+                            </span>
+                            <el-input v-model="searchForm.companyCode" placeholder="主体代码" clearable
+                                      size="small" style="width:148px;" @keyup.enter.native="handleSearch">
+                                <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                            </el-input>
+                            <el-input v-model="searchForm.companyFullName" placeholder="主体名称" clearable
+                                      size="small" style="width:180px;" @keyup.enter.native="handleSearch">
+                                <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
+                            </el-input>
+                            <el-input v-model="searchForm.industryName" placeholder="所属行业" clearable
+                                      size="small" style="width:140px;" @keyup.enter.native="handleSearch"></el-input>
+                            <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                            <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                            <div class="total-badge">
+                                <i class="el-icon-data-line"></i>
+                                共 {{ pagination.total }} 条记录
+                            </div>
+                        </div>
 
-            <!-- 数据列表 -->
-            <div class="table-card">
-                <el-table ref="listTable" :data="tableData" v-loading="loading" stripe border size="small"
-                          style="width:100%;" :empty-text="'暂无数据'">
-                    <el-table-column label="序号" width="72" align="center">
-                        <template slot-scope="{ $index }">
-                            {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
-                        </template>
-                    </el-table-column>
-                    <el-table-column prop="companyCode" label="主体代码" min-width="130">
-                        <template slot-scope="{ row }">
-                            <span class="desc-link" @click="handleAdjust(row)">{{ row.companyCode || '' }}</span>
-                        </template>
-                    </el-table-column>
-                    <el-table-column prop="companyFullName" label="主体名称" min-width="240" show-overflow-tooltip></el-table-column>
-                    <el-table-column prop="industryName" label="一级行业" min-width="150" show-overflow-tooltip></el-table-column>
-                    <el-table-column prop="industryName2" label="二级行业" min-width="150" show-overflow-tooltip></el-table-column>
-                    <el-table-column prop="companyBondCount" label="旗下债券数量" min-width="120" align="right">
-                        <template slot-scope="{ row }">
-                            <span :title="'主数据中该主体旗下债券总数（category_type=bond）'">{{ row.companyBondCount != null ? row.companyBondCount : '' }}</span>
-                        </template>
-                    </el-table-column>
-                    <el-table-column label="操作" width="90" fixed="right" align="center">
-                        <template slot-scope="{ row }">
-                            <el-button class="pool-row-action" type="primary" size="mini" @click="handleAdjust(row)">调库</el-button>
-                        </template>
-                    </el-table-column>
-                </el-table>
-                <div class="pagination-wrap">
-                    <el-pagination
-                            :total="pagination.total"
-                            :current-page="pagination.pageIndex"
-                            :page-size="pagination.pageSize"
-                            :page-sizes="[10, 20, 50, 100]"
-                            layout="total, sizes, prev, pager, next, jumper"
-                            small
-                            @current-change="handlePageChange"
-                            @size-change="handleSizeChange">
-                    </el-pagination>
-                </div>
+                        <div class="table-card">
+                            <el-table ref="listTable" :data="tableData" v-loading="loading" stripe border size="small"
+                                      style="width:100%;" :empty-text="'暂无数据'">
+                                <el-table-column label="序号" width="72" align="center">
+                                    <template slot-scope="{ $index }">
+                                        {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="companyCode" label="主体代码" min-width="130">
+                                    <template slot-scope="{ row }">
+                                        <span class="desc-link" @click="handleAdjust(row)">{{ row.companyCode || '' }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="companyFullName" label="主体名称" min-width="240" show-overflow-tooltip></el-table-column>
+                                <el-table-column prop="industryName" label="一级行业" min-width="150" show-overflow-tooltip></el-table-column>
+                                <el-table-column prop="industryName2" label="二级行业" min-width="150" show-overflow-tooltip></el-table-column>
+                                <el-table-column prop="companyBondCount" label="旗下债券数量" min-width="120" align="right">
+                                    <template slot-scope="{ row }">
+                                        <span :title="'主数据中该主体旗下债券总数（category_type=bond）'">{{ row.companyBondCount != null ? row.companyBondCount : '' }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="操作" width="90" fixed="right" align="center">
+                                    <template slot-scope="{ row }">
+                                        <el-button class="pool-row-action" type="primary" size="mini" @click="handleAdjust(row)">调库</el-button>
+                                    </template>
+                                </el-table-column>
+                            </el-table>
+                            <div class="pagination-wrap">
+                                <el-pagination
+                                        :total="pagination.total"
+                                        :current-page="pagination.pageIndex"
+                                        :page-size="pagination.pageSize"
+                                        :page-sizes="[10, 20, 50, 100]"
+                                        layout="total, sizes, prev, pager, next, jumper"
+                                        small
+                                        @current-change="handlePageChange"
+                                        @size-change="handleSizeChange">
+                                </el-pagination>
+                            </div>
+                        </div>
+                    </el-tab-pane>
+
+                    <!-- ABS债 Tab -->
+                    <el-tab-pane label="ABS债" name="abs">
+                        <div class="search-panel">
+                            <span class="search-label">
+                                <i class="el-icon-search"></i>筛选
+                            </span>
+                            <el-input v-model="absSearchForm.securityCode" placeholder="证券代码" clearable
+                                      size="small" style="width:148px;" @keyup.enter.native="absHandleSearch">
+                                <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                            </el-input>
+                            <el-input v-model="absSearchForm.securityShortName" placeholder="证券简称" clearable
+                                      size="small" style="width:148px;" @keyup.enter.native="absHandleSearch">
+                                <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
+                            </el-input>
+                            <el-input v-model="absSearchForm.issuer" placeholder="发行人" clearable
+                                      size="small" style="width:180px;" @keyup.enter.native="absHandleSearch">
+                                <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
+                            </el-input>
+                            <el-button type="primary" size="small" icon="el-icon-search" @click="absHandleSearch">查询</el-button>
+                            <el-button size="small" icon="el-icon-refresh" @click="absHandleReset">重置</el-button>
+                            <div class="total-badge">
+                                <i class="el-icon-data-line"></i>
+                                共 {{ absPagination.total }} 条记录
+                            </div>
+                        </div>
+
+                        <div class="table-card">
+                            <el-table ref="absListTable" :data="absTableData" v-loading="absLoading" stripe border size="small"
+                                      style="width:100%;" :empty-text="'暂无数据'">
+                                <el-table-column label="序号" width="72" align="center">
+                                    <template slot-scope="{ $index }">
+                                        {{ (absPagination.pageIndex - 1) * absPagination.pageSize + $index + 1 }}
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="windCode" label="证券代码" min-width="130">
+                                    <template slot-scope="{ row }">
+                                        <span class="desc-link" @click="absHandleAdjust(row)">{{ row.windCode || '' }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="shortName" label="证券简称" min-width="140">
+                                    <template slot-scope="{ row }">
+                                        <span class="desc-link" @click="absHandleAdjust(row)">{{ row.shortName || '' }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="fullName" label="证券全称" min-width="240" show-overflow-tooltip></el-table-column>
+                                <el-table-column prop="issuer" label="发行人" min-width="160" show-overflow-tooltip></el-table-column>
+                                <el-table-column prop="securityTypeName" label="证券类型" min-width="150">
+                                    <template slot-scope="{ row }">
+                                        <el-tag v-if="row.securityTypeName" size="mini" type="info">{{ row.securityTypeName }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="issueAmountplan" label="发行总额(亿)" min-width="110" align="right">
+                                    <template slot-scope="{ row }">
+                                        <span style="font-family:'Courier New',monospace;font-size:12.5px;">{{ row.issueAmountplan != null ? row.issueAmountplan : '' }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="couponRate" label="当期利率(%)" min-width="110" align="right">
+                                    <template slot-scope="{ row }">
+                                        <span style="font-family:'Courier New',monospace;font-size:12.5px;color:var(--c-amber);">{{ row.couponRate != null ? row.couponRate : '' }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="carryDate" label="起息日期" min-width="110" align="center"></el-table-column>
+                                <el-table-column prop="maturityDate" label="到期日" min-width="110" align="center"></el-table-column>
+                                <el-table-column prop="dateExists" label="剩余期限(年)" min-width="120" align="right">
+                                    <template slot-scope="{ row }">
+                                        <span v-if="formatRemainTermYears(row.dateExists) !== ''" style="font-family:'Courier New',monospace;font-size:12.5px;">{{ formatRemainTermYears(row.dateExists) }}</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="ratingBond" label="证券评级" min-width="90">
+                                    <template slot-scope="{ row }">
+                                        <el-tag v-if="row.ratingBond" size="mini" type="success">{{ row.ratingBond }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="ratingBondissuer" label="主体评级" min-width="90">
+                                    <template slot-scope="{ row }">
+                                        <el-tag v-if="row.ratingBondissuer" size="mini">{{ row.ratingBondissuer }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="innerIssuerRating" label="主体内评分档" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <el-tag v-if="row.innerIssuerRating" size="mini">{{ row.innerIssuerRating }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="操作" width="90" fixed="right" align="center">
+                                    <template slot-scope="{ row }">
+                                        <el-button class="pool-row-action" type="primary" size="mini" @click="absHandleAdjust(row)">调库</el-button>
+                                    </template>
+                                </el-table-column>
+                            </el-table>
+                            <div class="pagination-wrap">
+                                <el-pagination
+                                        :total="absPagination.total"
+                                        :current-page="absPagination.pageIndex"
+                                        :page-size="absPagination.pageSize"
+                                        :page-sizes="[10, 20, 50, 100]"
+                                        layout="total, sizes, prev, pager, next, jumper"
+                                        small
+                                        @current-change="absHandlePageChange"
+                                        @size-change="absHandleSizeChange">
+                                </el-pagination>
+                            </div>
+                        </div>
+                    </el-tab-pane>
+                </el-tabs>
             </div>
         </div>
     </div>
@@ -651,7 +760,551 @@
         </div>
     </div>
 
-        <!-- ── 调库流程选择弹窗 ── -->
+    <!-- ==================== ABS债调库详情页：证券信息 + 当前所在池 + 调库操作 + 校验结果 ==================== -->
+    <div class="page" :class="{ active: currentPage === 'absDetail' }">
+        <div class="topbar">
+            <el-button class="back-btn" @click="absBackToList" size="mini" type="text">
+                <i class="el-icon-arrow-left"></i>返回列表
+            </el-button>
+            <div class="divider"></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:14px;font-weight:700;color:var(--c-text);">ABS债调库</span>
+                <span v-if="absBondDetail.windCode"
+                      style="font-family:'Courier New',monospace;font-size:13px;font-weight:600;color:var(--c-primary);background:var(--c-primary-l);padding:2px 10px;border-radius:5px;border:1px solid rgba(39,67,164,.15);">
+                    {{ absBondDetail.windCode }}
+                </span>
+                <span v-if="absBondDetail.shortName || absBondDetail.fullName"
+                      style="color:var(--c-text-2);font-weight:500;font-size:13px;">
+                    {{ absBondDetail.shortName || absBondDetail.fullName }}
+                </span>
+            </div>
+        </div>
+
+        <div class="detail-body" v-loading="absDetailLoading">
+            <!-- 证券基本信息（只读） -->
+            <div class="section-card">
+                <div class="section-header" @click="toggleAbsSection('bondInfo')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">证券基本信息</div>
+                    <i :class="absSectionExpanded.bondInfo ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="absSectionExpanded.bondInfo" style="padding:0;">
+                    <el-descriptions :column="3" border size="small" class="bond-info-descriptions">
+                        <el-descriptions-item label="证券全称">
+                            <el-input v-model="absBondDetail.fullName" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券简称">
+                            <el-input v-model="absBondDetail.shortName" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券代码">
+                            <el-input v-model="absBondDetail.windCode" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="发行人名称">
+                            <el-input v-model="absBondDetail.issuer" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="银行间代码">
+                            <el-input v-model="absBondDetail.windCodeNib" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="沪市证券代码">
+                            <el-input v-model="absBondDetail.windCodeSh" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="深市证券代码">
+                            <el-input v-model="absBondDetail.windCodeSz" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="北交所代码">
+                            <el-input v-model="absBondDetail.windCodeBj" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="发行总额(亿元)">
+                            <el-input v-model="absBondDetail.issueAmountplan" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="当期利率(%)">
+                            <el-input v-model="absBondDetail.couponRate" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="行权剩余期限">
+                            <el-input v-model="absBondDetail.dateInrightExists" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="起息日期">
+                            <el-input v-model="absBondDetail.carryDate" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="到期日">
+                            <el-input v-model="absBondDetail.maturityDate" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券评级">
+                            <el-input v-model="absBondDetail.ratingBond" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="主体评级">
+                            <el-input v-model="absBondDetail.ratingBondissuer" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="主体内评分档">
+                            <el-input v-model="absBondDetail.innerIssuerRating" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券类型">
+                            <el-input v-model="absBondDetail.securityTypeName" size="small" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="剩余期限(天)">
+                            <div class="date-exists-field">
+                                <el-input v-model="absBondDetail.dateExists" size="small" disabled></el-input>
+                                <span v-if="formatRemainTermYears(absBondDetail.dateExists) !== ''" class="date-exists-years">{{ formatRemainTermYears(absBondDetail.dateExists) }}年</span>
+                            </div>
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </div>
+            </div>
+
+            <!-- 当前所在池 -->
+            <div class="section-card">
+                <div class="section-header" @click="toggleAbsSection('currentPools')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">当前所在池</div>
+                    <i :class="absSectionExpanded.currentPools ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="absSectionExpanded.currentPools" style="padding:0 0 4px;">
+                    <div class="pool-sub-block block-bond">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': absSecurityPoolExpanded }">
+                            <div class="pool-inline-label">
+                                <span class="pool-sub-label">当前证券所在池</span>
+                                <span class="pool-sub-count type-bond">{{ absSecurityCurrentPools.length }}</span>
+                            </div>
+                            <div class="pool-inline-content">
+                                <template v-if="!absSecurityPoolExpanded">
+                                    <span v-if="absSecurityCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
+                                    <span v-for="p in absSecurityCurrentPools" :key="p.poolName" class="pool-name-chip">{{ p.poolName }}</span>
+                                    <span v-if="absSecurityCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                </template>
+                            </div>
+                            <el-button class="pool-toggle-btn" @click.stop="absSecurityPoolExpanded = !absSecurityPoolExpanded" size="mini" type="text">
+                                <i :class="absSecurityPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                                {{ absSecurityPoolExpanded ? '收起' : '展开' }}
+                            </el-button>
+                        </div>
+                        <div v-if="absSecurityPoolExpanded" class="pool-expand-table">
+                            <el-table :data="absSecurityCurrentPools" size="small" stripe border style="width:100%;" :empty-text="'暂无'">
+                                <el-table-column label="序号" width="50" align="center">
+                                    <template slot-scope="{ $index }">{{ $index + 1 }}</template>
+                                </el-table-column>
+                                <el-table-column prop="poolName" label="投资池名称" min-width="200">
+                                    <template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template>
+                                </el-table-column>
+                                <el-table-column prop="poolType" label="池类型" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <el-tag v-if="row.poolType" size="mini" type="info">{{ poolTypeLabel(row.poolType) }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="entryDate" label="入池日期" min-width="130" align="center">
+                                    <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                    </div>
+                    <div class="pool-sub-block block-issuer">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': absIssuerPoolExpanded }">
+                            <div class="pool-inline-label">
+                                <span class="pool-sub-label">当前证券主体所在池</span>
+                                <span class="pool-sub-count type-issuer">{{ absIssuerCurrentPools.length }}</span>
+                            </div>
+                            <div class="pool-inline-content">
+                                <template v-if="!absIssuerPoolExpanded">
+                                    <span v-if="absIssuerCurrentPools.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span>
+                                    <span v-for="(p, idx) in absIssuerCurrentPools" :key="p.poolName+idx" class="pool-name-chip pool-name-chip--green">{{ p.poolName }}</span>
+                                    <span v-if="absIssuerCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                </template>
+                            </div>
+                            <el-button class="pool-toggle-btn" @click.stop="absIssuerPoolExpanded = !absIssuerPoolExpanded" size="mini" type="text">
+                                <i :class="absIssuerPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                                {{ absIssuerPoolExpanded ? '收起' : '展开' }}
+                            </el-button>
+                        </div>
+                        <div v-if="absIssuerPoolExpanded" class="pool-expand-table">
+                            <el-table :data="absIssuerCurrentPools" size="small" stripe border style="width:100%;" max-height="280" :empty-text="'暂无'">
+                                <el-table-column label="序号" width="50" align="center">
+                                    <template slot-scope="{ $index }">{{ $index + 1 }}</template>
+                                </el-table-column>
+                                <el-table-column prop="poolName" label="投资池名称" min-width="200">
+                                    <template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template>
+                                </el-table-column>
+                                <el-table-column prop="poolType" label="池类型" min-width="110">
+                                    <template slot-scope="{ row }">
+                                        <el-tag v-if="row.poolType" size="mini" type="info">{{ poolTypeLabel(row.poolType) }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="bondCount" label="主体在该池证券数" min-width="140" align="center">
+                                    <template slot-scope="{ row }">
+                                        <span style="font-family:'Courier New',monospace;font-weight:700;color:var(--c-primary);font-size:13px;">{{ row.bondCount }}<span style="font-size:10px;font-weight:400;color:var(--c-text-3);margin-left:2px;">只</span></span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="entryDate" label="最早入池日期" min-width="130" align="center">
+                                    <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 调库操作 step1 -->
+            <div class="section-card" v-show="absAdjustStep === 1">
+                <div class="section-header" @click="toggleAbsSection('adjustOp')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">调库操作</div>
+                    <i :class="absSectionExpanded.adjustOp ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="absSectionExpanded.adjustOp" class="section-body">
+                    <div v-show="absAdjustStep === 1">
+                        <div class="adjust-dual-panels">
+                            <div class="adjust-panel panel-in">
+                                <div class="sub-heading" style="margin-bottom:12px;">
+                                    <span class="status-dot green" style="width:8px;height:8px;"></span>
+                                    <span>可调入库</span>
+                                    <span class="count-chip" style="background:var(--c-green-l);color:var(--c-green);border-color:rgba(10,138,90,.15);">
+                                        已选 {{ absSelectedInPools.length }}
+                                    </span>
+                                </div>
+                                <el-table :data="absInPools" size="small" stripe border style="width:100%;border-radius:var(--r-sm);overflow:hidden;"
+                                          row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+                                          default-expand-all :empty-text="'暂无可调入的投资池'"
+                                          ref="absInTableRef"
+                                          @select="absHandleInPoolSelect"
+                                          @select-all="absHandleInPoolSelectAll">
+                                    <el-table-column type="selection" width="40"
+                                                     :selectable="(row) => !row.children || row.children.length === 0">
+                                    </el-table-column>
+                                    <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                                    <el-table-column prop="maxCapacity" label="上限数量" width="75" align="center">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                                <span style="font-family:'Courier New',monospace;font-size:12px;">{{ row.maxCapacity != null ? row.maxCapacity : '' }}</span>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column prop="currentCount" label="现有数量" width="75" align="center">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                                <span style="font-family:'Courier New',monospace;font-size:12px;">{{ row.currentCount != null ? row.currentCount : '' }}</span>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="信评报告" min-width="180">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                            <div class="upload-cell">
+                                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                    <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="absOpenReportDialog(row.id, 'credit')">选择报告</el-button>
+                                                    <el-upload action="#" :auto-upload="false" :accept="'.xls,.xlsx,.docx,.doc,.pdf,.json'"
+                                                               :on-change="(f, fl) => absHandleAttachmentChange(row.id, f, fl)"
+                                                               multiple :show-file-list="false">
+                                                        <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                    </el-upload>
+                                                </div>
+                                                <div v-if="absGetCreditReportSelections(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(r, i) in absGetCreditReportSelections(row.id)" :key="'abs_cr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                                        <i class="el-icon-close" @click="absRemoveCreditReportSelection(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                                <div v-if="absGetAttachmentFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in absGetAttachmentFiles(row.id)" :key="i" class="upload-file-tag" @click="downloadLocalFile(f)">
+                                                        <span class="file-name" :title="f.name">{{ f.name }}</span>
+                                                        <span class="manual-source-badge" title="手工上传">手</span>
+                                                        <i class="el-icon-close" @click.stop="absRemoveAttachmentFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="其他材料" min-width="180">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                            <div class="upload-cell">
+                                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                    <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="absOpenReportDialog(row.id, 'material')">选择报告</el-button>
+                                                    <el-upload action="#" :auto-upload="false" :accept="'.xls,.xlsx,.docx,.doc,.pdf,.json'"
+                                                               :on-change="(f, fl) => absHandleMaterialChange(row.id, f, fl)"
+                                                               multiple :show-file-list="false">
+                                                        <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                    </el-upload>
+                                                </div>
+                                                <div v-if="absGetOtherMaterialSelections(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(r, i) in absGetOtherMaterialSelections(row.id)" :key="'abs_om_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                                        <i class="el-icon-close" @click="absRemoveOtherMaterialSelection(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                                <div v-if="absGetMaterialFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in absGetMaterialFiles(row.id)" :key="i" class="upload-file-tag" @click="downloadLocalFile(f)">
+                                                        <span class="file-name" :title="f.name">{{ f.name }}</span>
+                                                        <span class="manual-source-badge" title="手工上传">手</span>
+                                                        <i class="el-icon-close" @click.stop="absRemoveMaterialFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
+                            </div>
+                            <div class="adjust-panel panel-out">
+                                <div class="sub-heading" style="margin-bottom:12px;">
+                                    <span class="status-dot red" style="width:8px;height:8px;"></span>
+                                    <span>可调出库</span>
+                                    <span class="count-chip" style="background:var(--c-red-l);color:var(--c-red);border-color:rgba(208,32,32,.12);">
+                                        已选 {{ absSelectedOutPools.length }}
+                                    </span>
+                                </div>
+                                <el-table :data="absOutPools" size="small" stripe border style="width:100%;border-radius:var(--r-sm);overflow:hidden;"
+                                          row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+                                          default-expand-all :empty-text="'暂无可调出的投资池'"
+                                          ref="absOutTableRef"
+                                          @select="absHandleOutPoolSelect"
+                                          @select-all="absHandleOutPoolSelectAll">
+                                    <el-table-column type="selection" width="40"
+                                                     :selectable="(row) => !row.children || row.children.length === 0">
+                                    </el-table-column>
+                                    <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                                    <el-table-column prop="maxCapacity" label="上限数量" width="75" align="center">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                                <span style="font-family:'Courier New',monospace;font-size:12px;">{{ row.maxCapacity != null ? row.maxCapacity : '' }}</span>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column prop="currentCount" label="现有数量" width="75" align="center">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                                <span style="font-family:'Courier New',monospace;font-size:12px;">{{ row.currentCount != null ? row.currentCount : '' }}</span>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="信评报告" min-width="180">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                            <div class="upload-cell">
+                                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                    <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="absOpenReportDialog(row.id, 'credit')">选择报告</el-button>
+                                                    <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                               :on-change="(f, fl) => absHandleAttachmentChange(row.id, f, fl)"
+                                                               multiple :show-file-list="false">
+                                                        <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                    </el-upload>
+                                                </div>
+                                                <div v-if="absGetCreditReportSelections(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(r, i) in absGetCreditReportSelections(row.id)" :key="'abs_ocr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                                        <i class="el-icon-close" @click="absRemoveCreditReportSelection(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                                <div v-if="absGetAttachmentFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in absGetAttachmentFiles(row.id)" :key="i" class="upload-file-tag" @click="downloadLocalFile(f)">
+                                                        <span class="file-name" :title="f.name">{{ f.name }}</span>
+                                                        <span class="manual-source-badge" title="手工上传">手</span>
+                                                        <i class="el-icon-close" @click.stop="absRemoveAttachmentFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                    <el-table-column label="其他材料" min-width="180">
+                                        <template slot-scope="{ row }">
+                                            <template v-if="!row.children || row.children.length === 0">
+                                            <div class="upload-cell">
+                                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                    <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="absOpenReportDialog(row.id, 'material')">选择报告</el-button>
+                                                    <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                               :on-change="(f, fl) => absHandleMaterialChange(row.id, f, fl)"
+                                                               multiple :show-file-list="false">
+                                                        <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                                    </el-upload>
+                                                </div>
+                                                <div v-if="absGetOtherMaterialSelections(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(r, i) in absGetOtherMaterialSelections(row.id)" :key="'abs_oom_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                                        <i class="el-icon-close" @click="absRemoveOtherMaterialSelection(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                                <div v-if="absGetMaterialFiles(row.id).length > 0" class="upload-file-list">
+                                                    <div v-for="(f, i) in absGetMaterialFiles(row.id)" :key="i" class="upload-file-tag" @click="downloadLocalFile(f)">
+                                                        <span class="file-name" :title="f.name">{{ f.name }}</span>
+                                                        <span class="manual-source-badge" title="手工上传">手</span>
+                                                        <i class="el-icon-close" @click.stop="absRemoveMaterialFile(row.id, i)"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            </template>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
+                            </div>
+                        </div>
+                        <div class="submit-area">
+                            <el-button size="small" @click="absBackToList" icon="el-icon-close">取消</el-button>
+                            <el-button type="primary" size="small" icon="el-icon-arrow-right"
+                                       :disabled="absSelectedInPools.length === 0 && absSelectedOutPools.length === 0"
+                                       :loading="absAdjustCheckLoading"
+                                       @click="absGoToStep2">
+                                下一步
+                                <span v-if="absSelectedInPools.length + absSelectedOutPools.length > 0"
+                                      style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">
+                                    {{ absSelectedInPools.length + absSelectedOutPools.length }}
+                                </span>
+                            </el-button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 步骤2：调库校验结果 -->
+            <div class="section-card" v-show="absAdjustStep === 2" style="animation-delay:.03s;">
+                <div class="section-header" @click="toggleAbsSection('adjustReview')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">调库校验结果</div>
+                    <span class="count-chip" style="margin-left:10px;">共 {{ absAdjustReviewList.length }} 条</span>
+                    <i :class="absSectionExpanded.adjustReview ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="absSectionExpanded.adjustReview" class="section-body" style="padding:0;">
+                    <el-table ref="absAdjustReviewTable" :data="absAdjustReviewList" size="small" stripe border style="width:100%;"
+                              :row-class-name="getAdjustReviewRowClass" :empty-text="'暂无数据'">
+                        <el-table-column label="序号" width="50" align="center">
+                            <template slot-scope="{ $index }">{{ $index + 1 }}</template>
+                        </el-table-column>
+                        <el-table-column prop="securityCode" label="证券代码" min-width="140">
+                            <template slot-scope="{ row }">
+                                <span>{{ row.securityCode }}</span>
+                                <el-tag v-if="row.itemTag === 'related'" size="mini" type="info" style="margin-left:4px;">关联</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                        <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center">
+                            <template slot-scope="{ row }">
+                                <el-tag v-if="row.adjustType" size="mini" :type="adjustTypeTagType(row.adjustType)">{{ row.adjustType }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="direction" label="调整方向" min-width="90" align="center">
+                            <template slot-scope="{ row }">
+                                <el-tag class="adjust-direction-tag" size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="审批流程" min-width="175">
+                            <template slot-scope="{ row }">
+                                <el-select v-if="row.valid && row.itemTag === 'manual'" v-model="row.selectedFlowKey" size="small" placeholder="请选择流程"
+                                           popper-class="batch-flow-select-dropdown" @change="handleRowFlowChange(row)">
+                                    <el-option v-for="option in row.flowOptions" :key="option.optionKey" :label="option.flowName" :value="option.optionKey" :disabled="!option.selectable">
+                                        <span class="batch-flow-option-name">{{ option.flowName }}</span>
+                                        <span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">{{ flowTypeLabel(option.flowType) }}</span>
+                                    </el-option>
+                                </el-select>
+                                <span v-else-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
+                                    <el-tag v-if="row.flowType" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
+                                    <span>{{ row.flowName }}</span>
+                                </span>
+                                <span v-else></span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="信评报告" min-width="180">
+                            <template slot-scope="{ row }">
+                                <div class="upload-cell">
+                                    <div v-if="row.creditReports && row.creditReports.length > 0" class="upload-file-list">
+                                        <div v-for="(r, i) in row.creditReports" :key="'abs_cr2_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                            <span :title="r.title">{{ r.title }}</span>
+                                            <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                        </div>
+                                    </div>
+                                    <div v-if="row.attachmentFiles && row.attachmentFiles.length > 0" class="upload-file-list">
+                                        <div v-for="(f, i) in row.attachmentFiles" :key="'abs_af_'+i" class="upload-file-tag" @click="downloadLocalFile(f)">
+                                            <span class="file-name" :title="f.name">{{ f.name }}</span>
+                                            <span class="manual-source-badge" title="手工上传">手</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="其他材料" min-width="180">
+                            <template slot-scope="{ row }">
+                                <div class="upload-cell">
+                                    <div v-if="row.otherMaterials && row.otherMaterials.length > 0" class="upload-file-list">
+                                        <div v-for="(r, i) in row.otherMaterials" :key="'abs_om2_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                            <span :title="r.title">{{ r.title }}</span>
+                                            <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
+                                        </div>
+                                    </div>
+                                    <div v-if="row.materialFiles && row.materialFiles.length > 0" class="upload-file-list">
+                                        <div v-for="(f, i) in row.materialFiles" :key="'abs_mf_'+i" class="upload-file-tag" @click="downloadLocalFile(f)">
+                                            <span class="file-name" :title="f.name">{{ f.name }}</span>
+                                            <span class="manual-source-badge" title="手工上传">手</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="调整说明" min-width="260">
+                            <template slot-scope="{ row }">
+                                <div v-if="!row.valid && row.failReasons && row.failReasons.length" class="fail-reason-block">
+                                    <div class="fail-reason-title">未通过（共 {{ row.failReasons.length }} 项）</div>
+                                    <ol class="fail-reason-list">
+                                        <li v-for="(reason, ri) in row.failReasons" :key="ri">{{ reason }}</li>
+                                    </ol>
+                                </div>
+                                <span v-else class="fail-reason-pass">{{ row.adjustNote || '' }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="校验结果" width="150" fixed="right" align="center">
+                            <template slot-scope="{ row }">
+                                <span style="display:inline-flex;align-items:center;gap:5px;">
+                                    <span class="status-dot" :class="{ green: row.valid && !row.hasWarning, yellow: row.valid && row.hasWarning, red: !row.valid }"></span>
+                                    <span :style="{fontSize:'12px',fontWeight:600,color:row.valid?(row.hasWarning?'var(--c-orange)':'var(--c-green)'):'var(--c-red)'}">
+                                        {{ row.valid ? (row.hasWarning ? '可调整(警告)' : '可调整') : '不可调整' }}
+                                    </span>
+                                </span>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </div>
+
+            <!-- 原因和建议 -->
+            <div class="section-card" v-show="absAdjustStep === 2" style="animation-delay:.06s;">
+                <div class="section-header" @click="toggleAbsSection('reasonAdvice')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">原因和建议</div>
+                    <i :class="absSectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
+                </div>
+                <div v-show="absSectionExpanded.reasonAdvice" style="padding:20px 22px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div>
+                            <el-input type="textarea" :rows="4" v-model="absAdjustReason"
+                                      size="small" placeholder="请输入调整原因" maxlength="500" show-word-limit></el-input>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div>
+                            <el-input type="textarea" :rows="4" v-model="absAdjustAdvice"
+                                      size="small" placeholder="请输入调整建议" maxlength="500" show-word-limit></el-input>
+                        </div>
+                    </div>
+                </div>
+                <div class="action-footer">
+                    <el-button size="small" icon="el-icon-arrow-left" @click="absBackToList">返回列表</el-button>
+                    <el-button size="small" icon="el-icon-arrow-left" @click="absGoToStep1">上一步</el-button>
+                    <el-button type="primary" size="small" icon="el-icon-check"
+                               :disabled="absValidCount === 0 || absSubmitLoading"
+                               :loading="absSubmitLoading"
+                               @click="absHandleSubmit">
+                        提交
+                        <span v-if="absValidCount > 0"
+                              style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">
+                            {{ absValidCount }}
+                        </span>
+                    </el-button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- ── 调库流程选择弹窗（主体） ── -->
         <el-dialog title="选择调库流程" :visible.sync="flowDialogVisible" width="760px"
                    custom-class="flow-dialog" :close-on-click-modal="false" :show-close="false">
             <div class="flow-option-list">
@@ -695,6 +1348,53 @@
                            :disabled="!allValidRowsHaveFlow || submitLoading"
                            :loading="submitLoading"
                            @click="confirmFlowSelection">确认</el-button>
+            </span>
+        </el-dialog>
+
+        <!-- ── 调库流程选择弹窗（ABS债） ── -->
+        <el-dialog title="选择调库流程" :visible.sync="absFlowDialogVisible" width="760px"
+                   custom-class="flow-dialog" :close-on-click-modal="false" :show-close="false">
+            <div class="flow-option-list">
+                <div v-for="(row, rowIndex) in absValidManualAdjustReviewList" :key="'abs_' + row.poolId + '_' + row.direction"
+                     class="flow-option-card flow-row-card"
+                     :class="getFlowRowColorClass(rowIndex)">
+                    <div class="flow-option-head">
+                        <span class="flow-option-name flow-pool-name">{{ row.poolName }}</span>
+                        <el-tag size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
+                    </div>
+                    <el-radio-group v-model="row.selectedFlowKey" style="width:100%;margin-top:10px;" @change="handleRowFlowChange(row)">
+                        <el-radio v-for="option in row.flowOptions" :key="option.optionKey"
+                                  :label="option.optionKey"
+                                  :disabled="!option.selectable"
+                                  class="flow-option-card flow-choice-card"
+                                  :class="{ 'is-selected': row.selectedFlowKey === option.optionKey, 'is-disabled': !option.selectable }">
+                            <div class="flow-option-head">
+                                <span class="flow-option-name">{{ option.flowName }}</span>
+                                <el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag>
+                                <el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag>
+                                <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
+                            </div>
+                            <div class="flow-option-reasons">
+                                <div v-for="(reason, idx) in option.matchReasons"
+                                     :key="'abs_m_' + option.optionKey + '_' + idx"
+                                     class="flow-option-reason ok">{{ reason }}</div>
+                                <div v-for="(reason, idx) in option.unmatchReasons"
+                                     :key="'abs_u_' + option.optionKey + '_' + idx"
+                                     class="flow-option-reason warn">{{ reason }}</div>
+                            </div>
+                        </el-radio>
+                    </el-radio-group>
+                </div>
+                <div v-if="absValidManualAdjustReviewList.length === 0" style="color:var(--c-text-3);font-size:13px;">
+                    暂无可选择流程的手工调库项
+                </div>
+            </div>
+            <span slot="footer">
+                <el-button size="small" :disabled="absSubmitLoading" @click="absFlowDialogVisible = false">取消</el-button>
+                <el-button type="primary" size="small"
+                           :disabled="!absAllValidRowsHaveFlow || absSubmitLoading"
+                           :loading="absSubmitLoading"
+                           @click="absConfirmFlowSelection">确认</el-button>
             </span>
         </el-dialog>
 
@@ -989,7 +1689,8 @@
         data() {
             return {
                 moment: moment, // 日期处理工具
-                currentPage: 'list',          // 当前显示页：'list'=列表页 / 'detail'=详情页
+                currentPage: 'list',          // 当前显示页：'list' | 'detail' | 'absDetail'
+                listTab: 'company',           // 列表 Tab：'company'=主体 / 'abs'=ABS债
                 searchForm: { // 列表页搜索条件
                     companyCode: '',
                     companyFullName: '',
@@ -998,6 +1699,43 @@
                 tableData: [],                // 列表页表格数据
                 loading: false,               // 列表页加载状态
                 pagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 列表页分页参数
+                // ── ABS债列表/详情（与主体状态完全隔离）──
+                absSearchForm: { securityCode: '', securityShortName: '', issuer: '' }, // ABS 列表筛选
+                absTableData: [],             // ABS 列表数据
+                absLoading: false,            // ABS 列表加载
+                absPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // ABS 分页
+                absBondDetail: {},            // ABS 证券详情
+                absDetailLoading: false,      // ABS 详情加载
+                absAdjustStep: 1,             // ABS 调库步骤 1/2
+                absSecurityCurrentPools: [],  // ABS 证券当前所在池
+                absIssuerCurrentPools: [],    // ABS 主体当前所在池
+                absSecurityPoolExpanded: false,
+                absIssuerPoolExpanded: false,
+                absInPools: [],               // ABS 可调入池树
+                absOutPools: [],              // ABS 可调出池树
+                absSelectedInPools: [],       // ABS 已选调入池
+                absSelectedOutPools: [],      // ABS 已选调出池
+                absAdjustReviewList: [],      // ABS 校验结果
+                absAdjustReason: '',          // ABS 调整原因
+                absAdjustAdvice: '',          // ABS 调整建议
+                absAdjustCheckLoading: false, // ABS 校验 loading
+                absAdjustCheckSeq: 0,         // ABS 校验请求序号
+                absSubmitLoading: false,      // ABS 提交 loading
+                absFlowDialogVisible: false,  // ABS 流程选择弹窗
+                absAttachmentFiles: {},       // ABS 手工信评附件
+                absMaterialFiles: {},         // ABS 手工其他材料
+                absCreditReportSelections: {},// ABS 信评报告选择
+                absOtherMaterialSelections: {},// ABS 其他材料报告选择
+                absInMutexMap: {},            // ABS 调入互斥
+                absOutMutexMap: {},           // ABS 调出互斥
+                absSectionExpanded: {         // ABS 详情区块折叠
+                    bondInfo: true,
+                    currentPools: true,
+                    adjustOp: true,
+                    adjustReview: true,
+                    reasonAdvice: true
+                },
+                reportDialogContext: 'company', // 报告弹窗上下文：company | abs
                 selectedTargetPoolId: null,   // 从目标池入口进入时携带的目标池ID
                 selectedAdjustLogId: null,    // 从调库记录入口进入时携带的调库记录ID
                 selectedAdjustBatchNo: null,  // 从调库记录入口进入时携带的调库批次号
@@ -1170,6 +1908,19 @@
             reportDialogTitle() {
                 return this.reportDialogColumn === 'material' ? '选择其他材料' : '选择信评报告';
             },
+            // ABS 通过校验数量
+            absValidCount() {
+                return this.absAdjustReviewList.filter(r => r.valid).length;
+            },
+            // ABS 可选择流程的手工调库项
+            absValidManualAdjustReviewList() {
+                return this.absAdjustReviewList.filter(r => r.valid && r.itemTag === 'manual');
+            },
+            // ABS 所有可提交项是否已选流程
+            absAllValidRowsHaveFlow() {
+                return this.absValidManualAdjustReviewList.length > 0
+                    && this.absValidManualAdjustReviewList.every(row => !!this.selectedRowFlowOption(row));
+            },
         },
         // 页面初始化：设置接口基础地址，加载主体列表
         created() {
@@ -1190,10 +1941,26 @@
             window.clearTimeout(this.resizeLayoutTimer);
         },
         methods: {
+            // 剩余期限：date_exists 天 → 年（两位小数），空/非数字返回空串
+            formatRemainTermYears(days) {
+                if (days === null || days === undefined || days === '') return '';
+                const n = Number(days);
+                if (!isFinite(n)) return '';
+                return (n / 365).toFixed(2);
+            },
+            // 列表 Tab 切换：主体 loadList / ABS absLoadList
+            handleListTabClick() {
+                if (this.listTab === 'abs') {
+                    this.absLoadList();
+                } else {
+                    this.loadList();
+                }
+            },
             // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
             adjustTypeTagType(adjustType) {
                 if (adjustType === '联动调整') return 'warning'
                 if (adjustType === '互斥调整') return 'danger'
+                if (adjustType === '关联调整') return 'info'
                 return 'info'
             },
 
@@ -1880,7 +2647,7 @@
 
             // 构建调库校验结果的调整说明（失败原因表格分条展示）
             buildAdjustNote(item, failReasons, warning) {
-                const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' };
+                const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥', related: '关联' };
                 const typeLabel = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode;
                 const reasons = Array.isArray(failReasons) ? failReasons : (failReasons ? [failReasons] : []);
                 if (reasons.length > 0) {
@@ -1892,7 +2659,12 @@
 
             // 调库校验结果中的调整类型展示
             getAdjustTypeLabel(itemTag) {
-                const itemTagLabelMap = { manual: '手工调整', linkage: '联动调整', mutex: '互斥调整' };
+                const itemTagLabelMap = {
+                    manual: '手工调整',
+                    linkage: '联动调整',
+                    mutex: '互斥调整',
+                    related: '关联调整'
+                };
                 return itemTagLabelMap[itemTag] || '手工调整';
             },
 
@@ -2121,8 +2893,9 @@
 
 
 
-            // 打开报告选择弹窗
+            // 打开报告选择弹窗（主体）
             openReportDialog(poolId, column) {
+                this.reportDialogContext = 'company';
                 this.reportDialogPoolId = poolId;
                 this.reportDialogColumn = column;
                 this.reportActiveTab = 'internal';
@@ -2143,11 +2916,34 @@
                 this.queryInternalReports();
                 this.queryExternalReports();
             },
+            // 打开报告选择弹窗（ABS债）
+            absOpenReportDialog(poolId, column) {
+                this.reportDialogContext = 'abs';
+                this.reportDialogPoolId = poolId;
+                this.reportDialogColumn = column;
+                this.reportActiveTab = 'internal';
+                this.reportDialogVisible = true;
+                const existing = column === 'credit'
+                    ? (this.absCreditReportSelections[poolId] || [])
+                    : (this.absOtherMaterialSelections[poolId] || []);
+                this.selectedInternalReports = existing.filter(r => r.source === 'internal');
+                this.selectedExternalReports = existing.filter(r => r.source === 'external');
+                this.resetInternalReportFiltersSilent();
+                this.resetExternalReportFiltersSilent();
+                const defaultSecurityCode = (this.absBondDetail && (this.absBondDetail.windCode || this.absBondDetail.securityCode)) || '';
+                this.internalReportFilters.securityCode = defaultSecurityCode;
+                this.externalReportFilters.securityCode = defaultSecurityCode;
+                this.internalReportPagination.pageIndex = 1;
+                this.externalReportPagination.pageIndex = 1;
+                this.queryInternalReports();
+                this.queryExternalReports();
+            },
 
             // 弹窗关闭回调
             handleReportDialogClosed() {
                 this.reportDialogPoolId = null;
                 this.reportDialogColumn = '';
+                this.reportDialogContext = 'company';
                 this.reportActiveTab = 'internal';
                 this.selectedInternalReports = [];
                 this.selectedExternalReports = [];
@@ -2415,6 +3211,17 @@
                 ];
                 const poolId = this.reportDialogPoolId;
                 const column = this.reportDialogColumn;
+                if (this.reportDialogContext === 'abs') {
+                    if (column === 'credit') {
+                        this.$set(this.absCreditReportSelections, poolId, [...allSelected]);
+                    } else if (column === 'material') {
+                        this.$set(this.absOtherMaterialSelections, poolId, [...allSelected]);
+                    }
+                    this.absSyncAdjustReviewReportSelections(poolId, column, allSelected);
+                    this.reportDialogVisible = false;
+                    this.absRefreshAdjustReviewTableLayout();
+                    return;
+                }
                 if (column === 'credit') {
                     this.$set(this.creditReportSelections, poolId, [...allSelected]);
                 } else if (column === 'material') {
@@ -2428,6 +3235,17 @@
             // 同步已确认报告到当前调库行快照
             syncAdjustReviewReportSelections(poolId, column, reports) {
                 (this.adjustReviewList || []).forEach(row => {
+                    if (row.poolId !== poolId) return;
+                    if (column === 'credit') {
+                        this.$set(row, 'creditReports', [...reports]);
+                    } else if (column === 'material') {
+                        this.$set(row, 'otherMaterials', [...reports]);
+                    }
+                });
+            },
+            // 同步已确认报告到 ABS 校验结果行
+            absSyncAdjustReviewReportSelections(poolId, column, reports) {
+                (this.absAdjustReviewList || []).forEach(row => {
                     if (row.poolId !== poolId) return;
                     if (column === 'credit') {
                         this.$set(row, 'creditReports', [...reports]);
@@ -2471,9 +3289,10 @@
                 return arr.map(r => r.title || '').filter(Boolean);
             },
 
-            // 返回列表页并重置详情页所有状态
+            // 返回列表页并重置详情页所有状态（主体）
             backToList() {
                 this.currentPage = 'list';
+                this.listTab = 'company';
                 // 列表页重新显示后同步固定列布局
                 this.refreshListTableLayout();
                 this.companyDetail = {};             // 清空主体详情
@@ -2493,6 +3312,502 @@
                 this.outMutexMap = {};            // 清空调出互斥映射
                 this.adjustReason = '';           // 清空调整原因
                 this.adjustAdvice = '';           // 清空调整建议
+            },
+
+            // ── ABS债：列表 / 详情 / 校验 / 提交 ──
+
+            // ABS 列表加载
+            async absLoadList() {
+                this.absLoading = true;
+                try {
+                    const queryParams = {
+                        securityCode: this.absSearchForm.securityCode,
+                        securityShortName: this.absSearchForm.securityShortName,
+                        issuer: this.absSearchForm.issuer,
+                        pageIndex: this.absPagination.pageIndex,
+                        pageSize: this.absPagination.pageSize
+                    };
+                    const data = await this.apiPost('/api/v1/forbiddenAbsPoolAdjust/querySecurityPage', queryParams);
+                    this.absTableData = data.records || [];
+                    this.absPagination.total = data.total || 0;
+                } catch (e) {}
+                this.absLoading = false;
+                this.absRefreshListTableLayout();
+            },
+            absHandleSearch() { this.absPagination.pageIndex = 1; this.absLoadList(); },
+            absHandleReset() {
+                this.absSearchForm = { securityCode: '', securityShortName: '', issuer: '' };
+                this.absPagination.pageIndex = 1;
+                this.absLoadList();
+            },
+            absHandlePageChange(page) { this.absPagination.pageIndex = page; this.absLoadList(); },
+            absHandleSizeChange(size) {
+                this.absPagination.pageSize = size;
+                this.absPagination.pageIndex = 1;
+                this.absLoadList();
+            },
+            // 进入 ABS 调库详情
+            async absHandleAdjust(row) {
+                this.listTab = 'abs';
+                this.currentPage = 'absDetail';
+                await this.absLoadDetailData(row.windCode || row.securityCode);
+            },
+            // 加载 ABS 详情（证券 / 池列表 / 当前所在池）
+            async absLoadDetailData(securityCode) {
+                this.absDetailLoading = true;
+                try {
+                    const inPoolParams = {
+                        securityCode: securityCode,
+                        adjustDirection: 'in',
+                        currentUserId: this.currentLoginUserId
+                    };
+                    const outPoolParams = {
+                        securityCode: securityCode,
+                        adjustDirection: 'out',
+                        currentUserId: this.currentLoginUserId
+                    };
+                    const [detail, inPools, outPools, poolStatus] = await Promise.all([
+                        this.apiPost('/api/v1/forbiddenAbsPoolAdjust/querySecurityDetail', { securityCode: securityCode }),
+                        this.apiPost('/api/v1/forbiddenAbsPoolAdjust/queryAdjustPoolList', inPoolParams),
+                        this.apiPost('/api/v1/forbiddenAbsPoolAdjust/queryAdjustPoolList', outPoolParams),
+                        this.apiPost('/api/v1/forbiddenAbsPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode })
+                    ]);
+                    this.absBondDetail = detail || {};
+                    this.absSecurityCurrentPools = (poolStatus && poolStatus.securityCurrentPools) || [];
+                    this.absIssuerCurrentPools = (poolStatus && poolStatus.issuerCurrentPools) || [];
+
+                    const inPoolsData = inPools || [];
+                    const outPoolsData = outPools || [];
+                    const currentSecurityPoolIds = new Set(
+                        this.absSecurityCurrentPools.map(p => p.targetPoolId).filter(id => id != null)
+                    );
+                    const outPoolsFiltered = outPoolsData.filter(p =>
+                        currentSecurityPoolIds.has(p.id) ||
+                        outPoolsData.some(c => c.parentId === p.id && currentSecurityPoolIds.has(c.id))
+                    );
+                    this.absOutPools = this.buildPoolTree(outPoolsFiltered);
+                    const inPoolsFiltered = inPoolsData.filter(p => {
+                        if (currentSecurityPoolIds.has(p.id)) return false;
+                        const isLeaf = !inPoolsData.some(c => c.parentId === p.id);
+                        if (isLeaf) return true;
+                        return inPoolsData.some(c => c.parentId === p.id && !currentSecurityPoolIds.has(c.id));
+                    });
+                    this.absInPools = this.buildPoolTree(inPoolsFiltered);
+
+                    const allPools = [...inPoolsData, ...outPoolsData];
+                    const inMap = {};
+                    const outMap = {};
+                    allPools.forEach(p => {
+                        if (p.inMutexPoolIds && p.inMutexPoolIds.length > 0) {
+                            inMap[p.id] = p.inMutexPoolIds;
+                        }
+                        if (p.outMutexPoolIds && p.outMutexPoolIds.length > 0) {
+                            outMap[p.id] = p.outMutexPoolIds;
+                        }
+                    });
+                    this.absInMutexMap = inMap;
+                    this.absOutMutexMap = outMap;
+                    this.absAttachmentFiles = {};
+                    this.absMaterialFiles = {};
+                    this.absCreditReportSelections = {};
+                    this.absOtherMaterialSelections = {};
+                    this.absSelectedInPools = [];
+                    this.absSelectedOutPools = [];
+                    this.absAdjustStep = 1;
+                    this.absAdjustReviewList = [];
+                    this.absAdjustReason = '';
+                    this.absAdjustAdvice = '';
+                    // 可选：预填最近信评报告
+                    await this.absApplyLastCreditReportToPools(securityCode, [...inPoolsFiltered, ...outPoolsFiltered]);
+                } catch (e) {}
+                this.absDetailLoading = false;
+            },
+            // ABS 预填最近信评报告（可选接口）
+            async absApplyLastCreditReportToPools(securityCode, poolList) {
+                if (!securityCode || !poolList || poolList.length === 0) return;
+                let lastReport = null;
+                try {
+                    lastReport = await this.apiPost('/api/v1/forbiddenAbsPoolAdjust/queryLastCreditReport', {
+                        securityCode: securityCode
+                    });
+                } catch (e) {
+                    return;
+                }
+                if (!lastReport || !lastReport.id) return;
+                const selection = {
+                    id: lastReport.id,
+                    title: lastReport.title || '',
+                    reportType: lastReport.reportType || '',
+                    source: lastReport.source === 'external' ? 'external' : 'internal',
+                    attachments: lastReport.attachments || []
+                };
+                (poolList || []).forEach(pool => {
+                    if (!pool || pool.id == null) return;
+                    const existing = this.absCreditReportSelections[pool.id];
+                    if (existing && existing.length > 0) return;
+                    this.$set(this.absCreditReportSelections, pool.id, [Object.assign({}, selection, {
+                        attachments: (selection.attachments || []).slice()
+                    })]);
+                });
+            },
+            toggleAbsSection(key) {
+                this.$set(this.absSectionExpanded, key, !this.absSectionExpanded[key]);
+                if (key === 'adjustReview' && this.absSectionExpanded[key]) {
+                    this.absRefreshAdjustReviewTableLayout();
+                }
+            },
+            absRefreshListTableLayout() {
+                this.$nextTick(() => {
+                    const table = this.$refs.absListTable;
+                    if (table && typeof table.doLayout === 'function') {
+                        table.doLayout();
+                    }
+                });
+            },
+            absRefreshAdjustReviewTableLayout() {
+                this.$nextTick(() => {
+                    const table = this.$refs.absAdjustReviewTable;
+                    if (table && typeof table.doLayout === 'function') {
+                        table.doLayout();
+                    }
+                });
+            },
+            absGetAttachmentFiles(poolId) { return this.absAttachmentFiles[poolId] || []; },
+            absGetMaterialFiles(poolId) { return this.absMaterialFiles[poolId] || []; },
+            absGetCreditReportSelections(poolId) { return this.absCreditReportSelections[poolId] || []; },
+            absGetOtherMaterialSelections(poolId) { return this.absOtherMaterialSelections[poolId] || []; },
+            absHandleAttachmentChange(poolId, file) {
+                const current = this.absAttachmentFiles[poolId] || [];
+                if (!file.raw || current.some(f => f.name === file.name)) return;
+                this.$set(this.absAttachmentFiles, poolId, [...current, file]);
+                this.absRefreshAdjustReviewTableLayout();
+            },
+            absHandleMaterialChange(poolId, file) {
+                const current = this.absMaterialFiles[poolId] || [];
+                if (!file.raw || current.some(f => f.name === file.name)) return;
+                this.$set(this.absMaterialFiles, poolId, [...current, file]);
+                this.absRefreshAdjustReviewTableLayout();
+            },
+            absRemoveAttachmentFile(poolId, index) {
+                const files = [...(this.absAttachmentFiles[poolId] || [])];
+                files.splice(index, 1);
+                this.$set(this.absAttachmentFiles, poolId, files);
+                this.absRefreshAdjustReviewTableLayout();
+            },
+            absRemoveMaterialFile(poolId, index) {
+                const files = [...(this.absMaterialFiles[poolId] || [])];
+                files.splice(index, 1);
+                this.$set(this.absMaterialFiles, poolId, files);
+                this.absRefreshAdjustReviewTableLayout();
+            },
+            absRemoveCreditReportSelection(poolId, index) {
+                const arr = [...(this.absCreditReportSelections[poolId] || [])];
+                arr.splice(index, 1);
+                this.$set(this.absCreditReportSelections, poolId, arr);
+                this.absRefreshAdjustReviewTableLayout();
+            },
+            absRemoveOtherMaterialSelection(poolId, index) {
+                const arr = [...(this.absOtherMaterialSelections[poolId] || [])];
+                arr.splice(index, 1);
+                this.$set(this.absOtherMaterialSelections, poolId, arr);
+                this.absRefreshAdjustReviewTableLayout();
+            },
+            // ABS 调入互斥
+            absHandleInPoolSelect(selection, row) {
+                const id = row.id;
+                const wasSelected = this.absSelectedInPools.some(p => p.id === id);
+                const isNowSelected = !wasSelected;
+                if (isNowSelected) {
+                    const mutexIds = this.absInMutexMap[id] || [];
+                    const conflictIn = this.absSelectedInPools.filter(p => mutexIds.includes(p.id));
+                    const conflictOut = this.absSelectedOutPools.filter(p => mutexIds.includes(p.id));
+                    if (conflictIn.length > 0 || conflictOut.length > 0) {
+                        const removedNames = [...conflictIn, ...conflictOut].map(p => p.poolName).join('、');
+                        conflictIn.forEach(p => this.$refs.absInTableRef.toggleRowSelection(p, false));
+                        conflictOut.forEach(p => this.$refs.absOutTableRef.toggleRowSelection(p, false));
+                        this.absSelectedInPools = this.absSelectedInPools.filter(p => !mutexIds.includes(p.id));
+                        this.absSelectedOutPools = this.absSelectedOutPools.filter(p => !mutexIds.includes(p.id));
+                        this.$message.warning('「' + removedNames + '」与「' + row.poolName + '」互斥，已自动取消「' + removedNames + '」改选「' + row.poolName + '」');
+                    }
+                }
+                this.absSelectedInPools = isNowSelected
+                    ? this.normalizeSelectedPools([...this.absSelectedInPools, row])
+                    : this.absSelectedInPools.filter(p => p.id !== id);
+            },
+            absHandleInPoolSelectAll() {
+                const leafRows = this.flattenPoolTree(this.absInPools);
+                if (leafRows.length === 0) return;
+                const selectedLeafCount = leafRows.filter(row =>
+                    this.absSelectedInPools.some(item => item.id === row.id)
+                ).length;
+                const intendSelectAll = selectedLeafCount < leafRows.length;
+                if (!intendSelectAll) {
+                    leafRows.forEach(row => {
+                        if (this.$refs.absInTableRef) this.$refs.absInTableRef.toggleRowSelection(row, false);
+                    });
+                    const leafIds = new Set(leafRows.map(row => row.id));
+                    this.absSelectedInPools = this.absSelectedInPools.filter(row => !leafIds.has(row.id));
+                    return;
+                }
+                leafRows.forEach(row => {
+                    if (this.$refs.absInTableRef) this.$refs.absInTableRef.toggleRowSelection(row, true);
+                    if (!this.absSelectedInPools.some(item => item.id === row.id)) {
+                        this.absHandleInPoolSelect(null, row);
+                    }
+                });
+            },
+            absHandleOutPoolSelect(selection, row) {
+                const id = row.id;
+                const wasSelected = this.absSelectedOutPools.some(p => p.id === id);
+                const isNowSelected = !wasSelected;
+                if (isNowSelected) {
+                    const mutexIds = this.absOutMutexMap[id] || [];
+                    const conflictOut = this.absSelectedOutPools.filter(p => mutexIds.includes(p.id));
+                    const conflictIn = this.absSelectedInPools.filter(p => {
+                        const inMutexOfP = this.absInMutexMap[p.id] || [];
+                        return inMutexOfP.includes(id);
+                    });
+                    if (conflictOut.length > 0 || conflictIn.length > 0) {
+                        const removedNames = [...conflictOut, ...conflictIn].map(p => p.poolName).join('、');
+                        conflictOut.forEach(p => this.$refs.absOutTableRef.toggleRowSelection(p, false));
+                        conflictIn.forEach(p => this.$refs.absInTableRef.toggleRowSelection(p, false));
+                        this.absSelectedOutPools = this.absSelectedOutPools.filter(p => !mutexIds.includes(p.id));
+                        this.absSelectedInPools = this.absSelectedInPools.filter(p => {
+                            const inMutexOfP = this.absInMutexMap[p.id] || [];
+                            return !inMutexOfP.includes(id);
+                        });
+                        this.$message.warning('「' + removedNames + '」与「' + row.poolName + '」互斥，已自动取消「' + removedNames + '」改选「' + row.poolName + '」');
+                    }
+                }
+                this.absSelectedOutPools = isNowSelected
+                    ? this.normalizeSelectedPools([...this.absSelectedOutPools, row])
+                    : this.absSelectedOutPools.filter(p => p.id !== id);
+            },
+            absHandleOutPoolSelectAll() {
+                const leafRows = this.flattenPoolTree(this.absOutPools);
+                if (leafRows.length === 0) return;
+                const selectedLeafCount = leafRows.filter(row =>
+                    this.absSelectedOutPools.some(item => item.id === row.id)
+                ).length;
+                const intendSelectAll = selectedLeafCount < leafRows.length;
+                if (!intendSelectAll) {
+                    leafRows.forEach(row => {
+                        if (this.$refs.absOutTableRef) this.$refs.absOutTableRef.toggleRowSelection(row, false);
+                    });
+                    const leafIds = new Set(leafRows.map(row => row.id));
+                    this.absSelectedOutPools = this.absSelectedOutPools.filter(row => !leafIds.has(row.id));
+                    return;
+                }
+                leafRows.forEach(row => {
+                    if (this.$refs.absOutTableRef) this.$refs.absOutTableRef.toggleRowSelection(row, true);
+                    if (!this.absSelectedOutPools.some(item => item.id === row.id)) {
+                        this.absHandleOutPoolSelect(null, row);
+                    }
+                });
+            },
+            absSyncSelectedPoolsFromTables() {
+                this.absSelectedInPools = this.normalizeSelectedPools(this.absSelectedInPools);
+                this.absSelectedOutPools = this.normalizeSelectedPools(this.absSelectedOutPools);
+            },
+            // ABS 下一步校验
+            async absGoToStep2() {
+                this.absSyncSelectedPoolsFromTables();
+                this.absAdjustReviewList = [];
+                const items = [];
+                this.absSelectedInPools.forEach(p => {
+                    items.push({
+                        targetPoolId: p.id,
+                        targetPoolName: p.poolName,
+                        poolType: p.poolType || '',
+                        adjustMode: '调入'
+                    });
+                });
+                this.absSelectedOutPools.forEach(p => {
+                    items.push({
+                        targetPoolId: p.id,
+                        targetPoolName: p.poolName,
+                        poolType: p.poolType || '',
+                        adjustMode: '调出'
+                    });
+                });
+                if (items.length === 0) {
+                    this.$message.warning('请至少选择一个调入或调出投资池');
+                    return;
+                }
+                this.absAdjustCheckLoading = true;
+                const currentSeq = ++this.absAdjustCheckSeq;
+                try {
+                    const checkParams = {
+                        securityCode: this.absBondDetail.windCode || '',
+                        securityShortName: this.absBondDetail.shortName || '',
+                        securityType: this.absBondDetail.securityType || '',
+                        items
+                    };
+                    const result = await this.apiPost('/api/v1/forbiddenAbsPoolAdjust/checkAdjust', checkParams);
+                    if (currentSeq !== this.absAdjustCheckSeq) return;
+                    this.absAdjustReviewList = this.applyAdjustGroupColors((result.items || []).map((item, rowIndex) => {
+                        const failReasons = item.failReasons || [];
+                        const failReasonStr = failReasons.join('；');
+                        const warningStr = (item.warnings || []).join('；');
+                        const rowFlowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex);
+                        const recommendedFlow = rowFlowOptions.find(option => option.recommended && option.selectable)
+                            || rowFlowOptions.find(option => option.selectable);
+                        return {
+                            securityCode: item.securityCode || this.absBondDetail.windCode || '',
+                            securityShortName: item.securityShortName || this.absBondDetail.shortName || '',
+                            securityType: item.securityType || this.absBondDetail.securityType || '',
+                            poolId: item.targetPoolId,
+                            poolName: item.poolName,
+                            poolType: item.poolType,
+                            adjustType: this.getAdjustTypeLabel(item.itemTag),
+                            direction: item.adjustMode,
+                            itemTag: item.itemTag,
+                            adjustGroupKey: item.adjustGroupKey,
+                            valid: item.canAdjust,
+                            hasWarning: warningStr !== '',
+                            failReasons: failReasons,
+                            failReason: failReasonStr,
+                            warningStr: warningStr,
+                            adjustNote: this.buildAdjustNote(item, failReasons, warningStr),
+                            attachmentFiles: this.absGetAttachmentFiles(item.targetPoolId),
+                            materialFiles: this.absGetMaterialFiles(item.targetPoolId),
+                            creditReports: this.absGetCreditReportSelections(item.targetPoolId),
+                            otherMaterials: this.absGetOtherMaterialSelections(item.targetPoolId),
+                            flowOptions: rowFlowOptions,
+                            selectedFlowKey: recommendedFlow ? recommendedFlow.optionKey : '',
+                            flowId: recommendedFlow ? recommendedFlow.flowId : null,
+                            flowKey: recommendedFlow ? recommendedFlow.flowKey : '',
+                            flowType: recommendedFlow ? recommendedFlow.flowType : '',
+                            flowName: recommendedFlow ? recommendedFlow.flowName : ''
+                        };
+                    }));
+                    this.absFlowDialogVisible = false;
+                    this.absAdjustStep = 2;
+                } catch (e) {
+                    this.$message.error(e.message || '操作失败');
+                } finally {
+                    if (currentSeq === this.absAdjustCheckSeq) {
+                        this.absAdjustCheckLoading = false;
+                    }
+                }
+                this.absRefreshAdjustReviewTableLayout();
+            },
+            absGoToStep1() {
+                this.absAdjustStep = 1;
+                this.absFlowDialogVisible = false;
+            },
+            async absHandleSubmit() {
+                if (this.absSubmitLoading) return;
+                if (this.absValidCount === 0) {
+                    this.$message.warning('没有可提交的调库申请，请检查校验结果');
+                    return;
+                }
+                if (!this.absAllValidRowsHaveFlow) {
+                    this.$message.warning('请为所有可提交调库项选择审批流程');
+                    return;
+                }
+                this.absFlowDialogVisible = true;
+            },
+            async absConfirmFlowSelection() {
+                if (this.absSubmitLoading) return;
+                if (!this.absAllValidRowsHaveFlow) {
+                    this.$message.warning('请为所有可提交调库项选择审批流程');
+                    return;
+                }
+                this.absFlowDialogVisible = false;
+                await this.absSubmitAdjustLog();
+            },
+            async absSubmitAdjustLog() {
+                if (this.absSubmitLoading) return;
+                this.absSubmitLoading = true;
+                const validItems = this.absAdjustReviewList.filter(r => r.valid);
+                const submitFiles = [];
+                validItems.forEach(item => {
+                    item.creditReportFileIndexes = this.collectSubmitFiles(item.attachmentFiles || [], submitFiles);
+                    item.materialFileIndexes = this.collectSubmitFiles(item.materialFiles || [], submitFiles);
+                });
+                const securityInfo = {
+                    fullName: this.absBondDetail.fullName,
+                    shortName: this.absBondDetail.shortName,
+                    windCode: this.absBondDetail.windCode,
+                    issuer: this.absBondDetail.issuer,
+                    windCodeNib: this.absBondDetail.windCodeNib,
+                    windCodeSh: this.absBondDetail.windCodeSh,
+                    windCodeSz: this.absBondDetail.windCodeSz,
+                    windCodeBj: this.absBondDetail.windCodeBj,
+                    issueAmountplan: this.absBondDetail.issueAmountplan,
+                    couponRate: this.absBondDetail.couponRate,
+                    dateInrightExists: this.absBondDetail.dateInrightExists,
+                    carryDate: this.absBondDetail.carryDate,
+                    maturityDate: this.absBondDetail.maturityDate,
+                    ratingBond: this.absBondDetail.ratingBond,
+                    ratingBondissuer: this.absBondDetail.ratingBondissuer,
+                    innerIssuerRating: this.absBondDetail.innerIssuerRating,
+                    dateExists: this.absBondDetail.dateExists
+                };
+                const payload = {
+                    securityCode: this.absBondDetail.windCode || '',
+                    securityShortName: this.absBondDetail.shortName || '',
+                    securityType: this.absBondDetail.securityType || '',
+                    adjustType: '手工调整',
+                    adjustReason: this.absAdjustReason,
+                    adjustAdvice: this.absAdjustAdvice,
+                    securityInfo,
+                    adjusterId: this.currentLoginUserId,
+                    adjusterName: this.currentLoginUserName,
+                    items: validItems.map(r => ({
+                        securityCode: r.securityCode || this.absBondDetail.windCode || '',
+                        securityShortName: r.securityShortName || this.absBondDetail.shortName || '',
+                        securityType: r.securityType || this.absBondDetail.securityType || '',
+                        targetPoolId: r.poolId,
+                        targetPoolName: r.poolName,
+                        poolType: r.poolType || '',
+                        adjustMode: r.direction,
+                        itemTag: r.itemTag,
+                        adjustGroupKey: r.adjustGroupKey,
+                        flowId: r.flowId,
+                        flowKey: r.flowKey,
+                        flowType: r.flowType,
+                        adjustmentNote: r.adjustNote,
+                        creditReportFileIndexes: r.creditReportFileIndexes || [],
+                        materialFileIndexes: r.materialFileIndexes || [],
+                        creditReportSourceAttachmentIds: this.collectReportAttachmentIds(r.creditReports || []),
+                        materialSourceAttachmentIds: this.collectReportAttachmentIds(r.otherMaterials || [])
+                    }))
+                };
+                try {
+                    await this.submitAdjustMultipart('/api/v1/forbiddenAbsPoolAdjust/addAdjustLogWithFiles', payload, submitFiles);
+                    this.$message.success('调库申请已成功提交');
+                    this.absBackToList();
+                } catch (e) {
+                    this.$message.error(e.message || '操作失败');
+                } finally {
+                    this.absSubmitLoading = false;
+                }
+            },
+            // 从 ABS 详情返回列表，保持 listTab='abs'
+            absBackToList() {
+                this.currentPage = 'list';
+                this.listTab = 'abs';
+                this.absRefreshListTableLayout();
+                this.absBondDetail = {};
+                this.absAdjustStep = 1;
+                this.absAdjustReviewList = [];
+                this.absFlowDialogVisible = false;
+                this.absSelectedInPools = [];
+                this.absSelectedOutPools = [];
+                this.absInPools = [];
+                this.absOutPools = [];
+                this.absSecurityCurrentPools = [];
+                this.absIssuerCurrentPools = [];
+                this.absAttachmentFiles = {};
+                this.absMaterialFiles = {};
+                this.absCreditReportSelections = {};
+                this.absOtherMaterialSelections = {};
+                this.absInMutexMap = {};
+                this.absOutMutexMap = {};
+                this.absAdjustReason = '';
+                this.absAdjustAdvice = '';
             }
         }
     });
