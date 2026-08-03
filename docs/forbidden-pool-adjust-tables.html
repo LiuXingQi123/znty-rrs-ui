@@ -382,7 +382,7 @@
     </section>
     <section class="panel" id="logic-abs"><h2>ABS债 Tab 与接口</h2>
         <p class="sub">ABS 交互参考证券池调库：列表 → 详情选池(step1) → 校验提交(step2)。后端独立前缀，附件/报告仍走通用接口。</p>
-        <span class="api">POST /api/v1/forbiddenAbsPoolAdjust/querySecurityPage · querySecurityDetail · queryAdjustPoolList · querySecurityPoolStatus · checkAdjust · addAdjustLogWithFiles · queryAdjustLogList · queryAdjustStepList · queryLastCreditReport（可选）</span>
+        <span class="api">POST /api/v1/forbiddenAbsPoolAdjust/querySecurityPage · querySecurityDetail · queryAdjustPoolList · querySecurityPoolStatus · checkAdjust · addAdjustLog（JSON）· addAdjustLogWithFiles（multipart）· queryAdjustLogList · queryAdjustStepList · queryLastCreditReport（可选）· queryRedirectPoolOptions（改判池，审批页用）</span>
         <div class="logic">
             <article class="card"><h3>前端状态与页面</h3>
                 <ul>
@@ -403,7 +403,7 @@
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>主体查询与池状态</h2>
-        <p class="sub">主体主数据来自跨库 Wind 表，不依赖 rrs_securityinfo 的 company 行；旗下债券经 issuer_code 关联。</p><span class="api">POST /api/v1/forbiddenPoolAdjust/queryCompanyPage · queryCompanyDetail · queryCompanyPoolStatus · queryCompanyBondList · queryAdjustPoolList</span>
+        <p class="sub">主体主数据来自跨库 Wind 表，不依赖 rrs_securityinfo 的 company 行；旗下债券经 issuer_code 关联。</p><span class="api">POST /api/v1/forbiddenPoolAdjust/queryCompanyPage · queryCompanyDetail · queryCompanyPoolStatus · queryCompanyBondList · queryAdjustPoolList · queryAdjustLogList · queryAdjustStepList</span>
         <div class="logic">
             <article class="card"><h3>主体与债券</h3>
                 <ul>
@@ -424,22 +424,22 @@
         </div>
     </section>
     <section class="panel" id="logic-2"><h2>校验、提交和审批</h2>
-        <p class="sub">主体级流程与证券池调库同构；调库类型固定 company，生效后增加旗下债券同步。</p><span class="api">POST /api/v1/forbiddenPoolAdjust/checkAdjust · addAdjustLogWithFiles · /api/v1/forbiddenPoolAdjustFlow/submitAdjustAudit</span>
+        <p class="sub">主体级流程与证券池调库同构；调库类型固定 company，生效后增加旗下债券同步。</p><span class="api">POST /api/v1/forbiddenPoolAdjust/checkAdjust · addAdjustLog（JSON）· addAdjustLogWithFiles（multipart）· /api/v1/forbiddenPoolAdjustFlow/submitAdjustAudit（JSON）· submitAdjustAuditWithFiles（multipart）</span>
         <div class="logic">
             <article class="card"><h3>校验与申请</h3>
                 <ul>
                     <li>主体<strong>跳过</strong>品种/市场校验；保留池锁定、待处理（<code>pending</code>）、重复入/未入池、容量、来源/限制、互斥冲突、全局禁止池、行业、开放日等。</li>
                     <li>弹性禁投池（<code>soft_restrict</code>）写 <code>warnings</code> 不阻断；互斥配套调出失败<strong>反阻断</strong>同组手工调入。</li>
                     <li>自动扩展调入联动（<code>in_linked</code>）/调出联动（<code>out_linked</code>）/调入互斥（<code>in_mutex</code>）调出项；手工项选流程，自动项继承同组流程与批次。</li>
-                    <li>前端调整说明失败时「调整说明」分条展示「未通过（共 N 项）」+ 编号列表（保留全部 failReasons，检查项文案不含「无法调入」终局语气）；同组行底色区分；约 30s 防重复提交。</li>
+                    <li>前端调整说明失败时「调整说明」分条展示「未通过（共 N 项）」+ 编号列表（保留全部 failReasons，检查项文案不含「无法调入」终局语气）；同组行底色区分；提交期间用 <code>submitLoading</code> 布尔禁用按钮防重复（无时间窗冷却）。</li>
                     <li>直通：先锁池复核再落池并 <code>syncCompanyBonds</code>；非直通写 <code>ip_adjust_step</code>，仅最终审批通过（<code>20</code>）落池。</li>
                 </ul>
             </article>
             <article class="card"><h3>主体级生效（syncCompanyBonds）</h3>
                 <ul>
                     <li>先写/软删主体 <code>ip_pool_status</code>，再同步旗下债券（非「仅改主体」）。</li>
-                    <li><b>调入</b>：未到期且非 ABS、且尚不在目标池的债券 → 自动调入日志 + 入池。</li>
-                    <li><b>调出</b>：当前在目标池且非 ABS 的债券 → 自动调出日志 + 软删在池。</li>
+                    <li><b>调入</b>：未到期且非 ABS、且非 crmw、且尚不在目标池的债券 → 自动调入日志 + 入池。</li>
+                    <li><b>调出</b>：当前在目标池且非 ABS、且非 crmw 的债券 → 自动调出日志 + 软删在池。</li>
                     <li>自动日志与主体共用 <code>submit_time</code> / 批次语义，便于历史同批聚拢；驳回/终止不改池、不同步债券。</li>
                 </ul>
             </article>
