@@ -359,7 +359,7 @@
 <header>
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>禁投池查询</h1>
-        <p class="desc">查询风险类投资池（forbidden / observe / blacklist）的当前已生效状态，覆盖主体与证券，并按用户可查看权限过滤。</p>
+        <p class="desc">查询风险类投资池（forbidden / observe / blacklist / restricted）的当前已生效状态，覆盖主体与证券，并按用户可查看权限过滤。</p>
         <div class="stats"><span class="stat">5 项表/表组</span><span class="stat">2 个主要接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
@@ -373,17 +373,17 @@
             <div class="step"><b>1. 权限范围</b><span>按 currentUserId 解析 viewable 可查看池 ID 集合。</span></div>
             <div class="step"><b>2. 加载类型</b><span>查询风险池中实际出现的证券类型选项。</span></div>
             <div class="step"><b>3. 组合筛选</b><span>按代码、类型、入池时间、调整人、发行人等分页。</span></div>
-            <div class="step"><b>4. 限定范围</b><span>pool_type ∈ forbidden/observe/blacklist 且已生效。</span></div>
+            <div class="step"><b>4. 限定范围</b><span>pool_type ∈ forbidden/observe/blacklist/restricted 且已生效。</span></div>
             <div class="step"><b>5. 路径回填</b><span>Service 将目标池名替换为完整层级路径。</span></div>
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>禁投池分页查询</h2>
-        <p class="sub">主数据来自已生效池状态；范围=三类风险池 ∩ 用户可查看池。</p><span class="api">POST /api/v1/forbiddenPoolQuery/queryForbiddenPoolPage · querySecurityTypeList</span>
+        <p class="sub">主数据来自已生效池状态；范围=四类风险池 ∩ 用户可查看池。</p><span class="api">POST /api/v1/forbiddenPoolQuery/queryForbiddenPoolPage · querySecurityTypeList</span>
         <div class="logic">
             <article class="card"><h3>查询主线</h3>
                 <ul>
                     <li><code>ip_pool_status</code> 内连接未删除的 <code>ip_investment_pool</code>。</li>
-                    <li>固定 <code>pool_type IN ('forbidden','observe','blacklist')</code>，且 <code>audit_status='20'</code>、<code>is_deleted=0</code>。</li>
+                    <li>固定 <code>pool_type IN ('forbidden','observe','blacklist','restricted')</code>，且 <code>audit_status='20'</code>、<code>is_deleted=0</code>。</li>
                     <li>Service 注入 <code>viewablePoolIds</code>（PermissionType.VIEWABLE）；空集合则无数据。</li>
                     <li>左连 <code>rrs_securityinfo</code> 与字典；主体行再连 <code>wind_cbondissuer</code> 取发行人名称。</li>
                     <li>排序：<code>entry_time DESC, id DESC</code>。</li>
@@ -419,7 +419,7 @@
                 </tr>
                 <tr>
                     <td><span class="name">ip_investment_pool</span></td>
-                    <td>限定三类风险池并提供池路径</td>
+                    <td>限定四类风险池并提供池路径</td>
                     <td><span class='tag r'>查询</span></td>
                     <td>pool_type 过滤、名称与路径回填</td>
                 </tr>
@@ -454,7 +454,7 @@
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
             <li>当前 SQL <strong>固定</strong> <code>audit_status='20'</code> 且 <code>is_deleted=0</code>，只展示已生效在池状态。</li>
-            <li>范围是三类风险池类型，不是单一禁投池（<code>forbidden</code>），也不是写死池 ID 15/16/17（权限再裁剪可见子集）。</li>
+            <li>范围是四类风险池类型，不是单一禁投池（<code>forbidden</code>），也不是写死池 ID 15/16/17（权限再裁剪可见子集）。</li>
             <li>可同时出现主体级与证券级（含主体同步自动入池的债券）记录。</li>
             <li>页面只读，不写业务表；无收藏能力（与证券池查询不同）。</li>
         </ul>
