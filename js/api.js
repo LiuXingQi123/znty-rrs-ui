@@ -101,16 +101,40 @@ window.RrsAuth = {
 axios.defaults.baseURL = 'http://localhost:18090'
 
 Vue.prototype.apiPost = async function(path, body, config) {
-    const resp = await axios.post(path, body || {}, config || {})
-    if (config && config.responseType === 'blob') return resp
+    try {
+        const resp = await axios.post(path, body || {}, config || {})
+        if (config && config.responseType === 'blob') return resp
 
-    const json = resp.data || {}
-    if (!json.success) {
-        const message = json.message || '接口异常'
-        this.$message.error(message)
+        const json = resp.data || {}
+        if (!json.success) {
+            // 业务/全局异常：后端 ApiResponse.message（含系统异常关键信息）
+            const message = json.message || '接口异常'
+            this.$message.error({ message: message, duration: 8000, showClose: true })
+            throw new Error(message)
+        }
+        return json.data
+    } catch (e) {
+        // 已在上方按业务失败抛出的 Error，直接透传，避免重复弹窗
+        if (e && e.message && !(e.response || e.request)) {
+            throw e
+        }
+        // HTTP 非 2xx / 网络错误：尽量取响应体 message，否则用 axios 文案
+        let message = '网络异常，请稍后重试'
+        if (e && e.response && e.response.data) {
+            const data = e.response.data
+            if (typeof data === 'string' && data.trim()) {
+                message = data.trim().length > 600 ? (data.trim().slice(0, 600) + '...') : data.trim()
+            } else if (data && data.message) {
+                message = data.message
+            } else if (e.response.status) {
+                message = '请求失败 (HTTP ' + e.response.status + ')'
+            }
+        } else if (e && e.message) {
+            message = e.message
+        }
+        this.$message.error({ message: message, duration: 8000, showClose: true })
         throw new Error(message)
     }
-    return json.data
 }
 
 Vue.prototype.downloadBase64File = function(base64, fileName, contentType) {
