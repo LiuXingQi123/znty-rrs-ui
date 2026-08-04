@@ -107,6 +107,8 @@ const DICT_FLOW_TYPE = {
     'upgradeInbound':    '上调',
     'downgradeInbound':  '下调',
     'normalOutbound':    '默认调出',
+    'batchInbound':      '批量调入',
+    'batchOutbound':     '批量调出',
 };
 
 // ── 6. 流程步骤状态（step_status）────────────────────────

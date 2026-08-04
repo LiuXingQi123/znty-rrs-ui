@@ -406,14 +406,14 @@
                     <li>每个证券转换为单证券 <code>AdjustCheckReq</code>，调用单笔 <code>securityPoolAdjustService.checkAdjust</code>，复用通用/类型特有校验、联动互斥扩展与反阻断。</li>
                     <li><strong>调入顺序</strong>（与 <code>checkCommonIn</code> 一致）：池锁定 → 品种 → 市场 → pending → 已在目标池 → 容量 → 来源池 → 调入限制池 → 同请求互斥 → 弹性禁投（警告）→ 全局禁止池 → 行业限制（已注释）→ 开放日 →（债券）到期 → 主体内评矩阵 /（股票）退市 → 评级限制（空实现）/（基金）评分（仅 check）。</li>
                     <li><strong>调出顺序</strong>（与 <code>checkCommonOut</code> 一致）：池锁定 → pending → 未入池 → 冻结期（入池时间缺失报「证券入池生效时间缺失」）→ 调出限制池 → 调出互斥池 → 同请求互斥 → 弹性禁投（警告）→ 开放日 → 到期/退市。</li>
-                    <li>结果行用目标池 <strong>batchIn/batchOut</strong> 覆盖展示「批量流程名 / 是否直通」；内部仍可能带单笔 flowOptions（白名单/简易等判断与单笔相同：白名单池 ID 当前为空、简易末项评级下调已注释）。</li>
+                    <li>校验通过项在 flowOptions <strong>头部注入</strong>目标池 <strong>batchIn/batchOut</strong>（flowType=batchInbound/batchOutbound）并设为默认推荐；单券候选（白名单/简易等）仍可选，操作员可改选。</li>
                     <li>步骤2 chips 汇总报告/附件/放开规则/条数；「调整说明」失败分条展示 failReasons；同组 <code>adjustGroupKey</code> 底色区分。</li>
                 </ul>
             </article>
             <article class="card"><h3>提交和审批</h3>
                 <ul>
                     <li>整个批量请求<strong>一个事务</strong>，任一失败全部回滚；约 30 秒窗口内防重复提交（按证券集合+手工项+流程+原因意见比较）。</li>
-                    <li>提交前 <code>applyBatchFlow</code>：强制写入目标池 <strong>batchIn/batchOut</strong> 的 flowId/flowKey（覆盖前端/单笔候选流程）。</li>
+                    <li>提交前 <code>fillDefaultBatchFlowIfMissing</code>：仅对未带流程的明细回填 batchIn/batchOut；已选流程（含改选的单券流程）保留生效。</li>
                     <li>按证券分组写 <code>ip_adjust_log</code>（手工标记为手动批量调整）；同次提交统一 <code>submit_time</code> 与共享附件上下文。</li>
                     <li>批量流程未配置或 start→end 时直通，落池前锁池并动态复核。</li>
                     <li><code>releaseRules=yes</code> 仅跳过主体内评×期限矩阵，容量/来源/硬限制等仍执行。</li>
