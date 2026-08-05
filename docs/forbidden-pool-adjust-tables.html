@@ -360,7 +360,7 @@
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>禁投池调整</h1>
         <p class="desc">
-            页面列表区双 Tab：<strong>主体</strong> / <strong>ABS债</strong>。主体链路以发行主体为调整对象（Wind 主体表），对手工限定池 15/16/17 调入/调出，审批通过后按条件同步旗下非 ABS 债券；ABS 链路以 ABS 证券为对象，独立 API 前缀 <code>/api/v1/forbiddenAbsPoolAdjust</code>，交互对齐证券池单笔调库（列表 → 选池 → 校验提交）。仅 <code>audit_status=20</code> 落地池状态。</p>
+            页面列表区双 Tab：<strong>主体</strong> / <strong>ABS债</strong>。主体链路以发行主体为调整对象（Wind 主体表），对手工限定池 15/16/17/23 调入/调出；<strong>仅目标为债券禁止库（15）且主体生效（20）时</strong>同步旗下<strong>未到期</strong>债券（含 ABS/crmw）；ABS 链路以 ABS 证券为对象，独立 API 前缀 <code>/api/v1/forbiddenAbsPoolAdjust</code>，交互对齐证券池单笔调库（列表 → 选池 → 校验提交）。仅 <code>audit_status=20</code> 落地池状态。</p>
         <div class="stats"><span class="stat">双 Tab 主体+ABS</span><span class="stat">主体+ABS 两套接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
@@ -377,7 +377,7 @@
             <div class="step"><b>2. 加载详情</b><span>主体/ABS 详情、当前在池、可调池树（15/16/17）。</span></div>
             <div class="step"><b>3. 校验调整</b><span>主体或 ABS 各自 checkAdjust + 联动互斥 + 流程。</span></div>
             <div class="step"><b>4. 提交审批</b><span>multipart 附件；主体 company / ABS 证券级写日志。</span></div>
-            <div class="step"><b>5. 生效</b><span>仅 20 落池；主体链路另同步旗下非 ABS 债券。</span></div>
+            <div class="step"><b>5. 生效</b><span>仅 20 落池；仅债券禁止库另同步旗下未到期债（含 ABS/crmw）。</span></div>
         </div>
     </section>
     <section class="panel" id="logic-abs"><h2>ABS债 Tab 与接口</h2>
@@ -437,9 +437,10 @@
             </article>
             <article class="card"><h3>主体级生效（syncCompanyBonds）</h3>
                 <ul>
-                    <li>先写/软删主体 <code>ip_pool_status</code>，再同步旗下债券（非「仅改主体」）。</li>
-                    <li><b>调入</b>：未到期且非 ABS、且非 crmw、且尚不在目标池的债券 → 自动调入日志 + 入池。</li>
-                    <li><b>调出</b>：当前在目标池且非 ABS、且非 crmw 的债券 → 自动调出日志 + 软删在池。</li>
+                    <li>先写/软删主体 <code>ip_pool_status</code>；<b>仅目标池=债券禁止库（15）</b> 时再同步旗下债。</li>
+                    <li><b>调入</b>：未到期、bond 大类（含 ABS/crmw）、尚不在目标池 → 自动调入日志 + 入池。</li>
+                    <li><b>调出</b>：未到期、bond 大类（含 ABS/crmw）、当前在目标池 → 自动调出日志 + 软删在池。</li>
+                    <li>观察池 / 黑名单质押库 / 重点观察名单：只落主体，不同步旗下债。</li>
                     <li>自动日志与主体共用 <code>submit_time</code> / 批次语义，便于历史同批聚拢；驳回/终止不改池、不同步债券。</li>
                 </ul>
             </article>
@@ -561,7 +562,7 @@
             <li>主体调库日志 <code>security_type</code> 固定为 <code>company</code>；对象代码为 Wind 主体码（<code>s_info_compcode</code>），不是债券 wind_code；主体主数据读 <code>ais_inv_ods.wind_cbondissuer</code>。</li>
             <li>ABS 调库走 <code>/api/v1/forbiddenAbsPoolAdjust/*</code>，对象为 ABS 证券代码；可调池同样限定 15/16/17。</li>
             <li>主体级校验<strong>跳过</strong>品种、市场、债券到期；保留池锁定、pending、重复入/未入池、容量、来源/限制、互斥、全局禁止、行业、开放日等。</li>
-            <li>主体生效后同步的是<strong>符合条件</strong>的旗下债券（非 ABS；调入还要求未到期且未在目标池），不是无差别全量。</li>
+            <li>主体生效后<strong>仅债券禁止库</strong>同步旗下债：未到期 + bond 大类（含 ABS/crmw）；调入还要求未在目标池，调出要求当前在目标池。其它手工风险池只落主体。</li>
             <li>债券自动同步日志为大类 bond，会出现在禁投池历史中，但<strong>不会</strong>进入「主体池调整历史」（按 company 过滤）。</li>
             <li>仅 <code>audit_status=20</code> 落地主体与债券池状态；驳回/撤回等只改日志与步骤。</li>
             <li>发起人不能参与后续审批节点，管理员和发起/修改语义节点除外；会签全员完成，抢占跳过同节点其他待办。</li>
