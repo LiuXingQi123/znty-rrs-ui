@@ -91,8 +91,16 @@
                     <el-table-column prop="maxCapacity" label="上限数量" width="75" align="center">
                         <template slot-scope="{ row }"><span class="number-text">{{ row.maxCapacity == null ? '' : row.maxCapacity }}</span></template>
                     </el-table-column>
-                    <el-table-column prop="currentCount" label="现有数量" width="75" align="center">
-                        <template slot-scope="{ row }"><span class="number-text">{{ row.currentCount == null ? '' : row.currentCount }}</span></template>
+                    <el-table-column prop="currentCount" label="现有数量" min-width="120" align="left">
+                        <template slot-scope="{ row }">
+                            <div v-if="row.countByType && row.countByType.length" class="pool-count-breakdown">
+                                <div v-for="item in row.countByType" :key="item.typeCode" class="pool-count-line">
+                                    <span class="pool-count-type">{{ poolCountTypeLabel(item.typeCode) }}</span>
+                                    <span class="pool-count-num number-text">{{ item.count }}只</span>
+                                </div>
+                            </div>
+                            <span v-else class="number-text pool-count-empty">0</span>
+                        </template>
                     </el-table-column>
                     <el-table-column label="操作" width="136" align="center" fixed="right">
                         <template slot-scope="{ row }">
@@ -936,6 +944,22 @@
             window.clearTimeout(this.resizeLayoutTimer)
         },
         methods: {
+            // 在池数量类型 code → 中文（后端只返 code）
+            poolCountTypeLabel(typeCode) {
+                const map = {
+                    company: '主体',
+                    crmw: 'CRMW',
+                    bond: '债券',
+                    stock: '股票',
+                    fund: '基金',
+                    index: '指数',
+                    warrant: '权证',
+                    trust: '信托',
+                    private_wealth: '私募理财',
+                    unknown: '未知'
+                }
+                return map[typeCode] || typeCode || '未知'
+            },
             // 剩余期限：date_exists 天 → 年（四位小数），空/非数字返回空串
             formatRemainTermYears(days) {
                 if (days === null || days === undefined || days === '') return ''
