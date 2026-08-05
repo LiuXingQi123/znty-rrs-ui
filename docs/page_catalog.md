@@ -7,6 +7,7 @@
 | HTML 文件 | 功能名称 | 对应 CSS |
 | --- | --- | --- |
 | `batch_security_pool_adjust.html` | 证券池批量调整 | `css/batch_security_pool_adjust.css`、`css/common.css` |
+| `stock_security_batch_adjust.html` | 存量证券批量调整 | `css/stock_security_batch_adjust.css`、`css/common.css` |
 | `company_pool_adjust_history.html` | 主体池调整历史查询 | `css/company_pool_adjust_history.css`、`css/common.css` |
 | `company_pool_query.html` | 主体池查询 | `css/company_pool_query.css`、`css/common.css` |
 | `credit_bond_grade_rule.html` | 主体内评分档规则 | `css/credit_bond_grade_rule.css`、`css/common.css` |
@@ -92,6 +93,7 @@
 | CSS 文件 | 功能名称 | 适用页面 |
 | --- | --- | --- |
 | `css/batch_security_pool_adjust.css` | 证券池批量调整页面样式 | `batch_security_pool_adjust.html` |
+| `css/stock_security_batch_adjust.css` | 存量证券批量调整页面样式 | `stock_security_batch_adjust.html` |
 | `css/common.css` | 全站公共基础样式 | 全部 HTML 页面 |
 | `css/company_pool_adjust_history.css` | 主体池调整历史查询页面样式 | `company_pool_adjust_history.html` |
 | `css/company_pool_query.css` | 主体池查询页面样式 | `company_pool_query.html` |
@@ -137,6 +139,7 @@
 | `docs/module-tables-index.html` | 业务文档总览 | HTML 内联样式 |
 | `docs/security-pool-adjust-flow-tables.html` | 证券池调整文档 | HTML 内联样式 |
 | `docs/batch-security-pool-adjust-tables.html` | 证券池批量调整文档 | HTML 内联样式 |
+| `docs/stock-security-batch-adjust-tables.html` | 存量证券批量调整文档 | HTML 内联样式 |
 | `docs/security-pool-query-tables.html` | 证券池查询文档 | HTML 内联样式 |
 | `docs/security-pool-adjust-history-tables.html` | 证券池调整历史文档 | HTML 内联样式 |
 | `docs/temp-security-code-tables.html` | 临时代码管理文档 | HTML 内联样式 |
