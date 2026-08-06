@@ -701,14 +701,13 @@ const DICT_TEMP_STATUS = {
     'deleted':   '已删除',
 };
 
-// ── 49. 临时代码操作类型（operation_type）────────────────
-// 枚举：TempOperationType
-// 表：rrs_temp_security_code.operation_type
-const DICT_TEMP_OPERATION_TYPE = {
-    'add':          '新增',
-    'update':       '更新',
-    'cancel_issue': '取消发行',
-    'delete':       '删除',
+// ── 49. 临时代码操作来源（oprt_source）────────────────
+// 枚举：TempOprtSource
+// 表：rrs_temp_security_code.oprt_source
+const DICT_TEMP_OPRT_SOURCE = {
+    'manual': '人工',
+    'job':    '定时任务',
+    'other':  '其他',
 };
 
 
