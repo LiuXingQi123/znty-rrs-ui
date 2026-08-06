@@ -37,6 +37,7 @@
 | `pool_open_day.html` | 投资池开放日维护 | `css/pool_open_day.css`、`css/common.css` |
 | `docs/script_tool.html` | 数据初始化 | `css/script_tool.css`、`css/common.css` |
 | `docs/script_table_clear.html` | 表数据清空 | `css/script_table_clear.css`、`css/common.css` |
+| `docs/script_table_row_counts.html` | 表记录数统计 | `css/script_table_row_counts.css`、`css/common.css` |
 | `docs/script_overview.html` | 脚本总览 | `css/script_overview.css`、`css/common.css` |
 | `docs/script_health_check.html` | 环境检查 | `css/script_health_check.css`、`css/common.css` |
 | `docs/script_schema_diff.html` | 数据库结构差异检查 | `css/script_schema_diff.css`、`css/common.css` |

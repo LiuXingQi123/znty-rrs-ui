@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>表记录数统计</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <link rel="stylesheet" href="../css/script_table_row_counts.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<div id="script_table_row_counts">
+    <section class="row-count-hero">
+        <div>
+            <p class="row-count-kicker">RRS SCRIPT TOOL</p>
+            <h1>表记录数统计</h1>
+            <p class="row-count-desc">实时统计各业务库每张表的记录数（COUNT(*) 精确值），按记录数降序。znty_rrs 统计全部基础表；ais_inv_analysis / ais_inv_ods 仅统计本地已有表（公司库表多，显式指定清单）。</p>
+        </div>
+        <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadData">刷新统计</el-button>
+    </section>
+
+    <section v-loading="loading" class="db-list">
+        <article v-for="group in groups" :key="group.databaseName" class="db-card">
+            <div class="db-head">
+                <h2>{{ group.databaseDesc }}</h2>
+                <el-tag size="mini" type="info">{{ group.databaseName }}</el-tag>
+                <el-tag size="mini" type="info">{{ (group.tables || []).length }} 张表</el-tag>
+            </div>
+            <el-table :data="group.tables || []" size="small" border empty-text="暂无表">
+                <el-table-column type="index" label="#" width="50"></el-table-column>
+                <el-table-column prop="tableName" label="表名称" min-width="240">
+                    <template slot-scope="scope"><span class="table-name">{{ scope.row.tableName }}</span></template>
+                </el-table-column>
+                <el-table-column prop="tableDesc" label="表说明" min-width="200">
+                    <template slot-scope="scope"><span class="table-desc">{{ scope.row.tableDesc }}</span></template>
+                </el-table-column>
+                <el-table-column label="数据条数" width="120" align="right">
+                    <template slot-scope="scope">
+                        <span :class="['row-count-num', rowCountClass(scope.row.rowCount)]">{{ scope.row.rowCount }}</span>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </article>
+    </section>
+</div>
+
+<script>
+new Vue({
+    el: '#script_table_row_counts',
+    data() {
+        return {
+            groups: [],       // 各库表记录数统计
+            loading: false,   // 加载状态
+        }
+    },
+    created() {
+        // 初始化加载表记录数
+        this.loadData()
+    },
+    methods: {
+        // 加载表记录数统计
+        async loadData() {
+            this.loading = true
+            try {
+                this.groups = await this.apiPost('/api/v1/scriptTool/queryTableRowCounts', {}) || []
+            } finally {
+                this.loading = false
+            }
+        },
+        // 记录数样式分类（0 灰色 / >100 主色 / 不可访问红色）
+        rowCountClass(rowCount) {
+            if (rowCount == null || rowCount < 0) return 'is-error'
+            if (rowCount === 0) return 'is-zero'
+            if (rowCount > 100) return 'is-high'
+            return 'is-normal'
+        },
+    },
+})
+</script>
+</body>
+</html>
