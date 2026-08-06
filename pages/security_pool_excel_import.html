@@ -494,7 +494,7 @@ new Vue({
             }
             this.fileName = ''
         },
-        // 上传 Excel 并写入后端临时表
+        // 上传 Excel 并写入后端临时表（对齐调库：FormData + apiPost）
         async doUpload(file) {
             this.loading = true
             try {
@@ -509,7 +509,11 @@ new Vue({
                     pageIndex: 1,
                     pageSize: this.pagination.pageSize,
                 }
-                const data = await this.apiUpload('/api/v1/securityPoolExcelImport/uploadExcel', { request }, file, 'file')
+                // multipart：request 为 JSON Blob，file 为 Excel 本体
+                const formData = new FormData()
+                formData.append('request', new Blob([JSON.stringify(request)], { type: 'application/json' }))
+                formData.append('file', file)
+                const data = await this.apiPost('/api/v1/securityPoolExcelImport/uploadExcel', formData)
                 this.applyTask(data)
                 this.fileName = (data && data.fileName) || file.name || ''
                 this.fileList = [{ name: this.fileName, raw: file }]
