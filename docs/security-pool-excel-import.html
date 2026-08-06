@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>证券池 Excel 导入 - 业务文档</title>
+    <style>
+        body { font-family: "Microsoft YaHei", sans-serif; margin: 24px; color: #242933; line-height: 1.6; }
+        h1 { font-size: 22px; color: #2743A4; }
+        h2 { font-size: 16px; margin-top: 24px; border-left: 3px solid #2743A4; padding-left: 8px; }
+        table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+        th, td { border: 1px solid #E5E5E5; padding: 8px 10px; text-align: left; }
+        th { background: #F7F8FA; }
+        code { background: #F7F8FA; padding: 1px 4px; border-radius: 2px; }
+        .muted { color: #707783; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <h1>证券池 Excel 导入</h1>
+    <p class="muted">页面：<code>pages/security_pool_excel_import.html</code> · API：<code>/api/v1/securityPoolExcelImport</code></p>
+
+    <h2>功能说明</h2>
+    <ol>
+        <li>选择<strong>导入类型</strong>（证券 / 主体）、调入/调出方向、选项与调整原因。<strong>页面不选择目标池</strong>，池由 Excel 父池/子池名称解析。</li>
+        <li>分别下载<strong>证券模板</strong>或<strong>主体模板</strong>后拖拽上传：
+            <ul>
+                <li>证券模板列：父池名称、子池名称、证券名称、证券代码</li>
+                <li>主体模板列：父池名称、子池名称、主体名称、主体代码</li>
+            </ul>
+        </li>
+        <li>上传后在「导入明细」查看行数据；点击<strong>校验</strong>后切换到「调库校验结果」。</li>
+        <li>提交弹出「选择调库流程」对话框（与证券池批量调整一致），确认后写 <code>ip_adjust_log</code>。</li>
+    </ol>
+
+    <h2>导入类型差异</h2>
+    <table>
+        <tr><th>类型</th><th>校验</th><th>联动/互斥</th><th>提交</th></tr>
+        <tr>
+            <td>证券</td>
+            <td>每行调用 <code>SecurityPoolAdjustService.checkAdjust</code>（与批量内部路径相同）</td>
+            <td>勾选后保留联动/互斥/关联码展开；不勾选仅手工项</td>
+            <td>按主券分组 <code>addAdjustLog</code>，并注入批量流程候选</td>
+        </tr>
+        <tr>
+            <td colspan="4">
+                <strong>首先清空目标池（仅调入）</strong>：对每个本批目标池，将「在池但不在本批名单」的成员按批量出库校验/提交（独立方法）；
+                本批编码若存在在途流程则该导入行失败；非本批编码的在途不纳入清空。提交顺序：先清空出库，再导入。
+            </td>
+        </tr>
+        <tr>
+            <td>主体</td>
+            <td>每行调用 <code>ForbiddenPoolAdjustService.checkCompanyAdjust</code></td>
+            <td>同样受「允许联动与互斥」过滤</td>
+            <td>按主体分组 <code>addCompanyAdjustLog</code></td>
+        </tr>
+    </table>
+
+    <h2>临时表</h2>
+    <table>
+        <tr><th>表</th><th>说明</th></tr>
+        <tr><td><code>sys_imp_tmp_batch</code></td><td>导入批次主表；biz_type=security_pool_excel / company_pool_excel</td></tr>
+        <tr><td><code>sys_imp_tmp</code></td><td>明细：fld001=代码，fld002=名称，fld003=父池，fld004=子池</td></tr>
+    </table>
+
+    <h2>主要接口</h2>
+    <table>
+        <tr><th>路径</th><th>说明</th></tr>
+        <tr><td><code>POST /api/v1/commonFile/downloadTemplate</code></td><td>templateCode：security_pool_import / company_pool_import</td></tr>
+        <tr><td><code>POST .../uploadExcel</code></td><td>multipart 上传（含 importType）</td></tr>
+        <tr><td><code>POST .../checkImport</code></td><td>内联校验 + 调库校验结果</td></tr>
+        <tr><td><code>POST .../submitImport</code></td><td>内联提交（可选 checkItems 带流程选择）</td></tr>
+        <tr><td><code>POST .../queryItemPage</code></td><td>明细分页</td></tr>
+        <tr><td><code>POST .../cancelImport</code></td><td>取消批次</td></tr>
+    </table>
+
+    <h2>权限</h2>
+    <p>目标池须配置 <code>excel_importable</code> 权限；管理员 userId=1 放行。</p>
+</body>
+</html>

@@ -107,18 +107,18 @@ Vue.prototype.apiPost = async function(path, body, config) {
 
         const json = resp.data || {}
         if (!json.success) {
-            // 业务/全局异常：后端 ApiResponse.message（含系统异常关键信息）
+            // 业务失败提示
             const message = json.message || '接口异常'
-            this.$message.error({ message: message, duration: 8000, showClose: true })
+            this.$message.error({ message: message, duration: 10000, showClose: true })
             throw new Error(message)
         }
         return json.data
     } catch (e) {
-        // 已在上方按业务失败抛出的 Error，直接透传，避免重复弹窗
+        // 已提示过的业务错误直接透传
         if (e && e.message && !(e.response || e.request)) {
             throw e
         }
-        // HTTP 非 2xx / 网络错误：尽量取响应体 message，否则用 axios 文案
+        // 网络或 HTTP 错误
         let message = '网络异常，请稍后重试'
         if (e && e.response && e.response.data) {
             const data = e.response.data
@@ -132,11 +132,12 @@ Vue.prototype.apiPost = async function(path, body, config) {
         } else if (e && e.message) {
             message = e.message
         }
-        this.$message.error({ message: message, duration: 8000, showClose: true })
+        this.$message.error({ message: message, duration: 10000, showClose: true })
         throw new Error(message)
     }
 }
 
+// Base64 转文件并触发浏览器下载
 Vue.prototype.downloadBase64File = function(base64, fileName, contentType) {
     const binary = atob(base64 || '')
     const bytes = new Uint8Array(binary.length)
@@ -152,5 +153,66 @@ Vue.prototype.downloadBase64File = function(base64, fileName, contentType) {
         link.click()
     } finally {
         URL.revokeObjectURL(url)
+    }
+}
+
+// 下载 classpath 模板（Base64）
+Vue.prototype.downloadTemplate = async function(templateCode) {
+    const data = await this.apiPost('/api/v1/commonFile/downloadTemplate', { templateCode: templateCode })
+    if (!data || !data.contentBase64) {
+        throw new Error('模板内容为空')
+    }
+    this.downloadBase64File(data.contentBase64, data.fileName || (templateCode + '.xlsx'), data.contentType)
+    return data
+}
+
+// 通用 multipart 上传（request 对象按 JSON Blob 提交）
+Vue.prototype.apiUpload = async function(path, formFields, file, fileFieldName) {
+    const formData = new FormData()
+    const fields = formFields || {}
+    Object.keys(fields).forEach((key) => {
+        const value = fields[key]
+        if (value === undefined || value === null) return
+        if (key === 'request' && typeof value === 'object' && !(value instanceof Blob) && !(value instanceof File)) {
+            formData.append(key, new Blob([JSON.stringify(value)], { type: 'application/json' }))
+        } else if (typeof value === 'object' && !(value instanceof Blob) && !(value instanceof File)) {
+            formData.append(key, JSON.stringify(value))
+        } else {
+            formData.append(key, value)
+        }
+    })
+    if (file) {
+        formData.append(fileFieldName || 'file', file)
+    }
+    try {
+        const resp = await axios.post(path, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        const json = resp.data || {}
+        if (!json.success) {
+            const message = json.message || '接口异常'
+            this.$message.error({ message: message, duration: 10000, showClose: true })
+            throw new Error(message)
+        }
+        return json.data
+    } catch (e) {
+        if (e && e.message && !(e.response || e.request)) {
+            throw e
+        }
+        let message = '网络异常，请稍后重试'
+        if (e && e.response && e.response.data) {
+            const data = e.response.data
+            if (typeof data === 'string' && data.trim()) {
+                message = data.trim().length > 600 ? (data.trim().slice(0, 600) + '...') : data.trim()
+            } else if (data && data.message) {
+                message = data.message
+            } else if (e.response.status) {
+                message = '请求失败 (HTTP ' + e.response.status + ')'
+            }
+        } else if (e && e.message) {
+            message = e.message
+        }
+        this.$message.error({ message: message, duration: 10000, showClose: true })
+        throw new Error(message)
     }
 }

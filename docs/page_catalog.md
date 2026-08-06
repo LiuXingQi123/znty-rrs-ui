@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | `batch_security_pool_adjust.html` | 证券池批量调整 | `css/batch_security_pool_adjust.css`、`css/common.css` |
 | `stock_security_batch_adjust.html` | 存量证券批量调整 | `css/stock_security_batch_adjust.css`、`css/common.css` |
+| `security_pool_excel_import.html` | 证券池 Excel 导入 | `css/security_pool_excel_import.css`、`css/common.css` |
 | `company_pool_adjust_history.html` | 主体池调整历史查询 | `css/company_pool_adjust_history.css`、`css/common.css` |
 | `company_pool_query.html` | 主体池查询 | `css/company_pool_query.css`、`css/common.css` |
 | `credit_bond_grade_rule.html` | 主体内评分档规则 | `css/credit_bond_grade_rule.css`、`css/common.css` |
