@@ -24,35 +24,50 @@
                     <span class="hint">方向与选项作用于整批</span>
                 </div>
                 <div class="panel-bd">
-                    <div class="field field-inline">
-                        <span class="field-label"><span class="req">*</span>导入类型</span>
-                        <el-radio-group v-model="form.importType" size="mini" class="dir-group" :disabled="!!impId">
-                            <el-radio-button label="security">证券</el-radio-button>
-                            <el-radio-button label="company">主体</el-radio-button>
-                        </el-radio-group>
-                    </div>
-                    <div class="field field-inline">
-                        <span class="field-label"><span class="req">*</span>调整方向</span>
-                        <el-radio-group v-model="form.direction" size="mini" class="dir-group" :disabled="!!impId"
-                                        @change="onDirectionChange">
-                            <el-radio-button label="in">调入</el-radio-button>
-                            <el-radio-button label="out">调出</el-radio-button>
-                        </el-radio-group>
+                    <div class="field field-row">
+                        <div class="field field-inline field-col">
+                            <span class="field-label"><span class="req">*</span>导入类型</span>
+                            <el-radio-group v-model="form.importType" size="mini" class="dir-group" :disabled="!!impId">
+                                <el-radio-button label="security">证券</el-radio-button>
+                                <el-radio-button label="company">主体</el-radio-button>
+                            </el-radio-group>
+                        </div>
+                        <div class="field field-inline field-col">
+                            <span class="field-label"><span class="req">*</span>调整方向</span>
+                            <el-radio-group v-model="form.direction" size="mini" class="dir-group" :disabled="!!impId"
+                                            @change="onDirectionChange">
+                                <el-radio-button label="in">调入</el-radio-button>
+                                <el-radio-button label="out">调出</el-radio-button>
+                            </el-radio-group>
+                        </div>
                     </div>
                     <div class="field field-inline">
                         <span class="field-label">导入选项</span>
                         <div class="option-inline">
-                            <el-checkbox v-model="form.clearTarget" size="mini"
-                                         :disabled="!!impId || form.direction === 'out'">首先清空目标池</el-checkbox>
+                            <span class="clear-wrap">
+                                <el-checkbox v-model="form.clearTarget" size="mini"
+                                             :disabled="!!impId || form.direction === 'out'">首先清空目标池</el-checkbox>
+                                <el-tooltip v-if="form.direction === 'in'" placement="top"
+                                            content="勾选清空后，将把目标池中不在本批名单内的在池数据按批量出库调出">
+                                    <i class="el-icon-info clear-tip-icon"></i>
+                                </el-tooltip>
+                            </span>
                             <el-checkbox v-model="form.allowLinkMutex" size="mini" :disabled="!!impId">允许联动与互斥调整</el-checkbox>
                         </div>
                     </div>
-                    <div v-if="form.direction === 'in'" class="field-tip">勾选清空后，将把目标池中不在本批名单内的在池数据按批量出库调出</div>
-                    <div class="field field-inline field-reason field-last">
-                        <span class="field-label"><span class="req">*</span>调整原因</span>
-                        <el-input type="textarea" v-model.trim="form.adjustReason" :rows="2" maxlength="1000"
-                                  show-word-limit placeholder="请填写本批调整原因（提交时必填）"
-                                  resize="none"></el-input>
+                    <div class="field field-row field-last">
+                        <div class="field field-inline field-reason field-col">
+                            <span class="field-label">调整原因</span>
+                            <el-input type="textarea" v-model.trim="form.adjustReason" :rows="3" maxlength="1000"
+                                      show-word-limit placeholder="选填，本批调整原因"
+                                      resize="none"></el-input>
+                        </div>
+                        <div class="field field-inline field-reason field-col">
+                            <span class="field-label">调整意见</span>
+                            <el-input type="textarea" v-model.trim="form.adjustAdvice" :rows="3" maxlength="1000"
+                                      show-word-limit placeholder="选填，本批调整意见"
+                                      resize="none"></el-input>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -331,6 +346,7 @@ new Vue({
                 clearTarget: false,         // 是否先清空目标池
                 allowLinkMutex: true,       // 是否允许联动与互斥（默认勾选）
                 adjustReason: '',           // 调整原因
+                adjustAdvice: '',           // 调整意见
             },
             fileList: [],                   // 上传组件文件列表
             fileName: '',                   // 当前文件名
@@ -514,6 +530,7 @@ new Vue({
                     clearTarget: !!this.form.clearTarget,
                     allowLinkMutex: !!this.form.allowLinkMutex,
                     adjustReason: this.form.adjustReason || null,
+                    adjustAdvice: this.form.adjustAdvice || null,
                     currentUserId: this.currentUser.userId,
                     currentUserName: this.currentUser.userName,
                     pageIndex: 1,
@@ -540,6 +557,7 @@ new Vue({
             this.impId = data.impId || ''
             this.task = data || {}
             if (data.reason) this.form.adjustReason = data.reason
+            if (data.advice) this.form.adjustAdvice = data.advice
             if (data.bizMode) this.form.direction = data.bizMode
             if (typeof data.allowLinkMutex === 'boolean') this.form.allowLinkMutex = data.allowLinkMutex
             if (data.importType) this.form.importType = data.importType
@@ -615,10 +633,6 @@ new Vue({
         // 打开选择调库流程弹窗
         openSubmitDialog() {
             if (!this.canSubmit) return
-            if (!this.form.adjustReason) {
-                this.$message.warning('请填写调整原因')
-                return
-            }
             if (this.validCheckCount === 0) {
                 this.$message.warning('没有可提交的调库项')
                 return
@@ -632,10 +646,6 @@ new Vue({
         // 确认流程并提交
         async confirmFlowSelection() {
             if (this.submitting) return
-            if (!this.form.adjustReason) {
-                this.$message.warning('请填写调整原因')
-                return
-            }
             if (!this.allValidRowsHaveFlow) {
                 this.$message.warning('请为所有可提交的手工调整项选择审批流程')
                 return
@@ -651,6 +661,7 @@ new Vue({
                     impId: this.impId,
                     importType: this.form.importType,
                     adjustReason: this.form.adjustReason,
+                    adjustAdvice: this.form.adjustAdvice,
                     currentUserId: this.currentUser.userId,
                     currentUserName: this.currentUser.userName,
                     checkItems: this.validCheckItems,
