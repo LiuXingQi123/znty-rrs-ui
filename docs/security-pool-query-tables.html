@@ -384,10 +384,10 @@
             <article class="card"><h3>查询主线</h3>
                 <ul>
                     <li>主表 <code>ip_pool_status</code> 固定过滤
-                        <code>audit_status='20'</code>、<code>is_deleted=0</code>。
+                        <code>audit_status='20'</code>、<code>is_deleted=0</code>、<code>security_type != 'crmw'</code>（仅排除 CRMW 凭证；禁投/观察/黑名单中的债券仍展示）。
                     </li>
                     <li>关联投资池时要求 <code>p.is_deleted=0</code>（或空），证券信息和证券类型字典。</li>
-                    <li>按 <code>entry_time DESC</code>（及状态主键）倒序分页，Service 回填池全路径。</li>
+                    <li>按 <code>entry_time DESC, id DESC</code>（id 为 <code>ip_pool_status</code> 主键）倒序分页，Service 回填池全路径。</li>
                     <li>列表为空时单元格留白，不使用「-」占位；状态/类型等枚举用 <code>el-tag</code> 展示。</li>
                 </ul>
             </article>
@@ -406,7 +406,7 @@
         <div class="logic">
             <article class="card"><h3>新增收藏</h3>
                 <ul>
-                    <li>userId 和 securityCode 必填。</li>
+                    <li>userId 和 securityCode 建议前端必填（Service 直接调 mapper 无空值校验）。</li>
                     <li>若已存在有效收藏则直接返回；否则新增 status='use' 记录。</li>
                 </ul>
             </article>
@@ -469,7 +469,7 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>正式池查询只认 <code>ip_pool_status.audit_status='20'</code> 且 <code>is_deleted=0</code>。</li>
+            <li>正式池查询只认 <code>ip_pool_status.audit_status='20'</code> 且 <code>is_deleted=0</code>，并固定排除 CRMW 凭证（<code>security_type != 'crmw'</code>；CRMW 历史在独立页面查询）。</li>
             <li>证券状态不是独立表字段，当前查询通过证券到期日动态计算存续/到期。</li>
             <li>收藏表与正式证券池状态完全分离，取消收藏不会调出证券。</li>
             <li>前端状态下拉可使用本地字典；后端亦提供 <code>querySecurityStatusList</code>（active/matured 等）选项接口。</li>

@@ -623,7 +623,7 @@
             <h1>证券池调库</h1>
             <p class="hero-description">覆盖证券池调库从查询与校验、发起申请、生成审批步骤、审批流转到流程结束的数据读写，以及附件、报告和用户角色解析等条件分支。</p>
             <div class="summary-grid">
-                <div class="summary-item"><span class="summary-value">21 项表/表组</span></div>
+                <div class="summary-item"><span class="summary-value">22 项表/表组</span></div>
                 <div class="summary-item"><span class="summary-value">11 个主要接口</span></div>
                 <div class="summary-item"><span class="summary-value">依据当前代码实现</span></div>
             </div>
@@ -699,6 +699,7 @@
                         <li>三个筛选字段均使用包含式模糊匹配：<code>LIKE %条件%</code>。</li>
                         <li>候选证券查询无固定 <code>ORDER BY</code>（与需求 04「列表无固定排序」一致），分页结果顺序不作保证。</li>
                         <li>固定排除 <code>security_type IN ('crmw','company')</code>，避免 CRMW 凭证与主体混入证券池调库。</li>
+                        <li>固定排除 <code>si.security_status != 'D'</code>，过滤已删除态证券。</li>
                     </ul>
                 </article>
             </div>
@@ -883,7 +884,7 @@
                         <li><strong>参数初始化：</strong>加载证券、池关系、当前状态及每个唯一流程的运行快照；同一次提交统一 <code>submit_time</code>，保证同批历史聚拢。</li>
                         <li><strong>调入处理：</strong>按调库组写入手工、联动、互斥、关联码记录并绑定附件。</li>
                         <li><strong>调出处理：</strong>同样写入申请记录，并保持同组批次关系。</li>
-                        <li><strong>后续处理：</strong>服务端合并页面可编辑证券字段后同步主数据（不全量覆盖）。</li>
+                        <li><strong>后续处理：</strong>合并主档与页面可编辑字段后，按调库日志写入 <code>ip_adjust_security_snapshot</code> 快照（不修改 <code>rrs_securityinfo</code> 主档）。</li>
                     </ol>
                 </article>
                 <article class="logic-card">
@@ -899,24 +900,27 @@
                 <article class="logic-card">
                     <h3>审批动作</h3>
                     <ul>
-                        <li>接口：<code>POST /api/v1/securityPoolAdjustFlow/submitAdjustAudit</code>。</li>
-                        <li>先校验步骤仍为待处理并确认实际处理人。</li>
+                        <li>接口：<code>POST /api/v1/securityPoolAdjustFlow/submitAdjustAudit</code>（带附件走 <code>submitAdjustAuditWithFiles</code>）。</li>
+                        <li>先校验步骤仍为待处理并确认实际处理人；<strong>发起人不能参与后续流程操作</strong>（管理员除外）。</li>
+                        <li>管理员代办时优先定位到管理员自己的待处理步骤，处理意见后追加「（由管理员操作）」标识。</li>
                         <li>更新当前步骤动作、意见、处理人和处理时间。</li>
                         <li>会签节点等待全部人员处理；抢占节点处理后将其他待办标记为跳过。</li>
                         <li>重新读取节点、连线和条件规则，按动作寻找下一节点。</li>
+                        <li>驳回待修改节点提交时支持附件增删与报告附件复制（<code>submitAdjustAuditWithFiles</code> + <code>attachmentChanges</code>）。</li>
                     </ul>
                 </article>
                 <article class="logic-card">
                     <h3>结束落库</h3>
                     <ul>
                         <li>通过：同批申请更新为通过，调入新增池状态、调出逻辑删除池状态。</li>
+                        <li>评级联动改判：审批通过时可携带 <code>redirectPoolId</code> 改判目标池，<code>queryRedirectPoolOptions</code> 提供矩阵允许的候选池，<code>finishAdjustBatch</code> 校验改判池须在允许列表内并更新调入日志目标池。</li>
                         <li>驳回或终止：结束申请和步骤，但不改变 <code>ip_pool_status</code>。</li>
                         <li>通过后若存在手工上传信评附件，生成 <code>rrs_report_in</code> 并复制附件。</li>
                         <li>修改节点重新提交时，可增删并重新绑定调库附件。</li>
                     </ul>
                 </article>
             </div>
-            <div class="data-strip"><code>ip_adjust_log：新增 / 更新</code><code>ip_adjust_step：新增 / 更新</code><code>ip_pool_status：新增 / 逻辑删除</code><code>sys_attachment：条件写入</code><code>rrs_report_in：条件新增</code><code>wf_*：读取</code></div>
+            <div class="data-strip"><code>ip_adjust_log：新增 / 更新</code><code>ip_adjust_step：新增 / 更新</code><code>ip_pool_status：新增 / 逻辑删除</code><code>ip_adjust_security_snapshot：新增</code><code>sys_attachment：条件写入</code><code>rrs_report_in：条件新增</code><code>wf_*：读取</code></div>
         </section>
 
         <section id="tables" class="section">
@@ -956,29 +960,35 @@
                         <tr>
                             <td>4</td><td><span class="table-name">rrs_securityinfo</span></td>
                             <td>证券基础信息，包括代码、名称、发行人、证券类型和评级等。</td>
-                            <td><span class="badge read">查询</span><span class="badge update">更新</span></td>
-                            <td>证券搜索、详情、主体池校验及报告生成；提交时按请求更新可编辑证券信息。</td>
+                            <td><span class="badge read">查询</span></td>
+                            <td>证券搜索、详情、主体池校验及报告生成；本模块只读主档，不更新证券信息（可编辑字段实际写入 ip_adjust_security_snapshot）。</td>
                         </tr>
                         <tr>
-                            <td>5</td><td><span class="table-name">ip_investment_pool</span></td>
+                            <td>5</td><td><span class="table-name">ip_adjust_security_snapshot</span></td>
+                            <td>调库证券信息快照，按调库日志保存提交时的可编辑证券字段。</td>
+                            <td><span class="badge read">查询</span><span class="badge write">新增</span></td>
+                            <td>提交/重提时按调库日志写入可编辑证券信息快照；详情页按 adjustLogId/windCode 读快照整包回显。</td>
+                        </tr>
+                        <tr>
+                            <td>6</td><td><span class="table-name">ip_investment_pool</span></td>
                             <td>投资池定义、层级、容量、池类型及绑定的调入/调出流程。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>加载可调池、构建池树、校验容量、获取目标池和推荐流程。</td>
                         </tr>
                         <tr>
-                            <td>6</td><td><span class="table-name">ip_pool_relation</span></td>
+                            <td>7</td><td><span class="table-name">ip_pool_relation</span></td>
                             <td>投资池之间的联动和互斥关系。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>调库校验和提交时，根据关系生成联动调整、互斥调整明细。</td>
                         </tr>
                         <tr>
-                            <td>7</td><td><span class="table-name">ip_pool_permission</span></td>
+                            <td>8</td><td><span class="table-name">ip_pool_permission</span></td>
                             <td>投资池可调权限配置，支持按用户或角色授权。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>进入调库页面、查询可调池时判断当前用户是否有权限操作目标池。</td>
                         </tr>
                         <tr>
-                            <td>8</td><td><span class="table-name">dict_security_type</span></td>
+                            <td>9</td><td><span class="table-name">dict_security_type</span></td>
                             <td>证券类型字典及证券大类信息。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>证券列表展示类型名称；流程通过后生成内部报告时判断报告类型。</td>
@@ -986,43 +996,43 @@
 
                         <tr class="group-heading"><td colspan="5">B. 审批流程配置表</td></tr>
                         <tr>
-                            <td>9</td><td><span class="table-name">wf_flow_definition</span></td>
+                            <td>10</td><td><span class="table-name">wf_flow_definition</span></td>
                             <td>流程定义，保存流程名称、Key、类型和启停状态。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>校验候选流程、提交时确认选定流程、审批推进时恢复流程上下文。</td>
                         </tr>
                         <tr>
-                            <td>10</td><td><span class="table-name">wf_flow_version</span></td>
+                            <td>11</td><td><span class="table-name">wf_flow_version</span></td>
                             <td>流程版本，确定当前生效的流程版本。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>发起时读取 active 版本；审批流转时根据当前节点恢复版本。</td>
                         </tr>
                         <tr>
-                            <td>11</td><td><span class="table-name">wf_flow_node</span></td>
+                            <td>12</td><td><span class="table-name">wf_flow_node</span></td>
                             <td>流程节点，包括开始、审批、自动和结束节点。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>创建初始步骤、定位当前节点、查找下一节点和创建结束步骤。</td>
                         </tr>
                         <tr>
-                            <td>12</td><td><span class="table-name">wf_flow_edge</span></td>
+                            <td>13</td><td><span class="table-name">wf_flow_edge</span></td>
                             <td>流程节点之间的有向连线。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>提交和审批时计算主路径、通过分支、驳回分支及下一节点。</td>
                         </tr>
                         <tr>
-                            <td>13</td><td><span class="table-name">wf_edge_cond_rule</span></td>
+                            <td>14</td><td><span class="table-name">wf_edge_cond_rule</span></td>
                             <td>流程连线条件规则。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>审批过程中存在条件分支时，按处理动作匹配应走的连线。</td>
                         </tr>
                         <tr>
-                            <td>14</td><td><span class="table-name">wf_node_approval_config</span></td>
+                            <td>15</td><td><span class="table-name">wf_node_approval_config</span></td>
                             <td>审批节点策略，如发起人、会签和抢占策略。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>生成审批步骤、判断节点完成条件以及同节点其他待办是否跳过。</td>
                         </tr>
                         <tr>
-                            <td>15</td><td><span class="table-name">wf_node_approval_handler</span></td>
+                            <td>16</td><td><span class="table-name">wf_node_approval_handler</span></td>
                             <td>审批节点处理人配置，可配置具体用户或角色。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>创建待办步骤时，将节点配置解析成具体审批人员。</td>
@@ -1030,19 +1040,19 @@
 
                         <tr class="group-heading"><td colspan="5">C. 用户与角色表（ais_inv_analysis 库）</td></tr>
                         <tr>
-                            <td>16</td><td><span class="table-name">ais_inv_analysis.t_sys_user</span></td>
+                            <td>17</td><td><span class="table-name">ais_inv_analysis.t_sys_user</span></td>
                             <td>系统用户信息。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>审批节点按角色配置时，将角色展开成具体处理人。</td>
                         </tr>
                         <tr>
-                            <td>17</td><td><span class="table-name">ais_inv_analysis.t_sys_role</span></td>
+                            <td>18</td><td><span class="table-name">ais_inv_analysis.t_sys_role</span></td>
                             <td>系统角色及角色层级。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>权限校验以及递归解析审批角色和子角色。</td>
                         </tr>
                         <tr>
-                            <td>18</td><td><span class="table-name">ais_inv_analysis.t_sys_user_role</span></td>
+                            <td>19</td><td><span class="table-name">ais_inv_analysis.t_sys_user_role</span></td>
                             <td>用户与角色关联关系。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>查询发起人的投资池权限；把审批角色展开为具体用户。</td>
@@ -1050,19 +1060,19 @@
 
                         <tr class="group-heading"><td colspan="5">D. 附件与报告表（条件触发）</td></tr>
                         <tr>
-                            <td>19</td><td><span class="table-name">sys_attachment</span> <span class="badge conditional">条件触发</span></td>
+                            <td>20</td><td><span class="table-name">sys_attachment</span> <span class="badge conditional">条件触发</span></td>
                             <td>调库信评报告、其他材料和报告库附件元数据。</td>
                             <td><span class="badge read">查询</span><span class="badge write">新增</span><span class="badge update">更新</span></td>
                             <td>上传附件、引用已有报告附件、修改节点增删附件，以及流程通过后的附件复制。</td>
                         </tr>
                         <tr>
-                            <td>20</td><td><span class="table-name">rrs_report_in</span> <span class="badge conditional">条件触发</span></td>
+                            <td>21</td><td><span class="table-name">rrs_report_in</span> <span class="badge conditional">条件触发</span></td>
                             <td>内部研究报告。</td>
                             <td><span class="badge read">查询</span><span class="badge write">新增</span></td>
                             <td>发起时选择内部报告；审批通过且存在手工上传信评附件时，新增内部报告。</td>
                         </tr>
                         <tr>
-                            <td>21</td><td><span class="table-name">rrs_report_out</span> <span class="badge conditional">条件触发</span></td>
+                            <td>22</td><td><span class="table-name">rrs_report_out</span> <span class="badge conditional">条件触发</span></td>
                             <td>外部研究报告。</td>
                             <td><span class="badge read">查询</span></td>
                             <td>发起调库时打开外部报告列表并选择已有报告附件。</td>
@@ -1121,7 +1131,7 @@
         <section id="notes" class="section">
             <h2 class="section-title">口径与阅读说明</h2>
             <ul class="note-list">
-                <li>完整口径共 21 张表，包含页面查询、发起校验、运行步骤、用户角色、附件和报告；信用债矩阵另读 <code>credit_bond_pool_grade_rule</code> / <code>credit_bond_term_bucket</code>。</li>
+                <li>完整口径共 22 张表，包含页面查询、发起校验、运行步骤、用户角色、附件和报告；信用债矩阵另读 <code>credit_bond_pool_grade_rule</code> / <code>credit_bond_term_bucket</code>。</li>
                 <li>若只关注流程运行与最终落库，核心是 <code>ip_adjust_log</code>、<code>ip_adjust_step</code>、<code>ip_pool_status</code>。</li>
                 <li><code>audit_status</code>：仅审批通过（<code>20</code>）落地池状态；流程中（<code>00</code>）、驳回待修改（<code>11</code>）、审批驳回（<code>21</code>）、已撤回（<code>99</code>）等只改日志/步骤。</li>
                 <li><code>wf_*</code> 表保存流程模板配置，运行过程中主要读取，不写入流程设计数据。</li>
