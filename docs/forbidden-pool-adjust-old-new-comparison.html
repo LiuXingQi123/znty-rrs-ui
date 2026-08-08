@@ -513,10 +513,10 @@ new Vue({
     data() {
         return {
     "title": "主体禁投池 · 禁投池调整新老对比",
-    "desc": "对照老项目主体/禁止池调库与新 RRS「禁投池调整」：Wind 主体选券、固定风险池 15/16/17/23、主体级待处理（pending）、直通/审批落池；仅债券禁止库（15）通过后 syncCompanyBonds 同步旗下未到期债（含 ABS/crmw）。",
+    "desc": "对照老项目主体/禁止池调库与新 RRS「禁投池调整」：Wind 主体选券、固定风险池 15/16/17/23（禁投/观察/黑名单质押/重点观察）、主体级待处理（pending）、直通/审批落池；仅债券禁止库（15）通过后 syncCompanyBonds 同步旗下未到期债（含 ABS/crmw）。页面提供主体/ABS债双 Tab，ABS债走独立链路 [26]（ForbiddenAbsPoolAdjust*，仅 abs_flag=1，目标池限 15/16/17/23）。",
     "metrics": [
         [
-            "3",
+            "4",
             "固定风险池"
         ],
         [
@@ -528,7 +528,7 @@ new Vue({
             "批次前缀"
         ],
         [
-            "2026-07-20",
+            "2026-08-08",
             "分析日期"
         ]
     ],
@@ -543,17 +543,17 @@ new Vue({
     "stepHints": [
         "ODS/Wind 主体维度，非证券码",
         "主体在池 + 旗下债在池一览",
-        "当前固定 poolId 15/16/17",
+        "当前固定 poolId 15/16/17/23",
         "同组阻断、跨组并行，含派生项",
         "锁池、动态复核、影响行数",
-        "调入：未到期非ABS未在池；调出：在池非ABS"
+        "调入：未到期含ABS/crmw未在池；调出：在池含ABS/crmw"
     ],
     "flowTitle": "主体级禁投调库工作流",
     "flowSub": "与证券池单笔同构：校验 → 日志/步骤 → 仅 audit_status=20 落池。差异在对象是发行主体，且通过后自动同步旗下债券并写自动日志。",
-    "alertHtml": "<b>直接结论：</b>主体待处理（pending）、落池保护、报告来源、半年豁免、旗下债同步范围（排除到期与 ABS）已与产品/老系统意图大体对齐。仍须整改：目标池硬编码 ID 15/16/17；冻结缺时间主体链路已阻断；大主体同步会放大事务。",
+    "alertHtml": "<b>直接结论：</b>主体待处理（pending）、落池保护、报告来源、半年豁免、旗下债同步范围（含 ABS/crmw，排除到期）已与产品/老系统意图大体对齐。仍须整改：目标池硬编码 ID 15/16/17/23；冻结缺时间主体链路已阻断；大主体同步会放大事务。页面已支持主体/ABS债双 Tab，ABS债走独立链路 [26]。",
     "issuesSub": "主体链路相对证券链路的特有差异。",
     "checksSub": "主体入出池、同步债券、权限与固定池。",
-    "relatedSub": "需求 15/16/17、ForbiddenPoolAdjust*、禁投体检页。",
+    "relatedSub": "需求 15/16/17/26、ForbiddenPoolAdjust*、禁投体检页。",
     "tables": [
         {
             "title": "一句话结论",
@@ -598,8 +598,13 @@ new Vue({
                 },
                 {
                     "q": "目标池怎么定？",
-                    "a": "当前服务硬编码 poolId=15/16/17（禁止/观察/黑名单语义），环境主键变化会失效。",
+                    "a": "当前服务硬编码 poolId=15/16/17/23（禁止/观察/黑名单质押/重点观察），环境主键变化会失效。",
                     "status": "待整改"
+                },
+                {
+                    "q": "ABS债怎么调？",
+                    "a": "页面主体/ABS债双 Tab；ABS债走独立链路 [26]（ForbiddenAbsPoolAdjust*），仅 abs_flag=1，目标池限 15/16/17/23，批次前缀 BOND，与主体链路同构但不联动旗下债。",
+                    "status": "已对齐"
                 }
             ]
         },
@@ -651,7 +656,7 @@ new Vue({
                     "concept": "旗下债同步",
                     "oldTable": "adjustBondByCompanyCode 等",
                     "newTable": "syncCompanyBonds + 自动日志",
-                    "note": "排除 ABS/到期；失败整批回滚"
+                    "note": "含 ABS/crmw，排除到期；失败整批回滚"
                 },
                 {
                     "concept": "步骤与审批",
@@ -690,7 +695,7 @@ new Vue({
                 {
                     "dim": "风险池定位",
                     "oldScope": "配置/固定禁止池 ID",
-                    "newScope": "代码写死 15/16/17",
+                    "newScope": "代码写死 15/16/17/23（禁投/观察/黑名单质押/重点观察）",
                     "status": "固定ID风险"
                 },
                 {
@@ -708,14 +713,20 @@ new Vue({
                 {
                     "dim": "冻结期",
                     "oldScope": "入池时间+冻结天",
-                    "newScope": "entry 回退 audit/crte；全缺则跳过",
-                    "status": "待整改"
+                    "newScope": "entry 回退 audit/crte；全缺则阻断",
+                    "status": "已修复"
                 },
                 {
                     "dim": "证券池主体同步",
                     "oldScope": "证券池 stype=250 也可同步",
                     "newScope": "仅禁投/主体链路有 syncCompanyBonds",
                     "status": "范围收窄"
+                },
+                {
+                    "dim": "ABS债独立链路",
+                    "oldScope": "主体与债券混在一起调",
+                    "newScope": "双 Tab：主体走 ForbiddenPoolAdjust*；ABS债走独立 [26] ForbiddenAbsPoolAdjust*，仅 abs_flag=1",
+                    "status": "已对齐"
                 }
             ]
         }
@@ -723,7 +734,7 @@ new Vue({
     "findings": [
         {
             "level": "P1",
-            "title": "目标池依赖固定 ID 15/16/17",
+            "title": "目标池依赖固定 ID 15/16/17/23",
             "desc": "环境迁移或演示数据主键变化会导致查不到或误选风险池；我的事宜场景识别也依赖相同 ID。",
             "suggestion": "改用稳定 poolCode、poolType 或配置项定位。"
         },
@@ -761,7 +772,7 @@ new Vue({
         },
         {
             "scene": "固定池环境",
-            "expected": "改演示主键后仍能选对禁止/观察/黑名单（当前会失败则验证问题存在）。"
+            "expected": "改演示主键后仍能选对禁止/观察/黑名单质押/重点观察（当前会失败则验证问题存在）。"
         },
         {
             "scene": "报告校验",
@@ -771,7 +782,9 @@ new Vue({
     "sources": [
         "requirements/15-forbidden-pool-adjust.md",
         "requirements/16、17 审批与详情",
+        "requirements/26 ABS禁投池独立链路",
         "ForbiddenPoolAdjustController/Service/Mapper",
+        "ForbiddenAbsPoolAdjustController/Service/Mapper",
         "docs/forbidden-pool-link-audit.html",
         "docs/forbidden-pool-adjust-tables.html"
     ],

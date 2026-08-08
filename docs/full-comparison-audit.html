@@ -167,7 +167,7 @@ new Vue({
         return {
             title: '新老系统调库全量对比',
             desc: '老项目 Sinitek SIRM 与新项目 znty-rrs 证券池调库的架构、校验、流程判断、提交落地、审批流转的逐条全量对比。新系统校验和提交分开（checkAdjust 预览 + submitAdjustLog 落地），老系统两次校验同方法。',
-            metrics: [['7张', '对比表'], ['25+14', '调入校验'], ['12+9', '调出校验'], ['11项', '缺失差异']],
+            metrics: [['7张', '对比表'], ['25+14', '调入校验'], ['12+9', '调出校验'], ['13项', '缺失差异']],
             tables: [
                 {
                     title: '架构差异对比',
@@ -176,7 +176,7 @@ new Vue({
                     rows: [
                         { dim: '校验架构', old: 'securityResult 预览(type=1) + addAdjustLog 再校验(type=8)，同一方法跑两遍', now: 'checkAdjust 预览(只读) + submitAdjustLog 落地(不重跑结构校验)', status: '⚠️ 差异' },
                         { dim: '流程候选', old: 'addAdjustLog 内根据规则选流程(workflowType/whiteWorkFlow/simpleWorkFlow)', now: 'checkAdjust 返回 flowOptions，前端选定后回传 flowId/flowKey/flowType', status: '🆕 优化' },
-                        { dim: '直通判断', old: 'getWfModeId()==0/null -> approveStatus=100', now: 'isDirectFlow：遍历 start 出边是否全直达 end 或经 initiator 节点到 end', status: '⚠️ 差异' },
+                        { dim: '直通判断', old: 'getWfModeId()==0/null -> approveStatus=100', now: 'isDirectFlow：沿主路径仅经 start/end/auto 节点、initiator 及 approval_strategy=auto 审批节点即可到 end（含发起人->多层 auto->结束）；存在 preempt/all 人工审批则非直通', status: '⚠️ 差异' },
                         { dim: '落地路径', old: 'A 批量简易 / B 单条债券 + LimitAction', now: '直通与最终审批统一锁池、整批动态复核，再集中写入状态', status: '🆕 优化' },
                         { dim: '审批流转', old: 'IWorkflowAction 异步回调(InvestPoolApproveAction/BondAction)', now: 'FlowService 同步自驱(submitAdjustAudit -> processAdjustAudit -> advanceToNextAvailableStep)', status: '🆕 优化' },
                         { dim: '节点语义', old: 'StepStage.key 数字(32=O32)', now: 'approval_strategy(o32/initiator/preempt/all)', status: '✅ 已对齐' },
@@ -239,7 +239,7 @@ new Vue({
                 },
                 {
                     title: '流程判断对比',
-                    sub: '老系统 workflowType(1/2/3) + whiteWorkFlow + simpleWorkFlow vs 新系统 FlowType(7种)。',
+                    sub: '老系统 workflowType(1/2/3) + whiteWorkFlow + simpleWorkFlow vs 新系统 FlowType(9种，含 BATCH_INBOUND/OUTBOUND；批量不再回填专用流程，透传单笔 checkAdjust 候选)。',
                     columns: [['dim','维度',130],['old','老系统',320],['now','新系统',320],['status','差异',100]],
                     rows: [
                         { dim: '升库', old: 'workflowType=3 + BOND_UPPOOL_WORKFLOWID', now: 'UPGRADE_INBOUND + bond:standard-upgrade', status: '✅ 已对齐' },
@@ -264,7 +264,7 @@ new Vue({
                         { dim: '直通落地', old: 'approveStatus=100 + saveInvestPoolStatus', now: '锁池并按最终审批口径动态复核后，audit_status=20并落池', status: '✅ 已补强' },
                         { dim: '非直通', old: 'approveStatus=10 + startProcess', now: 'audit_status=00 + createInitialSteps', status: '✅ 已对齐' },
                         { dim: '评级联动', old: 'inquestInvestPoolByAccordMaingrade(adjustType=15) 跳过校验', now: 'redirectPoolId 改判（校验矩阵允许范围）', status: '✅ 优化替代' },
-                        { dim: '主体同步', old: 'adjustBondByCompanyCode(stype==250)', now: '无（禁投池链路 syncCompanyBonds 替代）', status: '✅ 优化替代' },
+                        { dim: '主体同步', old: 'adjustBondByCompanyCode(stype==250)', now: '禁投池主体级[15/16/17/23] + ABS债级独立链路[26](仅abs_flag=1)；仅债券禁止库(pool 15) syncCompanyBonds 同步旗下未到期债(含ABS/crmw)，其它风险池只落主体', status: '✅ 优化替代' },
                         { dim: '一起调整', old: 'adjustBondByShowLogId(togetherBond)', now: '无', status: '❌ 未实现' },
                         { dim: '联动级联', old: 'autoInAdjust/autoOutAdjust 落地后二次扫描', now: '无（前移到 checkAdjust 生成自动项）', status: '⚠️ 无兜底' },
                         { dim: '附件转报告', old: 'saveReportByAttachment', now: 'generateInternalReportsOnFinish', status: '✅ 已对齐' },
@@ -308,18 +308,20 @@ new Vue({
                 { level: 'P2', cat: '已补强', title: '半年历史报告豁免已校验真实附件', desc: '只有同主体最近6个月审批通过调入且日志真实关联未删除合法信评报告时才允许豁免。', suggestion: '继续覆盖无附件、已删除和分类错误附件测试' },
                 { level: 'P2', cat: '未迁移', title: '自定义文档(>100)', desc: '老项目 rschDocMode>100 反射加载 IDocCheckRule 自定义校验，新项目无。', suggestion: '低价值，按需补迁' },
                 { level: 'P2', cat: '骨架未生效', title: '白名单流程条件4未接查询', desc: 'WHITELIST_POOL_IDS 常量空集写死，条件4(主体在白名单池)永远不命中。5条件逻辑已写好。', suggestion: '配 WHITELIST_POOL_IDS + 补 queryIssuerInWhitelistPools 查询' },
-                { level: 'P2', cat: '已实现', title: '简易评级下调三标志已接入真实查询', desc: '三标志由 RatingDowngradeChecker 查 wind_cbondissuerrating 真实判定（主体评级比较当前与前次、展望读 rating_outlook、担保人按前端选中代码查 wind）。第5条件已生效。', suggestion: '已完成，可补测试覆盖' },
+                { level: 'P2', cat: '部分实现', title: '简易流程条件4已生效、条件5暂注释', desc: 'RatingDowngradeChecker 已接入（主体评级比较当前与前次、展望读 rating_outlook、担保人按前端选中代码查 wind），评级取值在 shared 中计算保留；条件4（180天内非简易入过目标池，出库软删仍计）已生效；条件5（评级下调阻断）当前暂时注释，不参与判定。', suggestion: '确认条件5是否需要启用；启用前补评级下调场景测试' },
                 { level: 'P2', cat: '未实现', title: '终止流程(150)', desc: '老项目 killWorkFlow -> approveStatus=150，新项目无 150 状态。', suggestion: '确认是否需要终止流程' },
                 { level: 'P2', cat: '未实现', title: '产品库升降库', desc: '老项目 workflowTypePro + BOND_UPPOOL/DOWNPOOL_WORKFLOWID，新项目产品池走 NORMAL_INBOUND。', suggestion: '确认产品库是否需要升降级' },
-                { level: 'P2', cat: '已实现', title: '批量整批事务与专用流程已接通', desc: '批量请求任一异常整体回滚；手工项使用目标池batchIn/batchOut流程，未配置时受保护地直通。', suggestion: '用真实批量规模压测事务时长和锁持有时间' },
+                { level: 'P2', cat: '已实现', title: '批量整批事务已接通（流程与单券统一）', desc: '批量请求任一异常整体回滚；checkAdjust 逐券委托单笔 SecurityPoolAdjustService，流程候选直接透传单笔结果（白名单/简易/默认/特殊/升降级），不再回填 batchIn/batchOut 专用流程。', suggestion: '用真实批量规模压测事务时长和锁持有时间' },
+                { level: 'P2', cat: '已实现', title: '调库证券信息快照独立留存', desc: '提交落地时按调库日志写入 ip_adjust_security_snapshot（CRMW 链路为 _crmw），留存调库时点证券信息（含「含权期限说明」等字段，原行权剩余期限口径统一），不修改 rrs_securityinfo 主表。', suggestion: '覆盖快照回读与详情页展示测试' },
+                { level: 'P2', cat: '已对齐', title: '证券池查询/历史仅排除 crmw', desc: 'SecurityPoolQueryMapper/History 仅排除 security_type=crmw（CRMW 走独立链路查询），不再排除 company 主体类证券。', suggestion: '确认 company 出现在证券池查询结果中符合业务预期' },
                 { level: 'P2', cat: '未实现', title: '一起调整 togetherBond', desc: '老项目 adjustBondByShowLogId 关联债券联动，新项目无。', suggestion: '按需评估' },
             ],
             sources: [
                 '老项目 InvestPoolAdjustManageAction(querySecurity/securityResult/addAdjustLog)',
                 '老项目 AdjustCheckRuleResult(checkBasisAndProductInPool:1154/checkOutPool:102)',
                 '老项目 InvestPoolNewServiceImpl(checkWhiteWorkFlow:261/checkSimpleWorkFlow:298)',
-                '新项目 SecurityPoolAdjustService(checkAdjust:1078/submitAdjustLog:391/checkCommonIn:1941/checkCommonOut:2310)',
-                '新项目 SecurityPoolAdjustFlowService(submitAdjustAudit:114/advanceToNextAvailableStep:371/finishAdjustBatch:436)',
+                '新项目 SecurityPoolAdjustService(checkAdjust:1560/submitAdjustLog:676/checkCommonIn:2498/checkCommonOut:3001)',
+                '新项目 SecurityPoolAdjustFlowService(submitAdjustAudit:114/advanceToNextAvailableStep:404/finishAdjustBatch:469)',
                 '新项目 FlowType/AuditStatus/ApprovalStrategy 枚举',
             ],
             related: [

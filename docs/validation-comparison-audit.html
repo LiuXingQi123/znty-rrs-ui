@@ -477,12 +477,12 @@ new Vue({
     data() {
         return {
             title: '调库校验新旧对比',
-            desc: '老项目 Sinitek SIRM 与新项目 znty-rrs 三链路调库校验、落地、回滚、数据模型的逐条对比，迁移与改造前必查。',
+            desc: '老项目 Sinitek SIRM 与新项目 znty-rrs 四链路调库校验、落地、回滚、数据模型的逐条对比，迁移与改造前必查。',
             metrics: [
                 ['23', '调入校验规则'],
                 ['12', '调出校验规则'],
                 ['11', '隐患与差异'],
-                ['5+9+7', '架构/环节/模型'],
+                ['5+8+7', '架构/环节/模型'],
             ],
             tables: [
                 {
@@ -545,7 +545,7 @@ new Vue({
                         { dim: '审批落地', old: 'IWorkflowAction 异步回调(InvestPoolApproveAction/BondAction/WorkflowActionImpl)，2条落地路径(A批量简易/B单条债券)', new: 'FlowService submitAdjustAudit 同步自驱 -> processAdjustAudit -> advanceToNextAvailableStep -> finishAdjustBatch(单一落地路径)' },
                         { dim: '撤回/终止', old: '终止150/撤回350/驳回50 各自 IWorkflowActionImpl 回调，不恢复池状态(依赖时序)', new: '撤回=提交人在驳回待修改节点 REJECT->REVOKED(99)；驳回->REJECTED(21)/REJECT_MODIFY(11)。均不落地（待处理（pending）未落地），无池状态需恢复，老项目隐患在新项目不存在' },
                         { dim: '状态码', old: 'approveStatus -1/10/50/100/150/350', new: 'AuditStatus -1/00/11/20/21/32(预留)/99。仅 20 落地' },
-                        { dim: '直通 vs 审批', old: 'wfModeIn/Out=0 -> approveStatus=100 直通(提交即落地)；非0 -> 10 待审', new: 'isDirectFlow(start->发起人自动->end) -> audit_status=20 提交（submit）即落地；非直通 -> 00 待审，审批通过 finishAdjustBatch 落地' },
+                        { dim: '直通 vs 审批', old: 'wfModeIn/Out=0 -> approveStatus=100 直通(提交即落地)；非0 -> 10 待审', new: 'isDirectFlow(start->发起人->(可多层auto/auto审批策略)->end) -> audit_status=20 提交（submit）即落地；非直通 -> 00 待审，审批通过 finishAdjustBatch 落地' },
                     ],
                 },
                 {
@@ -583,7 +583,7 @@ new Vue({
                 { level: 'P2', title: '弹性限制池语义已对齐', desc: 'inCheckElasticPool/outCheckElasticPool 改为警告放行(warnings不阻断，canAdjust=true)，对齐老项目 code=2。前端四页同步展示黄色警告状态点。', suggestion: '已完成，可补测试覆盖' },
                 { level: 'P1', title: 'outCheckMutexConflict 用 IN_MUTEX', desc: '用 IN_MUTEX(非 OUT_MUTEX)，语义可能混淆，需核对老项目意图(老项目互斥靠调用方遍历，无独立 outCheckMutexConflict)。', suggestion: '核对互斥方向语义，确认应使用 OUT_MUTEX' },
                 { level: 'P1', title: 'inCheckIndustry 名称vs编码错配', desc: 'pool.industryCode 存名称与 sec.industryName 精确匹配，老项目编码前缀层级匹配。', suggestion: '统一为编码层级匹配，或字段语义重命名' },
-                { level: 'P2', title: '4链路代码大量重复(~3400行×4)', desc: '改一处需同步四处，易漂移。如 inCheckMainGradeRule/inCheckFundRate 由 Security/Batch/ForbiddenAbs 实现；主体级 Forbidden 与 CRMW 对象非信用债不消费。', suggestion: '抽取公共校验基类或共享方法' },
+                { level: 'P2', title: '4链路代码大量重复(~3400行×4)', desc: '改一处需同步多处，易漂移。如 inCheckMainGradeRule/inCheckFundRate 在 Security/ForbiddenAbs 各有实现（Batch 已委托单券 SecurityPoolAdjustService.checkAdjust，不再独立复制）；主体级 Forbidden 与 CRMW 对象非信用债不消费。', suggestion: '抽取公共校验基类或共享方法' },
                 { level: 'P2', title: '观察池跳过逻辑已补全', desc: 'inCheckMainGradeRule 观察池命中(securityInObservePool/issuerInObservePool)时跳过主体债入库规则矩阵，对齐老项目 ASTRICTPOOLS->openrule=1。', suggestion: '已完成，可补测试覆盖' },
                 { level: 'P2', title: '评级下调三标志已接入真实查询', desc: '三标志由 RatingDowngradeChecker 查 wind_cbondissuerrating 真实判定（主体评级比较当前与前次、展望读 rating_outlook、担保人按前端选中代码查 wind）。第⑤条件已生效。', suggestion: '已完成，可补测试覆盖' },
                 { level: 'P2', title: 'AuditStatus 缺10', desc: '枚举仅7个code(无10审核通过待审批)，SUBMITTED("00")合并承担，与 CLAUDE.md/README 约定8个code不符。', suggestion: '核对状态枚举口径，补齐或更新文档' },
