@@ -791,3 +791,40 @@ const DICT_MY_SECURITY_STATUS = {
     'use': '关注中',
     'del': '已移除',
 };
+
+// ════════════════════════════════════════════════════════════
+// 八、定时任务管理
+// ════════════════════════════════════════════════════════════
+
+// ── 57. 定时任务触发方式（trigger_type / last_trigger_type）──
+// 枚举：ScheduleTriggerType
+// 表：sys_scheduled_task, sys_scheduled_task_run_log
+const DICT_SCHEDULE_TRIGGER_TYPE = {
+    'manual': '手动',
+    'cron': '定时',
+};
+
+const DICT_SCHEDULE_TRIGGER_TYPE_TAG = {
+    'manual': 'warning',
+    'cron': '',
+};
+
+// ── 58. 定时任务执行状态（run_status / last_run_status）────
+// 枚举：ScheduleRunStatus
+// 表：sys_scheduled_task, sys_scheduled_task_run_log
+const DICT_SCHEDULE_RUN_STATUS = {
+    'success': '成功',
+    'fail': '失败',
+};
+
+const DICT_SCHEDULE_RUN_STATUS_TAG = {
+    'success': 'success',
+    'fail': 'danger',
+};
+
+// ── 59. 定时调度启停（schedule_enabled）───────────────────
+// 表：sys_scheduled_task.schedule_enabled
+const DICT_SCHEDULE_ENABLED = {
+    1: '已启用',
+    0: '已关闭',
+};

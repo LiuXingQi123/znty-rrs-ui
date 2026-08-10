@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>定时任务管理</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <link rel="stylesheet" href="../css/scheduled_task.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="scheduled-task-page">
+<div id="scheduled_task" v-cloak>
+    <!-- ── 顶栏 ── -->
+    <header class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon">
+                <i class="el-icon-timer"></i>
+            </div>
+            <h2>定时任务管理</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta">
+            <span class="topbar-date-badge">{{ currentDateText }}</span>
+        </div>
+    </header>
+
+    <!-- ── 列表主体 ── -->
+    <div class="list-body">
+        <!-- 搜索面板 -->
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+                <el-input
+                    v-model.trim="queryParam.keyword"
+                    size="small"
+                    clearable
+                    maxlength="64"
+                    placeholder="任务名称 / 编码"
+                    style="width: 220px;"
+                    @keyup.enter.native="handleSearch">
+                </el-input>
+                <el-select
+                    v-model="queryParam.enabledFilter"
+                    size="small"
+                    clearable
+                    placeholder="调度状态"
+                    style="width: 140px;">
+                    <el-option label="已启用" value="1"></el-option>
+                    <el-option label="已关闭" value="0"></el-option>
+                </el-select>
+                <el-button size="small" type="primary" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <div class="total-badge">
+                    <i class="el-icon-data-line"></i> 共 {{ filteredList.length }} 个任务
+                </div>
+            </div>
+        </div>
+
+        <!-- 表格卡片 -->
+        <div class="table-card">
+            <el-table
+                ref="taskTableRef"
+                :data="filteredList"
+                v-loading="loading"
+                border
+                stripe
+                size="small"
+                empty-text="暂无定时任务"
+                style="width:100%;">
+                <el-table-column label="序号" width="50" align="center" type="index"></el-table-column>
+                <el-table-column label="任务名称" width="150" show-overflow-tooltip>
+                    <template slot-scope="{ row }">{{ row.taskName }}</template>
+                </el-table-column>
+                <el-table-column label="任务编码" width="190" show-overflow-tooltip>
+                    <template slot-scope="{ row }">
+                        <span class="code-text">{{ row.taskCode }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="说明" min-width="160" show-overflow-tooltip>
+                    <template slot-scope="{ row }">{{ row.description }}</template>
+                </el-table-column>
+                <el-table-column label="Cron" width="120" align="center" show-overflow-tooltip>
+                    <template slot-scope="{ row }">
+                        <span class="cron-text">{{ row.cronExpression }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="定时调度" width="90" align="center">
+                    <template slot-scope="{ row }">
+                        <el-switch
+                            :value="row.scheduleEnabled"
+                            :disabled="!row.codeRegistered || row._switching"
+                            active-color="#2743A4"
+                            @change="handleToggleEnabled(row, $event)">
+                        </el-switch>
+                    </template>
+                </el-table-column>
+                <el-table-column label="最近执行" width="220" align="center">
+                    <template slot-scope="{ row }">
+                        <div v-if="row.lastRunTime" class="last-run-cell">
+                            <el-tag
+                                v-if="row.lastRunStatus"
+                                size="mini"
+                                :type="runStatusTagType(row.lastRunStatus)">
+                                {{ runStatusLabel(row.lastRunStatus) }}
+                            </el-tag>
+                            <span class="last-run-time">{{ datetimeText(row.lastRunTime) }}</span>
+                        </div>
+                    </template>
+                </el-table-column>
+                <el-table-column label="最近结果" min-width="140" show-overflow-tooltip>
+                    <template slot-scope="{ row }">{{ row.lastRunMessage }}</template>
+                </el-table-column>
+                <el-table-column label="操作" width="200" align="center">
+                    <template slot-scope="{ row }">
+                        <div class="op-buttons">
+                            <el-button
+                                class="row-action-btn"
+                                type="primary"
+                                size="mini"
+                                plain
+                                :disabled="!row.codeRegistered"
+                                :loading="row._running"
+                                @click="handleExecute(row)">
+                                执行
+                            </el-button>
+                            <el-button
+                                class="row-action-btn"
+                                type="primary"
+                                size="mini"
+                                plain
+                                @click="openConfigDialog(row)">
+                                配置
+                            </el-button>
+                            <el-button
+                                class="row-action-btn"
+                                size="mini"
+                                plain
+                                @click="openLogDialog(row)">
+                                历史
+                            </el-button>
+                        </div>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </div>
+    </div>
+
+    <!-- ── 配置弹窗 ── -->
+    <el-dialog
+        :visible.sync="configVisible"
+        width="50%"
+        custom-class="scheduled-task-config-dialog"
+        :append-to-body="false"
+        :close-on-click-modal="false"
+        @closed="resetConfigForm">
+        <div slot="title" class="cfg-dialog-title">
+            <span class="cfg-dialog-title-icon"><i class="el-icon-setting"></i></span>
+            <div class="cfg-dialog-title-main">
+                <div class="cfg-dialog-title-text">任务配置</div>
+                <div class="cfg-dialog-title-sub">
+                    编码 <span class="code-text">{{ configForm.taskCode }}</span>
+                    <span class="cfg-title-dot">·</span>
+                    保存后即时生效
+                </div>
+            </div>
+        </div>
+        <el-form
+            ref="configFormRef"
+            class="cfg-form"
+            :model="configForm"
+            :rules="configRules"
+            label-width="96px"
+            size="small"
+            label-position="right">
+            <div class="cfg-card">
+                <div class="cfg-card-title">基本信息</div>
+                <el-form-item label="任务名称" prop="taskName">
+                    <el-input
+                        v-model.trim="configForm.taskName"
+                        maxlength="128"
+                        show-word-limit
+                        placeholder="请输入任务名称">
+                    </el-input>
+                </el-form-item>
+                <el-form-item label="任务说明" prop="description">
+                    <el-input
+                        v-model="configForm.description"
+                        type="textarea"
+                        :rows="3"
+                        maxlength="500"
+                        show-word-limit
+                        placeholder="请输入任务说明，支持多行">
+                    </el-input>
+                </el-form-item>
+            </div>
+            <div class="cfg-card">
+                <div class="cfg-card-title">调度设置</div>
+                <el-form-item label="启用调度" prop="scheduleEnabled">
+                    <div class="cfg-switch-row">
+                        <el-switch v-model="configForm.scheduleEnabled" active-color="#2743A4"></el-switch>
+                        <span class="cfg-switch-hint">{{ configForm.scheduleEnabled ? '按 Cron 自动执行' : '仅可手动执行' }}</span>
+                    </div>
+                </el-form-item>
+                <el-form-item label="Cron" prop="cronExpression">
+                    <el-input
+                        v-model.trim="configForm.cronExpression"
+                        placeholder="如 0 0 2 * * ?"
+                        maxlength="64"
+                        clearable>
+                    </el-input>
+                    <div class="cfg-preset-row">
+                        <span class="cfg-preset-label">常用：</span>
+                        <button
+                            v-for="item in cronPresets"
+                            :key="item.cron"
+                            type="button"
+                            class="cfg-preset-chip"
+                            :class="{ active: configForm.cronExpression === item.cron }"
+                            @click="applyCronPreset(item.cron)">
+                            {{ item.label }}
+                        </button>
+                    </div>
+                    <div v-if="isAdmin" class="cfg-help">
+                        <div class="cfg-help-title">配置说明</div>
+                        <ul class="cfg-help-list">
+                            <li>采用 <b>Spring 6 位</b> 表达式：<code>秒 分 时 日 月 周</code></li>
+                            <li>示例：每天凌晨 2 点 <code>0 0 2 * * ?</code>；每 30 分钟 <code>0 0/30 * * * ?</code></li>
+                            <li><code>*</code> 表示任意；<code>?</code> 仅用于「日」或「周」占位（二者互斥）</li>
+                            <li><code>0/n</code> 表示从 0 开始每隔 n 单位执行一次</li>
+                            <li>关闭「启用调度」后不会按 Cron 跑，仍可在列表中手动执行</li>
+                        </ul>
+                    </div>
+                </el-form-item>
+                <el-form-item label="扩展参数" prop="paramJson">
+                    <el-input
+                        v-model="configForm.paramJson"
+                        type="textarea"
+                        :rows="3"
+                        maxlength="1000"
+                        show-word-limit
+                        placeholder="无则留空；支持多行。主体下新债示例：15-15 或 15-15,16-100（主体池ID-目标池ID）">
+                    </el-input>
+                </el-form-item>
+            </div>
+        </el-form>
+        <span slot="footer" class="cfg-dialog-footer">
+            <el-button size="small" @click="configVisible = false">取消</el-button>
+            <el-button size="small" type="primary" :loading="configSaving" @click="submitConfig">保存</el-button>
+        </span>
+    </el-dialog>
+
+    <!-- ── 执行历史弹窗 ── -->
+    <el-dialog
+        :title="logDialogTitle"
+        :visible.sync="logVisible"
+        width="900px"
+        :append-to-body="false"
+        :close-on-click-modal="false">
+        <el-table
+            :data="logList"
+            v-loading="logLoading"
+            border
+            stripe
+            size="small"
+            empty-text="暂无执行记录"
+            max-height="420"
+            style="width:100%;">
+            <el-table-column label="序号" width="50" align="center" type="index"></el-table-column>
+            <el-table-column label="开始时间" width="150" align="center">
+                <template slot-scope="{ row }">{{ datetimeText(row.startTime) }}</template>
+            </el-table-column>
+            <el-table-column label="触发" width="80" align="center">
+                <template slot-scope="{ row }">
+                    <el-tag v-if="row.triggerType" size="mini" :type="triggerTagType(row.triggerType)">
+                        {{ triggerLabel(row.triggerType) }}
+                    </el-tag>
+                </template>
+            </el-table-column>
+            <el-table-column label="状态" width="80" align="center">
+                <template slot-scope="{ row }">
+                    <el-tag v-if="row.runStatus" size="mini" :type="runStatusTagType(row.runStatus)">
+                        {{ runStatusLabel(row.runStatus) }}
+                    </el-tag>
+                </template>
+            </el-table-column>
+            <el-table-column label="影响条数" width="90" align="center">
+                <template slot-scope="{ row }">{{ row.affectedCount != null ? row.affectedCount : '' }}</template>
+            </el-table-column>
+            <el-table-column label="耗时(ms)" width="90" align="center">
+                <template slot-scope="{ row }">{{ row.durationMs != null ? row.durationMs : '' }}</template>
+            </el-table-column>
+            <el-table-column label="操作人" width="100" show-overflow-tooltip>
+                <template slot-scope="{ row }">{{ row.operatorName }}</template>
+            </el-table-column>
+            <el-table-column label="结果" min-width="180" show-overflow-tooltip>
+                <template slot-scope="{ row }">{{ row.message }}</template>
+            </el-table-column>
+        </el-table>
+        <div class="pagination-wrap">
+            <el-pagination
+                small
+                layout="total, prev, pager, next"
+                :current-page="logPagination.pageIndex"
+                :page-size="logPagination.pageSize"
+                :total="logPagination.total"
+                @current-change="handleLogPageChange">
+            </el-pagination>
+        </div>
+    </el-dialog>
+</div>
+
+<script>
+new Vue({
+    el: '#scheduled_task',
+    data() {
+        return {
+            loading: false,           // 列表加载状态
+            configSaving: false,      // 配置保存中
+            configVisible: false,     // 配置弹窗
+            logVisible: false,        // 历史弹窗
+            logLoading: false,        // 历史加载状态
+            taskList: [],             // 任务列表
+            loginUser: null,          // 当前登录用户
+            queryParam: {
+                keyword: '',          // 名称/编码关键字
+                enabledFilter: ''     // 调度状态：1 启用 / 0 关闭
+            },
+            configForm: {
+                taskCode: '',
+                taskName: '',
+                description: '',
+                cronExpression: '',
+                scheduleEnabled: false,
+                paramJson: ''
+            },
+            // 常用 Cron 快捷选项（Spring 6 位）
+            cronPresets: [
+                { label: '每天 00:00', cron: '0 0 0 * * ?' },
+                { label: '每天 01:00', cron: '0 0 1 * * ?' },
+                { label: '每天 02:00', cron: '0 0 2 * * ?' },
+                { label: '每天 03:00', cron: '0 0 3 * * ?' },
+                { label: '每天 06:00', cron: '0 0 6 * * ?' },
+                { label: '每小时', cron: '0 0 * * * ?' },
+                { label: '每 30 分钟', cron: '0 0/30 * * * ?' }
+            ],
+            configRules: {
+                taskName: [
+                    { required: true, message: '请输入任务名称', trigger: 'blur' }
+                ],
+                cronExpression: [
+                    { required: true, message: '请填写 Cron 表达式', trigger: 'blur' }
+                ]
+            },
+            logTaskCode: '',          // 历史弹窗当前任务编码
+            logTaskName: '',          // 历史弹窗标题用名称
+            logList: [],              // 执行历史列表
+            logPagination: {
+                pageIndex: 1,         // 历史页码
+                pageSize: 10,         // 历史每页条数
+                total: 0              // 历史总条数
+            },
+            // 执行状态字典（与后端 ScheduleRunStatus 对齐）
+            runStatusDict: {
+                success: '成功',
+                fail: '失败'
+            },
+            runStatusTagDict: {
+                success: 'success',
+                fail: 'danger'
+            },
+            // 触发方式字典（与后端 ScheduleTriggerType 对齐）
+            triggerDict: {
+                manual: '手动',
+                cron: '定时'
+            },
+            triggerTagDict: {
+                manual: 'warning',
+                cron: ''
+            }
+        }
+    },
+    computed: {
+        // 顶栏日期
+        currentDateText() {
+            return moment().format('YYYY年MM月DD日')
+        },
+        // 前端筛选后的列表
+        filteredList() {
+            let list = this.taskList || []
+            if (this.queryParam.keyword) {
+                const kw = this.queryParam.keyword.toLowerCase()
+                list = list.filter(item => {
+                    const name = (item.taskName || '').toLowerCase()
+                    const code = (item.taskCode || '').toLowerCase()
+                    return name.indexOf(kw) >= 0 || code.indexOf(kw) >= 0
+                })
+            }
+            if (this.queryParam.enabledFilter === '1') {
+                list = list.filter(item => !!item.scheduleEnabled)
+            } else if (this.queryParam.enabledFilter === '0') {
+                list = list.filter(item => !item.scheduleEnabled)
+            }
+            return list
+        },
+        // 历史弹窗标题
+        logDialogTitle() {
+            return this.logTaskName ? ('执行历史 - ' + this.logTaskName) : '执行历史'
+        },
+        // 是否管理员（userId=1，与全站约定一致；配置说明仅管理员可见）
+        isAdmin() {
+            return this.loginUser && String(this.loginUser.userId) === '1'
+        }
+    },
+    created() {
+        this.loginUser = (window.RrsAuth && window.RrsAuth.getCurrentUser)
+            ? window.RrsAuth.getCurrentUser()
+            : { userId: '1', userName: '管理员' }
+        this.loadTaskList()
+    },
+    methods: {
+        // 加载任务列表
+        async loadTaskList() {
+            this.loading = true
+            try {
+                const data = await this.apiPost('/api/v1/scheduledTask/queryTaskList', {})
+                this.taskList = (data || []).map(item => {
+                    this.$set(item, '_running', false)
+                    this.$set(item, '_switching', false)
+                    return item
+                })
+            } catch (e) {
+                this.$message.error((e && e.message) || '加载任务列表失败')
+            } finally {
+                this.loading = false
+            }
+        },
+
+        // 查询（前端过滤，computed 生效）
+        handleSearch() {
+            // 无需请求，筛选由 filteredList 完成
+        },
+
+        // 重置筛选
+        handleReset() {
+            this.queryParam = {
+                keyword: '',
+                enabledFilter: ''
+            }
+        },
+
+        // 打开配置弹窗
+        openConfigDialog(row) {
+            this.configForm = {
+                taskCode: row.taskCode,
+                taskName: row.taskName || '',
+                description: row.description || '',
+                cronExpression: row.cronExpression || '',
+                scheduleEnabled: !!row.scheduleEnabled,
+                paramJson: row.paramJson || ''
+            }
+            this.configVisible = true
+            this.$nextTick(() => {
+                if (this.$refs.configFormRef) {
+                    this.$refs.configFormRef.clearValidate()
+                }
+            })
+        },
+
+        // 应用常用 Cron 预设
+        applyCronPreset(cron) {
+            this.configForm.cronExpression = cron
+            this.$nextTick(() => {
+                if (this.$refs.configFormRef) {
+                    this.$refs.configFormRef.validateField('cronExpression')
+                }
+            })
+        },
+
+        // 配置弹窗关闭复位
+        resetConfigForm() {
+            this.configSaving = false
+        },
+
+        // 提交任务配置
+        submitConfig() {
+            this.$refs.configFormRef.validate(async valid => {
+                if (!valid) {
+                    return
+                }
+                this.configSaving = true
+                try {
+                    await this.apiPost('/api/v1/scheduledTask/editTaskConfig', {
+                        taskCode: this.configForm.taskCode,
+                        taskName: this.configForm.taskName,
+                        description: this.configForm.description,
+                        cronExpression: this.configForm.cronExpression,
+                        scheduleEnabled: this.configForm.scheduleEnabled,
+                        paramJson: this.configForm.paramJson,
+                        operatorId: this.loginUser.userId,
+                        operatorName: this.loginUser.userName
+                    })
+                    this.$message.success('配置已保存，调度已更新')
+                    this.configVisible = false
+                    await this.loadTaskList()
+                } catch (e) {
+                    this.$message.error((e && e.message) || '保存失败')
+                } finally {
+                    this.configSaving = false
+                }
+            })
+        },
+
+        // 切换定时调度开关
+        async handleToggleEnabled(row, enabled) {
+            this.$set(row, '_switching', true)
+            try {
+                await this.apiPost('/api/v1/scheduledTask/editTaskConfig', {
+                    taskCode: row.taskCode,
+                    taskName: row.taskName,
+                    description: row.description,
+                    cronExpression: row.cronExpression,
+                    scheduleEnabled: enabled,
+                    paramJson: row.paramJson,
+                    operatorId: this.loginUser.userId,
+                    operatorName: this.loginUser.userName
+                })
+                this.$message.success(enabled ? '已启用定时调度' : '已关闭定时调度')
+                await this.loadTaskList()
+            } catch (e) {
+                this.$message.error((e && e.message) || '更新失败')
+                await this.loadTaskList()
+            } finally {
+                this.$set(row, '_switching', false)
+            }
+        },
+
+        // 立即执行任务
+        async handleExecute(row) {
+            try {
+                await this.$confirm('确认立即执行任务「' + row.taskName + '」？', '提示', {
+                    type: 'warning',
+                    confirmButtonText: '执行',
+                    cancelButtonText: '取消'
+                })
+            } catch (e) {
+                return
+            }
+            this.$set(row, '_running', true)
+            try {
+                const result = await this.apiPost('/api/v1/scheduledTask/executeTask', {
+                    taskCode: row.taskCode,
+                    operatorId: this.loginUser.userId,
+                    operatorName: this.loginUser.userName
+                })
+                if (result && result.success) {
+                    this.$message.success(result.message || '执行成功')
+                } else {
+                    this.$message.warning((result && result.message) || '执行完成（业务失败）')
+                }
+                await this.loadTaskList()
+            } catch (e) {
+                this.$message.error((e && e.message) || '执行失败')
+            } finally {
+                this.$set(row, '_running', false)
+            }
+        },
+
+        // 打开执行历史
+        openLogDialog(row) {
+            this.logTaskCode = row.taskCode
+            this.logTaskName = row.taskName
+            this.logPagination.pageIndex = 1
+            this.logVisible = true
+            this.loadRunLogs()
+        },
+
+        // 加载执行历史
+        async loadRunLogs() {
+            if (!this.logTaskCode) {
+                return
+            }
+            this.logLoading = true
+            try {
+                const data = await this.apiPost('/api/v1/scheduledTask/queryRunLogPage', {
+                    taskCode: this.logTaskCode,
+                    pageIndex: this.logPagination.pageIndex,
+                    pageSize: this.logPagination.pageSize
+                })
+                this.logList = (data && data.records) || []
+                this.logPagination.total = (data && data.total) || 0
+            } catch (e) {
+                this.$message.error((e && e.message) || '加载执行历史失败')
+            } finally {
+                this.logLoading = false
+            }
+        },
+
+        // 历史分页切换
+        handleLogPageChange(page) {
+            this.logPagination.pageIndex = page
+            this.loadRunLogs()
+        },
+
+        // 日期时间格式化
+        datetimeText(val) {
+            if (!val) {
+                return ''
+            }
+            return moment(val).format('YYYY-MM-DD HH:mm:ss')
+        },
+
+        // 执行状态中文
+        runStatusLabel(code) {
+            if (code === null || code === undefined || code === '') {
+                return ''
+            }
+            return this.runStatusDict[code] || code
+        },
+
+        // 执行状态 Tag type
+        runStatusTagType(code) {
+            return this.runStatusTagDict[code] || 'info'
+        },
+
+        // 触发方式中文
+        triggerLabel(code) {
+            if (code === null || code === undefined || code === '') {
+                return ''
+            }
+            return this.triggerDict[code] || code
+        },
+
+        // 触发方式 Tag type
+        triggerTagType(code) {
+            return this.triggerTagDict[code] || 'info'
+        }
+    }
+})
+</script>
+</body>
+</html>

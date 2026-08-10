@@ -35,6 +35,7 @@
 | `security_pool_query.html` | 证券池查询 | `css/security_pool_query.css`、`css/common.css` |
 | `temp_security_code.html` | 临时代码管理 | `css/temp_security_code.css`、`css/common.css` |
 | `pool_open_day.html` | 投资池开放日维护 | `css/pool_open_day.css`、`css/common.css` |
+| `scheduled_task.html` | 定时任务管理 | `css/scheduled_task.css`、`css/common.css` |
 | `docs/script_tool.html` | 数据初始化 | `css/script_tool.css`、`css/common.css` |
 | `docs/script_table_clear.html` | 表数据清空 | `css/script_table_clear.css`、`css/common.css` |
 | `docs/script_table_row_counts.html` | 表记录数统计 | `css/script_table_row_counts.css`、`css/common.css` |
