@@ -413,9 +413,9 @@
             <article class="card"><h3>提交和审批</h3>
                 <ul>
                     <li>整个批量请求<strong>一个事务</strong>，任一失败全部回滚；约 30 秒窗口内防重复提交（按证券集合+手工项+流程+原因意见比较）。</li>
-                    <li>提交流程透传前端按单笔候选所选 flowId/flowKey/flowType，不再回填 batchIn/batchOut。</li>
-                    <li>按证券分组写 <code>ip_adjust_log</code>（手工标记为手动批量调整）；同次提交统一 <code>submit_time</code> 与共享附件上下文。</li>
-                    <li>所选流程无审批节点或 start→end 时直通，落池前锁池并动态复核（与单券一致）。</li>
+                    <li>提交流程透传前端按单笔候选所选 flowId/flowKey/flowType，不再回填 batchIn/batchOut；后端不强制每条必有流程（可直通）。</li>
+                    <li>按<strong>触发主券</strong>（sourceSecurityCode）分组后调用单券 <code>submitAdjustLog</code>（非本类落库）；共享 <code>SubmissionFiles</code> 与 <code>BatchNoContext</code>；手工项 <code>adjustType=手动批量调整</code>。</li>
+                    <li>存在直通项时：先 <code>isDirectAdjustFlow</code> 判定，再整批 <code>recheckBeforeFinalApproval</code>（锁池+容量/在池/限制等动态复核），与单券终审保护一致。</li>
                     <li><code>releaseRules=yes</code> 仅跳过主体内评×期限矩阵，容量/来源/硬限制等仍执行。</li>
                     <li>调入信用债大库：正式无内评失败；临时代码无内评默认 grade_code=4 再走矩阵。</li>
                     <li>后续审批复用证券池调库流程服务（会签/抢占/驳回/终态落库）。</li>
@@ -438,9 +438,9 @@
                 <tbody>
                 <tr>
                     <td><span class="name">ip_investment_pool</span></td>
-                    <td>目标池定义、容量和批量流程配置</td>
+                    <td>目标池定义、容量；池上 batchIn/Out 配置仅维护展示，主链路校验/提交不注入该专用流程</td>
                     <td><span class='tag r'>查询</span></td>
-                    <td>池分页、叶子池校验、流程选择</td>
+                    <td>池分页、叶子池校验；流程候选来自单券 checkAdjust</td>
                 </tr>
                 <tr>
                     <td><span class="name">ip_pool_permission</span></td>
