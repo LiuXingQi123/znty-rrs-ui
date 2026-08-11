@@ -3,61 +3,550 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>定时任务管理 - 业务文档</title>
+    <title>定时任务管理｜表与业务逻辑</title>
     <style>
-        body { margin: 0; font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif; color: #1f2937; background: #f4f7fb; }
-        .wrap { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 56px; }
-        h1 { font-size: 28px; color: #1F3683; margin: 0 0 8px; }
-        h2 { font-size: 18px; color: #2743A4; margin: 28px 0 12px; border-left: 4px solid #2743A4; padding-left: 10px; }
-        p, li { color: #3F485A; }
-        table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #dbe4ef; }
-        th, td { border: 1px solid #dbe4ef; padding: 8px 10px; text-align: left; font-size: 13px; }
-        th { background: #E9ECF6; color: #1F3683; }
-        code { background: #E9ECF6; padding: 1px 6px; border-radius: 3px; color: #2743A4; }
-        .meta { color: #64748b; margin-bottom: 20px; }
+        body.docs-page-scheduled-task-tables {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body.docs-page-scheduled-task-tables, body.docs-page-scheduled-task-tables * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body.docs-page-scheduled-task-tables {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        .docs-page-scheduled-task-tables .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        .docs-page-scheduled-task-tables header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        .docs-page-scheduled-task-tables .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        .docs-page-scheduled-task-tables h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        .docs-page-scheduled-task-tables header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        .docs-page-scheduled-task-tables .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        .docs-page-scheduled-task-tables .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        .docs-page-scheduled-task-tables main {
+            padding: 28px 0 56px
+        }
+
+        .docs-page-scheduled-task-tables .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        .docs-page-scheduled-task-tables .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        .docs-page-scheduled-task-tables .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .docs-page-scheduled-task-tables .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        .docs-page-scheduled-task-tables h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        .docs-page-scheduled-task-tables .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        .docs-page-scheduled-task-tables .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        .docs-page-scheduled-task-tables .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .docs-page-scheduled-task-tables .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        .docs-page-scheduled-task-tables .step span {
+            color: var(--regular)
+        }
+
+        .docs-page-scheduled-task-tables .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        .docs-page-scheduled-task-tables .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .docs-page-scheduled-task-tables .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        .docs-page-scheduled-task-tables .card ul,
+        .docs-page-scheduled-task-tables .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .docs-page-scheduled-task-tables .card li + li {
+            margin-top: 6px
+        }
+
+        .docs-page-scheduled-task-tables .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        .docs-page-scheduled-task-tables .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        .docs-page-scheduled-task-tables table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        .docs-page-scheduled-task-tables th,
+        .docs-page-scheduled-task-tables td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        .docs-page-scheduled-task-tables th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        .docs-page-scheduled-task-tables tr:last-child td {
+            border-bottom: 0
+        }
+
+        .docs-page-scheduled-task-tables tbody tr:hover {
+            background: #f8fbff
+        }
+
+        .docs-page-scheduled-task-tables code,
+        .docs-page-scheduled-task-tables .name {
+            font-family: Consolas, monospace
+        }
+
+        .docs-page-scheduled-task-tables .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        .docs-page-scheduled-task-tables .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        .docs-page-scheduled-task-tables .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .docs-page-scheduled-task-tables .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        .docs-page-scheduled-task-tables .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        .docs-page-scheduled-task-tables .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        .docs-page-scheduled-task-tables .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        .docs-page-scheduled-task-tables .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .docs-page-scheduled-task-tables .notes li + li {
+            margin-top: 5px
+        }
+
+        .docs-page-scheduled-task-tables .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        @media (max-width: 1050px) {
+            .docs-page-scheduled-task-tables .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            .docs-page-scheduled-task-tables .flow,
+            .docs-page-scheduled-task-tables .logic {
+                grid-template-columns: 1fr
+            }
+
+            .docs-page-scheduled-task-tables .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            .docs-page-scheduled-task-tables .wrap {
+                width: calc(100% - 24px)
+            }
+
+            .docs-page-scheduled-task-tables header {
+                padding: 24px 0 20px
+            }
+
+            .docs-page-scheduled-task-tables .stats {
+                grid-template-columns: 1fr
+            }
+
+            .docs-page-scheduled-task-tables .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            .docs-page-scheduled-task-tables .nav {
+                display: none
+            }
+
+            .docs-page-scheduled-task-tables .panel {
+                break-inside: avoid
+            }
+        }
     </style>
 </head>
-<body>
-<div class="wrap">
-    <h1>定时任务管理</h1>
-    <p class="meta">页面：<code>pages/scheduled_task.html</code> · 接口前缀：<code>/api/v1/scheduledTask</code> · 需求：[29]</p>
+<body class="docs-page docs-page-scheduled-task-tables">
+<header>
+    <div class="wrap">
+        <p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>定时任务管理</h1>
+        <p class="desc">在「RRS配置」下可视化维护任务配置（名称、说明、Cron、启停、扩展参数），支持手动执行与执行历史；业务实现与库表配置分离，扩展参数统一为 JSON。</p>
+        <div class="stats">
+            <span class="stat">3 张核心表</span>
+            <span class="stat">7 个主要接口</span>
+            <span class="stat">配置与实现分离</span>
+        </div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav">
+        <a href="#overview">流程总览</a>
+        <a href="#logic-1">配置与调度</a>
+        <a href="#logic-2">执行与历史</a>
+        <a href="#logic-3">内置任务</a>
+        <a href="#tables">涉及表</a>
+        <a href="#notes">规则说明</a>
+        <a href="module-tables-index.html">文档目录</a>
+    </nav>
 
-    <h2>1. 功能说明</h2>
-    <ul>
-        <li>在「RRS配置」下可视化管理平台定时任务：展示、启停、修改 cron、手动执行、查看历史。</li>
-        <li>配置持久化在 <code>sys_scheduled_task</code>，修改后即时重挂载，不再依赖 yml 写死。</li>
-        <li>关闭定时调度后仍可「立即执行」。</li>
-    </ul>
+    <section class="panel" id="overview">
+        <h2>业务流程总览</h2>
+        <p class="sub">从页面操作到调度挂载、业务执行与历史落库的主要路径。</p>
+        <div class="flow">
+            <div class="step"><b>1. 维护配置</b><span>新增/编辑/删除任务行：名称、说明、Cron、启停、param_json。</span></div>
+            <div class="step"><b>2. 写库与审计</b><span>落 sys_scheduled_task，并写 sys_scheduled_task_evt（oprt_type=INSERT/UPDATE/DELETE）。</span></div>
+            <div class="step"><b>3. 动态挂载</b><span>已启用且已有 RrsScheduledTask 实现时挂载 DynamicTaskScheduler。</span></div>
+            <div class="step"><b>4. 执行业务</b><span>手动或 Cron 触发；同 taskCode 串行；过程写入 detail_log。</span></div>
+            <div class="step"><b>5. 历史与摘要</b><span>更新主表最近执行摘要，并插入 sys_scheduled_task_run_log。</span></div>
+        </div>
+    </section>
 
-    <h2>2. 核心表</h2>
-    <table>
-        <tr><th>表名</th><th>说明</th></tr>
-        <tr><td>sys_scheduled_task</td><td>任务配置：cron、启停、扩展参数、最近执行摘要</td></tr>
-        <tr><td>sys_scheduled_task_evt</td><td>配置变更审计</td></tr>
-        <tr><td>sys_scheduled_task_run_log</td><td>执行历史（手动/定时；detail_log 过程日志）</td></tr>
-    </table>
+    <section class="panel" id="logic-1">
+        <h2>配置维护与动态调度</h2>
+        <p class="sub">配置只认库表；代码侧只注册 taskCode 与 execute 实现。</p>
+        <span class="api">POST /api/v1/scheduledTask/queryTaskList · queryTask · addTask · editTask · deleteTask</span>
+        <div class="logic">
+            <article class="card">
+                <h3>列表与详情</h3>
+                <ul>
+                    <li>仅查未删除的 <code>sys_scheduled_task</code>，不按代码种子写库。</li>
+                    <li>展示字段含 cron、启停、param_json、最近执行摘要。</li>
+                    <li><code>codeRegistered</code>：Spring 是否已注册同编码 <code>RrsScheduledTask</code>。</li>
+                    <li><code>paramHelp</code>：已注册实现时由 <code>getParamHelp()</code> 提供，配置页按任务展示。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>新增 / 修改 / 删除</h3>
+                <ul>
+                    <li>新增：编码格式校验、唯一；写主表 + 审计 INSERT；满足条件则挂载调度。</li>
+                    <li>修改：编码不可改；更新名称/说明/cron/启停/参数；审计 UPDATE；按最新值重挂或取消。</li>
+                    <li>删除：逻辑删除并关闭调度；审计 DELETE；取消已挂载 Future。</li>
+                    <li>无业务实现也可先建配置；执行时才校验是否已注册实现。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
 
-    <h2>3. 接口</h2>
-    <table>
-        <tr><th>路径</th><th>说明</th></tr>
-        <tr><td>queryTaskList</td><td>任务清单（库表）</td></tr>
-        <tr><td>queryTask</td><td>单任务详情</td></tr>
-        <tr><td>addTask</td><td>新增任务配置</td></tr>
-        <tr><td>editTask</td><td>修改任务配置并重挂载</td></tr>
-        <tr><td>deleteTask</td><td>逻辑删除并取消调度</td></tr>
-        <tr><td>executeTask</td><td>立即执行（须有业务实现）</td></tr>
-        <tr><td>queryRunLogPage</td><td>执行历史分页</td></tr>
-    </table>
+    <section class="panel" id="logic-2">
+        <h2>执行、过程日志与历史</h2>
+        <p class="sub">手动与定时共用同一执行入口与落库逻辑。</p>
+        <span class="api">POST /api/v1/scheduledTask/executeTask · queryRunLogPage</span>
+        <div class="logic">
+            <article class="card">
+                <h3>执行</h3>
+                <ul>
+                    <li>须有库表配置 + <code>RrsScheduledTask</code> 实现，否则业务失败提示。</li>
+                    <li>触发方式：manual（页面）/ cron（调度器）；操作人定时为系统。</li>
+                    <li>同 taskCode 串行锁，避免重叠跑。</li>
+                    <li>扩展参数非法（非 JSON、缺必填字段等）记失败，不记成功 0 条。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>过程日志与历史</h3>
+                <ul>
+                    <li>业务侧用 <code>TaskDetailLog</code> 采集过程行（带 <code>yyyy-MM-dd HH:mm:ss</code> 前缀）。</li>
+                    <li>结果写入 <code>ScheduledTaskResult.detailLog</code>，落库 <code>run_log.detail_log</code>。</li>
+                    <li>同时更新主表 last_run_* 摘要字段。</li>
+                    <li>历史分页：<code>queryRunLogPage</code>；页面可点「过程日志」查看全文。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
 
-    <h2>4. 内置任务</h2>
-    <table>
-        <tr><th>编码</th><th>名称</th><th>默认 Cron</th><th>扩展参数（仅 JSON）</th></tr>
-        <tr><td>auto_out_expired</td><td>到期出池</td><td>0 0 2 * * ?</td><td>{"poolIds":[15]}</td></tr>
-        <tr><td>company_new_bond_auto_in</td><td>主体下新债自动入池</td><td>0 0 3 * * ?</td><td>{"poolIds":[15]} 可多个；不同池用 mappings</td></tr>
-    </table>
+    <section class="panel" id="logic-3">
+        <h2>内置任务与扩展参数</h2>
+        <p class="sub">param_json 仅 JSON 对象；框架不解析，各任务自行解析并由 getParamHelp 说明。</p>
+        <div class="logic">
+            <article class="card">
+                <h3>到期出池 auto_out_expired</h3>
+                <ul>
+                    <li>默认 Cron 示例：<code>0 0 2 * * ?</code></li>
+                    <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"poolIds":[10,15]}</code></li>
+                    <li>扫描所列投资池中已到期且已生效在池证券，自动调出并记日志。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>主体下新债 company_new_bond_auto_in</h3>
+                <ul>
+                    <li>默认 Cron 示例：<code>0 0 3 * * ?</code></li>
+                    <li>同池（可多个）：<code>{"poolIds":[15]}</code> / <code>{"poolIds":[15,16]}</code></li>
+                    <li>不同池：<code>{"mappings":[{"companyInPoolId":15,"bondTargetPoolId":100}]}</code></li>
+                    <li>主场景：债券禁止库主体 → 旗下未入池新债自动入同一禁止库。</li>
+                </ul>
+            </article>
+        </div>
+        <div class="note">
+            <ul class="notes">
+                <li>新增任务步骤：① 页面新增配置记下 task_code；② 实现 <code>RrsScheduledTask</code> 并覆盖 <code>getParamHelp</code>；③ 部署后执行。</li>
+                <li>演示数据：<code>rrs_scheduled_task_demo_data.sql</code>（脚本工具可初始化）。</li>
+            </ul>
+        </div>
+    </section>
 
-    <h2>5. 初始化</h2>
-    <p>脚本工具执行 <code>rrs_scheduled_task_schema.sql</code> 与 demo；应用启动时会按代码实现自动补全缺失任务配置。</p>
-</div>
+    <section class="panel" id="tables">
+        <h2>涉及表、用途与触发场景</h2>
+        <p class="sub">读写口径包含配置维护、调度摘要与执行历史。</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>表名</th>
+                    <th>用途</th>
+                    <th>主要读写</th>
+                    <th>触发场景</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="name">sys_scheduled_task</span></td>
+                    <td>任务配置主表：编码、名称、说明、cron、启停、param_json、最近执行摘要</td>
+                    <td>
+                        <span class="tag r">读</span>
+                        <span class="tag w">写</span>
+                        <span class="tag u">改</span>
+                    </td>
+                    <td>列表/详情/新增/编辑/删除；每次执行后更新 last_run_*</td>
+                </tr>
+                <tr>
+                    <td><span class="name">sys_scheduled_task_evt</span></td>
+                    <td>配置变更审计（含 oprt_type：INSERT/UPDATE/DELETE）</td>
+                    <td><span class="tag w">写</span></td>
+                    <td>addTask / editTask / deleteTask</td>
+                </tr>
+                <tr>
+                    <td><span class="name">sys_scheduled_task_run_log</span></td>
+                    <td>执行历史：状态、摘要 message、过程日志 detail_log、触发方式、操作人</td>
+                    <td>
+                        <span class="tag r">读</span>
+                        <span class="tag w">写</span>
+                    </td>
+                    <td>手动执行 / 定时触发；历史分页查询</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="note" style="margin-top:16px">
+            <ul class="notes">
+                <li>建表与演示脚本：<code>sql/rrs_scheduled_task_schema.sql</code>、<code>rrs_scheduled_task_demo_data.sql</code>（已注册 ScriptTool）。</li>
+                <li>若已有库表缺 <code>detail_log</code>：<code>ALTER TABLE sys_scheduled_task_run_log ADD COLUMN detail_log TEXT ...</code>（见 schema 文件注释）。</li>
+            </ul>
+        </div>
+    </section>
+
+    <section class="panel" id="notes">
+        <h2>规则说明与代码索引</h2>
+        <p class="sub">实现约定与排查入口。</p>
+        <div class="logic">
+            <article class="card">
+                <h3>规则要点</h3>
+                <ul>
+                    <li>全部接口 POST，前缀 <code>/api/v1/scheduledTask</code>，返回 <code>ApiResponse</code>。</li>
+                    <li>扩展参数仅 JSON；业务失败（参数非法等）历史记 fail，不把「跳过」当成功。</li>
+                    <li>关闭「启用调度」后仍可手动执行。</li>
+                    <li>前端页：<code>pages/scheduled_task.html</code>（RRS配置菜单）。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>代码索引</h3>
+                <ul>
+                    <li>Controller：<code>ScheduledTaskController</code></li>
+                    <li>编排：<code>ScheduledTaskService</code>、<code>DynamicTaskScheduler</code></li>
+                    <li>扩展点：<code>RrsScheduledTask</code>、<code>TaskDetailLog</code>、<code>ScheduledTaskResult</code></li>
+                    <li>业务：<code>AutoAdjustService</code>、<code>CompanyNewBondAutoInService</code></li>
+                    <li>需求文档：backend <code>requirements/29-scheduled-task.md</code></li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p>
+</main>
 </body>
 </html>
