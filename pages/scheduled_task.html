@@ -56,6 +56,7 @@
                 </el-select>
                 <el-button size="small" type="primary" icon="el-icon-search" @click="handleSearch">查询</el-button>
                 <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <el-button size="small" type="primary" icon="el-icon-plus" @click="openAddDialog">新增</el-button>
                 <div class="total-badge">
                     <i class="el-icon-data-line"></i> 共 {{ filteredList.length }} 个任务
                 </div>
@@ -116,7 +117,7 @@
                 <el-table-column label="最近结果" min-width="140" show-overflow-tooltip>
                     <template slot-scope="{ row }">{{ row.lastRunMessage }}</template>
                 </el-table-column>
-                <el-table-column label="操作" width="200" align="center">
+                <el-table-column label="操作" width="260" align="center">
                     <template slot-scope="{ row }">
                         <div class="op-buttons">
                             <el-button
@@ -144,6 +145,14 @@
                                 @click="openLogDialog(row)">
                                 历史
                             </el-button>
+                            <el-button
+                                class="row-action-btn"
+                                type="danger"
+                                size="mini"
+                                plain
+                                @click="handleDelete(row)">
+                                删除
+                            </el-button>
                         </div>
                     </template>
                 </el-table-column>
@@ -162,11 +171,13 @@
         <div slot="title" class="cfg-dialog-title">
             <span class="cfg-dialog-title-icon"><i class="el-icon-setting"></i></span>
             <div class="cfg-dialog-title-main">
-                <div class="cfg-dialog-title-text">任务配置</div>
+                <div class="cfg-dialog-title-text">{{ configMode === 'add' ? '新增任务' : '任务配置' }}</div>
                 <div class="cfg-dialog-title-sub">
-                    编码 <span class="code-text">{{ configForm.taskCode }}</span>
-                    <span class="cfg-title-dot">·</span>
-                    保存后即时生效
+                    <template v-if="configMode === 'edit'">
+                        编码 <span class="code-text">{{ configForm.taskCode }}</span>
+                        <span class="cfg-title-dot">·</span>
+                    </template>
+                    保存后即时生效；业务实现按编码绑定
                 </div>
             </div>
         </div>
@@ -180,6 +191,14 @@
             label-position="right">
             <div class="cfg-card">
                 <div class="cfg-card-title">基本信息</div>
+                <el-form-item v-if="configMode === 'add'" label="任务编码" prop="taskCode">
+                    <el-input
+                        v-model.trim="configForm.taskCode"
+                        maxlength="64"
+                        placeholder="字母开头，如 company_new_bond_auto_in">
+                    </el-input>
+                    <div class="cfg-tip">创建后不可改；后续业务类 getTaskCode() 须与此一致</div>
+                </el-form-item>
                 <el-form-item label="任务名称" prop="taskName">
                     <el-input
                         v-model.trim="configForm.taskName"
@@ -244,8 +263,26 @@
                         :rows="3"
                         maxlength="1000"
                         show-word-limit
-                        placeholder="无则留空；支持多行。主体下新债示例：15-15 或 15-15,16-100（主体池ID-目标池ID）">
+                        placeholder="通用字段：仅 JSON；格式见下方「本任务参数说明」，无说明时请对照任务实现">
                     </el-input>
+                    <div v-if="paramHelpLines.length" class="cfg-help">
+                        <div class="cfg-help-title">本任务参数说明</div>
+                        <ul class="cfg-help-list">
+                            <li
+                                v-for="(line, idx) in paramHelpLines"
+                                :key="'ph-' + idx"
+                                v-html="formatParamHelpLine(line)">
+                            </li>
+                        </ul>
+                    </div>
+                    <div v-else-if="configMode === 'add'" class="cfg-help">
+                        <div class="cfg-help-title">填写说明</div>
+                        <ul class="cfg-help-list">
+                            <li>扩展参数为 <b>通用字段</b>，存库后由对应任务代码解析，框架不统一解释含义</li>
+                            <li><b>仅支持 JSON 对象</b>，不兼容纯文本等其它格式</li>
+                            <li>任务部署实现后，编辑配置时可看到该任务返回的参数说明</li>
+                        </ul>
+                    </div>
                 </el-form-item>
             </div>
         </el-form>
@@ -298,8 +335,19 @@
             <el-table-column label="操作人" width="100" show-overflow-tooltip>
                 <template slot-scope="{ row }">{{ row.operatorName }}</template>
             </el-table-column>
-            <el-table-column label="结果" min-width="180" show-overflow-tooltip>
+            <el-table-column label="结果" min-width="160" show-overflow-tooltip>
                 <template slot-scope="{ row }">{{ row.message }}</template>
+            </el-table-column>
+            <el-table-column label="过程日志" width="90" align="center">
+                <template slot-scope="{ row }">
+                    <el-button
+                        v-if="row.detailLog"
+                        type="text"
+                        size="mini"
+                        @click="openDetailLog(row)">
+                        查看
+                    </el-button>
+                </template>
             </el-table-column>
         </el-table>
         <div class="pagination-wrap">
@@ -313,6 +361,20 @@
             </el-pagination>
         </div>
     </el-dialog>
+
+    <!-- ── 过程日志详情 ── -->
+    <el-dialog
+        :title="detailLogTitle"
+        :visible.sync="detailLogVisible"
+        width="720px"
+        :append-to-body="false"
+        :close-on-click-modal="false"
+        custom-class="st-detail-log-dialog">
+        <pre class="st-detail-log">{{ detailLogContent }}</pre>
+        <span slot="footer" class="dialog-footer">
+            <el-button size="small" @click="detailLogVisible = false">关闭</el-button>
+        </span>
+    </el-dialog>
 </div>
 
 <script>
@@ -323,6 +385,7 @@ new Vue({
             loading: false,           // 列表加载状态
             configSaving: false,      // 配置保存中
             configVisible: false,     // 配置弹窗
+            configMode: 'edit',       // add / edit
             logVisible: false,        // 历史弹窗
             logLoading: false,        // 历史加载状态
             taskList: [],             // 任务列表
@@ -337,7 +400,8 @@ new Vue({
                 description: '',
                 cronExpression: '',
                 scheduleEnabled: false,
-                paramJson: ''
+                paramJson: '',
+                paramHelp: ''           // 当前任务扩展参数说明（后端实现提供）
             },
             // 常用 Cron 快捷选项（Spring 6 位）
             cronPresets: [
@@ -350,6 +414,14 @@ new Vue({
                 { label: '每 30 分钟', cron: '0 0/30 * * * ?' }
             ],
             configRules: {
+                taskCode: [
+                    { required: true, message: '请输入任务编码', trigger: 'blur' },
+                    {
+                        pattern: /^[a-zA-Z][a-zA-Z0-9_]{1,63}$/,
+                        message: '字母开头，仅字母数字下划线，2~64 位',
+                        trigger: 'blur'
+                    }
+                ],
                 taskName: [
                     { required: true, message: '请输入任务名称', trigger: 'blur' }
                 ],
@@ -365,6 +437,9 @@ new Vue({
                 pageSize: 10,         // 历史每页条数
                 total: 0              // 历史总条数
             },
+            detailLogVisible: false,  // 过程日志弹窗
+            detailLogContent: '',     // 过程日志正文
+            detailLogTitle: '过程日志', // 过程日志标题
             // 执行状态字典（与后端 ScheduleRunStatus 对齐）
             runStatusDict: {
                 success: '成功',
@@ -389,6 +464,14 @@ new Vue({
         // 顶栏日期
         currentDateText() {
             return moment().format('YYYY年MM月DD日')
+        },
+        // 本任务参数说明：按行拆成列表，样式与「配置说明」一致
+        paramHelpLines() {
+            const text = this.configForm && this.configForm.paramHelp
+            if (!text) {
+                return []
+            }
+            return String(text).split(/\r?\n/).map(line => line.trim()).filter(line => line)
         },
         // 前端筛选后的列表
         filteredList() {
@@ -454,15 +537,68 @@ new Vue({
             }
         },
 
-        // 打开配置弹窗
+        // 参数说明行：支持后端预埋的 <code>，其余转义；无 code 时再将 JSON 片段包成 code
+        formatParamHelpLine(line) {
+            const raw = line == null ? '' : String(line)
+            const escapeHtml = s => s
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+            // 已含 code 标签：按段转义
+            if (raw.indexOf('<code>') >= 0) {
+                const parts = raw.split(/(<code>[\s\S]*?<\/code>)/g)
+                return parts.map(part => {
+                    if (part.indexOf('<code>') === 0) {
+                        const inner = part.replace(/^<code>/, '').replace(/<\/code>$/, '')
+                        return '<code>' + escapeHtml(inner) + '</code>'
+                    }
+                    return escapeHtml(part)
+                }).join('')
+            }
+            // 自动识别 JSON 对象片段
+            const start = raw.indexOf('{')
+            const end = raw.lastIndexOf('}')
+            if (start >= 0 && end > start) {
+                return escapeHtml(raw.slice(0, start))
+                    + '<code>' + escapeHtml(raw.slice(start, end + 1)) + '</code>'
+                    + escapeHtml(raw.slice(end + 1))
+            }
+            return escapeHtml(raw)
+        },
+
+        // 打开新增弹窗
+        openAddDialog() {
+            this.configMode = 'add'
+            this.configForm = {
+                taskCode: '',
+                taskName: '',
+                description: '',
+                cronExpression: '0 0 2 * * ?',
+                scheduleEnabled: false,
+                paramJson: '',
+                paramHelp: ''
+            }
+            this.configVisible = true
+            this.$nextTick(() => {
+                if (this.$refs.configFormRef) {
+                    this.$refs.configFormRef.clearValidate()
+                }
+            })
+        },
+
+        // 打开配置弹窗（编辑）
         openConfigDialog(row) {
+            this.configMode = 'edit'
             this.configForm = {
                 taskCode: row.taskCode,
                 taskName: row.taskName || '',
                 description: row.description || '',
                 cronExpression: row.cronExpression || '',
                 scheduleEnabled: !!row.scheduleEnabled,
-                paramJson: row.paramJson || ''
+                paramJson: row.paramJson || '',
+                // 由后端任务实现 getParamHelp 返回，非前端写死
+                paramHelp: row.paramHelp || ''
             }
             this.configVisible = true
             this.$nextTick(() => {
@@ -485,27 +621,34 @@ new Vue({
         // 配置弹窗关闭复位
         resetConfigForm() {
             this.configSaving = false
+            this.configMode = 'edit'
         },
 
-        // 提交任务配置
+        // 提交任务配置（新增 / 编辑）
         submitConfig() {
             this.$refs.configFormRef.validate(async valid => {
                 if (!valid) {
                     return
                 }
                 this.configSaving = true
+                const body = {
+                    taskCode: this.configForm.taskCode,
+                    taskName: this.configForm.taskName,
+                    description: this.configForm.description,
+                    cronExpression: this.configForm.cronExpression,
+                    scheduleEnabled: this.configForm.scheduleEnabled,
+                    paramJson: this.configForm.paramJson,
+                    operatorId: this.loginUser.userId,
+                    operatorName: this.loginUser.userName
+                }
                 try {
-                    await this.apiPost('/api/v1/scheduledTask/editTaskConfig', {
-                        taskCode: this.configForm.taskCode,
-                        taskName: this.configForm.taskName,
-                        description: this.configForm.description,
-                        cronExpression: this.configForm.cronExpression,
-                        scheduleEnabled: this.configForm.scheduleEnabled,
-                        paramJson: this.configForm.paramJson,
-                        operatorId: this.loginUser.userId,
-                        operatorName: this.loginUser.userName
-                    })
-                    this.$message.success('配置已保存，调度已更新')
+                    if (this.configMode === 'add') {
+                        await this.apiPost('/api/v1/scheduledTask/addTask', body)
+                        this.$message.success('任务已新增')
+                    } else {
+                        await this.apiPost('/api/v1/scheduledTask/editTask', body)
+                        this.$message.success('配置已保存，调度已更新')
+                    }
                     this.configVisible = false
                     await this.loadTaskList()
                 } catch (e) {
@@ -516,11 +659,35 @@ new Vue({
             })
         },
 
+        // 删除任务配置
+        async handleDelete(row) {
+            try {
+                await this.$confirm(
+                    '确认删除任务「' + row.taskName + '」（' + row.taskCode + '）？删除后将取消定时调度。',
+                    '提示',
+                    { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+                )
+            } catch (e) {
+                return
+            }
+            try {
+                await this.apiPost('/api/v1/scheduledTask/deleteTask', {
+                    taskCode: row.taskCode,
+                    operatorId: this.loginUser.userId,
+                    operatorName: this.loginUser.userName
+                })
+                this.$message.success('已删除')
+                await this.loadTaskList()
+            } catch (e) {
+                this.$message.error((e && e.message) || '删除失败')
+            }
+        },
+
         // 切换定时调度开关
         async handleToggleEnabled(row, enabled) {
             this.$set(row, '_switching', true)
             try {
-                await this.apiPost('/api/v1/scheduledTask/editTaskConfig', {
+                await this.apiPost('/api/v1/scheduledTask/editTask', {
                     taskCode: row.taskCode,
                     taskName: row.taskName,
                     description: row.description,
@@ -569,6 +736,15 @@ new Vue({
             } finally {
                 this.$set(row, '_running', false)
             }
+        },
+
+        // 查看单条执行过程日志
+        openDetailLog(row) {
+            this.detailLogTitle = row && row.startTime
+                ? ('过程日志 - ' + this.datetimeText(row.startTime))
+                : '过程日志'
+            this.detailLogContent = (row && row.detailLog) || ''
+            this.detailLogVisible = true
         },
 
         // 打开执行历史
