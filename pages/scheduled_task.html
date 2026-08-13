@@ -316,6 +316,7 @@
         :append-to-body="false"
         :close-on-click-modal="false">
         <el-table
+            class="log-table"
             :data="logList"
             v-loading="logLoading"
             border
@@ -325,36 +326,36 @@
             max-height="420"
             style="width:100%;">
             <el-table-column label="序号" width="50" align="center" type="index"></el-table-column>
-            <el-table-column label="开始时间" width="150" align="center">
+            <el-table-column label="开始时间" width="156" align="center">
                 <template slot-scope="{ row }">{{ datetimeText(row.startTime) }}</template>
             </el-table-column>
-            <el-table-column label="触发" width="80" align="center">
+            <el-table-column label="触发" width="64" align="center">
                 <template slot-scope="{ row }">
                     <el-tag v-if="row.triggerType" size="mini" :type="triggerTagType(row.triggerType)">
                         {{ triggerLabel(row.triggerType) }}
                     </el-tag>
                 </template>
             </el-table-column>
-            <el-table-column label="状态" width="80" align="center">
+            <el-table-column label="状态" width="64" align="center">
                 <template slot-scope="{ row }">
                     <el-tag v-if="row.runStatus" size="mini" :type="runStatusTagType(row.runStatus)">
                         {{ runStatusLabel(row.runStatus) }}
                     </el-tag>
                 </template>
             </el-table-column>
-            <el-table-column label="影响条数" width="90" align="center">
+            <el-table-column label="影响条数" width="76" align="center">
                 <template slot-scope="{ row }">{{ row.affectedCount != null ? row.affectedCount : '' }}</template>
             </el-table-column>
-            <el-table-column label="耗时(ms)" width="90" align="center">
+            <el-table-column label="耗时(ms)" width="80" align="center">
                 <template slot-scope="{ row }">{{ row.durationMs != null ? row.durationMs : '' }}</template>
             </el-table-column>
-            <el-table-column label="操作人" width="100" show-overflow-tooltip>
+            <el-table-column label="操作人" width="80" show-overflow-tooltip>
                 <template slot-scope="{ row }">{{ row.operatorName }}</template>
             </el-table-column>
-            <el-table-column label="结果" min-width="160" show-overflow-tooltip>
+            <el-table-column label="结果" min-width="120" show-overflow-tooltip>
                 <template slot-scope="{ row }">{{ row.message }}</template>
             </el-table-column>
-            <el-table-column label="过程日志" width="90" align="center">
+            <el-table-column label="过程日志" width="72" align="center">
                 <template slot-scope="{ row }">
                     <el-button
                         v-if="row.detailLog"
@@ -565,7 +566,7 @@ new Vue({
             this.loadTaskList()
         },
 
-        // 参数说明行：支持后端预埋的 <code>，其余转义；无 code 时再将 JSON 片段包成 code
+        // 参数说明行：放行后端预埋的 code/strong/b，其余转义；无标签时再将 JSON 片段包成 code
         formatParamHelpLine(line) {
             const raw = line == null ? '' : String(line)
             const escapeHtml = s => s
@@ -573,16 +574,18 @@ new Vue({
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
-            // 已含 code 标签：按段转义
-            if (raw.indexOf('<code>') >= 0) {
-                const parts = raw.split(/(<code>[\s\S]*?<\/code>)/g)
+            const wrapAllowed = html => {
+                const parts = html.split(/(<(?:code|strong|b)>[\s\S]*?<\/(?:code|strong|b)>)/g)
                 return parts.map(part => {
-                    if (part.indexOf('<code>') === 0) {
-                        const inner = part.replace(/^<code>/, '').replace(/<\/code>$/, '')
-                        return '<code>' + escapeHtml(inner) + '</code>'
+                    const matched = part.match(/^<(code|strong|b)>([\s\S]*)<\/\1>$/)
+                    if (matched) {
+                        return '<' + matched[1] + '>' + escapeHtml(matched[2]) + '</' + matched[1] + '>'
                     }
                     return escapeHtml(part)
                 }).join('')
+            }
+            if (/<(code|strong|b)>/i.test(raw)) {
+                return wrapAllowed(raw)
             }
             // 自动识别 JSON 对象片段
             const start = raw.indexOf('{')
