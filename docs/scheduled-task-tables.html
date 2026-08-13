@@ -361,8 +361,8 @@
         <p class="desc">在「RRS配置」下可视化维护任务配置（名称、说明、Cron、启停、扩展参数），支持手动执行与执行历史；业务实现与库表配置分离，扩展参数统一为 JSON。</p>
         <div class="stats">
             <span class="stat">3 张核心表</span>
-            <span class="stat">7 个主要接口</span>
-            <span class="stat">配置与实现分离</span>
+            <span class="stat">8 个主要接口</span>
+            <span class="stat">7 个内置任务</span>
         </div>
     </div>
 </header>
@@ -384,7 +384,7 @@
             <div class="step"><b>1. 维护配置</b><span>新增/编辑/删除任务行：名称、说明、Cron、启停、param_json。</span></div>
             <div class="step"><b>2. 写库与审计</b><span>落 sys_scheduled_task，并写 sys_scheduled_task_evt（oprt_type=INSERT/UPDATE/DELETE）。</span></div>
             <div class="step"><b>3. 动态挂载</b><span>已启用且已有 RrsScheduledTask 实现时挂载 DynamicTaskScheduler。</span></div>
-            <div class="step"><b>4. 执行业务</b><span>手动或 Cron 触发；同 taskCode 串行；过程写入 detail_log。</span></div>
+            <div class="step"><b>4. 执行业务</b><span>手动或 Cron 触发；同 taskCode 串行；不同任务无编排，有依赖须靠 cron 先后（先到期、再改主体、最后同步债）。</span></div>
             <div class="step"><b>5. 历史与摘要</b><span>更新主表最近执行摘要，并插入 sys_scheduled_task_run_log。</span></div>
         </div>
     </section>
@@ -444,24 +444,47 @@
 
     <section class="panel" id="logic-3">
         <h2>内置任务与扩展参数</h2>
-        <p class="sub">param_json 仅 JSON 对象；框架不解析，各任务自行解析并由 getParamHelp 说明。</p>
+        <p class="sub">param_json 仅 JSON 对象；框架不解析，各任务自行解析并由 getParamHelp 说明。卡片按 Demo cron 执行顺序排列。</p>
         <div class="logic">
+            <article class="card">
+                <h3>执行顺序（只约束 cron）</h3>
+                <ul>
+                    <li>不同 taskCode 无编排、无全局锁，先后全靠 cron；列表 id 不要求与顺序一致。</li>
+                    <li>02 到期债/股出 → 03 CRMW 到期出 → 04 外评出主体 → 05 外评入主体 → 06 同池入债 → 07 Job 入债 → 08 主体不在池出债。</li>
+                    <li>页面「立即执行」不校验顺序。完整规则见需求 29 第 4.1 / 4.2 节。</li>
+                </ul>
+            </article>
             <article class="card">
                 <h3>到期证券自动出池 security_expired_auto_out</h3>
                 <ul>
                     <li>默认 Cron 示例：<code>0 0 2 * * ?</code></li>
                     <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"poolIds":[10,15]}</code></li>
-                    <li>扫描所列投资池中 audit_status=20 且主数据到期日早于昨天（T-2）的证券，自动调出；当前在调出限制池则跳过；仅软删成功才写日志（自动调整、不走审批）。</li>
+                    <li>扫描所列投资池中 audit_status=20 的债/股，主数据到期日早于昨天（T-2）则自动调出（不含主体/基金/CRMW）；当前在调出限制池则跳过；仅软删成功才写日志（自动调整、不走审批）。</li>
                 </ul>
             </article>
             <article class="card">
-                <h3>在池主体旗下债券自动入池 company_inpool_bond_auto_in</h3>
+                <h3>CRMW到期自动出池 crmw_expired_auto_out</h3>
                 <ul>
                     <li>默认 Cron 示例：<code>0 0 3 * * ?</code></li>
-                    <li>对应老系统 <code>AutoAdjustInNewBondToLimitPoolJob</code></li>
-                    <li>同池（可多个）：<code>{"poolIds":[15]}</code> / <code>{"poolIds":[15,16]}</code></li>
-                    <li>不同池：<code>{"mappings":[{"companyInPoolId":15,"bondTargetPoolId":100}]}</code></li>
-                    <li>主体已在池 → 旗下 bond 大类、未到期、尚未在目标池的债券自动入池（排除临时代码已更新正式代码；排除 ABS 与 CRMW）；主场景债券禁止库。</li>
+                    <li>对应老 IP_RULE <code>AdjustRuleCrmwDueOutPool</code></li>
+                    <li>参数：<code>{"poolIds":[18]}</code></li>
+                    <li>CRMW 池已生效组合、凭证到期日早于昨天（T-2）→ 自动调出；调出限制池阻断；仅软删成功才写日志。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>外评非AA-及以下主体自动出池 company_outer_rating_not_aa_minus_auto_out</h3>
+                <ul>
+                    <li>默认 Cron 示例：<code>0 0 4 * * ?</code></li>
+                    <li>参数：<code>{"poolIds":[16],"limitPoolIds":[15]}</code></li>
+                    <li>有效外评（近 12 个月取档）<strong>不在</strong> AA-/A/BBB… 则出主体，并顺带出同池债；已在 limitPoolIds（默认禁投池）则不出；调出限制池阻断。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>外评AA-及以下主体自动入池 company_outer_rating_aa_minus_auto_in</h3>
+                <ul>
+                    <li>默认 Cron 示例：<code>0 0 5 * * ?</code></li>
+                    <li>参数：<code>{"poolIds":[15]}</code></li>
+                    <li>有效外评（近 12 个月取档）在 AA-/A/BBB…（不含 AA/AA+/AAA）且未在目标池 → 自动入主体；调入限制池阻断。</li>
                 </ul>
             </article>
             <article class="card">
@@ -470,48 +493,33 @@
                     <li>默认 Cron 示例：<code>0 0 6 * * ?</code></li>
                     <li>对应老系统 IP_RULE type=0「主体下债券自动入库」</li>
                     <li>参数：<code>{"poolIds":[15]}</code>（主体与债<strong>必须同一池</strong>，无 mappings）</li>
-                    <li>主体已在本池 → 旗下 bond 未到期未在本池 → 同池自动入；尊重池 market_codes；不排除临时代码已更新；调入限制池（in_restrict）阻断。</li>
+                    <li>主体已在本池 → 旗下债未到期（含当天）未在本池 → 同池自动入；尊重 market_codes；不排除临时代码/ABS；调入限制池阻断。</li>
                 </ul>
             </article>
             <article class="card">
-                <h3>CRMW到期自动出池 crmw_expired_auto_out</h3>
+                <h3>在池主体旗下债券自动入池 company_inpool_bond_auto_in</h3>
                 <ul>
                     <li>默认 Cron 示例：<code>0 0 7 * * ?</code></li>
-                    <li>对应老 IP_RULE <code>AdjustRuleCrmwDueOutPool</code></li>
-                    <li>参数：<code>{"poolIds":[18]}</code></li>
-                    <li>CRMW 池已生效组合、凭证到期日早于昨天（T-2）→ 自动调出；调出限制池阻断；仅软删成功才写日志。</li>
+                    <li>对应老系统 <code>AutoAdjustInNewBondToLimitPoolJob</code></li>
+                    <li>同池：<code>{"poolIds":[15]}</code>；跨池：<code>{"mappings":[{"companyInPoolId":15,"bondTargetPoolId":100}]}</code></li>
+                    <li>主体已在池 → 旗下债未到期（不含当天）、尚未在<strong>目标池</strong>则入；排除临时代码已更新、ABS、CRMW；不看限制池。</li>
                 </ul>
             </article>
             <article class="card">
                 <h3>主体不在池债券自动出池 company_not_in_pool_bond_auto_out</h3>
                 <ul>
-                    <li>默认 Cron 示例：<code>0 0 8 * * ?</code>（Demo 默认关闭，对齐老 Job 默认不启用）</li>
+                    <li>默认 Cron 示例：<code>0 0 8 * * ?</code>（Demo 默认关闭）</li>
                     <li>对应老 <code>AutoAdjustInLimitPoolToNewBondJob</code></li>
                     <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"mappings":[{"bondPoolId":15,"companyPoolId":15}]}</code></li>
-                    <li>债已在债券池、发行主体不在主体池 → 出债；排除 ABS/CRMW；独立 Job 口径不看限制池。</li>
-                </ul>
-            </article>
-            <article class="card">
-                <h3>外评AA-及以下主体自动入池 company_outer_rating_aa_minus_auto_in</h3>
-                <ul>
-                    <li>默认 Cron 示例：<code>0 0 4 * * ?</code></li>
-                    <li>参数：<code>{"poolIds":[15]}</code>（对应老系统池上勾选「自动入外部评级AA-及以下的主体」）</li>
-                    <li>Wind 有效外评（近 12 个月取档位最高，更早取日期最新）在 AA-/A/BBB… 列表内（不含 AA/AA+/AAA），且未在目标池 → 自动入池；调入限制池（in_restrict）阻断。</li>
-                </ul>
-            </article>
-            <article class="card">
-                <h3>外评非AA-及以下主体自动出池 company_outer_rating_not_aa_minus_auto_out</h3>
-                <ul>
-                    <li>默认 Cron 示例：<code>0 0 5 * * ?</code></li>
-                    <li>参数：<code>{"poolIds":[16],"limitPoolIds":[15]}</code>（对应老系统 AdjustRuleOutAA + LIMITPOOLID_XYJJ）</li>
-                    <li>Wind 有效外评（近 12 个月取档位最高，更早取日期最新）<strong>不在</strong> AA-/A/BBB… 列表内，且已在目标池 → 自动出主体；已在 limitPoolIds（默认全部 forbidden 池）则不出；主体出成功后再出同池旗下债；调出限制池（out_restrict）阻断。</li>
+                    <li>债已在债券池、主体不在主体池 → 出债；排除 ABS/CRMW（ABS 走禁投独立链路）；不看限制池。</li>
                 </ul>
             </article>
         </div>
         <div class="note">
             <ul class="notes">
-                <li>新增任务步骤：① 页面新增配置记下 task_code；② 实现 <code>RrsScheduledTask</code> 并覆盖 <code>getParamHelp</code>；③ 部署后执行。</li>
-                <li>演示数据：<code>rrs_scheduled_task_demo_data.sql</code>（脚本工具可初始化）。</li>
+                <li>新增任务步骤：① <b>先评估执行顺序</b>（需求 29 第 4.1 / 4.2 节）再定 cron；② 页面新增配置记下 task_code；③ 实现 <code>RrsScheduledTask</code> 并覆盖 <code>getParamHelp</code>；④ 部署后执行。</li>
+                <li>不同 taskCode 无全局锁：有池状态依赖必须把 cron 配成先后，禁止同一分钟。Demo：02 到期债股 → 03 CRMW 到期 → 04 外评出主体 → 05 外评入主体 → 06 同池入债 → 07 Job 入债 → 08 主体不在池出债。</li>
+                <li>演示数据：<code>rrs_scheduled_task_demo_data.sql</code>（脚本工具可初始化；<b>cron</b> 须与上述执行顺序一致，列表 id 不要求）。</li>
             </ul>
         </div>
     </section>
@@ -585,8 +593,8 @@
                     <li>Controller：<code>ScheduledTaskController</code></li>
                     <li>编排：<code>ScheduledTaskService</code>、<code>DynamicTaskScheduler</code></li>
                     <li>扩展点：<code>RrsScheduledTask</code>、<code>TaskDetailLog</code>、<code>ScheduledTaskResult</code></li>
-                    <li>业务：<code>AutoAdjustService</code>、<code>CompanyNewBondAutoInService</code></li>
-                    <li>需求文档：backend <code>requirements/29-scheduled-task.md</code></li>
+                    <li>业务：<code>AutoAdjustService</code>、<code>CrmwExpiredAutoOutService</code>、<code>CompanyOuterRatingNotAaMinusAutoOutService</code>、<code>CompanyOuterRatingAaMinusAutoInService</code>、<code>CompanySamePoolBondAutoInService</code>、<code>CompanyNewBondAutoInService</code>、<code>CompanyNotInPoolBondAutoOutService</code></li>
+                    <li>需求文档：backend <code>requirements/29-scheduled-task.md</code>（执行顺序见 4.1 / 4.2）</li>
                 </ul>
             </article>
         </div>
