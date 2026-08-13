@@ -52,6 +52,9 @@
                           size="small" style="width:148px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
                 </el-input>
+                <el-select v-model="searchForm.securityType" placeholder="证券类型" clearable size="small" style="width:140px;">
+                    <el-option v-for="t in securityTypeOptions" :key="t.securityType" :label="t.securityTypeName" :value="t.securityType"></el-option>
+                </el-select>
                 <el-input v-model.trim="searchForm.issuer" placeholder="发行人" clearable
                           size="small" style="width:180px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
@@ -1115,7 +1118,8 @@
             return {
                 moment: moment, // 日期处理工具
                 currentPage: 'list',          // 当前显示页：'list'=列表页 / 'detail'=详情页
-                searchForm: { securityCode: '', securityShortName: '', issuer: '' }, // 列表页搜索条件
+                searchForm: { securityCode: '', securityShortName: '', securityType: '', issuer: '' }, // 列表页搜索条件
+                securityTypeOptions: [],      // 证券类型下拉（动态加载）
                 tableData: [],                // 列表页表格数据
                 loading: false,               // 列表页加载状态
                 pagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 列表页分页参数
@@ -1295,8 +1299,9 @@
                 return this.reportDialogColumn === 'material' ? '选择其他材料' : '选择信评报告';
             },
         },
-        // 页面初始化：设置接口基础地址，加载证券列表
+        // 页面初始化：加载证券类型下拉与证券列表
         created() {
+            this.loadSecurityTypeOptions();
             this.loadList();
         },
         mounted() {
@@ -1356,6 +1361,12 @@
                 if (hashQueryIndex < 0) return '';
                 return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
             },
+            // 加载证券类型下拉选项（返回 [{securityType, securityTypeName}] 列表）
+            async loadSecurityTypeOptions() {
+                try {
+                    this.securityTypeOptions = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityTypeList', {});
+                } catch (e) {}
+            },
             // 加载证券分页列表（按搜索条件查询）
             async loadList() {
                 this.loading = true;
@@ -1363,6 +1374,7 @@
                     const queryParams = {
                         securityCode: this.searchForm.securityCode,
                         securityShortName: this.searchForm.securityShortName,
+                        securityType: this.searchForm.securityType,
                         issuer: this.searchForm.issuer,
                         pageIndex: this.pagination.pageIndex,
                         pageSize: this.pagination.pageSize
@@ -1379,7 +1391,7 @@
             handleSearch() { this.pagination.pageIndex = 1; this.loadList(); },
             // 重置搜索条件并重新加载
             handleReset() {
-                this.searchForm = { securityCode: '', securityShortName: '', issuer: '' };
+                this.searchForm = { securityCode: '', securityShortName: '', securityType: '', issuer: '' };
                 this.pagination.pageIndex = 1; this.loadList();
             },
             // 分页页码切换

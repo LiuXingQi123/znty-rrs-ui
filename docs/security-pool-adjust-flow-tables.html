@@ -678,14 +678,15 @@
             <p class="section-subtitle">主页面先定位需要调库的证券，再进入详情页加载池状态、可调池和历史流程。</p>
             <div class="logic-header">
                 <strong>接口</strong>
-                <span class="api-path">POST /api/v1/securityPoolAdjust/querySecurityPage</span>
+                <span class="api-path">POST /api/v1/securityPoolAdjust/querySecurityPage · querySecurityTypeList</span>
                 <span class="method-name">SecurityPoolAdjustService.querySecurityPage</span>
             </div>
             <div class="logic-grid">
                 <article class="logic-card">
                     <h3>请求与分页</h3>
                     <ul>
-                        <li>筛选字段：<code>securityCode</code>、<code>securityShortName</code>、<code>issuer</code>。</li>
+                        <li>筛选字段：<code>securityCode</code>、<code>securityShortName</code>、<code>securityType</code>、<code>issuer</code>。</li>
+                        <li>证券类型下拉来自 <code>POST /api/v1/securityPoolAdjust/querySecurityTypeList</code>，关联 <code>rrs_securityinfo</code> 与 <code>dict_security_type</code>，与列表同口径（排除 <code>crmw</code>/<code>company</code> 及已删除态）。</li>
                         <li>分页字段：<code>pageIndex</code>、<code>pageSize</code>。</li>
                         <li>查询、重置、切换页码或每页条数都会重新调用接口；新查询回到第 1 页。</li>
                         <li>后端使用 <code>PageHelper.startPage</code>，返回 <code>records</code> 和 <code>total</code>。</li>
@@ -696,7 +697,7 @@
                     <ul>
                         <li>主表为 <code>rrs_securityinfo</code>。</li>
                         <li>左连接 <code>dict_security_type</code> 获取 <code>security_type_name</code>。</li>
-                        <li>三个筛选字段均使用包含式模糊匹配：<code>LIKE %条件%</code>。</li>
+                        <li>证券代码、简称、发行人均使用包含式模糊匹配：<code>LIKE %条件%</code>；证券类型为精确匹配 <code>si.security_type = #{securityType}</code>。</li>
                         <li>候选证券查询无固定 <code>ORDER BY</code>（与需求 04「列表无固定排序」一致），分页结果顺序不作保证。</li>
                         <li>固定排除 <code>security_type IN ('crmw','company')</code>，避免 CRMW 凭证与主体混入证券池调库。</li>
                         <li>固定排除 <code>si.security_status != 'D'</code>，过滤已删除态证券。</li>
@@ -704,7 +705,7 @@
                 </article>
             </div>
             <div class="logic-sequence">
-                <div class="sequence-item"><strong>1. 输入条件</strong><span>证券代码、简称或发行人，可留空查询全部。</span></div>
+                <div class="sequence-item"><strong>1. 输入条件</strong><span>证券代码、简称、证券类型或发行人，可留空查询全部。</span></div>
                 <div class="sequence-item"><strong>2. 开启分页</strong><span>PageHelper 拦截紧随其后的 Mapper 查询。</span></div>
                 <div class="sequence-item"><strong>3. 查询证券</strong><span>证券主表关联证券类型字典并执行模糊过滤。</span></div>
                 <div class="sequence-item"><strong>4. 点击“调库”</strong><span>以 windCode 进入详情视图并并发加载业务数据。</span></div>
