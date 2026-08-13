@@ -392,12 +392,13 @@
     <section class="panel" id="logic-1">
         <h2>配置维护与动态调度</h2>
         <p class="sub">配置只认库表；代码侧只注册 taskCode 与 execute 实现。</p>
-        <span class="api">POST /api/v1/scheduledTask/queryTaskList · queryTask · addTask · editTask · deleteTask</span>
+        <span class="api">POST /api/v1/scheduledTask/queryTaskPage · queryTaskList · queryTask · addTask · editTask · deleteTask</span>
         <div class="logic">
             <article class="card">
                 <h3>列表与详情</h3>
                 <ul>
                     <li>仅查未删除的 <code>sys_scheduled_task</code>，不按代码种子写库。</li>
+                    <li>列表分页：<code>queryTaskPage</code>（关键字匹配名称/编码，可按调度启停筛选），默认每页 20 条。</li>
                     <li>展示字段含 cron、启停、param_json、最近执行摘要。</li>
                     <li><code>codeRegistered</code>：Spring 是否已注册同编码 <code>RrsScheduledTask</code>。</li>
                     <li><code>paramHelp</code>：已注册实现时由 <code>getParamHelp()</code> 提供，配置页按任务展示。</li>
@@ -450,7 +451,7 @@
                 <ul>
                     <li>默认 Cron 示例：<code>0 0 2 * * ?</code></li>
                     <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"poolIds":[10,15]}</code></li>
-                    <li>扫描所列投资池中 audit_status=20 且主数据到期日早于当天的证券，自动调出（自动调整、不走审批）。</li>
+                    <li>扫描所列投资池中 audit_status=20 且主数据到期日早于昨天（T-2）的证券，自动调出；当前在调出限制池则跳过；仅软删成功才写日志（自动调整、不走审批）。</li>
                 </ul>
             </article>
             <article class="card">
@@ -460,7 +461,7 @@
                     <li>对应老系统 <code>AutoAdjustInNewBondToLimitPoolJob</code></li>
                     <li>同池（可多个）：<code>{"poolIds":[15]}</code> / <code>{"poolIds":[15,16]}</code></li>
                     <li>不同池：<code>{"mappings":[{"companyInPoolId":15,"bondTargetPoolId":100}]}</code></li>
-                    <li>主体已在池 → 旗下 bond 大类、未到期、尚未在目标池的债券自动入池（排除临时代码已更新正式代码）；主场景债券禁止库。</li>
+                    <li>主体已在池 → 旗下 bond 大类、未到期、尚未在目标池的债券自动入池（排除临时代码已更新正式代码；排除 ABS 与 CRMW）；主场景债券禁止库。</li>
                 </ul>
             </article>
             <article class="card">
@@ -469,7 +470,25 @@
                     <li>默认 Cron 示例：<code>0 0 6 * * ?</code></li>
                     <li>对应老系统 IP_RULE type=0「主体下债券自动入库」</li>
                     <li>参数：<code>{"poolIds":[15]}</code>（主体与债<strong>必须同一池</strong>，无 mappings）</li>
-                    <li>主体已在本池 → 旗下 bond 未到期未在本池 → 同池自动入；尊重池 market_codes；不排除临时代码已更新。</li>
+                    <li>主体已在本池 → 旗下 bond 未到期未在本池 → 同池自动入；尊重池 market_codes；不排除临时代码已更新；调入限制池（in_restrict）阻断。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>CRMW到期自动出池 crmw_expired_auto_out</h3>
+                <ul>
+                    <li>默认 Cron 示例：<code>0 0 7 * * ?</code></li>
+                    <li>对应老 IP_RULE <code>AdjustRuleCrmwDueOutPool</code></li>
+                    <li>参数：<code>{"poolIds":[18]}</code></li>
+                    <li>CRMW 池已生效组合、凭证到期日早于昨天（T-2）→ 自动调出；调出限制池阻断；仅软删成功才写日志。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>主体不在池债券自动出池 company_not_in_pool_bond_auto_out</h3>
+                <ul>
+                    <li>默认 Cron 示例：<code>0 0 8 * * ?</code>（Demo 默认关闭，对齐老 Job 默认不启用）</li>
+                    <li>对应老 <code>AutoAdjustInLimitPoolToNewBondJob</code></li>
+                    <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"mappings":[{"bondPoolId":15,"companyPoolId":15}]}</code></li>
+                    <li>债已在债券池、发行主体不在主体池 → 出债；排除 ABS/CRMW；独立 Job 口径不看限制池。</li>
                 </ul>
             </article>
             <article class="card">
@@ -477,15 +496,15 @@
                 <ul>
                     <li>默认 Cron 示例：<code>0 0 4 * * ?</code></li>
                     <li>参数：<code>{"poolIds":[15]}</code>（对应老系统池上勾选「自动入外部评级AA-及以下的主体」）</li>
-                    <li>Wind 最新主体外评在 AA-/A/BBB… 列表内（不含 AA/AA+/AAA），且未在目标池 → 自动入池（security_type=company）。</li>
+                    <li>Wind 有效外评（近 12 个月取档位最高，更早取日期最新）在 AA-/A/BBB… 列表内（不含 AA/AA+/AAA），且未在目标池 → 自动入池；调入限制池（in_restrict）阻断。</li>
                 </ul>
             </article>
             <article class="card">
                 <h3>外评非AA-及以下主体自动出池 company_outer_rating_not_aa_minus_auto_out</h3>
                 <ul>
                     <li>默认 Cron 示例：<code>0 0 5 * * ?</code></li>
-                    <li>参数：<code>{"poolIds":[15]}</code>（对应老系统 AdjustRuleOutAA「自动导出外部评级不是AA-及以下的主体」）</li>
-                    <li>Wind 最新主体外评<strong>不在</strong> AA-/A/BBB… 列表内（如 AA/AA+/AAA），且已在目标池 → 自动出池（security_type=company）；与入池任务评级列表互为补集。</li>
+                    <li>参数：<code>{"poolIds":[16],"limitPoolIds":[15]}</code>（对应老系统 AdjustRuleOutAA + LIMITPOOLID_XYJJ）</li>
+                    <li>Wind 有效外评（近 12 个月取档位最高，更早取日期最新）<strong>不在</strong> AA-/A/BBB… 列表内，且已在目标池 → 自动出主体；已在 limitPoolIds（默认全部 forbidden 池）则不出；主体出成功后再出同池旗下债；调出限制池（out_restrict）阻断。</li>
                 </ul>
             </article>
         </div>

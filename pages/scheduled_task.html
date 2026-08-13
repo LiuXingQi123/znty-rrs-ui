@@ -58,7 +58,7 @@
                 <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
                 <el-button size="small" type="primary" icon="el-icon-plus" @click="openAddDialog">新增</el-button>
                 <div class="total-badge">
-                    <i class="el-icon-data-line"></i> 共 {{ filteredList.length }} 个任务
+                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 个任务
                 </div>
             </div>
         </div>
@@ -67,18 +67,22 @@
         <div class="table-card">
             <el-table
                 ref="taskTableRef"
-                :data="filteredList"
+                :data="taskList"
                 v-loading="loading"
                 border
                 stripe
                 size="small"
                 empty-text="暂无定时任务"
                 style="width:100%;">
-                <el-table-column label="序号" width="50" align="center" type="index"></el-table-column>
-                <el-table-column label="任务名称" width="150" show-overflow-tooltip>
+                <el-table-column label="序号" width="50" align="center">
+                    <template slot-scope="{ $index }">
+                        {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
+                    </template>
+                </el-table-column>
+                <el-table-column label="任务名称" width="180" show-overflow-tooltip>
                     <template slot-scope="{ row }">{{ row.taskName }}</template>
                 </el-table-column>
-                <el-table-column label="任务编码" width="190" show-overflow-tooltip>
+                <el-table-column label="任务编码" width="168" show-overflow-tooltip>
                     <template slot-scope="{ row }">
                         <span class="code-text">{{ row.taskCode }}</span>
                     </template>
@@ -101,7 +105,7 @@
                         </el-switch>
                     </template>
                 </el-table-column>
-                <el-table-column label="最近执行" width="220" align="center">
+                <el-table-column label="最近执行" width="168" align="center">
                     <template slot-scope="{ row }">
                         <div v-if="row.lastRunTime" class="last-run-cell">
                             <el-tag
@@ -157,6 +161,18 @@
                     </template>
                 </el-table-column>
             </el-table>
+            <div class="pagination-wrap">
+                <el-pagination
+                    :total="pagination.total"
+                    :current-page="pagination.pageIndex"
+                    :page-size="pagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    small
+                    @current-change="handlePageChange"
+                    @size-change="handleSizeChange">
+                </el-pagination>
+            </div>
         </div>
     </div>
 
@@ -388,11 +404,16 @@ new Vue({
             configMode: 'edit',       // add / edit
             logVisible: false,        // 历史弹窗
             logLoading: false,        // 历史加载状态
-            taskList: [],             // 任务列表
+            taskList: [],             // 当前页任务列表
             loginUser: null,          // 当前登录用户
             queryParam: {
                 keyword: '',          // 名称/编码关键字
                 enabledFilter: ''     // 调度状态：1 启用 / 0 关闭
+            },
+            pagination: {
+                pageIndex: 1,         // 当前页码
+                pageSize: 20,         // 每页条数
+                total: 0              // 总条数
             },
             configForm: {
                 taskCode: '',
@@ -473,24 +494,6 @@ new Vue({
             }
             return String(text).split(/\r?\n/).map(line => line.trim()).filter(line => line)
         },
-        // 前端筛选后的列表
-        filteredList() {
-            let list = this.taskList || []
-            if (this.queryParam.keyword) {
-                const kw = this.queryParam.keyword.toLowerCase()
-                list = list.filter(item => {
-                    const name = (item.taskName || '').toLowerCase()
-                    const code = (item.taskCode || '').toLowerCase()
-                    return name.indexOf(kw) >= 0 || code.indexOf(kw) >= 0
-                })
-            }
-            if (this.queryParam.enabledFilter === '1') {
-                list = list.filter(item => !!item.scheduleEnabled)
-            } else if (this.queryParam.enabledFilter === '0') {
-                list = list.filter(item => !item.scheduleEnabled)
-            }
-            return list
-        },
         // 历史弹窗标题
         logDialogTitle() {
             return this.logTaskName ? ('执行历史 - ' + this.logTaskName) : '执行历史'
@@ -507,16 +510,25 @@ new Vue({
         this.loadTaskList()
     },
     methods: {
-        // 加载任务列表
+        // 分页加载任务列表
         async loadTaskList() {
             this.loading = true
             try {
-                const data = await this.apiPost('/api/v1/scheduledTask/queryTaskList', {})
-                this.taskList = (data || []).map(item => {
+                const data = await this.apiPost('/api/v1/scheduledTask/queryTaskPage', {
+                    keyword: this.queryParam.keyword || null,
+                    scheduleEnabled: this.queryParam.enabledFilter === '1'
+                        ? true
+                        : (this.queryParam.enabledFilter === '0' ? false : null),
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize
+                })
+                const records = (data && data.records) || []
+                this.taskList = records.map(item => {
                     this.$set(item, '_running', false)
                     this.$set(item, '_switching', false)
                     return item
                 })
+                this.pagination.total = (data && data.total) || 0
             } catch (e) {
                 this.$message.error((e && e.message) || '加载任务列表失败')
             } finally {
@@ -524,17 +536,33 @@ new Vue({
             }
         },
 
-        // 查询（前端过滤，computed 生效）
+        // 查询（回到第一页后重新请求）
         handleSearch() {
-            // 无需请求，筛选由 filteredList 完成
+            this.pagination.pageIndex = 1
+            this.loadTaskList()
         },
 
-        // 重置筛选
+        // 重置筛选并重新查询
         handleReset() {
             this.queryParam = {
                 keyword: '',
                 enabledFilter: ''
             }
+            this.pagination.pageIndex = 1
+            this.loadTaskList()
+        },
+
+        // 切换页码
+        handlePageChange(page) {
+            this.pagination.pageIndex = page
+            this.loadTaskList()
+        },
+
+        // 修改每页条数，回到第一页
+        handleSizeChange(size) {
+            this.pagination.pageSize = size
+            this.pagination.pageIndex = 1
+            this.loadTaskList()
         },
 
         // 参数说明行：支持后端预埋的 <code>，其余转义；无 code 时再将 JSON 片段包成 code
@@ -677,6 +705,10 @@ new Vue({
                     operatorName: this.loginUser.userName
                 })
                 this.$message.success('已删除')
+                // 当前页删空则回上一页
+                if (this.taskList.length <= 1 && this.pagination.pageIndex > 1) {
+                    this.pagination.pageIndex -= 1
+                }
                 await this.loadTaskList()
             } catch (e) {
                 this.$message.error((e && e.message) || '删除失败')
