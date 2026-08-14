@@ -2,88 +2,557 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>证券池 Excel 导入 - 业务文档</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>证券池 Excel 导入｜表与业务逻辑</title>
     <style>
-        body { font-family: "Microsoft YaHei", sans-serif; margin: 24px; color: #242933; line-height: 1.6; }
-        h1 { font-size: 22px; color: #2743A4; }
-        h2 { font-size: 16px; margin-top: 24px; border-left: 3px solid #2743A4; padding-left: 8px; }
-        table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
-        th, td { border: 1px solid #E5E5E5; padding: 8px 10px; text-align: left; }
-        th { background: #F7F8FA; }
-        code { background: #F7F8FA; padding: 1px 4px; border-radius: 2px; }
-        .muted { color: #707783; font-size: 13px; }
+        body.docs-page-security-pool-excel-import {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body.docs-page-security-pool-excel-import, body.docs-page-security-pool-excel-import * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body.docs-page-security-pool-excel-import {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        .docs-page-security-pool-excel-import .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        .docs-page-security-pool-excel-import header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        .docs-page-security-pool-excel-import .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        .docs-page-security-pool-excel-import h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        .docs-page-security-pool-excel-import header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        .docs-page-security-pool-excel-import .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        .docs-page-security-pool-excel-import .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        .docs-page-security-pool-excel-import main {
+            padding: 28px 0 56px
+        }
+
+        .docs-page-security-pool-excel-import .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        .docs-page-security-pool-excel-import .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        .docs-page-security-pool-excel-import .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .docs-page-security-pool-excel-import .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        .docs-page-security-pool-excel-import h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        .docs-page-security-pool-excel-import .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        .docs-page-security-pool-excel-import .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        .docs-page-security-pool-excel-import .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .docs-page-security-pool-excel-import .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        .docs-page-security-pool-excel-import .step span {
+            color: var(--regular)
+        }
+
+        .docs-page-security-pool-excel-import .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        .docs-page-security-pool-excel-import .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .docs-page-security-pool-excel-import .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        .docs-page-security-pool-excel-import .card ul,
+        .docs-page-security-pool-excel-import .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .docs-page-security-pool-excel-import .card li + li {
+            margin-top: 6px
+        }
+
+        .docs-page-security-pool-excel-import .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        .docs-page-security-pool-excel-import .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        .docs-page-security-pool-excel-import table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        .docs-page-security-pool-excel-import th,
+        .docs-page-security-pool-excel-import td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        .docs-page-security-pool-excel-import th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        .docs-page-security-pool-excel-import tr:last-child td {
+            border-bottom: 0
+        }
+
+        .docs-page-security-pool-excel-import tbody tr:hover {
+            background: #f8fbff
+        }
+
+        .docs-page-security-pool-excel-import code,
+        .docs-page-security-pool-excel-import .name {
+            font-family: Consolas, monospace
+        }
+
+        .docs-page-security-pool-excel-import .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        .docs-page-security-pool-excel-import .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        .docs-page-security-pool-excel-import .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .docs-page-security-pool-excel-import .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        .docs-page-security-pool-excel-import .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        .docs-page-security-pool-excel-import .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        .docs-page-security-pool-excel-import .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        .docs-page-security-pool-excel-import .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .docs-page-security-pool-excel-import .notes li + li {
+            margin-top: 5px
+        }
+
+        .docs-page-security-pool-excel-import .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        .docs-page-security-pool-excel-import footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            .docs-page-security-pool-excel-import .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            .docs-page-security-pool-excel-import .flow,
+            .docs-page-security-pool-excel-import .logic {
+                grid-template-columns: 1fr
+            }
+
+            .docs-page-security-pool-excel-import .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            .docs-page-security-pool-excel-import .wrap {
+                width: calc(100% - 24px)
+            }
+
+            .docs-page-security-pool-excel-import header {
+                padding: 24px 0 20px
+            }
+
+            .docs-page-security-pool-excel-import .stats {
+                grid-template-columns: 1fr
+            }
+
+            .docs-page-security-pool-excel-import .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            .docs-page-security-pool-excel-import .nav {
+                display: none
+            }
+
+            .docs-page-security-pool-excel-import .panel {
+                break-inside: avoid
+            }
+        }
     </style>
 </head>
-<body>
-    <h1>证券池 Excel 导入</h1>
-    <p class="muted">页面：<code>pages/security_pool_excel_import.html</code> · API：<code>/api/v1/securityPoolExcelImport</code></p>
+<body class="docs-page docs-page-security-pool-excel-import">
+<header>
+    <div class="wrap">
+        <p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>证券池 Excel 导入</h1>
+        <p class="desc">按证券 / 主体模板上传名单，解析父池与子池后暂存批次，校验通过再选择调库流程提交。页面不选手动目标池，池名由 Excel 解析；提交后写 <code>ip_adjust_log</code>，仅 <code>audit_status=20</code> 落池。</p>
+        <div class="stats">
+            <span class="stat">证券 / 主体双模板</span>
+            <span class="stat">7 个主要接口</span>
+            <span class="stat">依据当前代码实现</span>
+        </div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav">
+        <a href="#overview">流程总览</a>
+        <a href="#logic-1">导入参数与上传</a>
+        <a href="#logic-2">校验与提交</a>
+        <a href="#tables">涉及表</a>
+        <a href="#notes">规则说明</a>
+        <a href="module-tables-index.html">文档目录</a>
+    </nav>
 
-    <h2>功能说明</h2>
-    <ol>
-        <li>选择<strong>导入类型</strong>（证券 / 主体）、调入/调出方向、选项与调整原因/调整意见（均非必填）。<strong>页面不选择目标池</strong>，池由 Excel 父池/子池名称解析。</li>
-        <li>分别下载<strong>证券模板</strong>或<strong>主体模板</strong>后拖拽上传：
-            <ul>
-                <li>证券模板列：父池名称、子池名称、证券名称、证券代码</li>
-                <li>主体模板列：父池名称、子池名称、主体名称、主体代码</li>
-            </ul>
-        </li>
-        <li>上传后在「导入明细」查看行数据；点击<strong>校验</strong>后切换到「调库校验结果」。</li>
-        <li>提交弹出「选择调库流程」对话框（与证券池批量调整一致），确认后写 <code>ip_adjust_log</code>。</li>
-    </ol>
+    <section class="panel" id="overview">
+        <h2>业务流程总览</h2>
+        <p class="sub">前端 <code>pages/security_pool_excel_import.html</code>：上方导入参数与上传，下方「导入明细 / 调库校验结果」双 Tab。API 前缀 <code>/api/v1/securityPoolExcelImport</code>。</p>
+        <div class="flow">
+            <div class="step"><b>1. 导入参数</b><span>选证券/主体、调入/调出；可选清空目标池、联动互斥、原因与意见。</span></div>
+            <div class="step"><b>2. 下载并上传</b><span>按类型下载模板后拖入 xls/xlsx；解析父池/子池名称写入临时表。</span></div>
+            <div class="step"><b>3. 导入明细</b><span>分页查看行数据与解析结果；可按校验状态筛选后点击校验。</span></div>
+            <div class="step"><b>4. 调库校验</b><span>证券走单券 checkAdjust，主体走 checkCompanyAdjust；展示可调整项。</span></div>
+            <div class="step"><b>5. 选流程提交</b><span>弹窗与批量调库一致；确认后写申请/步骤，仅 20 落池。</span></div>
+        </div>
+    </section>
 
-    <h2>导入类型差异</h2>
-    <table>
-        <tr><th>类型</th><th>校验</th><th>联动/互斥</th><th>提交</th></tr>
-        <tr>
-            <td>证券</td>
-            <td>每行调用 <code>SecurityPoolAdjustService.checkAdjust</code>（与批量内部路径相同）</td>
-            <td>勾选后保留联动/互斥/关联码展开；不勾选仅手工项</td>
-            <td>按主券分组 <code>addAdjustLog</code>，并注入批量流程候选</td>
-        </tr>
-        <tr>
-            <td colspan="4">
-                <strong>首先清空目标池（仅调入）</strong>：对每个本批目标池，将「在池但不在本批名单」的成员按批量出库校验/提交（独立方法）；
-                本批编码若存在在途流程则该导入行失败；非本批编码的在途不纳入清空。提交顺序：先清空出库，再导入。
-            </td>
-        </tr>
-        <tr>
-            <td>主体</td>
-            <td>每行调用 <code>ForbiddenPoolAdjustService.checkCompanyAdjust</code></td>
-            <td>同样受「允许联动与互斥」过滤</td>
-            <td>按主体分组 <code>addCompanyAdjustLog</code></td>
-        </tr>
-    </table>
+    <section class="panel" id="logic-1">
+        <h2>导入参数与上传</h2>
+        <p class="sub">方向与选项作用于整批；目标池不在页面选择，由 Excel 父池名称 + 子池名称解析。</p>
+        <span class="api">POST /api/v1/commonFile/downloadTemplate · /api/v1/securityPoolExcelImport/uploadExcel</span>
+        <div class="logic">
+            <article class="card">
+                <h3>导入类型与选项</h3>
+                <ul>
+                    <li>导入类型：<code>security</code> 证券 / <code>company</code> 主体；调整方向：<code>in</code> 调入 / <code>out</code> 调出。</li>
+                    <li>调整原因、调整意见均为选填，整批共享，写入临时主表 <code>fld002</code> / <code>fld003</code>。</li>
+                    <li>「首先清空目标池」仅调入可见：把目标池中不在本批名单内的在池数据按批量出库处理。</li>
+                    <li>「允许联动与互斥调整」默认勾选；不勾选则校验结果只保留手工项。</li>
+                    <li>已生成批次（存在 <code>impId</code>）后参数锁定，需先清空再改类型或方向。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>模板与上传</h3>
+                <ul>
+                    <li>证券模板列：父池名称、子池名称、证券名称、证券代码。</li>
+                    <li>主体模板列：父池名称、子池名称、主体名称、主体代码。</li>
+                    <li>模板下载 <code>templateCode</code>：<code>security_pool_import</code> / <code>company_pool_import</code>。</li>
+                    <li>上传 multipart：<code>request</code> JSON Blob + <code>file</code>，与调库附件提交方式一致；xls/xlsx，不超过 5MB。</li>
+                    <li>再次选择文件会覆盖当前未提交批次；上传后生成 <code>impId</code>（形如 <code>IMP202608071347400001</code>）。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
 
-    <h2>临时表（全系统通用导入暂存，非本功能独占）</h2>
-    <table>
-        <tr><th>表</th><th>说明</th></tr>
-        <tr><td><code>sys_imp_tmp</code></td><td>导入临时主表（批次）；biz_type 区分业务；fld001=方向 / fld002=原因 / fld003=意见；option_json 存导入选项</td></tr>
-        <tr><td><code>sys_imp_tmp_detl</code></td><td>导入临时明细；本业务：fld001=代码，fld002=名称，fld003=父池，fld004=子池，fld009=解析池ID</td></tr>
-    </table>
+    <section class="panel" id="logic-2">
+        <h2>校验与提交</h2>
+        <p class="sub">先校验导入行，再复用单券 / 主体调库校验；提交弹窗与证券池批量调整一致。</p>
+        <span class="api">POST /api/v1/securityPoolExcelImport/queryItemPage · checkImport · queryTask · submitImport · cancelImport</span>
+        <div class="logic">
+            <article class="card">
+                <h3>导入明细与调库校验</h3>
+                <ul>
+                    <li>明细分页 <code>queryItemPage</code>：可按代码关键字、校验结果（待校验 / 通过 / 失败）筛选。</li>
+                    <li>证券：每行调用 <code>SecurityPoolAdjustService.checkAdjust</code>（与批量内部路径相同）。</li>
+                    <li>主体：每行调用 <code>ForbiddenPoolAdjustService.checkCompanyAdjust</code>。</li>
+                    <li>勾选联动互斥时保留 linkage / mutex / related 展开项；不勾选仅手工项。</li>
+                    <li>首先清空目标池：对本批每个目标池，将「在池但不在本批名单」的成员按批量出库校验；本批编码若已有在途流程则该导入行失败。</li>
+                    <li>校验结果列调整类型：手工主项为「Excel导入」，清空项为「Excel清空」，不写成单笔的「手工调整」。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>提交、流程与权限</h3>
+                <ul>
+                    <li>提交弹出「选择调库流程」，交互与证券池批量调整一致；确认后写 <code>ip_adjust_log</code>。</li>
+                    <li>证券按主券分组 <code>addAdjustLog</code> 并注入批量流程候选；主体按主体分组 <code>addCompanyAdjustLog</code>。</li>
+                    <li>清空出库先于导入提交；仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>。</li>
+                    <li>目标池须配置 <code>excel_importable</code> 权限；管理员 <code>userId=1</code> 放行。</li>
+                    <li>导入批次号仅管理员可见，非管理员不展示芯片；<code>impId</code> 仍用于后续校验 / 提交。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
 
-    <h2>调整类型（校验结果列）</h2>
-    <p>对齐存量证券批量调整的「渠道专属」口径：批量手工主项为「手动批量调整」，本页 Excel 手工主项为「Excel导入」，不写成单笔的「手工调整」。</p>
-    <table>
-        <tr><th>itemTag / 场景</th><th>调整类型展示</th><th>说明</th></tr>
-        <tr><td>manual（Excel 行）</td><td><code>Excel导入</code></td><td>与提交落库一致；字典 DICT_ADJUST_TYPE 已登记</td></tr>
-        <tr><td>clear（首先清空目标池）</td><td><code>Excel清空</code></td><td>差集出库；提交 adjust_type 同名</td></tr>
-        <tr><td>linkage / mutex / related</td><td>联动调整 / 互斥调整 / 关联调整</td><td>与单笔、批量一致</td></tr>
-    </table>
+    <section class="panel" id="tables">
+        <h2>涉及表、用途与触发场景</h2>
+        <p class="sub">临时表为全系统通用导入暂存，非本功能独占；调库落库与证券池 / 禁投池单笔同构。</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>表名</th>
+                    <th>用途</th>
+                    <th>读写</th>
+                    <th>触发场景</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="name">sys_imp_tmp</span></td>
+                    <td>导入临时主表（批次）；biz_type 区分业务；fld001=方向 / fld002=原因 / fld003=意见；option_json 存导入选项</td>
+                    <td><span class="tag w">新增</span> <span class="tag u">更新</span> <span class="tag r">查询</span></td>
+                    <td>上传生成批次、校验回写摘要、取消</td>
+                </tr>
+                <tr>
+                    <td><span class="name">sys_imp_tmp_detl</span></td>
+                    <td>导入临时明细；本业务：fld001=代码，fld002=名称，fld003=父池，fld004=子池，fld009=解析池 ID</td>
+                    <td><span class="tag w">新增</span> <span class="tag u">更新</span> <span class="tag r">查询</span></td>
+                    <td>上传解析行、明细分页、校验结果回写</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_investment_pool</span></td>
+                    <td>按父池 / 子池名称解析目标池</td>
+                    <td><span class="tag r">查询</span></td>
+                    <td>上传解析、校验、提交</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_permission</span></td>
+                    <td>excel_importable 导入权限</td>
+                    <td><span class="tag r">查询</span></td>
+                    <td>上传与提交前权限校验</td>
+                </tr>
+                <tr>
+                    <td><span class="name">rrs_securityinfo</span></td>
+                    <td>证券主数据（证券导入）</td>
+                    <td><span class="tag r">查询</span></td>
+                    <td>解析代码、逐行校验</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ais_inv_ods.wind_cbondissuer</span></td>
+                    <td>Wind 主体主数据（主体导入）</td>
+                    <td><span class="tag r">查询</span></td>
+                    <td>主体代码解析与校验</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_status</span></td>
+                    <td>当前在池状态；清空差集与最终落池</td>
+                    <td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag u">逻辑删除</span></td>
+                    <td>校验、清空出库、直通或审批通过</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_adjust_log</span></td>
+                    <td>调库申请；手工项 adjust_type 为 Excel导入 / Excel清空</td>
+                    <td><span class="tag w">新增</span> <span class="tag u">更新</span></td>
+                    <td>提交导入与清空出库</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_adjust_step</span></td>
+                    <td>审批运行步骤</td>
+                    <td><span class="tag w">新增</span> <span class="tag u">更新</span></td>
+                    <td>非直通流程及后续审批</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_definition / wf_flow_version</span></td>
+                    <td>选定流程及活跃版本</td>
+                    <td><span class="tag r">查询</span></td>
+                    <td>提交流程快照</td>
+                </tr>
+                <tr>
+                    <td><span class="name">sys_attachment</span></td>
+                    <td>模板文件与提交附件</td>
+                    <td><span class="tag r">查询</span> <span class="tag w">新增</span></td>
+                    <td>下载模板、提交材料</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
 
-    <h2>主要接口</h2>
-    <table>
-        <tr><th>路径</th><th>说明</th></tr>
-        <tr><td><code>POST /api/v1/commonFile/downloadTemplate</code></td><td>templateCode：security_pool_import / company_pool_import</td></tr>
-        <tr><td><code>POST .../uploadExcel</code></td><td>multipart：FormData + apiPost（request JSON Blob + file，对齐调库）</td></tr>
-        <tr><td><code>POST .../checkImport</code></td><td>内联校验 + 调库校验结果</td></tr>
-        <tr><td><code>POST .../submitImport</code></td><td>内联提交（可选 checkItems 带流程选择）</td></tr>
-        <tr><td><code>POST .../queryItemPage</code></td><td>明细分页</td></tr>
-        <tr><td><code>POST .../queryTask</code></td><td>查询导入批次主表（含校验结果快照 checkItems）；前端刷新明细/校验结果时调用</td></tr>
-        <tr><td><code>POST .../cancelImport</code></td><td>取消批次</td></tr>
-    </table>
-
-    <h2>权限</h2>
-    <p>目标池须配置 <code>excel_importable</code> 权限；管理员 userId=1 放行。</p>
-    <p>上传后生成的导入批次号（impId，形如 <code>IMP202608071347400001</code>）仅管理员（userId=1）可见，非管理员该芯片不展示；impId 数据仍用于校验/提交等后续操作。</p>
+    <section class="panel" id="notes">
+        <h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>页面不选择目标池：父池 / 子池名称必须能解析到启用叶子池，否则该行校验失败。</li>
+            <li>调整类型对齐存量批量的「渠道专属」口径：Excel 手工主项为 <code>Excel导入</code>，清空项为 <code>Excel清空</code>；联动 / 互斥 / 关联与单笔、批量一致。字典 <code>DICT_ADJUST_TYPE</code> 已登记。</li>
+            <li>首先清空目标池仅调入：提交顺序先清空出库，再导入；非本批编码的在途流程不纳入清空。</li>
+            <li>证券校验复用单券 <code>checkAdjust</code>，主体校验复用禁投池 <code>checkCompanyAdjust</code>；流程选择弹窗与
+                <a href="batch-security-pool-adjust-tables.html">证券池批量调整</a> 一致。</li>
+            <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；驳回 / 撤回只改日志与步骤。</li>
+            <li>导入批次号仅管理员可见；目标池须具备 <code>excel_importable</code>，管理员放行。</li>
+        </ul>
+        <div class="note">本页依据当前 Controller、Service、Mapper
+            XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
+        </div>
+    </section>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p>
+</main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
 </body>
 </html>
