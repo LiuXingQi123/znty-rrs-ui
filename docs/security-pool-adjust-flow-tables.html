@@ -688,6 +688,7 @@
                         <li>筛选字段：<code>securityCode</code>、<code>securityShortName</code>、<code>securityType</code>、<code>issuer</code>。</li>
                         <li>证券类型下拉来自 <code>POST /api/v1/securityPoolAdjust/querySecurityTypeList</code>，关联 <code>rrs_securityinfo</code> 与 <code>dict_security_type</code>，与列表同口径（排除 <code>crmw</code>/<code>company</code> 及已删除态）。</li>
                         <li>分页字段：<code>pageIndex</code>、<code>pageSize</code>。</li>
+                        <li>初始化走 <code>applyUrlSecurityOrList</code>：URL 带 <code>securityCode</code>（事宜「去调库」等）时写入筛选并进入该券详情；无参数才只加载列表。</li>
                         <li>查询、重置、切换页码或每页条数都会重新调用接口；新查询回到第 1 页。</li>
                         <li>后端使用 <code>PageHelper.startPage</code>，返回 <code>records</code> 和 <code>total</code>。</li>
                     </ul>
@@ -801,7 +802,7 @@
                     </ol>
                 </article>
             </div>
-            <div class="implementation-note"><strong>当前实现说明：</strong>前端分别携带 <code>adjustDirection='in'</code> / <code>'out'</code> 调用两次接口。后端会按方向区分：<strong>调入</strong>时排除 CRMW 池，并执行 <code>filterInboundByGradeRule</code>（正式证券无内评去掉信用债大库 1～5 级；临时代码无内评默认 <code>grade_code=4</code> 再按矩阵过滤；有内评按矩阵保留允许池；<code>releaseRules=true</code>/可转债/观察池可跳过矩阵）；<strong>调出</strong>不做上述矩阵过滤。两侧结果再由前端按当前在池状态分别生成可调入/可调出树。</div>
+            <div class="implementation-note"><strong>当前实现说明：</strong>前端分别携带 <code>adjustDirection='in'</code> / <code>'out'</code> 调用两次接口。后端会按方向区分：<strong>调入</strong>时排除 CRMW 池，并执行 <code>filterInboundByGradeRule</code>（正式证券无内评去掉信用债大库 1～5 级；临时代码无内评默认 <code>grade_code=4</code> 再按矩阵过滤；有内评按矩阵保留允许池；<code>releaseRules=true</code>/可转债跳过矩阵；<strong>观察名单按标准最好档封顶，不再跳过</strong>）；<strong>调出</strong>不做上述矩阵过滤。两侧结果再由前端按当前在池状态分别生成可调入/可调出树。</div>
             <div class="data-strip"><code>ip_investment_pool：读</code><code>ip_pool_permission：读</code><code>ip_pool_relation：读</code><code>ip_pool_status：读</code><code>rrs_securityinfo：读</code><code>credit_bond_*：读（调入矩阵）</code><code>t_sys_user_role：读</code><code>t_sys_role：读</code></div>
         </section>
 

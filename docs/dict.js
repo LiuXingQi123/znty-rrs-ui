@@ -139,7 +139,7 @@ const DICT_PROCESS_ACTION = {
 // ── 8. 投资池类型（pool_type）─────────────────────────────
 // 枚举：PoolType（业务域可扩展；同一类型下可挂多棵树，如多个信用债根）
 // 表：ip_investment_pool, ip_adjust_log, ip_pool_status
-// 硬逻辑：credit_bond / crmw / forbidden=全局禁止 / observe=观察跳过矩阵
+// 硬逻辑：credit_bond / crmw / forbidden=全局禁止 / observe=观察名单按标准最好档封顶（不再跳过矩阵）
 // 扩展：新增 code 时同步本字典 + PoolType + 投资池维护「新建顶级」分组选项
 const DICT_POOL_TYPE = {
     // 固收/债券

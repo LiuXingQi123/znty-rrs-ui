@@ -134,6 +134,8 @@
 | `css/script_tool.css` | 数据初始化页面样式 | `docs/script_tool.html` |
 | `css/temp_security_code.css` | 临时代码管理页面样式 | `temp_security_code.html` |
 | `css/pool_open_day.css` | 投资池开放日维护页面样式 | `pool_open_day.html` |
+| `css/scheduled_task.css` | 定时任务管理页面样式 | `scheduled_task.html` |
+| `css/security_pool_excel_import.css` | 证券池 Excel 导入页面样式 | `security_pool_excel_import.html` |
 
 ## 业务文档页面
 
@@ -145,6 +147,7 @@
 | `docs/security-pool-adjust-flow-tables.html` | 证券池调整文档 | HTML 内联样式 |
 | `docs/batch-security-pool-adjust-tables.html` | 证券池批量调整文档 | HTML 内联样式 |
 | `docs/stock-security-batch-adjust-tables.html` | 存量证券批量调整文档 | HTML 内联样式 |
+| `docs/security-pool-excel-import.html` | 证券池 Excel 导入文档 | HTML 内联样式 |
 | `docs/security-pool-query-tables.html` | 证券池查询文档 | HTML 内联样式 |
 | `docs/security-pool-adjust-history-tables.html` | 证券池调整历史文档 | HTML 内联样式 |
 | `docs/grade-rule-alert-tables.html` | 不符合分级规则提醒文档 | HTML 内联样式 |
@@ -165,6 +168,9 @@
 | `docs/crmw-pool-adjust-approve-tables.html` | CRMW池调库审核文档 | HTML 内联样式 |
 | `docs/crmw-pool-adjust-detail-tables.html` | CRMW池调库详情文档 | HTML 内联样式 |
 | `docs/investment-pool-tables.html` | 投资池维护文档 | HTML 内联样式 |
+| `docs/pool-open-day-tables.html` | 投资池开放日维护文档 | HTML 内联样式 |
 | `docs/flow-definition-tables.html` | 流程定义文档 | HTML 内联样式 |
 | `docs/rule-manager-tables.html` | 规则管理中心文档 | HTML 内联样式 |
 | `docs/credit-bond-grade-rule-tables.html` | 主体内评分档规则文档 | HTML 内联样式 |
+| `docs/scheduled-task-tables.html` | 定时任务管理文档 | HTML 内联样式 |
+| `docs/dictionary-values-index.html` | 字典值总览 | HTML 内联样式 |
