@@ -210,15 +210,25 @@ new Vue({
             this.loadList();
         },
 
-        // 打开CRMW调库详情页
+        // 打开CRMW调库详情页（工作台内按凭证+标的新开页签，同键复用）
         openCrmwAdjustDetail(row) {
+            const crmwScode = row.crmwScode || '';
+            const securityCode = row.securityCode || '';
+            const name = row.crmwSname || row.securityShortName || crmwScode || securityCode;
             const params = new URLSearchParams();
-            params.set('securityCode', row.securityCode || '');
-            params.set('crmwScode', row.crmwScode || '');
+            params.set('securityCode', securityCode);
+            params.set('crmwScode', crmwScode);
             if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
             if (row.adjustLogId) params.set('adjustLogId', row.adjustLogId);
             if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
             params.set('entryMode', 'view');
+            const opened = window.RrsWorkbench.openDetailTab({
+                index: window.RrsWorkbench.buildTabIndex('crmw-detail', [crmwScode, securityCode, row.adjustLogId, row.adjustBatchNo, row.targetPoolId]),
+                title: window.RrsWorkbench.formatDetailTitle(name, crmwScode || securityCode),
+                page: this.pagePaths.crmwPoolAdjustDetail,
+                query: params.toString(),
+            });
+            if (opened) return;
             window.RrsAuth.appendUserParams(params);
             window.location.href = this.pagePaths.crmwPoolAdjustDetail + '?' + params.toString();
         },

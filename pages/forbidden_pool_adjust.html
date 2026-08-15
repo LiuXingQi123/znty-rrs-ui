@@ -1932,9 +1932,9 @@
                     && this.absValidManualAdjustReviewList.every(row => !!this.selectedRowFlowOption(row));
             },
         },
-        // 页面初始化：设置接口基础地址，加载主体列表
+        // 页面初始化：带主体/ABS 代码时筛出并进入该对象
         created() {
-            this.loadList();
+            this.applyUrlCompanyOrList();
         },
         mounted() {
             this.handleWindowResize = () => {
@@ -1986,6 +1986,45 @@
                 const hashQueryIndex = hash.indexOf('?');
                 if (hashQueryIndex < 0) return '';
                 return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
+            },
+            // 从 URL 带入主体或 ABS 债并打开调库；无参数则只加载主体列表
+            async applyUrlCompanyOrList() {
+                const companyCode = this.getUrlParam('companyCode');
+                const securityCode = this.getUrlParam('securityCode');
+                if (companyCode) {
+                    this.listTab = 'company';
+                    this.searchForm.companyCode = companyCode;
+                    this.pagination.pageIndex = 1;
+                    await this.loadList();
+                    const row = (this.tableData || []).find(item => item.companyCode === companyCode);
+                    if (row) {
+                        await this.handleAdjust(row);
+                        return;
+                    }
+                    this.selectedTargetPoolId = this.getUrlParam('targetPoolId') || null;
+                    this.selectedAdjustLogId = this.getUrlParam('adjustLogId') || this.getUrlParam('adjust_log_id') || null;
+                    this.selectedAdjustBatchNo = this.getUrlParam('adjustBatchNo') || this.getUrlParam('adjust_batch_no') || null;
+                    this.currentPage = 'detail';
+                    await this.loadDetailData(companyCode);
+                    return;
+                }
+                if (securityCode) {
+                    this.listTab = 'abs';
+                    this.absSearchForm.securityCode = securityCode;
+                    this.absPagination.pageIndex = 1;
+                    await this.absLoadList();
+                    const row = (this.absTableData || []).find(item =>
+                        item.windCode === securityCode || item.securityCode === securityCode
+                    );
+                    if (row) {
+                        await this.absHandleAdjust(row);
+                        return;
+                    }
+                    this.currentPage = 'absDetail';
+                    await this.absLoadDetailData(securityCode);
+                    return;
+                }
+                this.loadList();
             },
             // 查看主体旗下债券在指定投资池中的明细
             async openCompanyBondDialog(pool) {
@@ -3300,8 +3339,11 @@
                 return arr.map(r => r.title || '').filter(Boolean);
             },
 
-            // 返回列表页并重置详情页所有状态（主体）
+            // 返回：动态页签关闭当前 Tab；菜单进入则回页内主体列表
             backToList() {
+                if (window.RrsWorkbench.closeActiveTab()) {
+                    return;
+                }
                 this.currentPage = 'list';
                 this.listTab = 'company';
                 // 列表页重新显示后同步固定列布局
@@ -3797,8 +3839,11 @@
                     this.absSubmitLoading = false;
                 }
             },
-            // 从 ABS 详情返回列表，保持 listTab='abs'
+            // 从 ABS 详情返回：动态页签关 Tab，否则回 ABS 列表
             absBackToList() {
+                if (window.RrsWorkbench.closeActiveTab()) {
+                    return;
+                }
                 this.currentPage = 'list';
                 this.listTab = 'abs';
                 this.absRefreshListTableLayout();

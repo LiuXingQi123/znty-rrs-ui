@@ -174,16 +174,26 @@ new Vue({
             return row.categoryType === 'company';
         },
 
-        // 打开禁投池对应的调库详情页
+        // 打开禁投池对应的调库详情页（工作台内按对象新开页签，同键复用）
         openPoolAdjustDetail(row) {
             const params = new URLSearchParams();
             const isCompany = this.isCompany(row);
-            const targetCode = row.securityCode || row.windCode;
+            const targetCode = row.securityCode || row.windCode || '';
+            const name = row.securityShortName || row.companyName || targetCode;
             if (targetCode) params.set(isCompany ? 'companyCode' : 'securityCode', targetCode);
             if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
+            if (row.adjustLogId) params.set('adjustLogId', row.adjustLogId);
             if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
             params.set('entryMode', 'view');
             const page = isCompany ? this.pagePaths.forbiddenPoolAdjustDetail : this.pagePaths.securityPoolAdjustDetail;
+            const prefix = isCompany ? 'forbidden-detail' : 'security-detail';
+            const opened = window.RrsWorkbench.openDetailTab({
+                index: window.RrsWorkbench.buildTabIndex(prefix, [targetCode, row.adjustLogId, row.adjustBatchNo, row.targetPoolId]),
+                title: window.RrsWorkbench.formatDetailTitle(name, targetCode),
+                page: page,
+                query: params.toString(),
+            });
+            if (opened) return;
             window.RrsAuth.appendUserParams(params);
             window.location.href = page + '?' + params.toString();
         },

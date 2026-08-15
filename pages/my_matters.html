@@ -280,6 +280,12 @@ new Vue({
         this.loadMatterTabCounts();
         this.loadAlertOpenCount();
         this.reloadCurrentTab();
+        // 从审核/详情页签返回时由工作台回调，刷新列表和角标
+        window.RrsPageOnShow = () => {
+            this.loadMatterTabCounts();
+            this.loadAlertOpenCount();
+            this.reloadCurrentTab();
+        };
         this.handleWindowResize = () => {
             window.clearTimeout(this.resizeLayoutTimer);
             this.resizeLayoutTimer = window.setTimeout(() => {
@@ -290,6 +296,9 @@ new Vue({
         window.addEventListener('resize', this.handleWindowResize);
     },
     beforeDestroy() {
+        if (window.RrsPageOnShow) {
+            window.RrsPageOnShow = null;
+        }
         window.removeEventListener('resize', this.handleWindowResize);
         window.clearTimeout(this.resizeLayoutTimer);
     },
@@ -569,10 +578,19 @@ new Vue({
             this.loadAlertList();
         },
 
-        // 从提醒跳转证券池调库
+        // 从提醒跳转证券池调库（工作台内新开调库页签）
         openAlertAdjust(row) {
+            const code = row.securityCode || '';
+            const name = row.securityShortName || code;
             const params = new URLSearchParams();
-            if (row.securityCode) params.set('securityCode', row.securityCode);
+            if (code) params.set('securityCode', code);
+            const opened = window.RrsWorkbench.openDetailTab({
+                index: window.RrsWorkbench.buildTabIndex('security-adjust', [code]),
+                title: window.RrsWorkbench.formatDetailTitle(name, code, '调库'),
+                page: this.pagePaths.securityPoolAdjust,
+                query: params.toString(),
+            });
+            if (opened) return;
             window.RrsAuth.appendUserParams(params);
             window.location.href = this.pagePaths.securityPoolAdjust + '?' + params.toString();
         },
@@ -605,31 +623,50 @@ new Vue({
             }
         },
 
-        // 打开对应调库页面
+        // 打开对应审核/详情页（工作台内按记录新开页签，同键复用）
         openMatterPage(row) {
             const params = new URLSearchParams();
             const isForbiddenCompanyAdjust = row.businessScene === 'forbiddenCompanyAdjust';
             const isCrmwAdjust = row.businessScene === 'crmwAdjust';
-            if (row.securityCode) {
-                params.set(isForbiddenCompanyAdjust ? 'companyCode' : 'securityCode', row.securityCode);
+            const isPending = this.activeTab === 'pending';
+            const code = row.securityCode || '';
+            const name = row.securityShortName || code;
+            if (code) {
+                params.set(isForbiddenCompanyAdjust ? 'companyCode' : 'securityCode', code);
             }
             if (isCrmwAdjust && row.crmwScode) params.set('crmwScode', row.crmwScode);
             if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
             if (row.adjustLogId) params.set('adjustLogId', row.adjustLogId);
             if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
-            params.set('entryMode', this.activeTab === 'pending' ? 'process' : 'view');
-            let page = this.activeTab === 'pending'
+            params.set('entryMode', isPending ? 'process' : 'view');
+            let page = isPending
                 ? this.pagePaths.securityPoolAdjustApprove
                 : this.pagePaths.securityPoolAdjustDetail;
+            let prefix = isPending ? 'security-approve' : 'security-detail';
             if (isForbiddenCompanyAdjust) {
-                page = this.activeTab === 'pending'
+                page = isPending
                     ? this.pagePaths.forbiddenPoolAdjustApprove
                     : this.pagePaths.forbiddenPoolAdjustDetail;
+                prefix = isPending ? 'forbidden-approve' : 'forbidden-detail';
             } else if (isCrmwAdjust) {
-                page = this.activeTab === 'pending'
+                page = isPending
                     ? this.pagePaths.crmwPoolAdjustApprove
                     : this.pagePaths.crmwPoolAdjustDetail;
+                prefix = isPending ? 'crmw-approve' : 'crmw-detail';
             }
+            const opened = window.RrsWorkbench.openDetailTab({
+                index: window.RrsWorkbench.buildTabIndex(prefix, [
+                    isCrmwAdjust ? row.crmwScode : code,
+                    code,
+                    row.adjustLogId,
+                    row.adjustBatchNo,
+                    row.targetPoolId,
+                ]),
+                title: window.RrsWorkbench.formatDetailTitle(name, code, isPending ? '审核' : '详情'),
+                page: page,
+                query: params.toString(),
+            });
+            if (opened) return;
             window.RrsAuth.appendUserParams(params);
             window.location.href = page + '?' + params.toString();
         },

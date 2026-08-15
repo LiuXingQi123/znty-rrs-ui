@@ -98,6 +98,50 @@ window.RrsAuth = {
     },
 }
 
+// 工作台页签：列表进详情时新开 Tab，同业务键复用；脱离工作台时返回 false 由页面自行跳转
+window.RrsWorkbench = {
+    // 取得带开 Tab 能力的父窗口
+    getHost() {
+        try {
+            if (window.parent && window.parent !== window && typeof window.parent.RrsWorkbenchOpenTab === 'function') {
+                return window.parent
+            }
+        } catch (e) {}
+        return null
+    },
+
+    // 组装页签唯一键，去掉空白
+    buildTabIndex(prefix, parts) {
+        const tokens = (parts || []).map(function (item) {
+            return String(item == null ? '' : item).replace(/\s+/g, '')
+        })
+        return String(prefix || 'detail') + '-' + tokens.join('-')
+    },
+
+    // 页签标题：简称优先，过长截断；suffix 默认「详情」，审核页可传「审核」
+    formatDetailTitle(name, fallback, suffix) {
+        const tag = String(suffix || '详情').trim() || '详情'
+        const raw = String(name || fallback || tag).trim() || tag
+        const shortText = raw.length > 16 ? raw.slice(0, 16) + '…' : raw
+        return shortText.slice(-tag.length) === tag ? shortText : shortText + ' ' + tag
+    },
+
+    // 在工作台新开或激活详情页签；成功返回 true
+    openDetailTab(options) {
+        const host = this.getHost()
+        if (!host) return false
+        host.RrsWorkbenchOpenTab(options || {})
+        return true
+    },
+
+    // 关闭当前详情页签并回到来源页签；未关掉动态页签时返回 false，由页面走原返回逻辑
+    closeActiveTab() {
+        const host = this.getHost()
+        if (!host || typeof host.RrsWorkbenchCloseActiveTab !== 'function') return false
+        return host.RrsWorkbenchCloseActiveTab() === true
+    },
+}
+
 axios.defaults.baseURL = 'http://localhost:18090'
 
 Vue.prototype.apiPost = async function(path, body, config) {

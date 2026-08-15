@@ -522,13 +522,23 @@ new Vue({
             return row.mySecurityPoolId != null;
         },
 
-        // 打开证券调库详情页
+        // 打开证券调库详情页（工作台内按证券新开页签，同键复用）
         openSecurityAdjustDetail(row) {
+            const code = row.securityCode || row.windCode || '';
+            const name = row.securityShortName || code;
             const params = new URLSearchParams();
-            if (row.securityCode || row.windCode) params.set('securityCode', row.securityCode || row.windCode);
+            if (code) params.set('securityCode', code);
             if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
+            if (row.adjustLogId) params.set('adjustLogId', row.adjustLogId);
             if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
             params.set('entryMode', 'view');
+            const opened = window.RrsWorkbench.openDetailTab({
+                index: window.RrsWorkbench.buildTabIndex('security-detail', [code, row.adjustLogId, row.adjustBatchNo, row.targetPoolId]),
+                title: window.RrsWorkbench.formatDetailTitle(name, code),
+                page: this.pagePaths.securityPoolAdjustDetail,
+                query: params.toString(),
+            });
+            if (opened) return;
             window.RrsAuth.appendUserParams(params);
             window.location.href = this.pagePaths.securityPoolAdjustDetail + '?' + params.toString();
         },

@@ -30,7 +30,7 @@
 
             <el-menu
                     class="workbench-menu"
-                    :default-active="activeMenu"
+                    :default-active="sidebarActiveMenu"
                     :collapse="isCollapse"
                     :collapse-transition="false"
                     :unique-opened="false"
@@ -179,7 +179,7 @@
                             @click="activateTab(tab.index)"
                             @keyup.enter="activateTab(tab.index)">
                         <i v-if="tab.fixed" class="el-icon-s-home page-tab-home-icon"></i>
-                        <span class="page-tab-title">{{ tab.title }}</span>
+                        <span class="page-tab-title" :title="tab.title">{{ tab.title }}</span>
                         <el-button
                                 v-if="!tab.fixed"
                                 class="page-tab-close"
@@ -221,7 +221,9 @@
                             v-for="tab in openedTabs"
                             v-show="activeMenu === tab.index"
                             :key="tab.index + '-' + tab.renderKey"
+                            ref="contentFrames"
                             class="content-frame"
+                            :data-tab-index="tab.index"
                             :src="tab.url"
                             :title="tab.title">
                     </iframe>
@@ -259,12 +261,12 @@ new Vue({
             lastActiveByPrimary: {
                 'fixed-income': 'security-adjust',
                 'document-management': 'doc-overview',
-                'version-management': 'version-changelog-20260726',
+                'version-management': 'version-nav-20260815',
             }, // 各一级菜单最后激活的页面
             primaryMenus: [
                 { index: 'fixed-income', title: '研究管理', icon: 'el-icon-data-line', defaultPage: 'security-adjust' },
                 { index: 'document-management', title: '文档管理', icon: 'el-icon-reading', defaultPage: 'doc-overview' },
-                { index: 'version-management', title: '版本管理', icon: 'el-icon-notebook-2', defaultPage: 'version-changelog-20260726' },
+                { index: 'version-management', title: '版本管理', icon: 'el-icon-notebook-2', defaultPage: 'version-nav-20260815' },
             ], // 顶部一级菜单
             menuGroups: [
                 {
@@ -477,6 +479,7 @@ new Vue({
                 {
                     index: 'version-notes', title: '版本说明', icon: 'el-icon-document', primaryMenu: 'version-management',
                     items: [
+                        { index: 'version-nav-20260815', title: '2026-08-15 跳转改新开Tab', icon: 'el-icon-date', page: 'docs/version-changelog-20260815-workbench-nav.html' },
                         { index: 'version-changelog-20260726', title: '2026-07-26 变更说明', icon: 'el-icon-date', page: 'docs/version-changelog-20260726.html' },
                     ],
                 },
@@ -515,6 +518,12 @@ new Vue({
             })
             return items
         },
+        // 侧栏高亮：动态详情页签回落到来源菜单
+        sidebarActiveMenu() {
+            const tab = this.openedTabs.find(item => item.index === this.activeMenu)
+            if (tab && tab.dynamic && tab.fromIndex) return tab.fromIndex
+            return this.activeMenu
+        },
         // 当前激活页签序号
         activeTabIndex() {
             return this.openedTabs.findIndex(tab => tab.index === this.activeMenu)
@@ -538,6 +547,8 @@ new Vue({
             return
         }
         window.RrsWorkbenchOpenPage = index => this.openMenuItem(index)
+        window.RrsWorkbenchOpenTab = options => this.openDynamicTab(options)
+        window.RrsWorkbenchCloseActiveTab = () => this.closeActiveDynamicTab()
         this.openHomeTab()
     },
     methods: {
@@ -566,8 +577,13 @@ new Vue({
             }
             this.activateTab(this.homeTab.index)
         },
-        // 打开指定菜单页面
+        // 打开指定菜单页面；已打开的动态详情页签也可按 index 激活
         openMenuItem(index) {
+            const alreadyOpen = this.openedTabs.find(tab => tab.index === index)
+            if (alreadyOpen) {
+                this.activateTab(index)
+                return
+            }
             const item = this.flatMenuItems.find(menuItem => menuItem.index === index)
             if (!item) return
             const opened = this.openedTabs.some(tab => tab.index === item.index)
@@ -580,16 +596,85 @@ new Vue({
             }
             this.activateTab(item.index)
         },
+        // 规范化业务页路径（iframe 内只传文件名）
+        normalizeWorkbenchPage(page) {
+            const raw = String(page || '').trim()
+            if (!raw) return ''
+            if (raw.indexOf('pages/') === 0 || raw.indexOf('docs/') === 0) return raw
+            return 'pages/' + raw.replace(/^\.\.\//, '')
+        },
+        // 列表进详情：新开页签；相同 index 已存在则按新 query 刷新后激活
+        openDynamicTab(options) {
+            const opts = options || {}
+            const index = String(opts.index || '').trim()
+            if (!index) return
+            const page = this.normalizeWorkbenchPage(opts.page)
+            if (!page) return
+            const query = String(opts.query || '').replace(/^\?/, '')
+            const pageWithQuery = query ? (page + (page.indexOf('?') >= 0 ? '&' : '?') + query) : page
+            const nextUrl = window.RrsAuth.buildPageUrl(pageWithQuery, this.loginUser)
+            const nextTitle = String(opts.title || '详情').trim() || '详情'
+            const existing = this.openedTabs.find(tab => tab.index === index)
+            if (existing) {
+                existing.queryKey = query
+                existing.url = nextUrl
+                existing.renderKey += 1
+                existing.title = nextTitle
+                existing.fromIndex = this.activeMenu
+                this.activateTab(index)
+                return
+            }
+            const sourceTab = this.openedTabs.find(tab => tab.index === this.activeMenu)
+            this.openedTabs.push({
+                index: index,
+                title: nextTitle,
+                icon: opts.icon || 'el-icon-view',
+                page: page,
+                url: nextUrl,
+                queryKey: query,
+                renderKey: 1,
+                primaryMenu: (sourceTab && sourceTab.primaryMenu) || this.activePrimaryMenu,
+                groupTitle: (sourceTab && sourceTab.groupTitle) || '详情',
+                fromIndex: this.activeMenu,
+                dynamic: true,
+            })
+            this.activateTab(index)
+        },
+        // 关闭当前动态详情页签；未关闭时返回 false
+        closeActiveDynamicTab() {
+            const tab = this.openedTabs.find(item => item.index === this.activeMenu)
+            if (!tab || !tab.dynamic) return false
+            this.closeTab(tab.index)
+            return true
+        },
+        // 通知当前 iframe：页签被重新显示（用于事宜列表刷新）
+        notifyActiveFrameShown() {
+            this.$nextTick(() => {
+                const frames = this.$refs.contentFrames
+                const list = Array.isArray(frames) ? frames : (frames ? [frames] : [])
+                const active = list.find(frame => frame && frame.dataset && frame.dataset.tabIndex === this.activeMenu)
+                if (!active || !active.contentWindow) return
+                try {
+                    const doc = active.contentDocument
+                    if (!doc || doc.readyState !== 'complete') return
+                    if (typeof active.contentWindow.RrsPageOnShow === 'function') {
+                        active.contentWindow.RrsPageOnShow()
+                    }
+                } catch (e) {}
+            })
+        },
         // 激活指定页签并同步一级菜单和侧边栏
         activateTab(index) {
             const tab = this.openedTabs.find(item => item.index === index)
             if (!tab) return
+            const changed = this.activeMenu !== tab.index
             this.activeMenu = tab.index
             this.activePrimaryMenu = tab.primaryMenu
             this.currentTitle = tab.title
             this.currentGroupTitle = tab.groupTitle
             this.lastActiveByPrimary[tab.primaryMenu] = tab.index
             document.title = tab.title + ' - RRS 工作台'
+            if (changed) this.notifyActiveFrameShown()
         },
         // 关闭页签并激活相邻页面
         closeTab(index) {
@@ -606,6 +691,12 @@ new Vue({
                     : ''
             }
             if (!isActive) return
+            const fromExists = closedTab.fromIndex
+                && this.openedTabs.some(tab => tab.index === closedTab.fromIndex)
+            if (fromExists) {
+                this.activateTab(closedTab.fromIndex)
+                return
+            }
             const nextTab = this.openedTabs[closeIndex] || this.openedTabs[closeIndex - 1]
             if (nextTab) {
                 this.activateTab(nextTab.index)

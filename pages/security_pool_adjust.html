@@ -1299,10 +1299,10 @@
                 return this.reportDialogColumn === 'material' ? '选择其他材料' : '选择信评报告';
             },
         },
-        // 页面初始化：加载证券类型下拉与证券列表
+        // 页面初始化：加载证券类型下拉；带证券代码时筛出并进入该券
         created() {
             this.loadSecurityTypeOptions();
-            this.loadList();
+            this.applyUrlSecurityOrList();
         },
         mounted() {
             this.handleWindowResize = () => {
@@ -1360,6 +1360,29 @@
                 const hashQueryIndex = hash.indexOf('?');
                 if (hashQueryIndex < 0) return '';
                 return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
+            },
+            // 从 URL 带入证券：写入筛选并打开该券详情；无参数则只加载列表
+            async applyUrlSecurityOrList() {
+                const code = this.getUrlParam('securityCode');
+                if (!code) {
+                    this.loadList();
+                    return;
+                }
+                this.searchForm.securityCode = code;
+                this.pagination.pageIndex = 1;
+                await this.loadList();
+                const row = (this.tableData || []).find(item =>
+                    item.windCode === code || item.securityCode === code
+                );
+                if (row) {
+                    await this.handleAdjust(row);
+                    return;
+                }
+                this.selectedTargetPoolId = this.getUrlParam('targetPoolId') || null;
+                this.selectedAdjustLogId = this.getUrlParam('adjustLogId') || this.getUrlParam('adjust_log_id') || null;
+                this.selectedAdjustBatchNo = this.getUrlParam('adjustBatchNo') || this.getUrlParam('adjust_batch_no') || null;
+                this.currentPage = 'detail';
+                await this.loadDetailData(code);
             },
             // 加载证券类型下拉选项（返回 [{securityType, securityTypeName}] 列表）
             async loadSecurityTypeOptions() {
@@ -2772,8 +2795,11 @@
                 return arr.map(r => r.title || '').filter(Boolean);
             },
 
-            // 返回列表页并重置详情页所有状态
+            // 返回：动态页签（如事宜去调库）关闭当前 Tab；菜单进入则回页内列表
             backToList() {
+                if (window.RrsWorkbench.closeActiveTab()) {
+                    return;
+                }
                 this.currentPage = 'list';
                 // 列表页重新显示后同步固定列布局
                 this.refreshListTableLayout();
