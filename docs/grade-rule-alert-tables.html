@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>不符合分级规则提醒｜表与业务逻辑</title>
+    <style>
+        body.docs-page-grade-rule-alert-tables {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body.docs-page-grade-rule-alert-tables, body.docs-page-grade-rule-alert-tables * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body.docs-page-grade-rule-alert-tables {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        .docs-page-grade-rule-alert-tables .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        .docs-page-grade-rule-alert-tables header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        .docs-page-grade-rule-alert-tables .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        .docs-page-grade-rule-alert-tables h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        .docs-page-grade-rule-alert-tables header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        .docs-page-grade-rule-alert-tables .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        .docs-page-grade-rule-alert-tables .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        .docs-page-grade-rule-alert-tables main {
+            padding: 28px 0 56px
+        }
+
+        .docs-page-grade-rule-alert-tables .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        .docs-page-grade-rule-alert-tables .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        .docs-page-grade-rule-alert-tables .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .docs-page-grade-rule-alert-tables .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        .docs-page-grade-rule-alert-tables h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        .docs-page-grade-rule-alert-tables .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        .docs-page-grade-rule-alert-tables .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        .docs-page-grade-rule-alert-tables .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .docs-page-grade-rule-alert-tables .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        .docs-page-grade-rule-alert-tables .step span {
+            color: var(--regular)
+        }
+
+        .docs-page-grade-rule-alert-tables .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        .docs-page-grade-rule-alert-tables .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .docs-page-grade-rule-alert-tables .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        .docs-page-grade-rule-alert-tables .card ul,.docs-page-grade-rule-alert-tables .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .docs-page-grade-rule-alert-tables .card li + li {
+            margin-top: 6px
+        }
+
+        .docs-page-grade-rule-alert-tables .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        .docs-page-grade-rule-alert-tables .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        .docs-page-grade-rule-alert-tables table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        .docs-page-grade-rule-alert-tables th,.docs-page-grade-rule-alert-tables td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        .docs-page-grade-rule-alert-tables th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        .docs-page-grade-rule-alert-tables tr:last-child td {
+            border-bottom: 0
+        }
+
+        .docs-page-grade-rule-alert-tables tbody tr:hover {
+            background: #f8fbff
+        }
+
+        .docs-page-grade-rule-alert-tables code,.docs-page-grade-rule-alert-tables .name {
+            font-family: Consolas, monospace
+        }
+
+        .docs-page-grade-rule-alert-tables .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        .docs-page-grade-rule-alert-tables .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        .docs-page-grade-rule-alert-tables .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .docs-page-grade-rule-alert-tables .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        .docs-page-grade-rule-alert-tables .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        .docs-page-grade-rule-alert-tables .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        .docs-page-grade-rule-alert-tables .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        .docs-page-grade-rule-alert-tables .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .docs-page-grade-rule-alert-tables .notes li + li {
+            margin-top: 5px
+        }
+
+        .docs-page-grade-rule-alert-tables .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        .docs-page-grade-rule-alert-tables footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            .docs-page-grade-rule-alert-tables .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            .docs-page-grade-rule-alert-tables .flow,.docs-page-grade-rule-alert-tables .logic {
+                grid-template-columns: 1fr
+            }
+
+            .docs-page-grade-rule-alert-tables .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            .docs-page-grade-rule-alert-tables .wrap {
+                width: calc(100% - 24px)
+            }
+
+            .docs-page-grade-rule-alert-tables header {
+                padding: 24px 0 20px
+            }
+
+            .docs-page-grade-rule-alert-tables .stats {
+                grid-template-columns: 1fr
+            }
+
+            .docs-page-grade-rule-alert-tables .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            .docs-page-grade-rule-alert-tables .nav {
+                display: none
+            }
+
+            .docs-page-grade-rule-alert-tables .panel {
+                break-inside: avoid
+            }
+        }
+    </style>
+</head>
+<body class="docs-page docs-page-grade-rule-alert-tables">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>不符合分级规则提醒</h1>
+        <p class="desc">定时扫描已在信用债 / 境外债 1～5 级、但按当前特殊债规则不再允许待在该档的债券，写入待办供人工下调或出库。不自动改池。对齐老系统「债券不符合主体内评分档规则提醒」。</p>
+        <div class="stats"><span class="stat">提醒+人工处理</span><span class="stat">2 个主要接口</span><span
+                class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">扫描与待办</a><a href="#tables">涉及表</a><a
+            href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
+    <section class="panel" id="overview"><h2>业务流程总览</h2>
+        <p class="sub">前端 <code>pages/grade_rule_alert.html</code>。任务编码 <code>bond_grade_inconformity_alert</code>，默认 cron 每天 9 点（Demo 关闭）。</p>
+        <div class="flow">
+            <div class="step"><b>1. 扫描在池</b><span>已生效且在信用债/境外债 1～5 级叶子的债券。</span></div>
+            <div class="step"><b>2. 复用校验</b><span>调用 evaluateGradedInboundForPool，口径与选池/checkAdjust 相同。</span></div>
+            <div class="step"><b>3. 写待办</b><span>不符合则新增或刷新 ip_grade_rule_alert（状态 00）。</span></div>
+            <div class="step"><b>4. 失效旧单</b><span>本轮已符合的原待处理记录置 99。</span></div>
+            <div class="step"><b>5. 人工处理</b><span>去证券池调库下调/出库，或标记已处理。不自动改池。</span></div>
+        </div>
+    </section>
+    <section class="panel" id="logic-1"><h2>扫描与待办</h2>
+        <p class="sub">对齐老系统 InconformityMaingrade2Job：提醒 + 人工，不是静默出池。</p>
+        <span class="api">POST /api/v1/gradeRuleAlert/queryAlertPage · editAlertProcessed · 定时任务 execute</span>
+        <div class="logic">
+            <article class="card"><h3>扫描口径</h3>
+                <ul>
+                    <li>私募/永续/次级/ABS 天花板、担保孰高、观察封顶、重点观察禁新增。</li>
+                    <li>观察识别：券自己在 observe，或主体级 <code>security_code = issuer_code</code> 在 observe。</li>
+                    <li>老系统观察是跳过矩阵；新需求改为不高于标准最好档。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>待办状态</h3>
+                <ul>
+                    <li><code>00</code> 待处理：本轮仍不符合。</li>
+                    <li><code>20</code> 已处理：人工标记，不改池。</li>
+                    <li><code>99</code> 已失效：再次扫描已符合。</li>
+                    <li>「去调库」打开证券池调整页，由处理人发起下调或出库。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables"><h2>涉及表、用途与触发场景</h2>
+        <p class="sub">读写口径包含页面初始化、主业务接口及其正常后续流程。</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>表名</th>
+                    <th>用途</th>
+                    <th>读写</th>
+                    <th>触发场景</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="name">ip_grade_rule_alert</span></td>
+                    <td>不符合分级规则待办</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span class='tag u'>更新</span></td>
+                    <td>定时扫描写入；页面查询与标记已处理</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_status</span></td>
+                    <td>已生效分级库在池记录</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>扫描范围</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_investment_pool</span></td>
+                    <td>识别信用债/境外债 1～5 级叶子</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>扫描范围</td>
+                </tr>
+                <tr>
+                    <td><span class="name">rrs_securityinfo</span></td>
+                    <td>特殊债标志、内评、期限、发行人码</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>规则评估</td>
+                </tr>
+                <tr>
+                    <td><span class="name">sys_scheduled_task</span></td>
+                    <td>任务配置 bond_grade_inconformity_alert</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>定时/手动执行</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>任务<strong>不自动出池</strong>，只写待办。处理人须到证券池调库完成下调或出库后再标记已处理。</li>
+            <li>观察名单：老系统跳过矩阵；新需求按标准最好档封顶。识别含主体级 <code>issuer_code</code>。</li>
+            <li>证券池调库审核页「改判目标池」下拉同样套重点观察，避免审批绕开预览。</li>
+        </ul>
+        <div class="note">本页依据当前 Controller、Service、Mapper
+            XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
+        </div>
+    </section>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p></main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>不符合分级规则提醒</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <link rel="stylesheet" href="../css/grade_rule_alert.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="grade-rule-alert-page">
+<div id="grade_rule_alert" v-cloak>
+    <header class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon"><i class="el-icon-warning-outline"></i></div>
+            <h2>不符合分级规则提醒</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta">
+            <span class="topbar-date-badge">{{ currentDateText }}</span>
+        </div>
+    </header>
+    <div class="list-body">
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+                <el-input v-model.trim="queryParam.securityCode" size="small" clearable maxlength="64"
+                          placeholder="证券代码" style="width: 180px;"
+                          @keyup.enter.native="handleSearch"></el-input>
+                <el-select v-model="queryParam.alertStatus" size="small" clearable placeholder="状态" style="width: 140px;">
+                    <el-option label="待处理" value="00"></el-option>
+                    <el-option label="已处理" value="20"></el-option>
+                    <el-option label="已失效" value="99"></el-option>
+                </el-select>
+                <el-button size="small" type="primary" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <div class="total-badge">
+                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录
+                </div>
+            </div>
+        </div>
+        <div class="table-card">
+            <el-table :data="tableData" v-loading="loading" border stripe size="small"
+                      empty-text="暂无提醒，请先在定时任务中执行「不符合主体债入库规则提醒」"
+                      style="width:100%;">
+                <el-table-column label="序号" width="50" align="center">
+                    <template slot-scope="{ $index }">
+                        {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
+                    </template>
+                </el-table-column>
+                <el-table-column prop="securityCode" label="证券代码" min-width="130" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="securityShortName" label="证券简称" min-width="120" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="issuerName" label="发行主体" min-width="140" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="currentPoolName" label="当前分级库" min-width="130" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="specialTypeDesc" label="特殊类型" min-width="140" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="failReason" label="不符合原因" min-width="220" show-overflow-tooltip></el-table-column>
+                <el-table-column label="状态" width="90" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag size="mini" :type="statusTagType(row.alertStatus)">{{ statusLabel(row.alertStatus) }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="lastScanTime" label="扫描时间" width="160"></el-table-column>
+                <el-table-column label="操作" width="160" align="center" fixed="right">
+                    <template slot-scope="{ row }">
+                        <el-button type="text" size="mini" @click="openAdjust(row)">去调库</el-button>
+                        <el-button v-if="row.alertStatus === '00'" type="text" size="mini"
+                                   @click="handleProcess(row)">标记已处理</el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+                <el-pagination :total="pagination.total" :current-page="pagination.pageIndex"
+                               :page-size="pagination.pageSize" :page-sizes="[10, 20, 50, 100]"
+                               layout="total, sizes, prev, pager, next, jumper" small
+                               @current-change="handlePageChange" @size-change="handleSizeChange"></el-pagination>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+new Vue({
+    el: '#grade_rule_alert',
+    data() {
+        return {
+            loading: false,
+            tableData: [],
+            queryParam: {
+                securityCode: '',
+                alertStatus: '00',
+            },
+            pagination: {
+                pageIndex: 1,
+                pageSize: 20,
+                total: 0,
+            },
+            loginUser: null,
+        }
+    },
+    computed: {
+        currentDateText() {
+            return moment().format('YYYY-MM-DD')
+        },
+    },
+    created() {
+        this.loginUser = window.RrsAuth.getCurrentUser()
+        this.loadPage()
+    },
+    methods: {
+        statusLabel(code) {
+            if (code === '00') return '待处理'
+            if (code === '20') return '已处理'
+            if (code === '99') return '已失效'
+            return code || ''
+        },
+        statusTagType(code) {
+            if (code === '00') return 'warning'
+            if (code === '20') return 'success'
+            return 'info'
+        },
+        async loadPage() {
+            this.loading = true
+            try {
+                const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
+                    securityCode: this.queryParam.securityCode,
+                    alertStatus: this.queryParam.alertStatus,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                })
+                this.tableData = (data && data.records) ? data.records : []
+                this.pagination.total = data && data.total ? data.total : 0
+            } catch (e) {
+                this.$message.error((e && e.message) || '查询失败')
+                this.tableData = []
+                this.pagination.total = 0
+            }
+            this.loading = false
+        },
+        handleSearch() {
+            this.pagination.pageIndex = 1
+            this.loadPage()
+        },
+        handleReset() {
+            this.queryParam.securityCode = ''
+            this.queryParam.alertStatus = '00'
+            this.handleSearch()
+        },
+        handlePageChange(page) {
+            this.pagination.pageIndex = page
+            this.loadPage()
+        },
+        handleSizeChange(size) {
+            this.pagination.pageSize = size
+            this.pagination.pageIndex = 1
+            this.loadPage()
+        },
+        openAdjust(row) {
+            const code = row.securityCode || ''
+            window.location.href = 'security_pool_adjust.html?securityCode=' + encodeURIComponent(code)
+        },
+        async handleProcess(row) {
+            try {
+                await this.$confirm('确认将本条标记为已处理？不会自动改池，请先在证券池调库完成下调或出库。', '提示', {
+                    type: 'warning',
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                })
+            } catch (e) {
+                return
+            }
+            this.loading = true
+            try {
+                await this.apiPost('/api/v1/gradeRuleAlert/editAlertProcessed', {
+                    id: row.id,
+                    currentUserId: this.loginUser && this.loginUser.userId,
+                    currentUserName: this.loginUser && this.loginUser.userName,
+                })
+                this.$message.success('已标记处理')
+                this.loadPage()
+            } catch (e) {
+                this.loading = false
+                this.$message.error((e && e.message) || '处理失败')
+            }
+        },
+    },
+})
+</script>
+</body>
+</html>
