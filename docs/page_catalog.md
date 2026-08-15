@@ -9,7 +9,7 @@
 | `batch_security_pool_adjust.html` | 证券池批量调整 | `css/batch_security_pool_adjust.css`、`css/common.css` |
 | `stock_security_batch_adjust.html` | 存量证券批量调整 | `css/stock_security_batch_adjust.css`、`css/common.css` |
 | `security_pool_excel_import.html` | 证券池 Excel 导入 | `css/security_pool_excel_import.css`、`css/common.css` |
-| `grade_rule_alert.html` | 不符合分级规则提醒 | `css/grade_rule_alert.css`、`css/common.css` |
+| `grade_rule_alert.html` | 不符合分级规则提醒（重定向到我的事宜 Tab） | 无独立样式 |
 | `company_pool_adjust_history.html` | 主体池调整历史查询 | `css/company_pool_adjust_history.css`、`css/common.css` |
 | `company_pool_query.html` | 主体池查询 | `css/company_pool_query.css`、`css/common.css` |
 | `credit_bond_grade_rule.html` | 主体内评分档规则 | `css/credit_bond_grade_rule.css`、`css/common.css` |
@@ -132,7 +132,6 @@
 | `css/script_table_clear.css` | 表数据清空页面样式 | `docs/script_table_clear.html` |
 | `css/script_tool.css` | 数据初始化页面样式 | `docs/script_tool.html` |
 | `css/temp_security_code.css` | 临时代码管理页面样式 | `temp_security_code.html` |
-| `css/grade_rule_alert.css` | 不符合分级规则提醒页面样式 | `grade_rule_alert.html` |
 | `css/pool_open_day.css` | 投资池开放日维护页面样式 | `pool_open_day.html` |
 
 ## 业务文档页面

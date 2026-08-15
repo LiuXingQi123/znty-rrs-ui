@@ -360,8 +360,8 @@
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>我的事宜</h1>
         <p class="desc">按当前用户汇总与本人相关的调库流程事项，区分待办与已办，并根据业务场景跳转到证券、主体禁投或 CRMW
-            审批/详情页。</p>
-        <div class="stats"><span class="stat">6 项表/表组</span><span class="stat">2 个主要接口</span><span
+            审批/详情页。第三页签「分级规则提醒」独立列表，不与审批混排。</p>
+        <div class="stats"><span class="stat">7 项表/表组</span><span class="stat">4 个主要接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
 </header>
@@ -375,7 +375,7 @@
             <div class="step"><b>2. 事项查询</b><span>按用户、流程、证券、日期和状态分页。</span></div>
             <div class="step"><b>3. 选择代表步骤</b><span>待办取本人最新待处理（<code>pending</code>）步骤；其他取每申请最新步骤。</span></div>
             <div class="step"><b>4. 识别场景</b><span>根据池类型和主体类型判断跳转页面。</span></div>
-            <div class="step"><b>5. 进入处理/查看</b><span>待办进入审批，已结束进入只读详情。</span></div>
+            <div class="step"><b>5. 进入处理/查看</b><span>待办进入审批，已结束进入只读详情。分级规则提醒页签去调库或标记已处理。</span></div>
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>事项分页与可见范围</h2>
@@ -411,6 +411,7 @@
                     <li>pool_type='crmw' → CRMW 调整。</li>
                     <li>company 类型且目标池为债券禁止库(15)/观察池(16)/黑名单质押库(17) → 主体禁投调整。</li>
                     <li>其他 → 证券池调整；待办与非待办分别进入处理或查看模式。</li>
+                    <li>第三页签 <code>gradeRuleAlert</code> 单独查 <code>ip_grade_rule_alert</code>，列与操作与审批表不同。</li>
                 </ul>
             </article>
         </div>
@@ -464,6 +465,12 @@
                     <td><span class='tag r'>查询</span></td>
                     <td>替换流程描述中的叶子池名称</td>
                 </tr>
+                <tr>
+                    <td><span class="name">ip_grade_rule_alert</span></td>
+                    <td>分级规则提醒待办</td>
+                    <td><span class='tag r'>查询</span> <span class='tag u'>更新</span></td>
+                    <td>第三页签列表与标记已处理；不改审批 SQL</td>
+                </tr>
                 </tbody>
             </table>
         </div>
@@ -474,6 +481,7 @@
             <li>已完成（<code>completed</code>）判断是同批次无待处理（<code>pending</code>）步骤，不只看当前步骤一行。</li>
             <li>业务场景（Mapper 硬编码）：<code>pool_type=crmw</code> → CRMW；<code>category_type=company</code> 且 <code>target_pool_id IN (15,16,17)</code> → 禁投主体；否则证券池。跨环境池主键变化会导致禁投跳转误判（与禁投可调池写死 ID 同源风险）。</li>
             <li>待办跳转各链路审核页，已结束跳转详情 view；本页只读，审批写操作在对应 <code>*Flow/submitAdjustAudit</code>。</li>
+            <li>分级规则提醒是独立页签，入口在「我的事宜」，不再单列业务菜单。旧页 <code>grade_rule_alert.html</code> 仅重定向。</li>
             <li>审核状态等 code 由前端字典映射展示；不直接改池状态。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper

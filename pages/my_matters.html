@@ -34,57 +34,76 @@
             <div class="search-row">
                 <span class="search-label"><i class="el-icon-search"></i>筛选</span>
 
-                <el-select v-model="searchForm.flowIds" placeholder="流程名称" clearable multiple collapse-tags size="small" style="width:220px;">
-                    <el-option v-for="f in flowOptions" :key="f.flowId" :label="f.flowName" :value="f.flowId"></el-option>
-                </el-select>
+                <template v-if="!isAlertTab">
+                    <el-select v-model="searchForm.flowIds" placeholder="流程名称" clearable multiple collapse-tags size="small" style="width:220px;">
+                        <el-option v-for="f in flowOptions" :key="f.flowId" :label="f.flowName" :value="f.flowId"></el-option>
+                    </el-select>
 
-                <el-input v-model.trim="searchForm.securityCode" placeholder="证券编码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
-                    <i slot="prefix" class="el-input__icon el-icon-document"></i>
-                </el-input>
+                    <el-input v-model.trim="searchForm.securityCode" placeholder="证券编码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                        <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                    </el-input>
 
-                <el-input v-model.trim="searchForm.securityShortName" placeholder="证券名称" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
-                    <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
-                </el-input>
+                    <el-input v-model.trim="searchForm.securityShortName" placeholder="证券名称" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                        <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
+                    </el-input>
 
-                <el-date-picker
-                    v-model="searchForm.startDateRange"
-                    type="daterange"
-                    popper-class="project-date-range-picker"
-                    range-separator="至"
-                    start-placeholder="开始日期"
-                    end-placeholder="结束日期"
-                    size="small"
-                    style="width:240px;"
-                    value-format="yyyy-MM-dd">
-                </el-date-picker>
+                    <el-date-picker
+                        v-model="searchForm.startDateRange"
+                        type="daterange"
+                        popper-class="project-date-range-picker"
+                        range-separator="至"
+                        start-placeholder="开始日期"
+                        end-placeholder="结束日期"
+                        size="small"
+                        style="width:240px;"
+                        value-format="yyyy-MM-dd">
+                    </el-date-picker>
 
-                <el-input v-model.trim="searchForm.processDescription" placeholder="流程描述" clearable size="small" style="width:220px;" @keyup.enter.native="handleSearch">
-                    <i slot="prefix" class="el-input__icon el-icon-document"></i>
-                </el-input>
+                    <el-input v-model.trim="searchForm.processDescription" placeholder="流程描述" clearable size="small" style="width:220px;" @keyup.enter.native="handleSearch">
+                        <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                    </el-input>
 
-                <el-input v-model.trim="searchForm.initiatorName" placeholder="发起人" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
-                    <i slot="prefix" class="el-input__icon el-icon-user"></i>
-                </el-input>
+                    <el-input v-model.trim="searchForm.initiatorName" placeholder="发起人" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                        <i slot="prefix" class="el-input__icon el-icon-user"></i>
+                    </el-input>
 
-                <el-select v-model="searchForm.auditStatus" placeholder="审核状态" clearable size="small" style="width:130px;">
-                    <el-option v-for="a in auditStatusOptions" :key="a.value" :label="a.label" :value="a.value"></el-option>
-                </el-select>
+                    <el-select v-model="searchForm.auditStatus" placeholder="审核状态" clearable size="small" style="width:130px;">
+                        <el-option v-for="a in auditStatusOptions" :key="a.value" :label="a.label" :value="a.value"></el-option>
+                    </el-select>
+                </template>
+                <template v-else>
+                    <el-input v-model.trim="alertSearchForm.securityCode" placeholder="证券代码" clearable size="small" style="width:180px;" @keyup.enter.native="handleSearch">
+                        <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                    </el-input>
+                    <el-select v-model="alertSearchForm.alertStatus" placeholder="状态" clearable size="small" style="width:140px;">
+                        <el-option label="待处理" value="00"></el-option>
+                        <el-option label="已处理" value="20"></el-option>
+                        <el-option label="已失效" value="99"></el-option>
+                    </el-select>
+                </template>
 
                 <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
                 <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
 
                 <div class="total-badge">
-                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条{{ activeTab === 'pending' ? '待处理' : '已完成' }}事宜
+                    <i class="el-icon-data-line"></i> {{ listTotalText }}
                 </div>
             </div>
         </div>
 
         <div class="table-card">
             <el-tabs v-model="activeTab" @tab-click="handleTabClick">
-                <el-tab-pane label="待处理" name="pending"></el-tab-pane>
-                <el-tab-pane label="已完成" name="completed"></el-tab-pane>
+                <el-tab-pane name="pending">
+                    <span slot="label">待处理<span v-if="pendingCount > 0"> ({{ pendingCount }})</span></span>
+                </el-tab-pane>
+                <el-tab-pane name="completed">
+                    <span slot="label">已完成<span v-if="completedCount > 0"> ({{ completedCount }})</span></span>
+                </el-tab-pane>
+                <el-tab-pane name="gradeRuleAlert">
+                    <span slot="label">分级规则提醒<span v-if="alertOpenCount > 0"> ({{ alertOpenCount }})</span></span>
+                </el-tab-pane>
             </el-tabs>
-            <el-table ref="mattersTableRef" :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无事宜">
+            <el-table v-show="!isAlertTab" ref="mattersTableRef" :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无事宜">
                 <el-table-column label="序号" width="72" align="center">
                     <template slot-scope="{ $index }">
                         {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
@@ -122,12 +141,38 @@
                 <el-table-column label="操作" width="100" fixed="right" align="center">
                     <template slot-scope="{ row }">
                         <el-button v-if="activeTab === 'pending'" class="matter-action" type="primary" size="mini" icon="el-icon-edit-outline" @click="openMatterPage(row)">处理</el-button>
-                        <el-button v-else class="matter-view-action" size="mini" icon="el-icon-view" @click="openMatterPage(row)">查看</el-button>
+                        <el-button v-else-if="activeTab === 'completed'" class="matter-view-action" size="mini" icon="el-icon-view" @click="openMatterPage(row)">查看</el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <el-table v-show="isAlertTab" ref="alertTableRef" :data="alertTableData" v-loading="alertLoading" stripe border size="small" style="width:100%;" empty-text="暂无提醒，请先在定时任务中执行「不符合主体债入库规则提醒」">
+                <el-table-column label="序号" width="72" align="center">
+                    <template slot-scope="{ $index }">
+                        {{ (alertPagination.pageIndex - 1) * alertPagination.pageSize + $index + 1 }}
+                    </template>
+                </el-table-column>
+                <el-table-column prop="securityCode" label="证券代码" min-width="130" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="securityShortName" label="证券简称" min-width="120" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="issuerName" label="发行主体" min-width="140" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="currentPoolName" label="当前分级库" min-width="130" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="specialTypeDesc" label="特殊类型" min-width="140" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="failReason" label="不符合原因" min-width="220" show-overflow-tooltip></el-table-column>
+                <el-table-column label="状态" width="90" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag size="mini" :type="alertStatusType(row.alertStatus)">{{ alertStatusLabel(row.alertStatus) }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="lastScanTime" label="扫描时间" min-width="160" align="center"></el-table-column>
+                <el-table-column label="操作" width="180" fixed="right" align="center">
+                    <template slot-scope="{ row }">
+                        <el-button class="matter-action" type="primary" size="mini" @click="openAlertAdjust(row)">去调库</el-button>
+                        <el-button v-if="row.alertStatus === '00'" size="mini" @click="handleAlertProcessed(row)">标记已处理</el-button>
                     </template>
                 </el-table-column>
             </el-table>
             <div class="pagination-wrap">
                 <el-pagination
+                    v-if="!isAlertTab"
                     :total="pagination.total"
                     :current-page="pagination.pageIndex"
                     :page-size="pagination.pageSize"
@@ -136,6 +181,17 @@
                     small
                     @current-change="handlePageChange"
                     @size-change="handleSizeChange">
+                </el-pagination>
+                <el-pagination
+                    v-else
+                    :total="alertPagination.total"
+                    :current-page="alertPagination.pageIndex"
+                    :page-size="alertPagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    small
+                    @current-change="handleAlertPageChange"
+                    @size-change="handleAlertSizeChange">
                 </el-pagination>
             </div>
         </div>
@@ -155,6 +211,7 @@ new Vue({
                 forbiddenPoolAdjustDetail: 'forbidden_pool_adjust_detail.html', // 禁投池调整详情页
                 crmwPoolAdjustApprove: 'crmw_pool_adjust_approve.html', // CRMW池调整审核页
                 crmwPoolAdjustDetail: 'crmw_pool_adjust_detail.html', // CRMW池调整详情页
+                securityPoolAdjust: 'security_pool_adjust.html', // 证券池调整页（提醒去调库）
             },
             today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
             searchForm: {             // 查询条件
@@ -177,19 +234,52 @@ new Vue({
                 { value: '99', label: '发起人已撤回' },
             ],
             flowOptions: [],              // 流程名称下拉选项
-            activeTab: 'pending',         // 当前事宜页签：pending=待处理 / completed=已完成
-            tableData: [],                // 当前页事宜数据
-            loading: false,               // 表格加载状态
-            pagination: {             // 分页参数
+            activeTab: 'pending',         // 当前事宜页签：pending=待处理 / completed=已完成 / gradeRuleAlert=分级规则提醒
+            tableData: [],                // 当前页审批事宜数据
+            loading: false,               // 审批表格加载状态
+            pagination: {             // 审批分页参数
                 pageIndex: 1,             // 当前页码
                 pageSize: 20,             // 每页条数
                 total: 0,                 // 总记录数
             },
+            alertSearchForm: {            // 分级规则提醒筛选
+                securityCode: '',         // 证券代码
+                alertStatus: '00',        // 待办状态，默认待处理
+            },
+            alertTableData: [],           // 分级规则提醒列表
+            alertLoading: false,          // 提醒表格加载状态
+            pendingCount: 0,              // 待处理事宜条数，用于 Tab 角标
+            completedCount: 0,            // 已完成事宜条数，用于 Tab 角标
+            alertOpenCount: 0,            // 待处理提醒条数，用于 Tab 角标
+            alertPagination: {            // 提醒分页
+                pageIndex: 1,
+                pageSize: 20,
+                total: 0,
+            },
         };
     },
+    computed: {
+        // 是否在分级规则提醒页签
+        isAlertTab() {
+            return this.activeTab === 'gradeRuleAlert';
+        },
+        // 右上角条数文案
+        listTotalText() {
+            if (this.isAlertTab) {
+                return '共 ' + this.alertPagination.total + ' 条分级规则提醒';
+            }
+            return '共 ' + this.pagination.total + ' 条' + (this.activeTab === 'pending' ? '待处理' : '已完成') + '事宜';
+        },
+    },
     mounted() {
+        const tab = new URLSearchParams(window.location.search).get('tab');
+        if (tab === 'gradeRuleAlert') {
+            this.activeTab = 'gradeRuleAlert';
+        }
         this.loadFlowOptions();
-        this.loadList();
+        this.loadMatterTabCounts();
+        this.loadAlertOpenCount();
+        this.reloadCurrentTab();
         this.handleWindowResize = () => {
             window.clearTimeout(this.resizeLayoutTimer);
             this.resizeLayoutTimer = window.setTimeout(() => {
@@ -244,6 +334,18 @@ new Vue({
             return map[String(code)] || code || '';
         },
 
+        // 分级规则提醒状态文案
+        alertStatusLabel(code) {
+            const map = { '00': '待处理', '20': '已处理', '99': '已失效' };
+            return map[String(code)] || code || '';
+        },
+
+        // 分级规则提醒状态颜色
+        alertStatusType(code) {
+            const map = { '00': 'warning', '20': 'success', '99': 'info' };
+            return map[String(code)] || 'info';
+        },
+
         // 步骤状态对应标签颜色
         stepStatusType(code) {
             const map = {
@@ -264,6 +366,15 @@ new Vue({
                     currentUserId: this.searchForm.currentUserId,
                 });
             } catch (e) {}
+        },
+
+        // 按当前页签加载审批或提醒
+        reloadCurrentTab() {
+            if (this.isAlertTab) {
+                this.loadAlertList();
+            } else {
+                this.loadList();
+            }
         },
 
         // 加载我的事宜列表
@@ -316,20 +427,106 @@ new Vue({
             });
         },
 
+        // 查询待处理 / 已完成事宜条数，供 Tab 展示（不受当前筛选影响）
+        async loadMatterTabCounts() {
+            await Promise.all([
+                this.loadMatterCount('pending'),
+                this.loadMatterCount('completed'),
+            ]);
+        },
+
+        // 按步骤状态取事宜总数
+        async loadMatterCount(stepStatus) {
+            try {
+                const data = await this.apiPost('/api/v1/myMatters/queryMyMattersPage', {
+                    stepStatus: stepStatus,
+                    currentUserId: this.searchForm.currentUserId,
+                    pageIndex: 1,
+                    pageSize: 1,
+                });
+                const total = data && data.total ? data.total : 0;
+                if (stepStatus === 'pending') {
+                    this.pendingCount = total;
+                } else {
+                    this.completedCount = total;
+                }
+            } catch (e) {
+                if (stepStatus === 'pending') {
+                    this.pendingCount = 0;
+                } else {
+                    this.completedCount = 0;
+                }
+            }
+        },
+
+        // 查询待处理提醒条数，供 Tab 展示
+        async loadAlertOpenCount() {
+            try {
+                const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
+                    alertStatus: '00',
+                    pageIndex: 1,
+                    pageSize: 1,
+                });
+                this.alertOpenCount = data && data.total ? data.total : 0;
+            } catch (e) {
+                this.alertOpenCount = 0;
+            }
+        },
+
+        // 加载分级规则提醒列表（后端 gradeRuleAlert 接口不变）
+        async loadAlertList() {
+            this.alertLoading = true;
+            try {
+                const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
+                    securityCode: this.alertSearchForm.securityCode || null,
+                    alertStatus: this.alertSearchForm.alertStatus || null,
+                    pageIndex: this.alertPagination.pageIndex,
+                    pageSize: this.alertPagination.pageSize,
+                });
+                this.alertTableData = (data && data.records) ? data.records : [];
+                this.alertPagination.total = data && data.total ? data.total : 0;
+            } catch (e) {
+                this.$message.error((e && e.message) || '查询失败');
+                this.alertTableData = [];
+                this.alertPagination.total = 0;
+            }
+            this.alertLoading = false;
+            this.refreshTableLayout('alertTableRef');
+        },
+
         // 触发查询
         handleSearch() {
-            this.pagination.pageIndex = 1;
-            this.loadList();
+            if (this.isAlertTab) {
+                this.alertPagination.pageIndex = 1;
+                this.loadAlertList();
+            } else {
+                this.pagination.pageIndex = 1;
+                this.loadList();
+            }
         },
 
         // 切换事宜页签
         handleTabClick() {
-            this.pagination.pageIndex = 1;
-            this.loadList();
+            if (this.isAlertTab) {
+                this.alertPagination.pageIndex = 1;
+                this.loadAlertList();
+            } else {
+                this.pagination.pageIndex = 1;
+                this.loadList();
+            }
         },
 
         // 重置查询条件
         handleReset() {
+            if (this.isAlertTab) {
+                this.alertSearchForm = {
+                    securityCode: '',
+                    alertStatus: '00',
+                };
+                this.alertPagination.pageIndex = 1;
+                this.loadAlertList();
+                return;
+            }
             this.searchForm = {
                 flowIds: [],
                 securityCode: '',
@@ -342,6 +539,7 @@ new Vue({
             };
             this.pagination.pageIndex = 1;
             this.loadFlowOptions();
+            this.loadMatterTabCounts();
             this.loadList();
         },
 
@@ -356,6 +554,55 @@ new Vue({
             this.pagination.pageSize = size;
             this.pagination.pageIndex = 1;
             this.loadList();
+        },
+
+        // 提醒列表翻页
+        handleAlertPageChange(page) {
+            this.alertPagination.pageIndex = page;
+            this.loadAlertList();
+        },
+
+        // 提醒列表切换每页条数
+        handleAlertSizeChange(size) {
+            this.alertPagination.pageSize = size;
+            this.alertPagination.pageIndex = 1;
+            this.loadAlertList();
+        },
+
+        // 从提醒跳转证券池调库
+        openAlertAdjust(row) {
+            const params = new URLSearchParams();
+            if (row.securityCode) params.set('securityCode', row.securityCode);
+            window.RrsAuth.appendUserParams(params);
+            window.location.href = this.pagePaths.securityPoolAdjust + '?' + params.toString();
+        },
+
+        // 标记提醒已处理，不改池
+        async handleAlertProcessed(row) {
+            try {
+                await this.$confirm('确认将本条标记为已处理？不会自动改池，请先在证券池调库完成下调或出库。', '提示', {
+                    type: 'warning',
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                });
+            } catch (e) {
+                return;
+            }
+            this.alertLoading = true;
+            try {
+                const loginUser = window.RrsAuth.getCurrentUser();
+                await this.apiPost('/api/v1/gradeRuleAlert/editAlertProcessed', {
+                    id: row.id,
+                    currentUserId: loginUser && loginUser.userId,
+                    currentUserName: loginUser && loginUser.userName,
+                });
+                this.$message.success('已标记处理');
+                this.loadAlertList();
+                this.loadAlertOpenCount();
+            } catch (e) {
+                this.alertLoading = false;
+                this.$message.error((e && e.message) || '处理失败');
+            }
         },
 
         // 打开对应调库页面
