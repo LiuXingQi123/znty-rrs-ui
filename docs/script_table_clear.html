@@ -15,7 +15,7 @@
 <body class="script-table-clear-page">
 <div id="script_table_clear">
     <section class="clear-hero">
-        <div>
+        <div class="hero-main">
             <p class="clear-kicker">RRS SCRIPT TOOL</p>
             <h1>表数据清空</h1>
             <p class="clear-desc">按业务分组选择要清空/重置的表，覆盖 znty_rrs、ais_inv_analysis、ais_inv_ods 三个库。后端只执行白名单表，不接受任意 SQL 或表名。「重置选中表」会按 demo SQL 恢复（含 AIS / 外部导入 demo 中相关表）。</p>
@@ -27,13 +27,24 @@
     </section>
 
     <el-alert
+        v-if="!scriptToolEnabled"
+        class="danger-alert"
+        title="脚本工具已禁用"
+        type="error"
+        :closable="false"
+        show-icon>
+        <div slot="description">
+            后端配置 <code>rrs.script.enabled=false</code>。清空/重置写操作已拒绝。
+        </div>
+    </el-alert>
+    <el-alert
         class="danger-alert"
         title="危险操作提示"
         type="warning"
         :closable="false"
         show-icon>
         <div slot="description">
-            清空操作会真实执行 TRUNCATE。建议优先只清空“证券池调库运行表”；证券主数据、投资池配置、流程定义、规则配置等基础表请谨慎选择。
+            清空操作会真实执行 TRUNCATE。建议优先只清空“证券池调库运行表”（含调库信息快照）；证券主数据、投资池配置、流程定义、规则配置等基础表请谨慎选择。
         </div>
     </el-alert>
 
@@ -56,7 +67,7 @@
                 size="small"
                 icon="el-icon-refresh"
                 :loading="runningAction === 'reset'"
-                :disabled="selectedTableCount === 0 || !!runningAction"
+                :disabled="!scriptToolEnabled || selectedTableCount === 0 || !!runningAction"
                 @click="confirmAndExecuteReset">
                 重置选中表数据
             </el-button>
@@ -65,7 +76,7 @@
                 size="small"
                 icon="el-icon-delete"
                 :loading="runningAction === 'clear'"
-                :disabled="selectedTableCount === 0 || !!runningAction"
+                :disabled="!scriptToolEnabled || selectedTableCount === 0 || !!runningAction"
                 @click="confirmAndExecuteClear">
                 清空选中表
             </el-button>
@@ -124,6 +135,7 @@ new Vue({
             executeResult: null,      // 清空执行结果
             loadingTableGroups: false, // 表清单加载状态
             runningAction: '',        // 当前执行动作
+            scriptToolEnabled: true,  // 后端写操作开关
             loginUser: RrsAuth.getCurrentUser(), // 当前登录用户
         }
     },
@@ -141,10 +153,21 @@ new Vue({
         },
     },
     created() {
-        // 初始化加载可清空表清单
+        // 初始化加载开关与可清空表清单
+        this.loadStatus()
         this.loadTableGroups()
     },
     methods: {
+        // 加载脚本工具开关
+        async loadStatus() {
+            try {
+                const data = await this.apiPost('/api/v1/scriptTool/queryScriptToolStatus', {})
+                this.scriptToolEnabled = !(data && data.enabled === false)
+            } catch (e) {
+                this.scriptToolEnabled = true
+            }
+        },
+
         // 加载可清空表分组列表
         async loadTableGroups() {
             this.loadingTableGroups = true
@@ -218,6 +241,10 @@ new Vue({
 
         // 确认并执行清空
         async confirmAndExecuteClear() {
+            if (!this.scriptToolEnabled) {
+                this.$message.error('脚本工具已禁用，无法执行写操作')
+                return
+            }
             if (this.selectedTableCount === 0) {
                 this.$message.warning('请至少选择一张需要清空的表')
                 return
@@ -249,6 +276,10 @@ new Vue({
 
         // 确认并执行重置
         async confirmAndExecuteReset() {
+            if (!this.scriptToolEnabled) {
+                this.$message.error('脚本工具已禁用，无法执行写操作')
+                return
+            }
             if (this.selectedTableCount === 0) {
                 this.$message.warning('请至少选择一张需要重置的表')
                 return
@@ -290,7 +321,7 @@ new Vue({
                 })
                 this.executeResult = result
                 if (result && result.status === 'success') {
-                    this.$message.success('选中表数据清空成功')
+                    this.$message.success('选中表数据清空成功。可到「表记录数统计 / 执行审计」核对')
                 } else {
                     this.$message.error((result && result.errorMessage) || '选中表数据清空失败')
                 }
@@ -311,7 +342,7 @@ new Vue({
                 })
                 this.executeResult = result
                 if (result && result.status === 'success') {
-                    this.$message.success('选中表数据重置成功')
+                    this.$message.success('选中表数据重置成功。可到「表记录数统计 / 执行审计」核对')
                 } else {
                     this.$message.error((result && result.errorMessage) || '选中表数据重置失败')
                 }

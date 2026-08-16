@@ -12,17 +12,22 @@
     <link rel="stylesheet" href="../css/script_demo_scene.css">
     <link rel="stylesheet" href="../css/common.css">
 </head>
-<body>
+<body class="script-demo-scene-page">
 <div id="script_demo_scene">
     <section class="scene-hero">
-        <div>
+        <div class="hero-main">
             <p class="scene-kicker">RRS SCRIPT TOOL</p>
             <h1>Demo 场景数据生成</h1>
-            <p class="scene-desc">一键生成证券池 / 禁投池 / CRMW 等演示场景（待审批、通过历史、驳回待修改等）。样本证券/主体/CRMW 与当前基础 Demo（external_import、pool_init、flow_definition）对齐；依赖 rrs_securityinfo、投资池与流程版本。后端只执行固定白名单，重复生成会先清理同场景旧数据。</p>
+            <p class="scene-desc">一键生成证券池 / 禁投风险池 / CRMW / 分级规则提醒等联调场景（待办、通过、驳回、撤回、出库、ABS 禁投等）。样本与基础 Demo 对齐；依赖 rrs_securityinfo、投资池与流程版本。后端只执行固定白名单，重复生成按批次号幂等清理。</p>
         </div>
-        <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadScenes">刷新场景</el-button>
+        <div class="hero-actions">
+            <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadScenes">刷新场景</el-button>
+        </div>
     </section>
 
+    <el-alert v-if="!scriptToolEnabled" class="danger-alert" title="脚本工具已禁用" type="error" :closable="false" show-icon>
+        <div slot="description">后端配置 <code>rrs.script.enabled=false</code>。场景生成写操作已拒绝。</div>
+    </el-alert>
     <el-alert class="danger-alert" title="危险操作提示" type="warning" :closable="false" show-icon>
         <div slot="description">生成场景会写入调库日志、流程步骤和部分池状态。执行前必须输入确认文本 GENERATE_DEMO_SCENE。</div>
     </el-alert>
@@ -31,9 +36,16 @@
         <article v-for="scene in scenes" :key="scene.sceneCode" class="scene-card">
             <div class="scene-head">
                 <h2>{{ scene.sceneName }}</h2>
-                <el-tag size="mini" type="warning">{{ scene.sceneCode }}</el-tag>
+                <el-tag size="mini" :type="categoryTagType(scene.sceneCategory)">{{ categoryLabel(scene.sceneCategory) }}</el-tag>
+                <el-tag size="mini" type="info">{{ scene.sceneCode }}</el-tag>
             </div>
             <p class="scene-text">{{ scene.description }}</p>
+            <div class="scene-block">
+                <strong>确认文本</strong>
+                <div class="chip-wrap">
+                    <span class="chip"><code>{{ scene.confirmText }}</code></span>
+                </div>
+            </div>
             <div class="scene-block">
                 <strong>依赖前置数据</strong>
                 <div class="chip-wrap">
@@ -52,7 +64,7 @@
                     size="small"
                     icon="el-icon-plus"
                     :loading="runningCode === scene.sceneCode"
-                    :disabled="!!runningCode && runningCode !== scene.sceneCode"
+                    :disabled="!scriptToolEnabled || (!!runningCode && runningCode !== scene.sceneCode)"
                     @click="confirmAndExecute(scene)">
                     生成场景
                 </el-button>
@@ -77,14 +89,25 @@ new Vue({
             resultMap: {},
             loading: false,
             runningCode: '',
+            scriptToolEnabled: true,
             loginUser: RrsAuth.getCurrentUser(),
         }
     },
     created() {
-        // 初始化加载 Demo 场景
+        // 初始化加载开关与 Demo 场景
+        this.loadStatus()
         this.loadScenes()
     },
     methods: {
+        // 加载脚本工具开关
+        async loadStatus() {
+            try {
+                const data = await this.apiPost('/api/v1/scriptTool/queryScriptToolStatus', {})
+                this.scriptToolEnabled = !(data && data.enabled === false)
+            } catch (e) {
+                this.scriptToolEnabled = true
+            }
+        },
         // 加载 Demo 场景列表
         async loadScenes() {
             this.loading = true
@@ -94,8 +117,28 @@ new Vue({
                 this.loading = false
             }
         },
+        // 场景分类中文
+        categoryLabel(category) {
+            if (category === 'security') return '证券池'
+            if (category === 'forbidden') return '禁投/风险池'
+            if (category === 'crmw') return 'CRMW'
+            if (category === 'alert') return '分级提醒'
+            return '其他'
+        },
+        // 场景分类 Tag 颜色
+        categoryTagType(category) {
+            if (category === 'security') return ''
+            if (category === 'forbidden') return 'danger'
+            if (category === 'crmw') return 'warning'
+            if (category === 'alert') return 'success'
+            return 'info'
+        },
         // 确认并执行场景生成
         async confirmAndExecute(scene) {
+            if (!this.scriptToolEnabled) {
+                this.$message.error('脚本工具已禁用，无法执行写操作')
+                return
+            }
             const confirmText = scene.confirmText
             let value = ''
             try {
@@ -128,7 +171,7 @@ new Vue({
                 })
                 this.$set(this.resultMap, scene.sceneCode, result)
                 if (result && result.status === 'success') {
-                    this.$message.success('Demo 场景生成成功')
+                    this.$message.success('Demo 场景生成成功。可到「我的事宜 / 执行审计」核对')
                 } else {
                     this.$message.error((result && result.errorMessage) || 'Demo 场景生成失败')
                 }

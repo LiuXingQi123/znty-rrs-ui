@@ -12,15 +12,18 @@
     <link rel="stylesheet" href="../css/script_data_integrity.css">
     <link rel="stylesheet" href="../css/common.css">
 </head>
-<body>
+<body class="script-data-integrity-page">
 <div id="script_data_integrity">
     <section class="check-hero">
-        <div>
+        <div class="hero-main">
             <p class="check-kicker">RRS SCRIPT TOOL</p>
             <h1>业务数据完整性检查</h1>
             <p class="check-desc">检查调库落池、审批步骤、投资池关系、流程配置、规则配置、评级及跨库用户/角色引用等关键业务关联；只统计异常，不修改数据。部分规则依赖 ais_inv_analysis 用户角色表可用。</p>
         </div>
-        <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadInspection">重新检查</el-button>
+        <div class="hero-actions">
+            <el-button size="small" icon="el-icon-download" :disabled="!filteredItems.length" @click="exportCsv">导出 CSV</el-button>
+            <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadInspection">重新检查</el-button>
+        </div>
     </section>
 
     <section class="summary-grid">
@@ -113,6 +116,42 @@ new Vue({
             if (status === 'warning') return '警告'
             if (status === 'failed') return '失败'
             return '未检查'
+        },
+        // 导出当前筛选结果为 CSV
+        exportCsv() {
+            const rows = this.filteredItems || []
+            if (!rows.length) {
+                this.$message.warning('没有可导出的数据')
+                return
+            }
+            const header = ['状态', '分类', '检查项', '关联对象', '问题数', '检查说明', '处理建议']
+            const lines = [header.join(',')]
+            rows.forEach(item => {
+                lines.push([
+                    this.statusLabel(item.status),
+                    item.category,
+                    item.itemName,
+                    item.objectName,
+                    item.issueCount,
+                    item.message,
+                    item.suggestion,
+                ].map(v => this.csvCell(v)).join(','))
+            })
+            this.downloadText(lines.join('\n'), 'script-data-integrity.csv')
+            this.$message.success('已导出 ' + rows.length + ' 行')
+        },
+        csvCell(value) {
+            const text = value == null ? '' : String(value)
+            return '"' + text.replace(/"/g, '""') + '"'
+        },
+        downloadText(content, fileName) {
+            const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = fileName
+            link.click()
+            URL.revokeObjectURL(url)
         },
     },
 })

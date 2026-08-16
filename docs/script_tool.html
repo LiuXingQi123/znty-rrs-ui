@@ -24,13 +24,24 @@
     </section>
 
     <el-alert
+        v-if="!scriptToolEnabled"
+        class="danger-alert"
+        title="脚本工具已禁用"
+        type="error"
+        :closable="false"
+        show-icon>
+        <div slot="description">
+            后端配置 <code>rrs.script.enabled=false</code>（或环境变量 <code>RRS_SCRIPT_ENABLED=false</code>）。写操作已拒绝，仅开发/演示环境请开启。
+        </div>
+    </el-alert>
+    <el-alert
         class="danger-alert"
         title="危险操作提示"
         type="warning"
         :closable="false"
         show-icon>
         <div slot="description">
-            本页面会真实调用后端执行数据库脚本。执行前必须输入卡片上的确认文本，避免误点导致数据被重置。
+            本页面会真实调用后端执行数据库脚本。执行前必须输入卡片上的确认文本，避免误点导致数据被重置。主库初始化已含调库信息快照表（<code>rrs_adjust_snapshot_schema.sql</code>）。
         </div>
     </el-alert>
 
@@ -115,7 +126,7 @@
                     size="small"
                     icon="el-icon-video-play"
                     :loading="runningTaskCode === task.taskCode"
-                    :disabled="!!runningTaskCode && runningTaskCode !== task.taskCode"
+                    :disabled="!scriptToolEnabled || (!!runningTaskCode && runningTaskCode !== task.taskCode)"
                     @click="confirmAndExecute(task)">
                     执行任务
                 </el-button>
@@ -154,14 +165,26 @@ new Vue({
             resultMap: {},          // 任务执行结果缓存
             loadingTasks: false,    // 任务列表加载状态
             runningTaskCode: '',    // 当前执行中的任务编码
+            scriptToolEnabled: true, // 后端写操作开关
             loginUser: RrsAuth.getCurrentUser(), // 当前登录用户
         }
     },
     created() {
-        // 初始化加载任务列表
+        // 初始化加载开关与任务列表
+        this.loadStatus()
         this.loadTasks()
     },
     methods: {
+        // 加载脚本工具开关
+        async loadStatus() {
+            try {
+                const data = await this.apiPost('/api/v1/scriptTool/queryScriptToolStatus', {})
+                this.scriptToolEnabled = !(data && data.enabled === false)
+            } catch (e) {
+                this.scriptToolEnabled = true
+            }
+        },
+
         // 加载脚本任务列表
         async loadTasks() {
             this.loadingTasks = true
@@ -215,6 +238,10 @@ new Vue({
 
         // 确认并执行脚本任务
         async confirmAndExecute(task) {
+            if (!this.scriptToolEnabled) {
+                this.$message.error('脚本工具已禁用，无法执行写操作')
+                return
+            }
             let value = ''
             try {
                 const res = await this.$prompt(
@@ -251,7 +278,7 @@ new Vue({
                 })
                 this.$set(this.resultMap, task.taskCode, result)
                 if (result && result.status === 'success') {
-                    this.$message.success('脚本任务执行成功')
+                    this.$message.success('脚本任务执行成功。可到「表记录数统计 / 环境检查」核对结果')
                 } else {
                     this.$message.error((result && result.errorMessage) || '脚本任务执行失败')
                 }

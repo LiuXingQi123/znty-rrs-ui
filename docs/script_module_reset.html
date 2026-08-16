@@ -12,17 +12,22 @@
     <link rel="stylesheet" href="../css/script_module_reset.css">
     <link rel="stylesheet" href="../css/common.css">
 </head>
-<body>
+<body class="script-module-reset-page">
 <div id="script_module_reset">
     <section class="reset-hero">
-        <div>
+        <div class="hero-main">
             <p class="reset-kicker">RRS SCRIPT TOOL</p>
             <h1>模块级初始化 / 重置</h1>
             <p class="reset-desc">按业务模块执行对应 Demo SQL（含主库模块、外部导入表、AIS 分析库 / ODS），比「重建完整演示环境」更轻量。注意：完整重建不包含 AIS 与外部导入；本页可单独重置这些模块。</p>
         </div>
-        <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadTasks">刷新模块</el-button>
+        <div class="hero-actions">
+            <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadTasks">刷新模块</el-button>
+        </div>
     </section>
 
+    <el-alert v-if="!scriptToolEnabled" class="danger-alert" title="脚本工具已禁用" type="error" :closable="false" show-icon>
+        <div slot="description">后端配置 <code>rrs.script.enabled=false</code>。模块重置写操作已拒绝。</div>
+    </el-alert>
     <el-alert class="danger-alert" title="危险操作提示" type="warning" :closable="false" show-icon>
         <div slot="description">模块重置会执行对应 demo SQL，脚本内通常包含 TRUNCATE。执行前必须输入确认文本 RESET_MODULE。</div>
     </el-alert>
@@ -45,7 +50,7 @@
                     size="small"
                     icon="el-icon-refresh-left"
                     :loading="runningCode === task.moduleCode"
-                    :disabled="!!runningCode && runningCode !== task.moduleCode"
+                    :disabled="!scriptToolEnabled || (!!runningCode && runningCode !== task.moduleCode)"
                     @click="confirmAndExecute(task)">
                     重置模块
                 </el-button>
@@ -70,14 +75,25 @@ new Vue({
             resultMap: {},
             loading: false,
             runningCode: '',
+            scriptToolEnabled: true,
             loginUser: RrsAuth.getCurrentUser(),
         }
     },
     created() {
-        // 初始化加载模块重置任务
+        // 初始化加载开关与模块重置任务
+        this.loadStatus()
         this.loadTasks()
     },
     methods: {
+        // 加载脚本工具开关
+        async loadStatus() {
+            try {
+                const data = await this.apiPost('/api/v1/scriptTool/queryScriptToolStatus', {})
+                this.scriptToolEnabled = !(data && data.enabled === false)
+            } catch (e) {
+                this.scriptToolEnabled = true
+            }
+        },
         // 加载模块重置任务
         async loadTasks() {
             this.loading = true
@@ -101,6 +117,10 @@ new Vue({
         },
         // 确认并执行模块重置
         async confirmAndExecute(task) {
+            if (!this.scriptToolEnabled) {
+                this.$message.error('脚本工具已禁用，无法执行写操作')
+                return
+            }
             const confirmText = task.confirmText
             let value = ''
             try {
@@ -133,7 +153,7 @@ new Vue({
                 })
                 this.$set(this.resultMap, task.moduleCode, result)
                 if (result && result.status === 'success') {
-                    this.$message.success('模块重置成功')
+                    this.$message.success('模块重置成功。可到「执行审计 / 环境检查」核对')
                 } else {
                     this.$message.error((result && result.errorMessage) || '模块重置失败')
                 }

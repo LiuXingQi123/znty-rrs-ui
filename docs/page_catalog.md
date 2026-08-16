@@ -46,6 +46,7 @@
 | `docs/script_data_integrity.html` | 业务数据完整性检查 | `css/script_data_integrity.css`、`css/common.css` |
 | `docs/script_module_reset.html` | 模块重置 | `css/script_module_reset.css`、`css/common.css` |
 | `docs/script_demo_scene.html` | 场景生成 | `css/script_demo_scene.css`、`css/common.css` |
+| `docs/script_run_log.html` | 执行审计 | `css/script_run_log.css`、`css/common.css` |
 | `docs/business-issues-overview.html` | 业务问题总览 | HTML 内联样式 |
 | `docs/hardcoded-validation-audit.html` | 写死值与校验缺口 | HTML 内联样式 |
 | `docs/validation-comparison-audit.html` | 调库校验新旧对比 | HTML 内联样式 |
@@ -125,12 +126,14 @@
 | `css/security_pool_adjust_history.css` | 证券池调整历史页面样式 | `security_pool_adjust_history.html` |
 | `css/security_pool_query.css` | 证券池查询页面样式 | `security_pool_query.html` |
 | `css/script_demo_scene.css` | 场景生成页面样式 | `docs/script_demo_scene.html` |
+| `css/script_run_log.css` | 执行审计页面样式 | `docs/script_run_log.html` |
 | `css/script_health_check.css` | 环境检查页面样式 | `docs/script_health_check.html` |
 | `css/script_schema_diff.css` | 数据库结构差异检查页面样式 | `docs/script_schema_diff.html` |
 | `css/script_data_integrity.css` | 业务数据完整性检查页面样式 | `docs/script_data_integrity.html` |
 | `css/script_module_reset.css` | 模块重置页面样式 | `docs/script_module_reset.html` |
 | `css/script_overview.css` | 脚本总览页面样式 | `docs/script_overview.html` |
 | `css/script_table_clear.css` | 表数据清空页面样式 | `docs/script_table_clear.html` |
+| `css/script_table_row_counts.css` | 表记录数统计页面样式 | `docs/script_table_row_counts.html` |
 | `css/script_tool.css` | 数据初始化页面样式 | `docs/script_tool.html` |
 | `css/temp_security_code.css` | 临时代码管理页面样式 | `temp_security_code.html` |
 | `css/pool_open_day.css` | 投资池开放日维护页面样式 | `pool_open_day.html` |

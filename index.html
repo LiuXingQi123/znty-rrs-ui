@@ -263,6 +263,7 @@ new Vue({
                 'document-management': 'doc-overview',
                 'version-management': 'version-nav-20260815',
             }, // 各一级菜单最后激活的页面
+            scriptToolEnabled: true, // 脚本工具开关（false 时隐藏整组菜单）
             primaryMenus: [
                 { index: 'fixed-income', title: '研究管理', icon: 'el-icon-data-line', defaultPage: 'security-adjust' },
                 { index: 'document-management', title: '文档管理', icon: 'el-icon-reading', defaultPage: 'doc-overview' },
@@ -395,6 +396,7 @@ new Vue({
                         { index: 'script-data-integrity', title: '数据完整性检查', icon: 'el-icon-circle-check', page: 'docs/script_data_integrity.html' },
                         { index: 'script-module-reset', title: '模块重置', icon: 'el-icon-refresh-left', page: 'docs/script_module_reset.html' },
                         { index: 'script-demo-scene', title: '场景生成', icon: 'el-icon-s-opportunity', page: 'docs/script_demo_scene.html' },
+                        { index: 'script-run-log', title: '执行审计', icon: 'el-icon-document', page: 'docs/script_run_log.html' },
                     ],
                 },
                 {
@@ -493,14 +495,21 @@ new Vue({
             const name = this.loginUser ? this.loginUser.userName : ''
             return name ? name.slice(0, 1).toUpperCase() : 'U'
         },
-        // 根据一级菜单显示对应侧边栏
+        // 根据一级菜单显示对应侧边栏；脚本工具在后端关闭时可整组隐藏
         visibleMenuGroups() {
-            return this.menuGroups.filter(group => group.primaryMenu === this.activePrimaryMenu)
+            return this.menuGroups.filter(group => {
+                if (group.primaryMenu !== this.activePrimaryMenu) return false
+                if (group.index === 'doc-script-tools' && this.scriptToolEnabled === false) return false
+                return true
+            })
         },
-        // 扁平化菜单项，便于按索引检索
+        // 扁平化菜单项，便于按索引检索（脚本工具关闭时不暴露其菜单项，避免 lastActive 误开）
         flatMenuItems() {
             const items = []
             this.menuGroups.forEach(group => {
+                if (group.index === 'doc-script-tools' && this.scriptToolEnabled === false) {
+                    return
+                }
                 group.items.forEach(item => {
                     if (item.children) {
                         item.children.forEach(child => items.push({
@@ -551,8 +560,18 @@ new Vue({
         window.RrsWorkbenchOpenTab = options => this.openDynamicTab(options)
         window.RrsWorkbenchCloseActiveTab = () => this.closeActiveDynamicTab()
         this.openHomeTab()
+        this.loadScriptToolStatus()
     },
     methods: {
+        // 加载脚本工具开关：关闭时隐藏「脚本工具」整组菜单（生产防护）
+        async loadScriptToolStatus() {
+            try {
+                const data = await this.apiPost('/api/v1/scriptTool/queryScriptToolStatus', {})
+                this.scriptToolEnabled = !(data && data.enabled === false)
+            } catch (e) {
+                this.scriptToolEnabled = true
+            }
+        },
         // 切换顶部一级菜单并恢复该模块最后访问页面
         handlePrimaryMenuSelect(index) {
             this.activePrimaryMenu = index

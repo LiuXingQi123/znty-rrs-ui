@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>执行审计</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <link rel="stylesheet" href="../css/script_run_log.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="script-run-log-page">
+<div id="script_run_log">
+    <section class="log-hero">
+        <div class="hero-main">
+            <p class="log-kicker">RRS SCRIPT TOOL</p>
+            <h1>脚本工具执行审计</h1>
+            <p class="log-desc">只读查看最近写操作记录（初始化、清空、重置、模块重置、场景生成）。生产关闭 <code>rrs.script.enabled</code> 后写操作会被拒绝，本页仍可查阅历史。</p>
+        </div>
+        <div class="hero-actions">
+            <el-button size="small" icon="el-icon-refresh" :loading="loading" @click="loadLogs">刷新</el-button>
+        </div>
+    </section>
+
+    <section class="content-card">
+        <div class="log-toolbar">
+            <el-select v-model="statusFilter" size="small" clearable placeholder="全部状态" style="width:120px;">
+                <el-option label="成功" value="success"></el-option>
+                <el-option label="失败" value="failed"></el-option>
+            </el-select>
+            <el-select v-model="typeFilter" size="small" clearable placeholder="全部类型" style="width:140px;">
+                <el-option label="初始化任务" value="task"></el-option>
+                <el-option label="清空选中表" value="clear"></el-option>
+                <el-option label="重置选中表" value="reset"></el-option>
+                <el-option label="模块重置" value="module"></el-option>
+                <el-option label="场景生成" value="scene"></el-option>
+            </el-select>
+            <el-input v-model="keyword" size="small" clearable prefix-icon="el-icon-search" placeholder="搜索编码、名称、操作人" style="width:280px;"></el-input>
+            <span class="result-count">当前 {{ filteredLogs.length }} 条</span>
+        </div>
+        <el-table :data="filteredLogs" size="small" border v-loading="loading" empty-text="暂无审计记录（表未建或尚无写操作）">
+            <el-table-column label="状态" width="80" align="center">
+                <template slot-scope="scope">
+                    <el-tag size="mini" :type="scope.row.runStatus === 'success' ? 'success' : 'danger'">
+                        {{ scope.row.runStatus === 'success' ? '成功' : '失败' }}
+                    </el-tag>
+                </template>
+            </el-table-column>
+            <el-table-column label="类型" width="110">
+                <template slot-scope="scope">{{ actionTypeLabel(scope.row.actionType) }}</template>
+            </el-table-column>
+            <el-table-column prop="actionName" label="动作" min-width="160" show-overflow-tooltip></el-table-column>
+            <el-table-column prop="actionCode" label="编码" min-width="150" show-overflow-tooltip></el-table-column>
+            <el-table-column label="操作人" width="120">
+                <template slot-scope="scope">{{ scope.row.operatorName || scope.row.operatorId || '' }}</template>
+            </el-table-column>
+            <el-table-column prop="startTime" label="开始时间" width="160"></el-table-column>
+            <el-table-column prop="costMillis" label="耗时(ms)" width="90" align="right"></el-table-column>
+            <el-table-column prop="executedCount" label="执行项" width="80" align="right"></el-table-column>
+            <el-table-column prop="executedSummary" label="执行摘要" min-width="220" show-overflow-tooltip></el-table-column>
+            <el-table-column prop="errorMessage" label="错误信息" min-width="180" show-overflow-tooltip></el-table-column>
+        </el-table>
+    </section>
+</div>
+
+<script>
+new Vue({
+    el: '#script_run_log',
+    data() {
+        return {
+            logs: [],
+            loading: false,
+            statusFilter: '',
+            typeFilter: '',
+            keyword: '',
+        }
+    },
+    computed: {
+        filteredLogs() {
+            const keyword = (this.keyword || '').trim().toLowerCase()
+            return (this.logs || []).filter(item => {
+                if (this.statusFilter && item.runStatus !== this.statusFilter) return false
+                if (this.typeFilter && item.actionType !== this.typeFilter) return false
+                if (!keyword) return true
+                return [item.actionCode, item.actionName, item.operatorId, item.operatorName, item.executedSummary]
+                    .join(' ').toLowerCase().indexOf(keyword) > -1
+            })
+        },
+    },
+    created() {
+        this.loadLogs()
+    },
+    methods: {
+        async loadLogs() {
+            this.loading = true
+            try {
+                this.logs = await this.apiPost('/api/v1/scriptTool/queryScriptToolRunLogList', {}) || []
+            } finally {
+                this.loading = false
+            }
+        },
+        actionTypeLabel(type) {
+            if (type === 'task') return '初始化任务'
+            if (type === 'clear') return '清空选中表'
+            if (type === 'reset') return '重置选中表'
+            if (type === 'module') return '模块重置'
+            if (type === 'scene') return '场景生成'
+            return type || ''
+        },
+    },
+})
+</script>
+</body>
+</html>
