@@ -33,7 +33,7 @@
 - `index.html` 是唯一的工作台外壳：左侧 `el-menu` 分组导航 + 顶部一级菜单（`primaryMenus`：研究管理 / 文档管理）+ 多页签 `iframe` 内容区。所有业务页都在 `pages/` 下，通过 `<iframe :src="tab.url">` 加载，页签之间相互隔离、可独立刷新。
 - 菜单结构在 `index.html` 的 `primaryMenus` / `menuGroups` 数据里硬编码，每项形如 `{ index, title, icon, page: 'pages/xxx.html', primaryMenu }`。**新增业务页时必须同时在 `menuGroups` 注册菜单项**，否则无法从工作台进入——只把 `.html` 丢进 `pages/` 不会出现在菜单里。
 - 页签 `url` 由 `window.RrsAuth.buildPageUrl(page, loginUser)` 生成，自动把当前登录用户拼成 `?loginUserId=...&loginUserName=...`；业务页在 iframe 内调 `RrsAuth.getCurrentUser()` 读取。
-- 研究管理内跨页跳转（查询/历史点代码、我的事宜处理/查看/去调库）当前走 `window.RrsWorkbench.openDetailTab`：工作台为该条记录新开页签，**同一业务键复用已有页签**，来源 iframe 不得 `location.href` 跳走。详情/审核页「返回」走 `RrsWorkbench.closeActiveTab()` 关闭当前页签并回到来源页签。脱离工作台单独打开页面时这两个方法返回 `false`，页面再自行跳转。
+- 研究管理内跨页跳转（查询/历史点代码、我的事宜处理/查看/去调库）当前走 `window.RrsWorkbench.openDetailTab`：工作台为该条记录新开页签，**同一业务键复用已有页签**，来源 iframe 不得 `location.href` 跳走。详情/审核页「返回」走 `RrsWorkbench.closeActiveTab()` 关闭当前页签并回到来源页签。脱离工作台单独打开页面时这两个方法返回 `false`，页面再自行跳转。调库记录 ID 用 `RrsWorkbench.resolveAdjustLogId(row, fromHistory)`：查询页只认 `adjustLogId`（`id` 是状态主键），历史页可回退 `id`。
 - **可回退**：新开 Tab 只是导航层。若公司工作台不兼容 `RrsWorkbenchOpenTab` / `RrsWorkbenchCloseActiveTab`，应整段还原为 iframe 内 `location.href` + 详情 `history.back()`（见 `docs/version-changelog-20260815-workbench-nav.html` 第 0 节）。`applyUrl*` 读 URL、主体进禁投详情、事宜第三页签可保留。
 
 ### 登录与用户上下文（`js/api.js` 中的 `window.RrsAuth`）

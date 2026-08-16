@@ -110,6 +110,14 @@ window.RrsWorkbench = {
         return null
     },
 
+    // 解析调库记录 ID：优先 adjustLogId；历史页可回退 id（查询页的 id 是状态主键，不能回退）
+    resolveAdjustLogId(row, fromHistory) {
+        if (!row) return ''
+        if (row.adjustLogId != null && row.adjustLogId !== '') return row.adjustLogId
+        if (fromHistory && row.id != null && row.id !== '') return row.id
+        return ''
+    },
+
     // 组装页签唯一键，去掉空白
     buildTabIndex(prefix, parts) {
         const tokens = (parts || []).map(function (item) {
