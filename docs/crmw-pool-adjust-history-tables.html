@@ -327,17 +327,15 @@
         <p class="sub">按当前前后端实现归纳主要触发场景。</p>
         <div class="logic-grid">
             <article class="logic-card"><h3>历史事实来源</h3>
-                <p>主表是
-                    ip_adjust_log，代表每次调库申请及其审批结果；它不是当前在池状态表，因此已调出或被驳回的申请仍可查询。</p>
+                <p>主表 <code>ip_adjust_log</code>（不是当前在池表）；已调出或驳回申请仍可查。<strong>默认不限 audit_status</strong>（全状态流水）。</p>
             </article>
             <article class="logic-card"><h3>CRMW 类型过滤</h3>
-                <p>固定 <code>al.pool_type='crmw'</code>；可用 crmw_scode/crmw_name 筛选（标的代码/简称仅作展示列，不可筛选）。同批 submit_time
-                    提交时统一写入以聚拢展示。</p></article>
-            <article class="logic-card"><h3>池名称关联</h3>
-                <p>日志保存 target_pool_id，查询时左连接 ip_investment_pool 回填池名称；即使状态已调出，历史申请仍保留。</p>
+                <p>固定 <code>al.pool_type='crmw'</code> 且 <code>al.is_deleted=0</code>；可用 crmw_scode/crmw_name 筛选（标的代码/简称多作展示）。同批 <code>submit_time</code> 统一写入以聚拢。</p></article>
+            <article class="logic-card"><h3>池名称与日期</h3>
+                <p>左连 <code>ip_investment_pool</code>（常要求未删池）回填名称；提交止日 <code>submit_time &lt;= CONCAT(end, ' 23:59:59')</code>。<strong>不做 VIEWABLE</strong>（与禁投历史不同）。</p>
             </article>
             <article class="logic-card"><h3>审计口径</h3>
-                <p>audit_status 展示流程中、待修改、通过、驳回、自动审批或撤回等状态；只有通过类结果曾改变最终状态。</p>
+                <p>audit_status 含 00/11/20/21/99 等；仅 20 曾改变 <code>ip_pool_status_crmw</code>。业务键展示 crmwScode + securityCode。</p>
             </article>
         </div>
     </section>
@@ -381,7 +379,7 @@
             <article class="rule"><h3>驳回记录保留</h3>
                 <p>审批驳回或撤回不会改变池状态，但申请日志仍是审计记录。</p></article>
             <article class="rule"><h3>页面只读</h3>
-                <p>查询历史不会新增日志、步骤或附件。点名称/代码走 <code>openCrmwAdjustDetail</code>，工作台新开详情（<code>adjustLogId</code> 优先接口字段，可回退 <code>row.id</code>，二者同为调库日志主键）；页签键含 <code>crmwScode</code>、记录 ID、批次。</p></article>
+                <p>不写日志/步骤/附件。点名称/代码：<code>resolveAdjustLogId(row, true)</code>（优先 adjustLogId，可回退 row.id）；页签键含 <code>crmwScode</code>、<code>securityCode</code>、adjustLogId、批次、targetPoolId（避免同凭证不同标的串签）。</p></article>
         </div>
         <div class="note">文档口径来自当前页面、Controller、Service、Mapper XML 与对应
             requirements；后续代码调整时应同步维护本页。

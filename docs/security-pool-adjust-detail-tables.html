@@ -318,7 +318,7 @@
             /api/v1/securityPoolAdjust/addAdjustLogWithFiles</code></div>
         <div class="steps">
             <article class="step"><b>1. 识别模式</b>
-                <p>view 只读查看；adjust 允许首次提交调库申请。</p></article>
+                <p><code>entryMode=view</code> 只读；<code>adjust</code>（或无 process）允许首次提交。审批动作不在本页。</p></article>
             <article class="step"><b>2. 并行加载</b>
                 <p>读取证券详情、当前池、可调池、日志和步骤。</p></article>
             <article class="step"><b>3. 选择方向</b>
@@ -333,17 +333,16 @@
         <p class="sub">按当前前后端实现归纳主要触发场景。</p>
         <div class="logic-grid">
             <article class="logic-card"><h3>查看模式</h3>
-                <p>按业务代码与批次加载日志、步骤、附件；只读展示调整原因/建议（从日志回填），不触发 check 或写表。</p>
+                <p>按 securityCode / adjustLogId / batch 加载日志、步骤、附件；只读原因/建议；不触发 check 或写表。证券信息优先展示提交时 <code>ip_adjust_security_snapshot</code>。</p>
             </article>
             <article class="logic-card"><h3>调整模式</h3>
-                <p>加载有权限的池树：调入侧后端 <code>filterInboundByGradeRule</code>（无内评正式债去掉信用债大库；临时代码默认 grade 4）后再由前端按当前在池状态二次过滤；用户选择叶子池、方向和流程后调用 <code>checkAdjust</code>。</p></article>
+                <p>加载 adjustable 池树：调入侧 <code>filterInboundByGradeRule</code>（正式无内评去掉信用债 1～5；临时代码默认 grade 4；观察封顶等）后再按在池状态过滤；选叶子池/方向/流程后 <code>checkAdjust</code>。</p></article>
             <article class="logic-card"><h3>校验返回</h3>
-                <p>手工+联动/互斥/关联项一并返回；failReasons 与 warnings 分列；失败时「调整说明」分条展示「未通过（共 N 项）」+ 编号列表（保留全部 failReasons，检查项文案不含「无法调入」终局语气）；通过时展示类型+方向；同组底色区分。仅通过手工项可选流程。</p></article>
+                <p>手工+联动/互斥/关联项；failReasons/warnings 分列；失败分条编号列表；同组底色。仅通过手工项可选流程。</p></article>
             <article class="logic-card"><h3>首次提交</h3>
-                <p>写 ip_adjust_log；直通锁池复核后落 ip_pool_status；非直通写首个步骤。统一
-                    submit_time；审批动作不在本页。</p></article>
+                <p>写 <code>ip_adjust_log</code> + 快照；直通 <code>recheckBeforeFinalApproval</code> 子集后落 <code>ip_pool_status</code>；非直通 00 + 首个步骤。统一 submit_time。审批不在本页。</p></article>
             <article class="logic-card"><h3>职责边界</h3>
-                <p>审批中的同意、驳回、会签推进及修改后重提属于对应“审核”页面，本详情页不调用 FlowController。</p></article>
+                <p>同意/驳回/会签/修改重提走「证券池调库审核」Flow 接口；本页不调用 <code>submitAdjustAudit</code>。查询页下钻多为 view；我的事宜 process 进审核页。</p></article>
             <article class="logic-card"><h3>附件处理</h3>
                 <p>无附件走 JSON 提交，有附件走 multipart；sys_attachment 通过 adjustLogId 关联申请。</p></article>
         </div>
@@ -395,7 +394,7 @@
                     <td><code>ip_pool_permission / ip_pool_relation</code></td>
                     <td>可调整权限及联动、互斥、限制关系</td>
                     <td><span class="rw">读</span></td>
-                    <td>修改节点重新校验调入调出范围</td>
+                    <td>adjust 模式加载可调池并做联动/互斥校验（修改重提在审核页）</td>
                 </tr>
                 <tr>
                     <td>6</td>

@@ -384,19 +384,20 @@
             <article class="card"><h3>查询主线</h3>
                 <ul>
                     <li>主表 <code>ip_pool_status</code> 固定过滤
-                        <code>audit_status='20'</code>、<code>is_deleted=0</code>、<code>security_type != 'crmw'</code>（仅排除 CRMW 凭证；禁投/观察/黑名单中的债券仍展示）。
+                        <code>audit_status='20'</code>、<code>is_deleted=0</code>、<code>security_type != 'crmw'</code>（仅排除 CRMW 凭证；禁投/观察/黑名单中的<strong>债券</strong>仍可展示）。
                     </li>
-                    <li>关联投资池时要求 <code>p.is_deleted=0</code>（或空），证券信息和证券类型字典。</li>
+                    <li>关联投资池：<code>LEFT JOIN ... p.is_deleted=0</code>。池被软删后，状态行仍可因 audit=20 出现，但<strong>池名/全路径常为空</strong>（路径映射也只含未删除池）。</li>
                     <li>按 <code>entry_time DESC, id DESC</code>（id 为 <code>ip_pool_status</code> 主键）倒序分页，Service 回填池全路径。</li>
+                    <li><strong>不做 VIEWABLE 权限过滤</strong>（列表 SQL 与池树均无 viewable 交集；与主体池/禁投池查询不同）。</li>
                     <li>列表为空时单元格留白，不使用「-」占位；状态/类型等枚举用 <code>el-tag</code> 展示。</li>
                 </ul>
             </article>
             <article class="card"><h3>筛选条件</h3>
                 <ul>
                     <li>支持多池树、证券代码/简称/类型、入池日期区间、调整人和发行人。</li>
-                    <li>存续/到期由 <code>maturity_date</code> 与当前日期比较（动态计算，非表字段）。</li>
+                    <li>存续/到期由 <code>maturity_date</code> 与当前日期比较（动态计算）。前端默认 <code>securityStatus=active</code>（存续）；清空状态下拉才查全部。到期日为空的券既不命中 active 也不命中 matured。</li>
                     <li>「我的证券」通过当前用户有效 <code>my_security_pool</code> 记录过滤。</li>
-                    <li>投资池树来自 <code>/api/v1/common/queryPoolTreeList</code>；类型选项来自本模块接口。</li>
+                    <li>投资池树：<code>/api/v1/common/queryPoolTreeList</code>，前端传 <code>excludePoolTypes: ['crmw','forbidden']</code>（树上选不到 forbidden；列表无池筛选时禁投池上的债仍可能出现）。类型选项来自本模块接口。</li>
                 </ul>
             </article>
         </div>
@@ -469,11 +470,12 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>正式池查询只认 <code>ip_pool_status.audit_status='20'</code> 且 <code>is_deleted=0</code>，并固定排除 CRMW 凭证（<code>security_type != 'crmw'</code>；CRMW 历史在独立页面查询）。</li>
-            <li>证券状态不是独立表字段，当前查询通过证券到期日动态计算存续/到期。</li>
+            <li>正式池查询只认 <code>ip_pool_status.audit_status='20'</code> 且 <code>is_deleted=0</code>，并固定排除 CRMW 凭证（<code>security_type != 'crmw'</code>；CRMW 在独立页面查询）。对比：调整历史默认<strong>全</strong> audit_status。</li>
+            <li>本页<strong>无 VIEWABLE</strong> 过滤；池树 exclude crmw/forbidden。与主体/禁投查询（有 viewable）不同。</li>
+            <li>证券状态不是独立表字段，由到期日动态计算；默认筛存续，空到期日边界见上。</li>
             <li>收藏表与正式证券池状态完全分离，取消收藏不会调出证券。</li>
-            <li>前端状态下拉可使用本地字典；后端亦提供 <code>querySecurityStatusList</code>（active/matured 等）选项接口。</li>
-            <li>本页只读查询 + 收藏维护，不在本页提交调库。点证券名称/代码走 <code>openSecurityAdjustDetail</code>，工作台新开证券详情页签（参数含 <code>securityCode</code> / <code>targetPoolId</code> / <code>adjustLogId</code>（状态表 <code>adjust_log_id</code>，不是本行 <code>id</code>） / <code>adjustBatchNo</code> / <code>entryMode=view</code>）；调库申请请走「证券池调整 / 批量调整」。</li>
+            <li>前端状态下拉用本地字典；后端有 <code>querySecurityStatusList</code>，当前页面<strong>未调用</strong>该接口。</li>
+            <li>本页只读查询 + 收藏维护。点证券名称/代码走 <code>openSecurityAdjustDetail</code>，工作台新开详情（<code>resolveAdjustLogId(row, false)</code> 用状态表 <code>adjust_log_id</code>，不是本行 <code>id</code>）；调库请走证券池调整/批量调整。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

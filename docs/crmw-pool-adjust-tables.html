@@ -324,7 +324,7 @@
             /api/v1/crmwPoolAdjustFlow/submitAdjustAuditWithFiles</code></div>
         <div class="steps">
             <article class="step"><b>1. 选择 CRMW</b>
-                <p>分页查凭证（security_type=crmw），再选可绑定标的（排除 crmw）。</p></article>
+                <p>分页查凭证（security_type=crmw），再选可绑定标的（当前仅排除 security_type=crmw，<strong>未</strong>排除 company）。</p></article>
             <article class="step"><b>2. 加载上下文</b>
                 <p>并行读凭证/标的详情、ip_pool_status_crmw 当前池、可调 CRMW 池与历史申请。</p></article>
             <article class="step"><b>3. 规则校验</b>
@@ -339,19 +339,19 @@
         <p class="sub">与证券池调库同构；对象=「CRMW 凭证 + 标的证券」组合，落地表独立。</p>
         <div class="logic-grid">
             <article class="logic-card"><h3>查询与选择</h3>
-                <p>凭证列表 <code>queryCrmwPage</code>（仅 crmw）；可绑定证券 <code>queryBindableSecurityPage</code>（排除
-                    crmw）。提交/日志同时携带 <code>crmwScode</code>、<code>crmwName</code>、<code>crmwStype=crmw</code> 与标的
-                    <code>securityCode</code>。<strong>已移除市场代码 crmwMktcode</strong>，前后端不再传参。</p></article>
+                <p>凭证列表 <code>queryCrmwPage</code>（仅 crmw）；可绑定证券 <code>queryBindableSecurityPage</code>（SQL 仅 <code>security_type != 'crmw'</code>，<strong>未排除 company</strong>，业务问题已记 P1）。提交/日志业务键：
+                    <code>crmwScode</code> + <code>securityCode</code>（凭证身份仍用 <code>crmwStype</code>）。<strong>已移除市场代码 crmwMktcode</strong> 依赖。</p></article>
             <article class="logic-card"><h3>池与权限</h3>
-                <p><code>queryCrmwAdjustPoolList</code> 仅保留 <code>pool_type=crmw</code>（启用集合后再按 adjustable 过滤）；<strong>in/out 两次请求结果相同</strong>（无信用债内评矩阵过滤，目标池不是 credit_bond）。CRMW 在池读 <code>ip_pool_status_crmw</code>；标的普通池
-                    <code>ip_pool_status</code> 仍参与来源池/观察池等规则。</p></article>
+                <p><code>queryCrmwAdjustPoolList</code> 仅 <code>pool_type=crmw</code>（启用后再 adjustable）；in/out 两次结果相同（无内评矩阵过滤）。CRMW 在池读 <code>ip_pool_status_crmw</code>；标的普通池 <code>ip_pool_status</code> 仍参与来源/观察等规则。</p></article>
             <article class="logic-card"><h3>调入 / 调出校验</h3>
-                <p>通用：池锁定、品种/市场、待处理（<code>pending</code>，按 CRMW 凭证+标的组合+池组）、重复入/未入池、容量、来源/限制、互斥冲突、全局禁止、行业、开放日；弹性禁投池（<code>soft_restrict</code>）为警告不阻断。自动联动/互斥；互斥调出失败反阻断同组手工调入。特殊审批（互斥）默认排除信用债大库目标池。<strong>不做</strong>信用债主体内评×期限矩阵（<code>inCheckMainGradeRule</code> 未接入本链路）。类型特有：标的为债券时校验到期，股票退市等。</p>
+                <p>通用：池锁定、品种/市场、pending（同组合 securityCode+crmwScode+crmwStype 下 audit∈{00,11} 且存在 pending 步骤，再映射顶级池组；提交阶段同口径整单拒绝）、重复入/未入池、容量、来源/限制、互斥、全局禁止、开放日；弹性 soft_restrict 警告不阻断。行业限制调用<strong>已注释</strong>。自动联动/互斥；互斥调出失败反阻断。特殊审批默认排除信用债大库目标池。<strong>不做</strong>信用债主体内评×期限矩阵（流程解析代码仍含信用债分支，但目标池强制 crmw，实际不进入）。标的为债时 check 仅到期等类型规则，不套分级矩阵/特殊债下调。</p>
             </article>
             <article class="logic-card"><h3>提交与流转</h3>
-                <p>直通：锁池动态复核后写/软删 <code>ip_pool_status_crmw</code>。非直通：<code>audit_status=00</code>
-                    写步骤，仅最终审批通过（<code>20</code>）落池。前端调整说明失败时「调整说明」分条展示「未通过（共 N 项）」+ 编号列表（保留全部 failReasons，检查项文案不含「无法调入」终局语气）；同组底色区分联动/互斥行。约 30s 防重复提交。
-                </p></article>
+                <p>直通/终审：锁池 + <code>recheckBeforeFinalApproval</code> 后写/软删 <code>ip_pool_status_crmw</code>。非直通 <code>audit_status=00</code>，仅 20 落池。批次前缀 <code>CRMW</code>。约 30s 防重复；failReasons 分条展示。</p>
+            </article>
+            <article class="logic-card"><h3>校验分层（check / recheck）</h3>
+                <p><strong>checkCrmwAdjust</strong>：全量通用+类型规则（行业已注释）。<strong>submit</strong>：不整单重跑 check；报告/pending/防重等提交专属。<strong>recheckBeforeFinalApproval</strong>：调入——池锁、凭证已在池、品种、来源、限制、禁投、容量；调出——组合是否仍在池、池锁、限制、冻结。<strong>不再跑</strong>开放日/行业/矩阵等。与证券池分层同构，对象键为组合。</p>
+            </article>
         </div>
     </section>
     <section id="tables" class="panel"><h2>涉及表与读写场景</h2>
@@ -492,7 +492,7 @@
                     <td><code>ip_pool_open_day</code></td>
                     <td>投资池开放日区间定义</td>
                     <td><span class="rw">读</span></td>
-                    <td>调入/调出开放日校验（inCheckOpenDay/outCheckOpenDay 经 queryPoolInOpenDay 读取）</td>
+                    <td>check 阶段开放日校验（终审 recheck 不重跑开放日）</td>
                 </tr>
                 </tbody>
             </table>

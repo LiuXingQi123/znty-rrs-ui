@@ -2,59 +2,225 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>存量证券批量调整 - 业务文档</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>存量证券批量调整｜表与业务逻辑</title>
     <style>
-        body { font-family: "Microsoft YaHei", sans-serif; margin: 24px; color: #242933; background: #F7F8FA; }
-        .panel { background: #fff; border: 1px solid #E5E5E5; border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; }
-        h1 { font-size: 20px; margin: 0 0 8px; }
-        h2 { font-size: 16px; margin: 0 0 12px; color: #2743A4; }
-        .sub { color: #707783; font-size: 13px; margin-bottom: 12px; }
-        code { background: #F0F2F5; padding: 1px 6px; border-radius: 3px; font-size: 12px; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { border: 1px solid #E5E5E5; padding: 8px 10px; text-align: left; }
-        th { background: #F5F7FA; }
-        ul { margin: 0; padding-left: 20px; line-height: 1.7; }
+        body.docs-page-stock-security-batch-adjust-tables {
+            --primary: #2743A4;
+            --bg: #f4f7fb;
+            --text: #1f2937;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+        body.docs-page-stock-security-batch-adjust-tables, body.docs-page-stock-security-batch-adjust-tables * { box-sizing: border-box }
+        body.docs-page-stock-security-batch-adjust-tables {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+        .docs-page-stock-security-batch-adjust-tables .wrap { width: min(1760px, calc(100% - 32px)); margin: 0 auto }
+        .docs-page-stock-security-batch-adjust-tables header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%)
+        }
+        .docs-page-stock-security-batch-adjust-tables .kicker {
+            margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .14em; opacity: .82
+        }
+        .docs-page-stock-security-batch-adjust-tables h1 { margin: 0; font-size: clamp(26px, 3vw, 36px); line-height: 1.25 }
+        .docs-page-stock-security-batch-adjust-tables header p.desc {
+            max-width: 920px; margin: 8px 0 0; color: rgba(255, 255, 255, .86)
+        }
+        .docs-page-stock-security-batch-adjust-tables .stats {
+            display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; max-width: 760px; margin-top: 16px
+        }
+        .docs-page-stock-security-batch-adjust-tables .stat {
+            padding: 10px 14px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 12px;
+            background: rgba(255, 255, 255, .1); font-weight: 700
+        }
+        .docs-page-stock-security-batch-adjust-tables main { padding: 28px 0 56px }
+        .docs-page-stock-security-batch-adjust-tables .nav {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px
+        }
+        .docs-page-stock-security-batch-adjust-tables .nav a {
+            padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--line);
+            color: var(--primary); text-decoration: none; font-size: 13px
+        }
+        .docs-page-stock-security-batch-adjust-tables .panel {
+            margin-bottom: 16px; padding: 18px 20px; background: #fff; border: 1px solid var(--line);
+            border-radius: 12px; box-shadow: var(--shadow)
+        }
+        .docs-page-stock-security-batch-adjust-tables h2 { margin: 0 0 8px; font-size: 18px; color: var(--primary) }
+        .docs-page-stock-security-batch-adjust-tables .sub { margin: 0 0 12px; color: var(--muted); font-size: 13px }
+        .docs-page-stock-security-batch-adjust-tables .logic {
+            display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px
+        }
+        .docs-page-stock-security-batch-adjust-tables .card {
+            padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; background: #fafbfd
+        }
+        .docs-page-stock-security-batch-adjust-tables .card h3 { margin: 0 0 8px; font-size: 14px }
+        .docs-page-stock-security-batch-adjust-tables .card ul { margin: 0; padding-left: 18px; color: #475467 }
+        .docs-page-stock-security-batch-adjust-tables .card li + li { margin-top: 4px }
+        .docs-page-stock-security-batch-adjust-tables .api {
+            display: inline-block; margin-bottom: 10px; padding: 4px 8px; border-radius: 4px;
+            background: #E9ECF6; color: var(--primary); font-family: Consolas, Menlo, monospace; font-size: 12px
+        }
+        .docs-page-stock-security-batch-adjust-tables table {
+            width: 100%; border-collapse: collapse; font-size: 13px
+        }
+        .docs-page-stock-security-batch-adjust-tables th, .docs-page-stock-security-batch-adjust-tables td {
+            padding: 8px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top
+        }
+        .docs-page-stock-security-batch-adjust-tables th { background: #F5F7FA }
+        .docs-page-stock-security-batch-adjust-tables code {
+            padding: 1px 5px; border-radius: 3px; background: #F0F2F5; font-size: 12px
+        }
+        .docs-page-stock-security-batch-adjust-tables .notes { margin: 0; padding-left: 18px; color: #475467 }
+        .docs-page-stock-security-batch-adjust-tables .notes li + li { margin-top: 6px }
+        .docs-page-stock-security-batch-adjust-tables .back { color: var(--primary); text-decoration: none }
+        .docs-page-stock-security-batch-adjust-tables footer {
+            padding: 0 0 28px; color: var(--muted); text-align: center
+        }
+        @media (max-width: 900px) {
+            .docs-page-stock-security-batch-adjust-tables .logic,
+            .docs-page-stock-security-batch-adjust-tables .stats { grid-template-columns: 1fr }
+        }
     </style>
 </head>
-<body>
-<div class="panel">
-    <h1>存量证券批量调整</h1>
-    <p class="sub">页面 <code>pages/stock_security_batch_adjust.html</code> · API <code>/api/v1/stockSecurityBatchAdjust</code></p>
-</div>
-<div class="panel">
-    <h2>与证券池批量调整差异</h2>
-    <ul>
-        <li>目标池：仅 <code>pool_code=bond_product_root</code> 子树启用叶子（不含债券产品库1）。</li>
-        <li>可选证券：来源池多选<strong>必选</strong>（CRMW / 信用债一~三级 / 转债核心·重点）；发行主体模糊查询；代码/简称/市场同批量。</li>
-        <li>CRMW 来源读 <code>ip_pool_status_crmw</code>；其它来源读 <code>ip_pool_status</code>。</li>
-        <li>校验/提交与证券池批量同构：委托 <code>SecurityPoolAdjustService.checkAdjust</code> / <code>submitAdjustLog</code>，流程候选透传、不注入/不回填 batchIn·batchOut；直通走 <code>isDirectAdjustFlow</code> + <code>recheckBeforeFinalApproval</code>。</li>
-    </ul>
-</div>
-<div class="panel">
-    <h2>主要接口</h2>
-    <table>
-        <thead><tr><th>接口</th><th>说明</th></tr></thead>
-        <tbody>
-        <tr><td><code>queryPoolPage</code></td><td>产品库叶子池分页 + 现有数量分项</td></tr>
-        <tr><td><code>querySourcePoolList</code></td><td>来源池白名单下拉</td></tr>
-        <tr><td><code>querySecurityPage</code></td><td>候选证券（来源池必选）</td></tr>
-        <tr><td><code>checkAdjust</code> / <code>addAdjustLogWithFiles</code></td><td>校验与提交</td></tr>
-        </tbody>
-    </table>
-</div>
-<div class="panel">
-    <h2>来源池 pool_code</h2>
-    <table>
-        <thead><tr><th>展示</th><th>pool_code</th><th>状态表</th></tr></thead>
-        <tbody>
-        <tr><td>CRMW库</td><td>crmw_root</td><td>ip_pool_status_crmw</td></tr>
-        <tr><td>信用债大库/一级库</td><td>credit_bond_level_1</td><td>ip_pool_status</td></tr>
-        <tr><td>信用债大库/二级库</td><td>credit_bond_level_2</td><td>ip_pool_status</td></tr>
-        <tr><td>信用债大库/三级库</td><td>credit_bond_level_3</td><td>ip_pool_status</td></tr>
-        <tr><td>转债库/核心库</td><td>convertible_bond_core</td><td>ip_pool_status</td></tr>
-        <tr><td>转债库/重点库</td><td>convertible_bond_focus</td><td>ip_pool_status</td></tr>
-        </tbody>
-    </table>
-</div>
+<body class="docs-page docs-page-stock-security-batch-adjust-tables">
+<header>
+    <div class="wrap">
+        <p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>存量证券批量调整</h1>
+        <p class="desc">从固定来源池圈选证券，批量调入「债券产品库」子树叶子；校验/提交与证券池批量调整同构，委托单券服务，不注入 batch 专用流程。</p>
+        <div class="stats">
+            <span class="stat">委托单券 check/submit</span>
+            <span class="stat">目标=产品库子树</span>
+            <span class="stat">来源池必选</span>
+        </div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav">
+        <a href="#diff">与批量差异</a>
+        <a href="#logic">同构复用</a>
+        <a href="#api">主要接口</a>
+        <a href="#source">来源池</a>
+        <a href="#tables">涉及表</a>
+        <a href="#notes">规则说明</a>
+        <a href="module-tables-index.html">文档目录</a>
+    </nav>
+
+    <section class="panel" id="diff">
+        <h2>与证券池批量调整的差异</h2>
+        <p class="sub">页面 <code>pages/stock_security_batch_adjust.html</code> · API 前缀 <code>/api/v1/stockSecurityBatchAdjust</code>。</p>
+        <div class="logic">
+            <article class="card">
+                <h3>目标池与候选证券</h3>
+                <ul>
+                    <li>目标池：仅 <code>pool_code=bond_product_root</code> 子树下<strong>启用叶子</strong>（不含其它 bond_product 根如「债券产品库1」）。</li>
+                    <li>可选证券：来源池多选<strong>必选</strong>（下表 6 个 pool_code）；支持发行主体模糊查询；代码/简称/市场筛选同批量页。</li>
+                    <li>CRMW 来源读 <code>ip_pool_status_crmw</code>；其它来源读 <code>ip_pool_status</code>。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>渠道标签</h3>
+                <ul>
+                    <li>手工项 <code>adjustType</code> 仍为 <strong>手动批量调整</strong>（无「存量专用」类型）。</li>
+                    <li>无 Excel 的 clearTarget / excel_importable 语义。</li>
+                    <li>与 Excel 差异：本页<strong>不</strong>注入目标池 batchIn/batchOut；Excel 仍可能注入 bulk 推荐流程。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+
+    <section class="panel" id="logic">
+        <h2>同构复用（与证券池批量一致）</h2>
+        <p class="sub">编排在 Stock 服务，规则与落库在单券 <code>SecurityPoolAdjustService</code>。</p>
+        <span class="api">checkAdjust · addAdjustLogWithFiles → SecurityPoolAdjustService</span>
+        <div class="logic">
+            <article class="card">
+                <h3>校验</h3>
+                <ul>
+                    <li>逐券转 <code>AdjustCheckReq</code>，调用 <code>securityPoolAdjustService.checkAdjust</code>。</li>
+                    <li>通用/类型规则、联动互斥、反阻断与单券一致（行业已注释；基金评分仅 check 且本页不传 fundRate）。</li>
+                    <li>流程候选<strong>完全透传</strong>单笔结果（白名单/简易/默认/特殊/升降级等），<strong>不注入、不回填</strong> batchIn/batchOut。</li>
+                    <li><code>releaseRules=yes</code> 仅跳过内评矩阵，其它硬规则仍执行。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>提交与落池</h3>
+                <ul>
+                    <li>整批<strong>一个事务</strong>，任一失败全部回滚；防重复提交窗口与批量同构。</li>
+                    <li>按触发主券分组调用 <code>submitAdjustLog</code>；共享附件与 <code>BatchNoContext</code>。</li>
+                    <li>直通：<code>isDirectAdjustFlow</code> + <code>recheckBeforeFinalApproval</code>（动态子集，见证券池调库「校验分层」）。</li>
+                    <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；驳回/撤回不改在池。</li>
+                    <li>后续审批复用证券池调库 Flow 服务。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+
+    <section class="panel" id="api">
+        <h2>主要接口</h2>
+        <table>
+            <thead><tr><th>接口</th><th>说明</th></tr></thead>
+            <tbody>
+            <tr><td><code>queryPoolPage</code></td><td>产品库叶子池分页 + 现有数量分项</td></tr>
+            <tr><td><code>querySourcePoolList</code></td><td>来源池白名单下拉</td></tr>
+            <tr><td><code>querySecurityPage</code></td><td>候选证券（来源池必选）</td></tr>
+            <tr><td><code>checkAdjust</code></td><td>逐券校验，委托单券</td></tr>
+            <tr><td><code>addAdjustLogWithFiles</code></td><td>整批提交（可带附件）</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="panel" id="source">
+        <h2>来源池 pool_code</h2>
+        <table>
+            <thead><tr><th>展示</th><th>pool_code</th><th>状态表</th></tr></thead>
+            <tbody>
+            <tr><td>CRMW库</td><td>crmw_root</td><td>ip_pool_status_crmw</td></tr>
+            <tr><td>信用债大库/一级库</td><td>credit_bond_level_1</td><td>ip_pool_status</td></tr>
+            <tr><td>信用债大库/二级库</td><td>credit_bond_level_2</td><td>ip_pool_status</td></tr>
+            <tr><td>信用债大库/三级库</td><td>credit_bond_level_3</td><td>ip_pool_status</td></tr>
+            <tr><td>转债库/核心库</td><td>convertible_bond_core</td><td>ip_pool_status</td></tr>
+            <tr><td>转债库/重点库</td><td>convertible_bond_focus</td><td>ip_pool_status</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="panel" id="tables">
+        <h2>涉及表（摘要）</h2>
+        <p class="sub">与批量/单券同构读写，另加 CRMW 状态表作来源。</p>
+        <table>
+            <thead><tr><th>表</th><th>用途</th></tr></thead>
+            <tbody>
+            <tr><td><code>ip_investment_pool</code></td><td>产品库子树目标池；来源池白名单解析</td></tr>
+            <tr><td><code>ip_pool_status</code> / <code>ip_pool_status_crmw</code></td><td>候选在池、容量、落池</td></tr>
+            <tr><td><code>rrs_securityinfo</code></td><td>证券主数据</td></tr>
+            <tr><td><code>ip_adjust_log</code> / <code>ip_adjust_step</code></td><td>申请与审批步骤</td></tr>
+            <tr><td><code>ip_pool_relation</code></td><td>来源/限制/联动/互斥</td></tr>
+            <tr><td><code>wf_flow_*</code></td><td>选定流程快照（透传单券候选）</td></tr>
+            <tr><td><code>sys_attachment</code></td><td>提交材料</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="panel" id="notes">
+        <h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>校验顺序、行业注释、基金仅 check、special-inbound 排除信用债大库等与单券一致；完整分层见
+                <a class="back" href="security-pool-adjust-flow-tables.html">证券池调库</a>。</li>
+            <li>编排与批量页对齐见
+                <a class="back" href="batch-security-pool-adjust-tables.html">证券池批量调整</a>；本页仅收窄目标池与候选来源。</li>
+            <li>需求编号：27-stock-security-batch-adjust（以当前代码与本页为准）。</li>
+        </ul>
+    </section>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p>
+</main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
 </body>
 </html>

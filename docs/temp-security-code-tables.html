@@ -383,15 +383,16 @@
             <article class="card"><h3>列表查询</h3>
                 <ul>
                     <li>主表为 <code>rrs_temp_security_code</code>，关联两次证券类型字典。</li>
-                    <li>支持临时代码、临时名称模糊查询；排序对齐老系统状态优先。</li>
-                    <li>当前列表未过滤 is_deleted，已删除记录仍可显示；详情按 ID 过滤已删除。</li>
+                    <li>支持临时代码、临时名称模糊查询；状态多选 <code>statusList</code>（temporary / updated / cancelled / deleted）。</li>
+                    <li>排序对齐老系统状态优先（CASE）。</li>
+                    <li>列表未过滤 is_deleted，已删除记录仍可显示；详情按 ID 过滤已删除。</li>
                 </ul>
             </article>
             <article class="card"><h3>选项与正式选券</h3>
                 <ul>
-                    <li>发行主体来自 <code>ais_inv_ods.wind_cbondissuer</code>（远程搜索，最多 50 条）。</li>
+                    <li>发行主体来自 <code>ais_inv_ods.wind_cbondissuer</code>（远程搜索，<code>used=1</code>，最多 50 条）。</li>
                     <li>证券类型来自未删除且 category_type!='company' 的字典。</li>
-                    <li>转正正式证券：<code>queryFormalSecurityOptionList</code> 搜 <code>rrs_securityinfo</code>（排除 temporary 占位与退市，最多 50 条）。</li>
+                    <li>转正正式证券：<code>queryFormalSecurityOptionList</code> 搜 <code>rrs_securityinfo</code>——排除 temporary 占位、退市，以及 <code>security_type IN ('crmw','company')</code>，最多 50 条。</li>
                 </ul>
             </article>
         </div>
@@ -510,11 +511,11 @@
             <li>状态流转：temporary → updated / cancelled；删除仅 temporary → deleted。updated/cancelled 为冻结态，不可再转正式/取消/删除。</li>
             <li>转正式必须从主数据选已有正式券，不再对正式 wind_code 做 upsert 覆盖；正式码不能等于临时码。</li>
             <li>转正分叉：在途（audit_status=00/11）只改字段；已在池（20）写出库+（正式未在同池时）入库；终态历史日志不改码，保留审计轨迹。</li>
-            <li>O32 识别：按 <code>temp_security_code</code> + status=temporary 判断，临时代码转人工待处理（<code>pending</code>）。</li>
-            <li>调入信用债大库：临时占位无主体内评时默认 grade_code=4 再走矩阵；正式证券无内评则禁止入 1～5 级且可选池去掉 credit_bond（见证券池调整校验文档）。</li>
-            <li>列表未过滤软删除而详情过滤软删除，是当前实现的明确不一致点；已删除行仍可在列表看到「已删除」标签。</li>
+            <li>O32 识别：按 <code>temp_security_code</code> + status=temporary 判断，临时代码转人工待处理（<code>pending</code>）——属调库审批侧逻辑，见证券池调库流程。</li>
+            <li>关联：调入信用债大库时，临时占位无内评默认 grade_code=4 再走矩阵；正式无内评禁止入 1～5 级（见证券池调库，非本 Service 内实现）。</li>
+            <li>列表未过滤软删除而详情过滤软删除，是当前实现的明确不一致点；已删除行仍可在列表看到「已删除」标签（配合 statusList 可筛）。</li>
             <li>临时主体代码不变时保留名称快照，即使主体主数据名称后来变化也不会自动刷新。</li>
-            <li>前端投资市场为统一 8 码（含 COMPANY=主体等）；发行主体远程搜索 wind，最多 50 条。</li>
+            <li>前端投资市场为统一 8 码（含 COMPANY=主体等）；发行主体远程搜索 wind（used=1），最多 50 条。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档 24-temp-security-code 与老系统 TempSecurityInfoTableAction 对照整理；后续代码规则变化时应同步维护。

@@ -299,7 +299,7 @@
 <header>
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>CRMW池查询</h1>
-        <p class="desc">按 CRMW 凭证、标的证券和投资池条件查询当前有效的 CRMW 在池状态，数据来源与普通证券池完全分离。</p>
+        <p class="desc">按 CRMW 代码/名称、入池时间、调整人查询当前有效（audit_status=20）的 CRMW 在池状态；列表展示凭证与标的，数据来源为独立表 ip_pool_status_crmw（不读普通证券池状态表）。</p>
         <div class="stats"><span class="stat">2 项表/表组</span><span class="stat">1 个主要接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
@@ -312,7 +312,7 @@
         <div class="api-strip"><code>POST /api/v1/crmwPoolQuery/queryCrmwPoolPage</code></div>
         <div class="steps">
             <article class="step"><b>1. 组合条件</b>
-                <p>输入 CRMW 代码、简称、标的证券和池等筛选项。</p></article>
+                <p>输入 CRMW 代码、CRMW 名称、入池起止日期、调整人（无标的代码/投资池筛选）。</p></article>
             <article class="step"><b>2. 查询状态</b>
                 <p>以 ip_pool_status_crmw 为主表查询有效记录。</p></article>
             <article class="step"><b>3. 关联池信息</b>
@@ -327,15 +327,14 @@
         <p class="sub">按当前前后端实现归纳主要触发场景。</p>
         <div class="logic-grid">
             <article class="logic-card"><h3>主查询口径</h3>
-                <p>唯一状态事实表 <code>ip_pool_status_crmw</code>，不读 <code>ip_pool_status</code>。当前 Mapper 筛选字段：crmwScode、crmwName、入池起止日期、调整人（<strong>无</strong>标的证券代码/池多选/viewable 权限注入）；排序 entry_time DESC, id DESC。</p></article>
+                <p>唯一状态事实表 <code>ip_pool_status_crmw</code>，不读 <code>ip_pool_status</code>。Mapper 筛选：crmwScode、crmwName、入池起止、调整人（<strong>无</strong>标的证券代码/池多选/viewable）；排序 entry_time DESC, id DESC。</p></article>
             <article class="logic-card"><h3>有效状态</h3>
-                <p>固定 <code>audit_status='20'</code> 且 <code>is_deleted=0</code>、<code>pool_type='crmw'</code>；调出软删记录不出现。Service
-                    回填池全路径。与禁投/主体查询不同：<strong>不做</strong> VIEWABLE 权限过滤。</p></article>
-            <article class="logic-card"><h3>池信息回填</h3>
-                <p>通过 target_pool_id 关联投资池，返回池名称、类型及路径所需字段；Service 可进一步回填完整树路径。</p>
+                <p>固定 <code>audit_status='20'</code> 且 <code>is_deleted=0</code>、关联池 <code>pool_type='crmw'</code>；调出软删不出现。Service 回填池全路径。与禁投/主体查询不同：<strong>不做</strong> VIEWABLE。</p></article>
+            <article class="logic-card"><h3>日期与池关联</h3>
+                <p>入池止日：前端补 <code>entryTimeEnd + ' 23:59:59'</code>。关联投资池要求 <code>p.is_deleted=0</code>；已删池时路径可能空白但状态行仍可能出现（LEFT 语义以实现为准）。</p>
             </article>
             <article class="logic-card"><h3>只读页面</h3>
-                <p>该页面不创建申请、不写步骤，也不改变 CRMW 状态。点 CRMW/证券名称或代码走 <code>openCrmwAdjustDetail</code>，工作台新开详情页签（参数含 <code>adjustLogId</code>（状态表 <code>adjust_log_id</code>）/ <code>adjustBatchNo</code>；页签键含 <code>crmwScode</code> + <code>securityCode</code> + 记录 ID + 批次）。所有调入调出必须从 CRMW池调整或审批页面完成。</p>
+                <p>不创建申请、不改状态。点 CRMW/证券走 <code>openCrmwAdjustDetail</code>；<code>resolveAdjustLogId(row, false)</code> 只用状态表 <code>adjust_log_id</code>。页签键含 <code>crmwScode</code> + <code>securityCode</code> + 记录 ID + 批次。调入调出走 CRMW 调整/审批页。</p>
             </article>
         </div>
     </section>
@@ -375,11 +374,11 @@
         <p class="sub">帮助区分当前状态、历史记录和流程实例。</p>
         <div class="rules">
             <article class="rule"><h3>与证券池查询的区别</h3>
-                <p>证券池读 ip_pool_status；本页只读 ip_pool_status_crmw。无「我的收藏」能力。</p></article>
+                <p>证券池读 <code>ip_pool_status</code>；本页只读 <code>ip_pool_status_crmw</code>。无「我的收藏」；同样<strong>无 VIEWABLE</strong>（与禁投/主体查询不同）。</p></article>
             <article class="rule"><h3>查询不等于历史</h3>
-                <p>逻辑删除的调出状态不在此页展示，完整操作轨迹应查看 CRMW池调整历史。</p></article>
+                <p>仅当前有效态（20）；逻辑删除调出不展示。全状态流水看 CRMW 调整历史（默认不限 audit_status）。</p></article>
             <article class="rule"><h3>无写操作</h3>
-                <p>筛选、分页和排序均为只读，不会触发流程或状态变更。</p></article>
+                <p>筛选、分页只读，不触发流程或状态变更。</p></article>
         </div>
         <div class="note">文档口径来自当前页面、Controller、Service、Mapper XML 与对应
             requirements；后续代码调整时应同步维护本页。

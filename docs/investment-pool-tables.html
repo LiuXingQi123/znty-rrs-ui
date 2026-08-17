@@ -359,7 +359,7 @@
 <header>
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>投资池维护</h1>
-        <p class="desc">维护投资池树、基础配置、审批流程快照、池间关系、自动规则和人员权限，并为所有调库模块提供业务边界。</p>
+        <p class="desc">维护投资池树、基础配置、审批流程快照、池间关系、自动规则和人员权限，并为所有调库模块提供业务边界。锁池与调入冻结期可维护并被运行时消费；开放日开关 / 行业 / 基金评分字段仍隐藏；删除不做调库引用检查。</p>
         <div class="stats"><span class="stat">12 项表/表组</span><span class="stat">12 个主要接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
@@ -391,7 +391,9 @@
                 <ul>
                     <li>顶级池可复制模板；子池强制继承父池类型并可复制模板/父配置。</li>
                     <li>新增/编辑须填写 <code>pool_code</code>（可创建下拉，选项前端写死：左侧编码右侧名称，如 <code>credit_bond_root</code>/信用债大库；也可手输；未删除范围内唯一）。</li>
+                    <li><code>pool_type</code> 可编辑（非空，仅更新当前节点，不级联子树）；风险池四元 <code>forbidden/observe/blacklist/restricted</code>。</li>
                     <li>基础编辑更新名称、<code>pool_code</code>、容量、排序、<code>lock_flag</code>（锁定不可调入出）、<code>frozen_period_in</code>（入池后 N 天不可调出）及六组 flow 快照等。</li>
+                    <li><strong>维护接口未开放</strong>：<code>openDayAdjust</code> / <code>industryCode</code> / <code>fundRateLimit</code> 仅 BO/库表有字段，<code>InvestmentPoolReq</code> 与维护页不可写（开放日开关须库表/脚本；行业与基金评分配置同理）。</li>
                     <li>新增、修改均写 <code>ip_investment_pool_evt</code>。</li>
                 </ul>
             </article>
@@ -412,6 +414,7 @@
                     <li>权限支持 viewable、adjustable、excel_importable，处理人可为用户或角色。</li>
                     <li>删除节点递归收集全部后代，并清理其关系、被引用关系、规则和权限。</li>
                     <li>所有删除为逻辑删除，同时写对应事件表。</li>
+                    <li><strong>不检查</strong>在途 <code>ip_adjust_log</code> / 当前 <code>ip_pool_status</code>（及 CRMW 状态表）是否仍引用被删 poolId，直接软删（P0 缺口）。</li>
                 </ul>
             </article>
         </div>
@@ -512,12 +515,16 @@
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
             <li>投资池表没有物理外键，父子与配置引用由业务代码维护。</li>
-            <li>调库运行时硬拦截：<code>lock_flag=1</code> 不可调入出；<code>frozen_period_in</code> 控制调出冻结；<code>open_day_adjust=1</code> 时校验 <code>ip_pool_open_day</code> 区间（见开放日维护页）。</li>
+            <li>调库运行时硬拦截：<code>lock_flag=1</code> 不可调入出；<code>frozen_period_in</code> 控制调出冻结（按 entry_time，回退 audit/crte；四链路均阻断）；<code>open_day_adjust=1</code> 时校验 <code>ip_pool_open_day</code> 区间（见开放日维护页）。</li>
+            <li>开放日开关 / 行业码 / 基金评分阈值：库表与 BO 有字段，维护页与 Req <strong>未开放</strong>；配了开放日区间但开关未开则永不校验。行业：<code>inCheckIndustry</code> 在 <code>checkCommonIn</code> 中整段注释。基金评分：仅 check 阶段可读 <code>fundRateLimit</code>，submit 不带 fundRate。</li>
             <li>删除节点无运行中流程/在池引用拦截，直接递归逻辑删除配置（含关系/权限/规则）。</li>
+            <li>容量 <code>max_capacity</code> 保存时不校验当前在池数；最终落池阶段按池 ID 升序锁池并累计同批调入。</li>
+            <li><code>pool_code</code> 新增/编辑均校验未删除范围内唯一；同父级 <code>pool_name</code> 仍无唯一校验。</li>
             <li>页面没有启停入口；编辑基础配置不会更新 status。</li>
             <li>自动规则一期只存 rule_id/描述，调库 Service 主要消费池关系而非自动执行这些规则。</li>
             <li>流程 Id/Key/Name 在池表保存快照，流程改名不会自动刷新旧池配置。</li>
             <li>关系类型含来源池（<code>source</code>）、调入/调出限制池（<code>in_restrict/out_restrict</code>）、调入/调出联动池（<code>in_linked/out_linked</code>）、调入/调出互斥池（<code>in_mutex/out_mutex</code>）、调入/调出弹性禁投池（<code>in_soft_restrict/out_soft_restrict</code>，警告不阻断）。</li>
+            <li>六类流程绑定：标准/简易/批量 × 调入/调出；批量未配置即直通。研报限制 none/any/internal 并验证真实附件来源。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

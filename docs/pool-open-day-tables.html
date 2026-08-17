@@ -442,14 +442,15 @@
 
     <section class="panel" id="logic-3">
         <h2>调库校验关联</h2>
-        <p class="sub">本页只维护区间行；池级开关在「投资池维护」的 open_day_adjust。</p>
+        <p class="sub">本页只维护区间行；池级开关 <code>open_day_adjust</code> 在投资池表，维护页当前<strong>未开放</strong>该字段。</p>
         <div class="logic">
             <article class="card">
                 <h3>何时生效</h3>
                 <ul>
-                    <li>目标池 open_day_adjust=1 时，证券池 / 禁投 / CRMW / 批量等调入与调出均校验开放日。</li>
+                    <li>目标池 <code>open_day_adjust=1</code> 时，证券池 / 禁投 / CRMW / 批量等调入与调出均校验开放日（预校验 / 提交阶段）。</li>
                     <li>命中条件：begin_date ≤ 当天 ≤ end_date 且 is_deleted=0（日期口径与实现一致）。</li>
-                    <li>open_day_adjust=0 时本表不参与校验；未命中任何区间时由各调库服务按「不在开放日」处理。</li>
+                    <li><code>open_day_adjust=0</code>（或缺开关）时本表不参与校验，即使已配区间也不拦。</li>
+                    <li>开关开且无匹配区间（含完全未配）时，统一失败文案「当前不在本池开放日内」。</li>
                 </ul>
             </article>
             <article class="card">
@@ -457,7 +458,8 @@
                 <ul>
                     <li>与 lock_flag（池锁定）、frozen_period_in（入池冻结期）相互独立。</li>
                     <li>同一池可配置多段历史/未来区间；调库只认「当日命中」的未删除行。</li>
-                    <li>不修改投资池树本身；叶子池与开关配置见投资池维护文档。</li>
+                    <li>终审 <code>recheckBeforeFinalApproval</code> <strong>不重跑</strong>开放日等静态规则（既定分层：申请日过、终审日不在开放日仍可落池）。</li>
+                    <li>不修改投资池树；开关须库表/脚本或后续补维护入口，见投资池维护文档。</li>
                 </ul>
             </article>
         </div>
@@ -511,7 +513,7 @@
         <div class="note">
             <ul class="notes">
                 <li>业务页：<code>pages/pool_open_day.html</code>；接口前缀 <code>/api/v1/poolOpenDay/</code>。</li>
-                <li>池级开关在投资池维护配置；本页不改 open_day_adjust。</li>
+                <li>池级开关 <code>open_day_adjust</code>：投资池 BO/库有字段，维护页与 Req <strong>未开放</strong>；本页只读写区间，不改开关。易出现「配了区间但开关未开则永不校验」。</li>
                 <li>有子节点的目录/根池不可配置开放日，须选叶子池。</li>
                 <li>Schema 脚本：<code>rrs_pool_init_schema.sql</code> 中 <code>ip_pool_open_day</code>。</li>
             </ul>

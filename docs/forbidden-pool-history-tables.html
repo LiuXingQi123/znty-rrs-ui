@@ -384,17 +384,19 @@
             <article class="card"><h3>查询主线</h3>
                 <ul>
                     <li>以 <code>ip_adjust_log</code> 为主表，过滤 <code>is_deleted=0</code>。</li>
-                    <li>内连接投资池：<code>pool_type IN ('forbidden','observe','blacklist','restricted')</code>。</li>
-                    <li>注入 <code>viewablePoolIds</code>（VIEWABLE）；空集合无数据。</li>
+                    <li>内连接投资池：<code>pool_type IN ('forbidden','observe','blacklist','restricted')</code>。<strong>不</strong>要求 <code>p.is_deleted=0</code>（投资池已删仍可保留历史行）。</li>
+                    <li>注入 <code>viewablePoolIds</code>（VIEWABLE）：普通用户空集合无数据；管理员 null 不过滤池 ID。</li>
                     <li>左连字典、证券主数据、Wind 主体表（company 行取发行人名）。</li>
                     <li>排序与证券/主体/CRMW 历史统一：<code>submit_time DESC, adjust_batch_no DESC, id DESC</code>。</li>
+                    <li><strong>默认不限 audit_status</strong>（全状态流水）；可选审核状态下拉再过滤。对比：禁投池查询当前态仅 20。</li>
                 </ul>
             </article>
             <article class="card"><h3>筛选口径</h3>
                 <ul>
                     <li>主体代码：Wind 主体码 或 债券 <code>issuer_code</code> 模糊。</li>
                     <li>主体名称：COALESCE(wind 主体名, 债券 issuer) 模糊。</li>
-                    <li>证券代码/简称匹配日志字段；另支持提交日期、调整人、方向、审核状态。</li>
+                    <li>证券代码/简称匹配日志字段；支持提交日期、调整人、方向、审核状态。</li>
+                    <li>提交日期止日：<code>submit_time &lt;= CONCAT(end, ' 23:59:59')</code>。</li>
                 </ul>
             </article>
         </div>
@@ -448,9 +450,10 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>页面只读，不修改调库记录。点名称/代码走 <code>openPoolAdjustDetail</code>，按 <code>categoryType</code> 分流主体/证券详情；带 <code>adjustLogId</code>（与 <code>id</code> 同值）和 <code>adjustBatchNo</code>。</li>
-            <li>以目标池类型过滤：主体级手工申请、联动/互斥、以及旗下债券自动同步日志都可能出现。</li>
-            <li>同批多行仍分条展示；靠统一 <code>submit_time</code> + 批次号排序聚拢，不是合并为一行。</li>
+            <li>页面只读。点名称/代码按 <code>categoryType</code> 分流主体/证券详情；<code>resolveAdjustLogId(row, true)</code>（可回退行 <code>id</code>）与 <code>adjustBatchNo</code>。</li>
+            <li>以目标池四类 <code>pool_type</code> 过滤：主体级手工、联动/互斥、以及旗下债券<strong>自动同步</strong>日志都可能出现（债同步看本页；主体流水另见「主体池调整历史」）。</li>
+            <li>默认全 audit_status；VIEWABLE 与管理员 null 语义同禁投查询。</li>
+            <li>同批多行分条展示；靠 <code>submit_time</code> + 批次号排序聚拢，不合并为一行。</li>
             <li>审核状态展示原始 code，中文由前端字典映射。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper

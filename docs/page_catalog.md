@@ -9,7 +9,7 @@
 | `batch_security_pool_adjust.html` | 证券池批量调整 | `css/batch_security_pool_adjust.css`、`css/common.css` |
 | `stock_security_batch_adjust.html` | 存量证券批量调整 | `css/stock_security_batch_adjust.css`、`css/common.css` |
 | `security_pool_excel_import.html` | 证券池 Excel 导入 | `css/security_pool_excel_import.css`、`css/common.css` |
-| `grade_rule_alert.html` | 不符合分级规则提醒（重定向到我的事宜 Tab） | 无独立样式 |
+| `grade_rule_alert.html` | 分级规则提醒（仅重定向到我的事宜第三页签；研究管理无独立菜单） | 无独立样式 |
 | `company_pool_adjust_history.html` | 主体池调整历史查询 | `css/company_pool_adjust_history.css`、`css/common.css` |
 | `company_pool_query.html` | 主体池查询 | `css/company_pool_query.css`、`css/common.css` |
 | `credit_bond_grade_rule.html` | 主体内评分档规则 | `css/credit_bond_grade_rule.css`、`css/common.css` |
@@ -153,7 +153,7 @@
 | `docs/security-pool-excel-import.html` | 证券池 Excel 导入文档 | HTML 内联样式 |
 | `docs/security-pool-query-tables.html` | 证券池查询文档 | HTML 内联样式 |
 | `docs/security-pool-adjust-history-tables.html` | 证券池调整历史文档 | HTML 内联样式 |
-| `docs/grade-rule-alert-tables.html` | 不符合分级规则提醒文档 | HTML 内联样式 |
+| `docs/grade-rule-alert-tables.html` | 分级规则提醒业务说明（并入我的事宜；文档挂 RRS配置，非债券研究） | HTML 内联样式 |
 | `docs/temp-security-code-tables.html` | 临时代码管理文档 | HTML 内联样式 |
 | `docs/forbidden-pool-adjust-tables.html` | 禁投池调整文档 | HTML 内联样式 |
 | `docs/forbidden-pool-query-tables.html` | 禁投池查询文档 | HTML 内联样式 |
@@ -177,3 +177,4 @@
 | `docs/credit-bond-grade-rule-tables.html` | 主体内评分档规则文档 | HTML 内联样式 |
 | `docs/scheduled-task-tables.html` | 定时任务管理文档 | HTML 内联样式 |
 | `docs/dictionary-values-index.html` | 字典值总览 | HTML 内联样式 |
+| `docs/database-tables-index.html` | 数据库表总览 | HTML 内联样式 |

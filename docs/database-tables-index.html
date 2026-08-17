@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库表总览</title>
+    <style>
+        #database_tables {
+            --c-bg: #F7F8FA;
+            --c-surface: #FFFFFF;
+            --c-surface-2: #F7F8FA;
+            --c-primary: #2743A4;
+            --c-primary-dark: #1F3683;
+            --c-primary-soft: #E9ECF6;
+            --c-gold: #D1A777;
+            --c-gold-text: #A7865F;
+            --c-border: #E5E5E5;
+            --c-border-strong: #DCE3F0;
+            --c-text: #242933;
+            --c-subtext: #707783;
+            --c-muted: #9199BD;
+            --c-success: #06C687;
+            --c-danger: #FF4542;
+            min-height: 100vh;
+            box-sizing: border-box;
+            padding: 20px;
+            background: var(--c-bg);
+            color: var(--c-text);
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+
+        #database_tables * { box-sizing: border-box; }
+
+        #database_tables .dict-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+            gap: 18px;
+            padding: 22px;
+            border: 1px solid var(--c-border-strong);
+            border-radius: 4px;
+            background: linear-gradient(135deg, #FFFFFF 0%, #F4F7FF 100%);
+            box-shadow: 0 8px 20px rgba(31, 42, 68, 0.06);
+        }
+
+        #database_tables .dict-kicker {
+            margin: 0 0 6px;
+            color: var(--c-primary);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+        }
+
+        #database_tables h1 {
+            margin: 0;
+            font-size: 26px;
+            line-height: 1.35;
+        }
+
+        #database_tables .dict-desc {
+            max-width: 920px;
+            margin: 10px 0 0;
+            color: var(--c-subtext);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        #database_tables .dict-desc code {
+            padding: 1px 5px;
+            border-radius: 3px;
+            background: var(--c-primary-soft);
+            color: var(--c-primary);
+            font-family: Consolas, Menlo, monospace;
+            font-size: 12px;
+        }
+
+        #database_tables .hero-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        #database_tables .metric-card {
+            padding: 14px;
+            border: 1px solid #D8E1F2;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.78);
+        }
+
+        #database_tables .metric-card strong {
+            display: block;
+            color: var(--c-primary);
+            font-size: 24px;
+            line-height: 1.2;
+        }
+
+        #database_tables .metric-card span {
+            display: block;
+            margin-top: 4px;
+            color: var(--c-subtext);
+            font-size: 12px;
+        }
+
+        #database_tables .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 14px 0;
+            padding: 12px;
+            border: 1px solid var(--c-border);
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 4px 12px rgba(31, 42, 68, 0.05);
+            backdrop-filter: blur(8px);
+        }
+
+        #database_tables .toolbar-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        #database_tables .search-box {
+            position: relative;
+            flex: 1;
+            min-width: 240px;
+        }
+
+        #database_tables .search-box input {
+            width: 100%;
+            height: 34px;
+            padding: 0 12px 0 34px;
+            border: 1px solid var(--c-border);
+            border-radius: 4px;
+            color: var(--c-text);
+            font-size: 13px;
+            outline: none;
+        }
+
+        #database_tables .search-box input:focus { border-color: var(--c-primary); }
+
+        #database_tables .search-box::before {
+            position: absolute;
+            top: 8px;
+            left: 12px;
+            color: var(--c-muted);
+            font-size: 14px;
+            content: "⌕";
+        }
+
+        #database_tables .filter-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        #database_tables .filter-tab {
+            height: 30px;
+            padding: 0 11px;
+            border: 1px solid var(--c-border);
+            border-radius: 4px;
+            background: var(--c-surface);
+            color: var(--c-subtext);
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        #database_tables .filter-tab.is-active {
+            border-color: var(--c-primary);
+            background: var(--c-primary);
+            color: #FFFFFF;
+        }
+
+        #database_tables .filter-tab.is-kind {
+            border-style: dashed;
+        }
+
+        #database_tables .filter-tab.is-kind.is-active {
+            border-style: solid;
+            background: var(--c-gold-text);
+            border-color: var(--c-gold-text);
+        }
+
+        #database_tables .result-hint {
+            color: var(--c-subtext);
+            font-size: 12px;
+        }
+
+        #database_tables .db-section {
+            margin-bottom: 18px;
+            border: 1px solid var(--c-border);
+            border-top: 3px solid var(--c-primary);
+            border-radius: 4px;
+            background: var(--c-surface);
+            box-shadow: 0 8px 20px rgba(31, 42, 68, 0.04);
+            overflow: hidden;
+        }
+
+        #database_tables .db-section.is-ais { border-top-color: var(--c-gold); }
+        #database_tables .db-section.is-ods { border-top-color: #5B8C5A; }
+
+        #database_tables .db-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--c-border);
+            background: var(--c-surface-2);
+        }
+
+        #database_tables .db-head h2 {
+            margin: 0;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        #database_tables .db-head p {
+            margin: 4px 0 0;
+            color: var(--c-subtext);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        #database_tables .source-tag {
+            flex: 0 0 auto;
+            padding: 3px 7px;
+            border: 1px solid #C8D1EA;
+            border-radius: 4px;
+            background: #FFFFFF;
+            color: var(--c-primary);
+            font-family: Consolas, Menlo, monospace;
+            font-size: 12px;
+        }
+
+        #database_tables .module-block {
+            border-bottom: 1px solid var(--c-border);
+        }
+
+        #database_tables .module-block:last-child { border-bottom: 0; }
+
+        #database_tables .module-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 16px;
+            background: #F1F3F7;
+            color: var(--c-text);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        #database_tables .module-title span {
+            color: var(--c-subtext);
+            font-weight: 400;
+            font-size: 12px;
+        }
+
+        #database_tables .table-wrap {
+            overflow: auto;
+        }
+
+        #database_tables table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        #database_tables th,
+        #database_tables td {
+            padding: 9px 10px;
+            border-bottom: 1px solid var(--c-border);
+            color: var(--c-subtext);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        #database_tables th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #FAFBFD;
+            color: var(--c-text);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        #database_tables tr:last-child td { border-bottom: 0; }
+
+        #database_tables .code {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--c-primary-soft);
+            color: var(--c-primary);
+            font-family: Consolas, Menlo, monospace;
+            font-size: 12px;
+            line-height: 1.45;
+            word-break: break-all;
+        }
+
+        #database_tables .name {
+            color: var(--c-text);
+            font-weight: 600;
+        }
+
+        #database_tables .kind-tag {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: #EEF2F8;
+            color: var(--c-subtext);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        #database_tables .kind-tag.evt { background: #FFF4E8; color: var(--c-gold-text); }
+        #database_tables .kind-tag.ods { background: #EAF5EA; color: #3F6B3E; }
+        #database_tables .kind-tag.dict { background: #E9ECF6; color: var(--c-primary); }
+
+        #database_tables .rel-list {
+            margin: 0;
+            padding-left: 16px;
+            color: var(--c-subtext);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        #database_tables .rel-list li { margin: 0 0 2px; }
+
+        #database_tables .muted { color: var(--c-muted); }
+
+        #database_tables .empty {
+            display: none;
+            padding: 54px 16px;
+            border: 1px dashed var(--c-border-strong);
+            border-radius: 4px;
+            background: var(--c-surface);
+            color: var(--c-muted);
+            text-align: center;
+        }
+
+        #database_tables .empty.is-visible { display: block; }
+
+        #database_tables .legend {
+            margin-top: 8px;
+            color: var(--c-subtext);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 1100px) {
+            #database_tables .dict-hero { grid-template-columns: 1fr; }
+            #database_tables .toolbar-row { align-items: stretch; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div id="database_tables">
+    <header class="dict-hero">
+        <div>
+            <p class="dict-kicker">ZNTY RRS · DATABASE MAP</p>
+            <h1>数据库表总览</h1>
+            <p class="dict-desc">
+                按库梳理智慧风控平台全部 schema 表：表注释、业务作用、逻辑关联与来源脚本。
+                库划分：主业务库 <code>znty_rrs</code>、AIS 用户/评级 <code>ais_inv_analysis</code>、Wind 外部源 <code>ais_inv_ods</code>。
+                <br><strong>约定：</strong>无物理外键；关联由业务代码维护；主表配套 <code>*_evt</code> 为操作审计镜像；有效在池状态以 <code>audit_status=20</code> 为准。
+                权威 DDL 见 <code>znty-rrs-parent/sql/*_schema.sql</code>，规范见 <code>AGENTS_mysql.md</code>。
+            </p>
+            <p class="legend">筛选：先选库 → 再选表类型（主表/事件等）→ 关键字匹配表名、注释、模块、关联说明、脚本名。</p>
+        </div>
+        <div class="hero-metrics">
+            <div class="metric-card"><strong id="metricDbCount">3</strong><span>数据库</span></div>
+            <div class="metric-card"><strong id="metricTableCount">73</strong><span>表总数</span></div>
+            <div class="metric-card"><strong id="metricMainCount">42</strong><span>业务主表（约）</span></div>
+            <div class="metric-card"><strong id="metricEvtCount">17</strong><span>事件审计表</span></div>
+        </div>
+    </header>
+
+    <section class="toolbar">
+        <div class="toolbar-row">
+            <div class="search-box">
+                <input id="tableSearch" type="search" placeholder="搜索表名、注释、模块、关联、脚本，例如：ip_adjust_log / 开放日 / wf_flow / ais_inv_ods">
+            </div>
+            <div class="result-hint" id="resultHint"></div>
+        </div>
+        <div class="toolbar-row">
+            <div class="filter-tabs" id="dbFilters"></div>
+        </div>
+        <div class="toolbar-row">
+            <div class="filter-tabs" id="kindFilters"></div>
+        </div>
+    </section>
+
+    <main id="tableContent"></main>
+    <div class="empty" id="emptyState">没有匹配的表，可以换一个关键词或筛选条件试试。</div>
+</div>
+
+<script>
+const tableCatalog = [
+  {
+    "db": "ais_inv_analysis",
+    "module": "AIS 用户与评级",
+    "moduleDesc": "用户角色与主体评级",
+    "table": "t_inv_company",
+    "comment": "主体基础信息表",
+    "purpose": "主体基础信息（分析库）",
+    "kind": "业务主表",
+    "script": "ais_inv_analysis_schema.sql",
+    "relations": [
+      "主体基础信息；与 ODS 发行人对照"
+    ]
+  },
+  {
+    "db": "ais_inv_analysis",
+    "module": "AIS 用户与评级",
+    "moduleDesc": "用户角色与主体评级",
+    "table": "t_inv_grade_result",
+    "comment": "主体评级结果表",
+    "purpose": "主体评级结果（分析库）",
+    "kind": "业务主表",
+    "script": "ais_inv_analysis_schema.sql",
+    "relations": [
+      "主体评级结果；调库内评/不符任务可读",
+      "company 关联 t_inv_company"
+    ]
+  },
+  {
+    "db": "ais_inv_analysis",
+    "module": "AIS 用户与评级",
+    "moduleDesc": "用户角色与主体评级",
+    "table": "t_sys_role",
+    "comment": "角色/部门表",
+    "purpose": "AIS 角色/部门",
+    "kind": "业务主表",
+    "script": "ais_inv_analysis_schema.sql",
+    "relations": []
+  },
+  {
+    "db": "ais_inv_analysis",
+    "module": "AIS 用户与评级",
+    "moduleDesc": "用户角色与主体评级",
+    "table": "t_sys_user",
+    "comment": "用户表",
+    "purpose": "AIS 登录用户",
+    "kind": "业务主表",
+    "script": "ais_inv_analysis_schema.sql",
+    "relations": []
+  },
+  {
+    "db": "ais_inv_analysis",
+    "module": "AIS 用户与评级",
+    "moduleDesc": "用户角色与主体评级",
+    "table": "t_sys_user_role",
+    "comment": "用户角色关联表",
+    "purpose": "用户-角色关联",
+    "kind": "业务主表",
+    "script": "ais_inv_analysis_schema.sql",
+    "relations": [
+      "user_id → t_sys_user.id",
+      "role_id → t_sys_role.id"
+    ]
+  },
+  {
+    "db": "ais_inv_ods",
+    "module": "Wind ODS",
+    "moduleDesc": "外部只读发行人/评级",
+    "table": "wind_cbondissuer",
+    "comment": "Wind 中国债券发行主体信息表（债券+主体粒度，同主体可多行；外部 ODS 表一般不自建二级索引）",
+    "purpose": "Wind 发行人外部源（只读）",
+    "kind": "外部ODS",
+    "script": "ais_inv_ods_schema.sql",
+    "relations": [
+      "外部只读；发行人/债券粒度",
+      "跨库查询，不建进 znty_rrs"
+    ]
+  },
+  {
+    "db": "ais_inv_ods",
+    "module": "Wind ODS",
+    "moduleDesc": "外部只读发行人/评级",
+    "table": "wind_cbondissuerrating",
+    "comment": "Wind 中国债券发行主体信用评级表",
+    "purpose": "Wind 主体评级外部源（只读）",
+    "kind": "外部ODS",
+    "script": "ais_inv_ods_schema.sql",
+    "relations": [
+      "外部只读主体信用评级",
+      "评级下调等任务消费"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "调库运行",
+    "moduleDesc": "提交时固化证券信息快照",
+    "table": "ip_adjust_security_snapshot",
+    "comment": "调库证券信息快照表",
+    "purpose": "普通调库证券信息快照",
+    "kind": "业务快照",
+    "script": "rrs_adjust_snapshot_schema.sql",
+    "relations": [
+      "adjust_log_id → ip_adjust_log.id",
+      "固化提交时证券字段，防历史漂移"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "调库运行",
+    "moduleDesc": "提交时固化证券信息快照",
+    "table": "ip_adjust_security_snapshot_crmw",
+    "comment": "CRMW调库证券信息快照表",
+    "purpose": "CRMW 调库证券信息快照",
+    "kind": "业务快照",
+    "script": "rrs_adjust_snapshot_schema.sql",
+    "relations": [
+      "adjust_log_id → ip_adjust_log.id",
+      "CRMW 链路证券/凭证快照"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "信用债矩阵",
+    "moduleDesc": "期限档×内评分档→准入池",
+    "table": "credit_bond_term_bucket",
+    "comment": "信用债期限分组配置表",
+    "purpose": "信用债剩余期限分组",
+    "kind": "字典配置",
+    "script": "rrs_credit_bond_grade_rule_schema.sql",
+    "relations": []
+  },
+  {
+    "db": "znty_rrs",
+    "module": "信用债矩阵",
+    "moduleDesc": "期限档×内评分档→准入池",
+    "table": "credit_bond_inner_rating_grade",
+    "comment": "信用债主体内评分档字典表",
+    "purpose": "主体内评分档 8 档字典",
+    "kind": "字典配置",
+    "script": "rrs_credit_bond_grade_rule_schema.sql",
+    "relations": []
+  },
+  {
+    "db": "znty_rrs",
+    "module": "信用债矩阵",
+    "moduleDesc": "期限档×内评分档→准入池",
+    "table": "credit_bond_pool_grade_rule",
+    "comment": "信用债期限主体内评分档投资池关系表",
+    "purpose": "期限×评分档×池准入矩阵关系",
+    "kind": "业务主表",
+    "script": "rrs_credit_bond_grade_rule_schema.sql",
+    "relations": [
+      "term_bucket_id → credit_bond_term_bucket.id",
+      "inner_rating_grade_id → credit_bond_inner_rating_grade.id",
+      "pool_id → ip_investment_pool.id（信用债一至五级）"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "调库运行",
+    "moduleDesc": "CRMW 独立当前状态",
+    "table": "ip_pool_status_crmw",
+    "comment": "CRMW投资池当前状态表",
+    "purpose": "CRMW 凭证+标的当前在池状态",
+    "kind": "业务主表",
+    "script": "rrs_crmw_pool_status_schema.sql",
+    "relations": [
+      "crmw_scode + security_code + target_pool_id 组合键",
+      "adjust_log_id → ip_adjust_log.id",
+      "与 ip_pool_status 分离"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "字典主数据",
+    "moduleDesc": "证券类型字典",
+    "table": "dict_security_type",
+    "comment": "证券类型字典表",
+    "purpose": "证券类型与大类字典",
+    "kind": "字典配置",
+    "script": "rrs_dict_schema.sql",
+    "relations": [
+      "security_type → rrs_securityinfo / 调库日志类型",
+      "category_type 区分 bond/stock/fund/company 等"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "字典主数据",
+    "moduleDesc": "证券主数据",
+    "table": "rrs_securityinfo",
+    "comment": "证券信息表",
+    "purpose": "证券/主体主数据（导入与选券）",
+    "kind": "业务主表",
+    "script": "rrs_external_import_schema.sql",
+    "relations": [
+      "security_code 业务主键口径",
+      "调库选券、快照、到期任务主数据来源"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_flow_definition",
+    "comment": "流程定义主表",
+    "purpose": "流程定义主数据（flow_key、分类、状态）",
+    "kind": "业务主表",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "一对多 wf_flow_version",
+      "投资池六类流程绑定 flow_key"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_flow_definition_evt",
+    "comment": "流程定义事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_flow_definition",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_flow_definition 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_flow_version",
+    "comment": "流程版本表，每次发布生成一条记录，含画布快照",
+    "purpose": "草稿/发布版本与画布 JSON 快照",
+    "kind": "业务主表",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "flow_id → wf_flow_definition.id",
+      "一对多 node / edge"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_flow_version_evt",
+    "comment": "流程版本事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_flow_version",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_flow_version 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_flow_node",
+    "comment": "流程节点表，对应画布中每个节点（通用字段）",
+    "purpose": "画布节点通用字段",
+    "kind": "业务主表",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "flow_version_id → wf_flow_version.id",
+      "按 node_type 挂 approval/auto/notify/condition 配置"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_flow_node_evt",
+    "comment": "流程节点事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_flow_node",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_flow_node 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_node_approval_config",
+    "comment": "审批节点专属配置表（approval 类型）",
+    "purpose": "审批策略（抢占/会签/发起人/auto/o32）",
+    "kind": "业务主表",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "node_id → wf_flow_node.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_node_approval_config_evt",
+    "comment": "审批节点配置事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_node_approval_config",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_node_approval_config 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_node_approval_handler",
+    "comment": "审批节点处理人明细表，支持角色和人员混选",
+    "purpose": "节点处理人明细",
+    "kind": "业务主表",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "approval_config_id → wf_node_approval_config.id",
+      "handler_type=role/user"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_node_approval_handler_evt",
+    "comment": "审批节点处理人明细事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_node_approval_handler",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_node_approval_handler 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_node_auto_config",
+    "comment": "自动执行节点任务配置表（auto 类型，一节点多任务）",
+    "purpose": "自动任务配置（运行时任务体预留）",
+    "kind": "业务主表",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "node_id → wf_flow_node.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_node_auto_config_evt",
+    "comment": "自动执行节点配置事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_node_auto_config",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_node_auto_config 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_node_notify_config",
+    "comment": "消息通知节点专属配置表（notify 类型）",
+    "purpose": "通知节点配置（发送预留）",
+    "kind": "业务主表",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "node_id → wf_flow_node.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_node_notify_config_evt",
+    "comment": "消息通知节点配置事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_node_notify_config",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_node_notify_config 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_node_condition_config",
+    "comment": "条件节点专属配置表（condition 类型）",
+    "purpose": "条件节点配置（匹配预留）",
+    "kind": "业务主表",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "node_id → wf_flow_node.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_node_condition_config_evt",
+    "comment": "条件节点配置事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_node_condition_config",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_node_condition_config 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_flow_edge",
+    "comment": "流程连线表，记录节点间的有向边",
+    "purpose": "节点有向边与 route_action",
+    "kind": "业务主表",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "from_node_id / to_node_id → wf_flow_node.id",
+      "route_action 驱动流转"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_flow_edge_evt",
+    "comment": "流程连线事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_flow_edge",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_flow_edge 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_edge_cond_rule",
+    "comment": "连线条件规则表，一条连线可配置多条规则，规则间逻辑以 wf_flow_edge.cond_logic 连接",
+    "purpose": "边上条件表达式规则",
+    "kind": "业务主表",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "edge_id → wf_flow_edge.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_edge_cond_rule_evt",
+    "comment": "连线条件规则事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_edge_cond_rule",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_edge_cond_rule 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_role_dict",
+    "comment": "业务角色字典表，维护审批人/通知人的角色选项",
+    "purpose": "流程角色选项字典",
+    "kind": "字典配置",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "流程处理人角色选项；与 AIS 角色概念分离"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "流程定义",
+    "moduleDesc": "定义/版本/画布节点边与节点配置",
+    "table": "wf_role_dict_evt",
+    "comment": "业务角色字典事件表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 wf_role_dict",
+    "kind": "事件审计",
+    "script": "rrs_flow_definition_schema.sql",
+    "relations": [
+      "主表 wf_role_dict 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "分级提醒",
+    "moduleDesc": "不符矩阵待办",
+    "table": "ip_grade_rule_alert",
+    "comment": "不符合主体债入库规则提醒待办",
+    "purpose": "不符分级规则提醒待办",
+    "kind": "业务主表",
+    "script": "rrs_grade_rule_alert_schema.sql",
+    "relations": [
+      "security_code / target_pool 等业务字段",
+      "定时 bond_grade_inconformity_alert 写入；我的事宜第三页签处理"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "分级提醒",
+    "moduleDesc": "不符矩阵待办",
+    "table": "ip_grade_rule_alert_evt",
+    "comment": "不符合主体债入库规则提醒待办（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 ip_grade_rule_alert",
+    "kind": "事件审计",
+    "script": "rrs_grade_rule_alert_schema.sql",
+    "relations": [
+      "主表 ip_grade_rule_alert 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "导入临时",
+    "moduleDesc": "通用导入临时主从表",
+    "table": "sys_imp_tmp",
+    "comment": "通用导入临时主表",
+    "purpose": "通用导入临时主表",
+    "kind": "导入临时",
+    "script": "rrs_import_temp_schema.sql",
+    "relations": []
+  },
+  {
+    "db": "znty_rrs",
+    "module": "导入临时",
+    "moduleDesc": "通用导入临时主从表",
+    "table": "sys_imp_tmp_detl",
+    "comment": "通用导入临时明细表",
+    "purpose": "通用导入临时明细",
+    "kind": "导入临时",
+    "script": "rrs_import_temp_schema.sql",
+    "relations": [
+      "tmp_id → sys_imp_tmp.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "个人池",
+    "moduleDesc": "我的证券池",
+    "table": "my_security_pool",
+    "comment": "我的证券池",
+    "purpose": "用户「我的证券池」收藏",
+    "kind": "业务主表",
+    "script": "rrs_my_security_pool_schema.sql",
+    "relations": []
+  },
+  {
+    "db": "znty_rrs",
+    "module": "投资池配置",
+    "moduleDesc": "池树、关系、权限、开放日",
+    "table": "ip_investment_pool",
+    "comment": "投资池主表",
+    "purpose": "维护投资池树与业务属性（锁池、容量、流程绑定等）",
+    "kind": "业务主表",
+    "script": "rrs_pool_init_schema.sql",
+    "relations": [
+      "parent_id → ip_investment_pool.id（树父子，无物理外键）",
+      "被 ip_pool_relation / permission / open_day / adjust 目标池引用"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "投资池配置",
+    "moduleDesc": "池树、关系、权限、开放日",
+    "table": "ip_pool_relation",
+    "comment": "投资池关系配置表",
+    "purpose": "配置来源/限制/联动/互斥/弹性禁投等池关系",
+    "kind": "业务主表",
+    "script": "rrs_pool_init_schema.sql",
+    "relations": [
+      "pool_id → ip_investment_pool.id",
+      "relation_pool_id → ip_investment_pool.id",
+      "relation_type 见 RelationType 枚举"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "投资池配置",
+    "moduleDesc": "池树、关系、权限、开放日",
+    "table": "ip_pool_auto_rule",
+    "comment": "投资池自动调入调出规则备注表",
+    "purpose": "池级自动调入调出规则备注绑定",
+    "kind": "业务主表",
+    "script": "rrs_pool_init_schema.sql",
+    "relations": [
+      "pool_id → ip_investment_pool.id",
+      "rule_id 可关联 rule_definition（业务引用）"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "投资池配置",
+    "moduleDesc": "池树、关系、权限、开放日",
+    "table": "ip_pool_permission",
+    "comment": "投资池权限配置表",
+    "purpose": "viewable / adjustable / excel_importable 权限",
+    "kind": "业务主表",
+    "script": "rrs_pool_init_schema.sql",
+    "relations": [
+      "pool_id → ip_investment_pool.id",
+      "handler_id → ais_inv_analysis.t_sys_user 或角色"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "投资池配置",
+    "moduleDesc": "池树、关系、权限、开放日",
+    "table": "ip_investment_pool_evt",
+    "comment": "投资池主表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 ip_investment_pool",
+    "kind": "事件审计",
+    "script": "rrs_pool_init_schema.sql",
+    "relations": [
+      "主表 ip_investment_pool 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "投资池配置",
+    "moduleDesc": "池树、关系、权限、开放日",
+    "table": "ip_pool_relation_evt",
+    "comment": "投资池关系配置表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 ip_pool_relation",
+    "kind": "事件审计",
+    "script": "rrs_pool_init_schema.sql",
+    "relations": [
+      "主表 ip_pool_relation 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "投资池配置",
+    "moduleDesc": "池树、关系、权限、开放日",
+    "table": "ip_pool_auto_rule_evt",
+    "comment": "投资池自动调入调出规则备注表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 ip_pool_auto_rule",
+    "kind": "事件审计",
+    "script": "rrs_pool_init_schema.sql",
+    "relations": [
+      "主表 ip_pool_auto_rule 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "投资池配置",
+    "moduleDesc": "池树、关系、权限、开放日",
+    "table": "ip_pool_permission_evt",
+    "comment": "投资池权限配置表（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 ip_pool_permission",
+    "kind": "事件审计",
+    "script": "rrs_pool_init_schema.sql",
+    "relations": [
+      "主表 ip_pool_permission 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "投资池配置",
+    "moduleDesc": "池树、关系、权限、开放日",
+    "table": "ip_pool_open_day",
+    "comment": "投资池开放日配置表（open_day_adjust=1 的池按此表 begin_date~end_date 区间校验调库日期）",
+    "purpose": "开放日区间；配合 open_day_adjust 开关消费",
+    "kind": "业务主表",
+    "script": "rrs_pool_init_schema.sql",
+    "relations": [
+      "pool_id → ip_investment_pool.id",
+      "调库 openDayAdjust=1 时按 begin/end 校验"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "规则引擎",
+    "moduleDesc": "规则定义、参数、用例与运行日志",
+    "table": "rule_category",
+    "comment": "规则分类表",
+    "purpose": "规则分类",
+    "kind": "业务主表",
+    "script": "rrs_rule_schema.sql",
+    "relations": []
+  },
+  {
+    "db": "znty_rrs",
+    "module": "规则引擎",
+    "moduleDesc": "规则定义、参数、用例与运行日志",
+    "table": "rule_definition",
+    "comment": "规则定义表",
+    "purpose": "QLExpress 规则脚本定义",
+    "kind": "业务主表",
+    "script": "rrs_rule_schema.sql",
+    "relations": [
+      "category_id → rule_category.id",
+      "一对多 rule_param / test_case"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "规则引擎",
+    "moduleDesc": "规则定义、参数、用例与运行日志",
+    "table": "rule_param",
+    "comment": "规则参数表",
+    "purpose": "规则参数定义",
+    "kind": "业务主表",
+    "script": "rrs_rule_schema.sql",
+    "relations": [
+      "rule_id → rule_definition.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "规则引擎",
+    "moduleDesc": "规则定义、参数、用例与运行日志",
+    "table": "rule_param_option",
+    "comment": "规则参数选项表",
+    "purpose": "参数选项",
+    "kind": "业务主表",
+    "script": "rrs_rule_schema.sql",
+    "relations": [
+      "param_id → rule_param.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "规则引擎",
+    "moduleDesc": "规则定义、参数、用例与运行日志",
+    "table": "rule_preset_option_set",
+    "comment": "参数预设选项集表",
+    "purpose": "预设选项集",
+    "kind": "业务主表",
+    "script": "rrs_rule_schema.sql",
+    "relations": []
+  },
+  {
+    "db": "znty_rrs",
+    "module": "规则引擎",
+    "moduleDesc": "规则定义、参数、用例与运行日志",
+    "table": "rule_preset_option_item",
+    "comment": "参数预设选项明细表",
+    "purpose": "预设选项明细",
+    "kind": "业务主表",
+    "script": "rrs_rule_schema.sql",
+    "relations": [
+      "set_id → rule_preset_option_set.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "规则引擎",
+    "moduleDesc": "规则定义、参数、用例与运行日志",
+    "table": "rule_test_case",
+    "comment": "规则测试用例表",
+    "purpose": "规则测试用例",
+    "kind": "业务主表",
+    "script": "rrs_rule_schema.sql",
+    "relations": [
+      "rule_id → rule_definition.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "规则引擎",
+    "moduleDesc": "规则定义、参数、用例与运行日志",
+    "table": "rule_test_case_param",
+    "comment": "测试用例参数值表",
+    "purpose": "用例参数快照",
+    "kind": "业务主表",
+    "script": "rrs_rule_schema.sql",
+    "relations": [
+      "test_case_id → rule_test_case.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "规则引擎",
+    "moduleDesc": "规则定义、参数、用例与运行日志",
+    "table": "rule_test_run",
+    "comment": "测试执行记录表",
+    "purpose": "规则执行记录",
+    "kind": "业务主表",
+    "script": "rrs_rule_schema.sql",
+    "relations": [
+      "rule_id → rule_definition.id；可关联用例"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "规则引擎",
+    "moduleDesc": "规则定义、参数、用例与运行日志",
+    "table": "rule_test_run_log",
+    "comment": "测试执行日志表",
+    "purpose": "执行步骤日志",
+    "kind": "运行日志",
+    "script": "rrs_rule_schema.sql",
+    "relations": [
+      "run_id → rule_test_run.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "定时任务",
+    "moduleDesc": "可视化任务配置与执行历史",
+    "table": "sys_scheduled_task",
+    "comment": "定时任务配置",
+    "purpose": "定时任务配置（cron/启停/param_json）",
+    "kind": "业务主表",
+    "script": "rrs_scheduled_task_schema.sql",
+    "relations": [
+      "task_code 对应 Java RrsScheduledTask 实现",
+      "一对多 run_log"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "定时任务",
+    "moduleDesc": "可视化任务配置与执行历史",
+    "table": "sys_scheduled_task_evt",
+    "comment": "定时任务配置（操作审计）",
+    "purpose": "审计事件表：镜像主表字段 + opter_id/opt_time/oprt_type；主表 sys_scheduled_task",
+    "kind": "事件审计",
+    "script": "rrs_scheduled_task_schema.sql",
+    "relations": [
+      "主表 sys_scheduled_task 变更落审计",
+      "无物理外键；业务写入事件"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "定时任务",
+    "moduleDesc": "可视化任务配置与执行历史",
+    "table": "sys_scheduled_task_run_log",
+    "comment": "定时任务执行历史",
+    "purpose": "任务执行历史与过程日志",
+    "kind": "运行日志",
+    "script": "rrs_scheduled_task_schema.sql",
+    "relations": [
+      "task_id → sys_scheduled_task.id"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "脚本工具",
+    "moduleDesc": "写操作审计",
+    "table": "sys_script_tool_run_log",
+    "comment": "脚本工具写操作执行审计",
+    "purpose": "脚本工具写操作审计",
+    "kind": "运行日志",
+    "script": "rrs_script_tool_schema.sql",
+    "relations": []
+  },
+  {
+    "db": "znty_rrs",
+    "module": "调库运行",
+    "moduleDesc": "申请日志、步骤、普通池当前状态",
+    "table": "ip_adjust_log",
+    "comment": "证券池调库记录表",
+    "purpose": "所有调库链路的申请主日志（证券/主体/CRMW/ABS）",
+    "kind": "业务主表",
+    "script": "rrs_security_pool_adjust_schema.sql",
+    "relations": [
+      "target_pool_id → ip_investment_pool.id",
+      "flow_version_id → wf_flow_version.id（申请锁定版本）",
+      "一对多 ip_adjust_step；落池后写 ip_pool_status / _crmw"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "调库运行",
+    "moduleDesc": "申请日志、步骤、普通池当前状态",
+    "table": "ip_pool_status",
+    "comment": "投资池当前状态表",
+    "purpose": "证券/主体当前在池状态（有效 audit_status=20）",
+    "kind": "业务主表",
+    "script": "rrs_security_pool_adjust_schema.sql",
+    "relations": [
+      "security_code + target_pool_id 业务键（应用层唯一）",
+      "adjust_log_id → ip_adjust_log.id",
+      "audit_status 仅 20 为有效在池"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "调库运行",
+    "moduleDesc": "申请日志、步骤、普通池当前状态",
+    "table": "ip_adjust_step",
+    "comment": "证券池调库-流程步骤记录表",
+    "purpose": "审批步骤与待办；抢占/会签状态",
+    "kind": "业务主表",
+    "script": "rrs_security_pool_adjust_schema.sql",
+    "relations": [
+      "adjust_log_id → ip_adjust_log.id",
+      "flow_node_id → wf_flow_node.id",
+      "handler_id 当前处理人；pending 驱动我的事宜"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "附件报告",
+    "moduleDesc": "附件与内外部报告库",
+    "table": "sys_attachment",
+    "comment": "系统附件关联表",
+    "purpose": "系统附件元数据与存储路径",
+    "kind": "业务主表",
+    "script": "rrs_sys_attachment_schema.sql",
+    "relations": [
+      "biz 侧 adjust_log 等绑定附件",
+      "物理文件路径 + 元数据"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "附件报告",
+    "moduleDesc": "附件与内外部报告库",
+    "table": "rrs_report_in",
+    "comment": "内部报告库表",
+    "purpose": "内部报告库",
+    "kind": "业务主表",
+    "script": "rrs_sys_attachment_schema.sql",
+    "relations": [
+      "审批通过可沉淀内部报告；可与附件关联"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "附件报告",
+    "moduleDesc": "附件与内外部报告库",
+    "table": "rrs_report_out",
+    "comment": "外部报告库表",
+    "purpose": "外部报告库",
+    "kind": "业务主表",
+    "script": "rrs_sys_attachment_schema.sql",
+    "relations": [
+      "外部报告库元数据"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "临时代码",
+    "moduleDesc": "临时证券代码与转正日志",
+    "table": "rrs_temp_security_code",
+    "comment": "临时代码表",
+    "purpose": "临时代码登记与状态",
+    "kind": "业务主表",
+    "script": "rrs_temp_security_code_schema.sql",
+    "relations": [
+      "转正后写 rrs_securityinfo；update_log 记替换"
+    ]
+  },
+  {
+    "db": "znty_rrs",
+    "module": "临时代码",
+    "moduleDesc": "临时证券代码与转正日志",
+    "table": "rrs_temp_security_code_update_log",
+    "comment": "临时代码替换日志表",
+    "purpose": "临时代码替换正式代码日志",
+    "kind": "运行日志",
+    "script": "rrs_temp_security_code_schema.sql",
+    "relations": [
+      "temp_id / 正式代码变更轨迹"
+    ]
+  }
+];
+
+const DB_META = {
+    znty_rrs: {
+        title: 'znty_rrs · 主业务库',
+        desc: '投资池、调库三链路、流程、规则、矩阵、附件、定时任务与脚本审计等核心业务表。连接默认 localhost:3306/znty_rrs。',
+        cls: ''
+    },
+    ais_inv_analysis: {
+        title: 'ais_inv_analysis · AIS 投资分析库',
+        desc: '用户 / 角色 / 主体基础信息与评级结果。处理人、权限与部分评级读取跨库引用本库。',
+        cls: 'is-ais'
+    },
+    ais_inv_ods: {
+        title: 'ais_inv_ods · Wind 外部 ODS（只读）',
+        desc: 'Wind 发行人与主体评级外部源；一般不在本系统写业务数据，供评级下调等任务与校验只读查询。',
+        cls: 'is-ods'
+    }
+};
+
+const DB_ORDER = ['znty_rrs', 'ais_inv_analysis', 'ais_inv_ods'];
+const KIND_ORDER = ['全部类型', '业务主表', '事件审计', '字典配置', '业务快照', '运行日志', '外部ODS', '导入临时'];
+
+let currentDb = '全部库';
+let currentKind = '全部类型';
+
+function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+}
+
+function kindClass(kind) {
+    if (kind === '事件审计') return 'evt';
+    if (kind === '外部ODS') return 'ods';
+    if (kind === '字典配置') return 'dict';
+    return '';
+}
+
+function matches(row, keyword) {
+    if (!keyword) return true;
+    const text = [
+        row.db, row.module, row.moduleDesc, row.table, row.comment,
+        row.purpose, row.kind, row.script
+    ].concat(row.relations || []).join(' ').toLowerCase();
+    return text.indexOf(keyword) !== -1;
+}
+
+function filteredRows() {
+    const keyword = document.getElementById('tableSearch').value.trim().toLowerCase();
+    return tableCatalog.filter(row => {
+        if (currentDb !== '全部库' && row.db !== currentDb) return false;
+        if (currentKind !== '全部类型' && row.kind !== currentKind) return false;
+        return matches(row, keyword);
+    });
+}
+
+function renderFilters() {
+    const dbs = ['全部库'].concat(DB_ORDER);
+    const dbBox = document.getElementById('dbFilters');
+    dbBox.innerHTML = dbs.map(db =>
+        `<button type="button" class="filter-tab ${db === currentDb ? 'is-active' : ''}" data-db="${escapeHtml(db)}">${escapeHtml(db)}</button>`
+    ).join('');
+    dbBox.querySelectorAll('.filter-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentDb = btn.dataset.db;
+            render();
+        });
+    });
+
+    const kindBox = document.getElementById('kindFilters');
+    kindBox.innerHTML = KIND_ORDER.map(kind =>
+        `<button type="button" class="filter-tab is-kind ${kind === currentKind ? 'is-active' : ''}" data-kind="${escapeHtml(kind)}">${escapeHtml(kind)}</button>`
+    ).join('');
+    kindBox.querySelectorAll('.filter-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentKind = btn.dataset.kind;
+            render();
+        });
+    });
+}
+
+function renderRelations(rels) {
+    if (!rels || !rels.length) {
+        return '<span class="muted">逻辑关联见模块文档；无物理外键</span>';
+    }
+    return `<ul class="rel-list">${rels.map(r => `<li>${escapeHtml(r)}</li>`).join('')}</ul>`;
+}
+
+function renderModuleTable(rows) {
+    const body = rows.map(row => `
+        <tr>
+            <td><span class="code">${escapeHtml(row.table)}</span></td>
+            <td><span class="name">${escapeHtml(row.comment || '—')}</span></td>
+            <td>${escapeHtml(row.purpose || '')}</td>
+            <td><span class="kind-tag ${kindClass(row.kind)}">${escapeHtml(row.kind)}</span></td>
+            <td>${renderRelations(row.relations)}</td>
+            <td><span class="code">${escapeHtml(row.script)}</span></td>
+        </tr>
+    `).join('');
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th style="min-width:180px">表名</th>
+                    <th style="min-width:140px">表注释</th>
+                    <th style="min-width:200px">作用</th>
+                    <th style="min-width:80px">类型</th>
+                    <th style="min-width:240px">逻辑关联</th>
+                    <th style="min-width:160px">Schema 脚本</th>
+                </tr>
+                </thead>
+                <tbody>${body}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function render() {
+    renderFilters();
+    const rows = filteredRows();
+    document.getElementById('resultHint').textContent = `当前显示 ${rows.length} / ${tableCatalog.length} 张表`;
+    document.getElementById('emptyState').classList.toggle('is-visible', rows.length === 0);
+    const content = document.getElementById('tableContent');
+    if (!rows.length) {
+        content.innerHTML = '';
+        return;
+    }
+
+    const byDb = {};
+    rows.forEach(row => {
+        if (!byDb[row.db]) byDb[row.db] = [];
+        byDb[row.db].push(row);
+    });
+
+    const dbList = DB_ORDER.filter(db => byDb[db] && byDb[db].length);
+    content.innerHTML = dbList.map(db => {
+        const meta = DB_META[db] || { title: db, desc: '', cls: '' };
+        const dbRows = byDb[db];
+        // preserve module order as first-seen
+        const modules = [];
+        const moduleMap = {};
+        dbRows.forEach(r => {
+            if (!moduleMap[r.module]) {
+                moduleMap[r.module] = [];
+                modules.push(r.module);
+            }
+            moduleMap[r.module].push(r);
+        });
+        const moduleHtml = modules.map(mod => {
+            const list = moduleMap[mod];
+            const desc = list[0].moduleDesc || '';
+            return `
+                <div class="module-block">
+                    <div class="module-title">
+                        <div>${escapeHtml(mod)} · ${list.length} 张</div>
+                        <span>${escapeHtml(desc)}</span>
+                    </div>
+                    ${renderModuleTable(list)}
+                </div>
+            `;
+        }).join('');
+        return `
+            <section class="db-section ${meta.cls}">
+                <div class="db-head">
+                    <div>
+                        <h2>${escapeHtml(meta.title)}</h2>
+                        <p>${escapeHtml(meta.desc)} · 本筛选下 ${dbRows.length} 张表</p>
+                    </div>
+                    <span class="source-tag">${escapeHtml(db)}</span>
+                </div>
+                ${moduleHtml}
+            </section>
+        `;
+    }).join('');
+}
+
+document.getElementById('tableSearch').addEventListener('input', render);
+render();
+</script>
+</body>
+</html>

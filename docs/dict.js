@@ -95,6 +95,7 @@ const DICT_ITEM_TYPE = {
     'linkage': '联动项',
     'mutex':   '互斥项',
     'related': '关联项',
+    'clear':   '清空出库项', // Excel 导入「首先清空目标池」
 };
 
 // ── 5. 调库流程类型（flow_type）───────────────────────────

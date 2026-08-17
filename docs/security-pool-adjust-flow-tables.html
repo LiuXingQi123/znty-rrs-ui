@@ -829,7 +829,7 @@
                         <li><strong>股票</strong>（顺序与 <code>checkStockIn</code> 一致）：退市校验 → 股票入池评级限制（入口保留，当前空实现不拦截，未接 investrank）。</li>
                         <li><strong>基金</strong>（顺序与 <code>checkFundIn</code> 一致）：基金评分（仅 check 阶段按请求 fundRate 校验；正式提交不携带 fundRate、不再次校验）。</li>
                         <li><strong>主体 company</strong>：类型特有校验暂无（调入不校验到期）。</li>
-                        <li>报告必填（<code>in_report_restriction</code>）在<strong>提交</strong>阶段校验；半年内同主体已有有效报告可豁免（bondfileflag 语义）。</li>
+                        <li>报告必填（<code>in_report_restriction</code>）在<strong>提交</strong>阶段校验；豁免口径：半年内同主体已有<strong>审批通过调入且确有报告</strong>（<code>queryHasRecentInboundWithReport</code> / bondfileflag 语义），非「任意有效报告」。</li>
                     </ol>
                 </article>
                 <article class="rule-panel outbound">
@@ -870,7 +870,17 @@
             <div class="implementation-note"><strong>当前实现说明：</strong>
                 校验结果带 <code>failReasons</code> 与 <code>warnings</code>；前端「调整说明」失败时分条展示「未通过（共 N 项）」+ 编号列表（保留全部 failReasons，检查项文案不含「无法调入」终局语气）；警告单独展示。同组（同一 <code>adjustGroupKey</code>）手工+联动/互斥行用底色区分。
                 评级下调由 RatingDowngradeChecker 查 wind（主体比较 creditrating/precreditrating，展望读 <code>rating_outlook</code> 是否负面，担保人由前端下拉传 <code>guarantorCode</code>）；简易流程末项「评级下调判断」已注释，但取值仍计算保留。
-                直通与最终审批通过前均会锁池并动态复核容量/在池状态。文中「已注释」「空实现」「当前为空」等与源码一致，顺序与 <code>checkCommonIn</code> / <code>checkCommonOut</code> 调用顺序一致。
+                文中「已注释」「空实现」「当前为空」等与源码一致，顺序与 <code>checkCommonIn</code> / <code>checkCommonOut</code> 调用顺序一致。
+            </div>
+            <div class="logic-grid" style="margin-top:14px">
+                <article class="logic-card">
+                    <h3>校验分层（check / submit / 终审）</h3>
+                    <ul>
+                        <li><strong>checkAdjust</strong>：全量通用+类型规则、联动互斥扩展、流程候选；行业调用已注释；基金评分仅此阶段（依赖请求 <code>fundRate</code>）。</li>
+                        <li><strong>submitAdjustLog</strong>：<strong>不</strong>整单再调 <code>checkAdjust</code>。提交专属：字段合法性、防重复、报告必填、互斥配套调出必须成功、pending 池组；直通项再走下方 recheck 子集后落池。</li>
+                        <li><strong>recheckBeforeFinalApproval</strong>（直通与最终审批共用）：锁目标池后只跑<strong>动态子集</strong>——调入：池锁 / 已在目标池 / 品种 / 来源 / 限制 / 全局禁投 / 容量（含同批增量）；调出：池锁 / 未在目标池 / 限制 / 冻结期。<strong>不再跑</strong>：开放日、行业、基金评分、内评矩阵、市场、pending、同请求互斥、弹性警告、到期/退市等静态或 check 专属项。</li>
+                    </ul>
+                </article>
             </div>
             <div class="data-strip"><code>rrs_securityinfo：读</code><code>ip_investment_pool：读</code><code>ip_pool_status：读</code><code>ip_pool_relation：读</code><code>ip_adjust_log：读</code><code>ip_adjust_step：读</code><code>wf_flow_definition：读</code><code>credit_bond_pool_grade_rule：读</code><code>credit_bond_term_bucket：读</code></div>
         </section>
@@ -882,18 +892,18 @@
                 <article class="logic-card">
                     <h3>提交申请：五阶段</h3>
                     <ol>
-                        <li><strong>前置校验：</strong>检查证券代码、调整人和调库项等请求字段；按池配置校验报告必填。</li>
+                        <li><strong>前置校验：</strong>证券代码、调整人、调库项等字段合法性；防重复提交；<strong>不</strong>在此重跑全量 <code>checkAdjust</code>。</li>
                         <li><strong>参数初始化：</strong>加载证券、池关系、当前状态及每个唯一流程的运行快照；同一次提交统一 <code>submit_time</code>，保证同批历史聚拢。</li>
-                        <li><strong>调入处理：</strong>按调库组写入手工、联动、互斥、关联码记录并绑定附件。</li>
-                        <li><strong>调出处理：</strong>同样写入申请记录，并保持同组批次关系。</li>
-                        <li><strong>后续处理：</strong>合并主档与页面可编辑字段后，按调库日志写入 <code>ip_adjust_security_snapshot</code> 快照（不修改 <code>rrs_securityinfo</code> 主档）。</li>
+                        <li><strong>调入处理：</strong>按池报告限制校验报告必填；校验 pending 池组与互斥配套调出；按调库组写入手工/联动/互斥/关联码记录并绑定附件。</li>
+                        <li><strong>调出处理：</strong>按出库报告限制校验；同样写入申请记录并保持同组批次关系。</li>
+                        <li><strong>后续处理：</strong>合并主档与页面可编辑字段后写 <code>ip_adjust_security_snapshot</code>（不修改 <code>rrs_securityinfo</code> 主档）；直通项再 <code>recheckBeforeFinalApproval</code> 后落池。</li>
                     </ol>
                 </article>
                 <article class="logic-card">
                     <h3>直通与人工审批</h3>
                     <ul>
                         <li>无流程或流程为 <code>start → end</code> 时视为直通。</li>
-                        <li>直通：先锁池并动态复核，再写或逻辑删除 <code>ip_pool_status</code>（与最终审批同一套保护）。</li>
+                        <li>直通：先锁池并 <code>recheckBeforeFinalApproval</code>（动态子集，见上「校验分层」），再写或逻辑删除 <code>ip_pool_status</code>（与最终审批同一套保护）。</li>
                         <li>非直通：申请记为流程中（<code>audit_status=00</code>），创建开始、提交人和首个待审批步骤。</li>
                         <li>后续节点采用懒创建，审批到达时再写入 <code>ip_adjust_step</code>。</li>
                         <li><strong>仅 <code>audit_status=20</code> 落地池状态</strong>；驳回/撤回等不改当前在池。</li>

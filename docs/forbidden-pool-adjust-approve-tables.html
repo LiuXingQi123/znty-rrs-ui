@@ -338,17 +338,14 @@
                     定位申请，读取详情、池状态、日志、步骤与附件。页面展示的是申请快照及当前状态，不把历史日志当作最终在池事实。</p>
             </article>
             <article class="logic-card"><h3>并发与权限</h3>
-                <p>提交前重新查询当前步骤；只有待处理（<code>pending</code>）状态和合法处理人才能更新。Mapper
-                    采用状态条件更新防止重复审批，管理员也必须遵循步骤状态。</p></article>
+                <p>仅 pending 且合法处理人可更新；条件更新防重复。<strong>发起人不能后续审批</strong>（管理员除外，仍须命中待办）。与证券审核同构。</p></article>
             <article class="logic-card"><h3>会签与抢占</h3>
-                <p>会签节点等待配置人员全部处理；抢占节点由首位处理人完成后，其余待处理（<code>pending</code>）步骤标记为已跳过（<code>skipped</code>）。之后依据动作和条件边寻找下一节点。</p></article>
+                <p><code>approval_strategy</code>：会签仅「通过」需全员；驳回或抢占通过一人即可，其余 pending→skipped。条件路由仍预留 false。</p></article>
             <article class="logic-card"><h3>修改后重提</h3>
-                <p>
-                    修改节点重新校验；可增删附件。原因建议可回填日志；失败时「调整说明」分条展示「未通过（共 N 项）」+ 编号列表（保留全部 failReasons，检查项文案不含「无法调入」终局语气）。首次提交不走本入口。</p>
+                <p>修改节点重新主体级 <code>checkAdjust</code>（跳过品种/市场；行业已注释）；可增删附件。failReasons 分条。首次提交不走本入口（详情/申请页）。</p>
             </article>
             <article class="logic-card"><h3>流程结束</h3>
-                <p>最终通过前锁池复核；主体落 ip_pool_status 后，仅目标为债券禁止库时 <code>syncCompanyBonds</code>：调入同步未到期
-                    （含 ABS/crmw）且未在池债券；调出同步未到期且在池债券。其它池只落主体。驳回/终止不改池、不同步。</p>
+                <p>最终通过：<code>recheckBeforeFinalApproval</code>（主体子集：锁池/已在池或未在池/来源限制禁投/容量含同步债预占/冻结）后主体落 <code>ip_pool_status</code>；<strong>仅目标池=债券禁止库(15)</strong> 再 <code>syncCompanyBonds</code>（未到期 bond 大类含 ABS/crmw）。16/17/23 只落主体。驳回/终止不改池、不同步。<strong>ABS 债禁投申请不在本页审批</strong>（申请页 ABS Tab；非直通通常进证券池审核页）。</p>
             </article>
             <article class="logic-card"><h3>附件与报告</h3>
                 <p>审批附件写 sys_attachment；最终入池通过且满足条件时生成 rrs_report_in，并将相关附件复制到报告关联。</p>

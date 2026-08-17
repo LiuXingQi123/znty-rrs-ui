@@ -337,16 +337,14 @@
                     定位申请，读取详情、池状态、日志、步骤与附件。页面展示的是申请快照及当前状态，不把历史日志当作最终在池事实。</p>
             </article>
             <article class="logic-card"><h3>并发与权限</h3>
-                <p>提交前重新查询当前步骤；只有待处理（<code>pending</code>）状态和合法处理人才能更新。Mapper
-                    采用状态条件更新防止重复审批，管理员也必须遵循步骤状态。</p></article>
+                <p>提交前重新查询当前步骤；仅 <code>pending</code> 且合法处理人可更新（条件更新防抢占重复）。<strong>发起人不能参与后续审批节点</strong>（管理员 userId=1 除外，且管理员仍须命中待办步骤）。管理员代办意见可追加「（由管理员操作）」标识。</p></article>
             <article class="logic-card"><h3>会签与抢占</h3>
-                <p>会签节点等待配置人员全部处理；抢占节点由首位处理人完成后，其余待处理（<code>pending</code>）步骤标记为已跳过（<code>skipped</code>）。之后依据动作和条件边寻找下一节点。</p></article>
+                <p>策略用 <code>approval_strategy</code>（all=会签 / preempt=抢占），不用中文节点名。<strong>会签仅对「通过」需全员</strong>；任意策略下<strong>驳回</strong>或抢占通过：单人处理即可结束节点，其余 pending 标 <code>skipped</code>。条件边 <code>matchesConditionRoute</code> 仍固定 false（预留）。</p></article>
             <article class="logic-card"><h3>修改后重提</h3>
-                <p>修改节点重新 <code>checkAdjust</code>（校验链与申请页相同：通用顺序含行业限制已注释；债券含内评矩阵；股票评级空实现；流程白名单/简易判断同上，详见证券池调整业务文档「调入/调出校验」）；可增删附件。前端回填调整原因与建议；失败时分条展示 failReasons。首次提交走详情/申请页。</p>
+                <p>修改节点（initiator 语义）重新 <code>checkAdjust</code>（与申请页同链：行业已注释等，见证券池调整「调入/调出校验」）；可增删附件（仅本日志）。回填原因/建议；failReasons 分条展示。首次提交走详情/申请页，不走本入口。</p>
             </article>
             <article class="logic-card"><h3>流程结束</h3>
-                <p>最终通过前锁池并动态复核；再对 ip_pool_status 调入新增/调出软删。驳回/终止不改在池。评级联动场景可带
-                    redirectPoolId 改判目标池（须仍落在主体内评×期限矩阵允许列表内，证券链路）。</p></article>
+                <p>最终通过：<code>recheckBeforeFinalApproval</code> 动态子集（调入：锁池/已在池/品种/来源/限制/禁投/容量；调出：锁池/未在池/限制/冻结；<strong>不</strong>重跑开放日/矩阵等）后写/软删 <code>ip_pool_status</code>。驳回/终止不改在池。评级联动可带 <code>redirectPoolId</code> 改判目标池（须仍在内评矩阵允许列表）。</p></article>
             <article class="logic-card"><h3>附件与报告</h3>
                 <p>审批附件写 sys_attachment；最终入池通过且满足条件时生成 rrs_report_in，并将相关附件复制到报告关联。</p>
             </article>
@@ -479,13 +477,13 @@
         <p class="sub">帮助区分当前状态、历史记录和流程实例。</p>
         <div class="rules">
             <article class="rule"><h3>乐观并发</h3>
-                <p>当前步骤必须仍是待处理（<code>pending</code>）；已处理步骤不能再次提交。</p></article>
+                <p>当前步骤必须仍是 <code>pending</code>；已处理步骤不能再次提交。</p></article>
             <article class="rule"><h3>状态机</h3>
-                <p><code>audit_status</code>：无效（<code>-1</code>）/ 流程中（<code>00</code>）/ 驳回待修改（<code>11</code>）/ 审批通过（<code>20</code>）/ 审批驳回（<code>21</code>）/ O32自动审批（<code>32</code>）/ 已撤回（<code>99</code>）。<strong>仅审批通过（<code>20</code>）落地池状态</strong>。节点策略用 approval_strategy 编码（会签/抢占），不用中文 label 判断。</p></article>
+                <p><code>audit_status</code>：-1/00/11/20/21/32/99。<strong>仅 20 落地池状态</strong>。节点策略用 <code>approval_strategy</code>（会签/抢占），不用中文 label。</p></article>
             <article class="rule"><h3>流程快照</h3>
-                <p>审批读取申请锁定的 flowVersionId，不随流程定义后来发布的新版本漂移。</p></article>
-            <article class="rule"><h3>返回</h3>
-                <p><code>backToList</code> 先 <code>closeActiveTab()</code>（仅动态页签关掉才返回 true）；否则 <code>history.back()</code>，再不行 href 到对应调整页。禁投/CRMW 审核页相同。</p></article>
+                <p>审批读取申请锁定的 <code>flowVersionId</code>，不随流程定义后来发布的新版本漂移。</p></article>
+            <article class="rule"><h3>入口与返回</h3>
+                <p>常见入口：我的事宜 <code>entryMode=process</code> 带 adjustLogId/batch。返回：先 <code>closeActiveTab()</code>；否则 history.back / href 调整页。禁投/CRMW 审核页同构。</p></article>
         </div>
         <div class="note">文档口径来自当前页面、Controller、Service、Mapper XML 与对应
             requirements；后续代码调整时应同步维护本页。

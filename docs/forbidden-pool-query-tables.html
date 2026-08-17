@@ -382,9 +382,9 @@
         <div class="logic">
             <article class="card"><h3>查询主线</h3>
                 <ul>
-                    <li><code>ip_pool_status</code> 内连接未删除的 <code>ip_investment_pool</code>。</li>
+                    <li><code>ip_pool_status</code> 内连接未删除的 <code>ip_investment_pool</code>（<code>p.is_deleted=0</code>）。</li>
                     <li>固定 <code>pool_type IN ('forbidden','observe','blacklist','restricted')</code>，且 <code>audit_status='20'</code>、<code>is_deleted=0</code>。</li>
-                    <li>Service 注入 <code>viewablePoolIds</code>（PermissionType.VIEWABLE）；空集合则无数据。</li>
+                    <li>Service 注入 <code>viewablePoolIds</code>（PermissionType.VIEWABLE）：普通用户空集合 → 无数据；<strong>管理员返回 null 时不按池 ID 过滤（全可见）</strong>。</li>
                     <li>左连 <code>rrs_securityinfo</code> 与字典；主体行再连 <code>wind_cbondissuer</code> 取发行人名称。</li>
                     <li>排序：<code>entry_time DESC, id DESC</code>。</li>
                 </ul>
@@ -392,7 +392,8 @@
             <article class="card"><h3>筛选条件</h3>
                 <ul>
                     <li>证券代码/简称、证券类型、入池日期区间、调整人、发行人（主体名或债券发行人模糊）。</li>
-                    <li>存续/到期：仅对债券大类用 <code>maturity_date</code> 与当前日比较（active/matured）。</li>
+                    <li>入池日期：起日 <code>entry_time &gt;= start</code>；止日 <code>entry_time &lt;= CONCAT(end, ' 23:59:59')</code>（闭区间到当天末）。</li>
+                    <li>存续/到期：仅对债券大类用 <code>maturity_date</code> 与当前日比较；到期日为空在 active/matured 下均不命中。</li>
                     <li>类型下拉与列表共用同一风险池 + 权限范围。</li>
                 </ul>
             </article>
@@ -453,11 +454,12 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>当前 SQL <strong>固定</strong> <code>audit_status='20'</code> 且 <code>is_deleted=0</code>，只展示已生效在池状态。</li>
-            <li>范围是四类风险池类型，不是单一禁投池（<code>forbidden</code>），也不是写死债券禁止库(15)/观察池(16)/黑名单质押库(17)（权限再裁剪可见子集）。</li>
+            <li>当前 SQL <strong>固定</strong> <code>audit_status='20'</code> 且 <code>is_deleted=0</code>，只展示已生效在池状态（对比：禁投历史默认全状态）。</li>
+            <li>范围是四类 <code>pool_type</code>（forbidden/observe/blacklist/restricted），按类型+VIEWABLE 裁剪，<strong>不是</strong>写死 15/16/17/23（调整页手工目标池才写死四 ID）。</li>
+            <li>VIEWABLE：普通用户空集合无数据；管理员 null 不过滤池 ID。</li>
             <li>可同时出现主体级与证券级（含主体同步自动入池的债券）记录。</li>
-            <li>页面只读，不写业务表；无收藏能力（与证券池查询不同）。</li>
-            <li>点名称/代码走 <code>openPoolAdjustDetail</code>：<code>categoryType=company</code> 进禁投主体详情，否则进证券详情。参数含代码、<code>targetPoolId</code>、<code>adjustLogId</code>（状态表 <code>adjust_log_id</code>，不是本行 <code>id</code>）、<code>adjustBatchNo</code>。</li>
+            <li>页面只读，无收藏（与证券池查询不同）。</li>
+            <li>点名称/代码：<code>categoryType=company</code> 进禁投主体详情，否则证券详情；<code>resolveAdjustLogId(row, false)</code> 用状态表 <code>adjust_log_id</code>，不是本行 <code>id</code>。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

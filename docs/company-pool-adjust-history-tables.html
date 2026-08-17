@@ -383,16 +383,18 @@
             <article class="card"><h3>查询主线</h3>
                 <ul>
                     <li>以 <code>ip_adjust_log</code> 为主表，<code>is_deleted=0</code>。</li>
-                    <li>内连接证券类型字典，固定 <code>category_type='company'</code>（排除债券自动同步日志）。</li>
-                    <li>左连接未删除投资池；Service 做 VIEWABLE 与页面 poolIds 交集。</li>
-                    <li>排序：<code>submit_time DESC, adjust_batch_no DESC, id DESC</code>（与禁投/证券/CRMW 历史统一）。</li>
+                    <li>内连接证券类型字典，固定 <code>category_type='company'</code>（直接排除债券自动同步日志）。</li>
+                    <li><strong>LEFT JOIN</strong> 未删除投资池（<code>p.is_deleted=0</code>）+ 日志 <code>target_pool_name</code> 快照：池已删仍可出历史行（对比主体查询 INNER 会丢行）。</li>
+                    <li>Service：VIEWABLE ∩ 页面 poolIds；普通用户空集合无数据；管理员 null 不过滤。</li>
+                    <li>排序：<code>submit_time DESC, adjust_batch_no DESC, id DESC</code>；默认不限 audit_status（全状态可筛）。</li>
                 </ul>
             </article>
             <article class="card"><h3>筛选口径</h3>
                 <ul>
                     <li>主体代码匹配日志 <code>security_code</code>，主体名称匹配日志 <code>security_short_name</code>（申请时快照）。</li>
                     <li>支持目标池、提交日期、调整人、调入/调出和审核状态。</li>
-                    <li>池路径由 Service 统一回填。</li>
+                    <li>提交日期：起日 <code>submit_time &gt;= start</code>；止日后端 <code>CONCAT(end, ' 23:59:59')</code>（前端常只传 yyyy-MM-dd）。</li>
+                    <li>池路径由 Service 统一回填；池树 viewable 且保留祖先节点。</li>
                 </ul>
             </article>
         </div>
@@ -440,11 +442,11 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>页面只读。点主体名称/代码走 <code>openForbiddenPoolAdjustDetail</code>，工作台新开禁投主体详情（<code>companyCode</code>、<code>targetPoolId</code>、<code>adjustLogId</code>、<code>adjustBatchNo</code>、<code>entryMode=view</code>）。不同批次各自开 Tab。</li>
+            <li>页面只读。点主体名称/代码进禁投主体详情（view）；<code>resolveAdjustLogId(row, true)</code>（优先 adjustLogId，可回退行 id，历史 SQL 二者同值）。不同批次各自开 Tab。</li>
             <li>一批主体调整可能包含手工、联动和互斥多条日志（同批时间/批次号聚拢）。</li>
-            <li>旗下债券同步生成的自动日志为债券类型，<strong>不会</strong>进入本页；若需查看请用「禁投池历史」。</li>
+            <li>旗下债券同步生成的自动日志为债券类型，<strong>不会</strong>进入本页；请用「禁投池历史」。</li>
             <li>主体名称使用申请时日志快照，不会随 Wind/主数据改名自动变化。</li>
-            <li>与「禁投池历史」差异：本页按 company 大类过滤、不限制 pool_type；禁投历史按四类风险池类型过滤、含主体+债券。</li>
+            <li>与「禁投池历史」：本页 company 大类、不限 pool_type；禁投历史四类风险池、含主体+债。与「主体池查询」：本页全状态流水；查询仅 audit=20 当前态。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

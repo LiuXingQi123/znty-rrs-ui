@@ -404,8 +404,8 @@
                 <ul>
                     <li>导入类型：<code>security</code> 证券 / <code>company</code> 主体；调整方向：<code>in</code> 调入 / <code>out</code> 调出。</li>
                     <li>调整原因、调整意见均为选填，整批共享，写入临时主表 <code>fld002</code> / <code>fld003</code>。</li>
-                    <li>「首先清空目标池」仅调入可见：把目标池中不在本批名单内的在池数据按批量出库处理。</li>
-                    <li>「允许联动与互斥调整」默认勾选；不勾选则校验结果只保留手工项。</li>
+                    <li>「首先清空目标池」仅调入可见：对本批涉及的每个目标池，将「在池但不在本批名单」的成员按<strong>单券调出 checkAdjust</strong> 生成清空项（非调用 Batch 编排服务）。</li>
+                    <li>「允许联动与互斥调整」默认勾选；不勾选则校验结果只保留手工项（证券导入）。</li>
                     <li>已生成批次（存在 <code>impId</code>）后参数锁定，需先清空再改类型或方向。</li>
                 </ul>
             </article>
@@ -424,28 +424,29 @@
 
     <section class="panel" id="logic-2">
         <h2>校验与提交</h2>
-        <p class="sub">先校验导入行，再复用单券 / 主体调库校验；提交弹窗与证券池批量调整一致。</p>
+        <p class="sub">先校验导入行，再复用单券 / 主体调库校验；流程策略与<strong>当前批量页不同</strong>（Excel 仍注入 batch 推荐）。</p>
         <span class="api">POST /api/v1/securityPoolExcelImport/queryItemPage · checkImport · queryTask · submitImport · cancelImport</span>
         <div class="logic">
             <article class="card">
                 <h3>导入明细与调库校验</h3>
                 <ul>
                     <li>明细分页 <code>queryItemPage</code>：可按代码关键字、校验结果（待校验 / 通过 / 失败）筛选。</li>
-                    <li>证券：每行调用 <code>SecurityPoolAdjustService.checkAdjust</code>（与批量内部路径相同）。</li>
-                    <li>主体：每行调用 <code>ForbiddenPoolAdjustService.checkCompanyAdjust</code>。</li>
+                    <li>证券：每行调用 <code>SecurityPoolAdjustService.checkAdjust</code>；主体：每行调用 <code>ForbiddenPoolAdjustService.checkCompanyAdjust</code>。</li>
                     <li>勾选联动互斥时保留 linkage / mutex / related 展开项；不勾选仅手工项。</li>
-                    <li>首先清空目标池：对本批每个目标池，将「在池但不在本批名单」的成员按批量出库校验；本批编码若已有在途流程则该导入行失败。</li>
-                    <li>校验结果列调整类型：手工主项为「Excel导入」，清空项为「Excel清空」，不写成单笔的「手工调整」。</li>
+                    <li>首先清空目标池：差集成员走单券调出校验；本批编码若已有在途流程则该导入行失败；非本批编码在途不纳入清空。</li>
+                    <li>校验结果列调整类型：手工主项「Excel导入」，清空项「Excel清空」。</li>
+                    <li><strong>item_tag 生命周期：</strong>校验态清空主项 <code>itemTag=clear</code>（<code>ItemType.CLEAR</code>）；提交时因调库服务不识别 clear，清空项 <code>item_tag</code> <strong>改写为 manual</strong>，靠 <code>adjust_type=Excel清空</code> 区分渠道。</li>
                 </ul>
             </article>
             <article class="card">
                 <h3>提交、流程与权限</h3>
                 <ul>
-                    <li>提交弹出「选择调库流程」，交互与证券池批量调整一致；确认后写 <code>ip_adjust_log</code>。</li>
-                    <li>证券按主券分组 <code>addAdjustLog</code> 并注入批量流程候选；主体按主体分组 <code>addCompanyAdjustLog</code>。</li>
-                    <li>清空出库先于导入提交；仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>。</li>
-                    <li>目标池须配置 <code>excel_importable</code> 权限；管理员 <code>userId=1</code> 放行。</li>
-                    <li>导入批次号仅管理员可见，非管理员不展示芯片；<code>impId</code> 仍用于后续校验 / 提交。</li>
+                    <li>提交弹出「选择调库流程」；交互形态类似批量页，但<strong>候选规则不同</strong>。</li>
+                    <li><strong>Excel 流程策略（当前代码）：</strong>先拷贝单券/主体 <code>flowOptions</code>，再 <code>injectBatchFlowOption</code> 把目标池 <code>batchIn</code>/<code>batchOut</code> 插到候选<strong>最前</strong>并 <code>recommended=true</code>，可能压过单券 special/简易推荐。</li>
+                    <li><strong>与批量/存量对比：</strong>证券池批量、存量批量已<strong>不注入、不回填</strong> batch 流程，完全透传单券候选。Excel <strong>仍注入</strong>属有意差异（非「与批量一致」）。</li>
+                    <li>证券按主券分组 <code>addAdjustLog</code>；主体按主体分组 <code>addCompanyAdjustLog</code>；清空出库先于导入提交。</li>
+                    <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；目标池须 <code>excel_importable</code>；管理员 <code>userId=1</code> 放行。</li>
+                    <li>导入批次号仅管理员可见；<code>impId</code> 仍用于后续校验 / 提交。</li>
                 </ul>
             </article>
         </div>
@@ -540,12 +541,14 @@
         <h2>关键规则与当前实现说明</h2>
         <ul class="notes">
             <li>页面不选择目标池：父池 / 子池名称必须能解析到启用叶子池，否则该行校验失败。</li>
-            <li>调整类型对齐存量批量的「渠道专属」口径：Excel 手工主项为 <code>Excel导入</code>，清空项为 <code>Excel清空</code>；联动 / 互斥 / 关联与单笔、批量一致。字典 <code>DICT_ADJUST_TYPE</code> 已登记。</li>
-            <li>首先清空目标池仅调入：提交顺序先清空出库，再导入；非本批编码的在途流程不纳入清空。</li>
-            <li>证券校验复用单券 <code>checkAdjust</code>，主体校验复用禁投池 <code>checkCompanyAdjust</code>；流程选择弹窗与
-                <a href="batch-security-pool-adjust-tables.html">证券池批量调整</a> 一致。</li>
+            <li>调整类型：Excel 手工主项 <code>Excel导入</code>，清空项 <code>Excel清空</code>；联动/互斥/关联与单笔一致。字典 <code>DICT_ADJUST_TYPE</code> 已登记。</li>
+            <li>首先清空目标池仅调入：提交顺序先清空出库，再导入；清空校验用 <code>item_tag=clear</code>，提交改写 <code>manual</code> + adjustType 区分。</li>
+            <li>证券校验复用单券 <code>checkAdjust</code>，主体校验复用 <code>checkCompanyAdjust</code>。流程候选：Excel <strong>仍注入</strong> batchIn/Out 推荐；批量/存量见
+                <a href="batch-security-pool-adjust-tables.html">证券池批量调整</a>（已不注入）。</li>
             <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；驳回 / 撤回只改日志与步骤。</li>
             <li>导入批次号仅管理员可见；目标池须具备 <code>excel_importable</code>，管理员放行。</li>
+            <li>校验分层（check 全量 / submit 不重跑 / recheck 子集）与单券一致，见
+                <a href="security-pool-adjust-flow-tables.html">证券池调库</a>。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

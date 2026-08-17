@@ -406,16 +406,17 @@
                     <li>每个证券转换为单证券 <code>AdjustCheckReq</code>，调用单笔 <code>securityPoolAdjustService.checkAdjust</code>，复用通用/类型特有校验、联动互斥扩展与反阻断。</li>
                     <li><strong>调入顺序</strong>（与 <code>checkCommonIn</code> 一致）：池锁定 → 品种 → 市场 → pending → 已在目标池 → 容量 → 来源池 → 调入限制池 → 同请求互斥 → 弹性禁投（警告）→ 全局禁止池 → 行业限制（已注释）→ 开放日 →（债券）到期 → 主体内评矩阵 /（股票）退市 → 评级限制（空实现）/（基金）评分（仅 check）。</li>
                     <li><strong>调出顺序</strong>（与 <code>checkCommonOut</code> 一致）：池锁定 → pending → 未入池 → 冻结期（入池时间缺失报「证券入池生效时间缺失」）→ 调出限制池 → 调出互斥池 → 同请求互斥 → 弹性禁投（警告）→ 开放日 → 到期/退市。</li>
-                    <li>流程候选与推荐<strong>完全透传</strong>单笔 <code>checkAdjust</code>（白名单/简易/默认/特殊/升降级等），不再注入目标池 batchIn/batchOut；前端默认选中 recommended，操作员可改选。</li>
+                    <li>流程候选与推荐<strong>完全透传</strong>单笔 <code>checkAdjust</code>（白名单/简易/默认/特殊/升降级等），<strong>不再注入</strong>目标池 batchIn/batchOut（与 Excel 导入仍注入 batch 推荐形成有意差异）；前端默认选中 recommended，操作员可改选。</li>
                     <li>步骤2 chips 汇总报告/附件/放开规则/条数；「调整说明」失败分条展示 failReasons；同组 <code>adjustGroupKey</code> 底色区分。</li>
+                    <li>基金评分：仅 check 阶段且依赖请求 <code>fundRate</code>；批量页<strong>不传</strong> fundRate，池配置了 <code>fund_rate_limit</code> 时批量路径易失败（与单券页不同）。</li>
                 </ul>
             </article>
             <article class="card"><h3>提交和审批</h3>
                 <ul>
                     <li>整个批量请求<strong>一个事务</strong>，任一失败全部回滚；约 30 秒窗口内防重复提交（按证券集合+手工项+流程+原因意见比较）。</li>
-                    <li>提交流程透传前端按单笔候选所选 flowId/flowKey/flowType，不再回填 batchIn/batchOut；后端不强制每条必有流程（可直通）。</li>
+                    <li>提交流程透传前端按单笔候选所选 flowId/flowKey/flowType，不再回填 batchIn/batchOut。前端须为可提交手工项<strong>选定流程候选</strong>（含「无需审批」/空 flow 直通）；后端允许空流程直通。</li>
                     <li>按<strong>触发主券</strong>（sourceSecurityCode）分组后调用单券 <code>submitAdjustLog</code>（非本类落库）；共享 <code>SubmissionFiles</code> 与 <code>BatchNoContext</code>；手工项 <code>adjustType=手动批量调整</code>。</li>
-                    <li>存在直通项时：先 <code>isDirectAdjustFlow</code> 判定，再整批 <code>recheckBeforeFinalApproval</code>（锁池+容量/在池/限制等动态复核），与单券终审保护一致。</li>
+                    <li>存在直通项时：先 <code>isDirectAdjustFlow</code> 判定，再整批 <code>recheckBeforeFinalApproval</code>。子集与单券终审一致——调入：池锁/已在池/品种/来源/限制/禁投/容量；调出：池锁/未在池/限制/冻结；不重跑开放日/矩阵等（见证券池调库「校验分层」）。</li>
                     <li><code>releaseRules=yes</code> 仅跳过主体内评×期限矩阵，容量/来源/硬限制等仍执行。</li>
                     <li>调入信用债大库：正式无内评失败；临时代码无内评默认 grade_code=4 再走矩阵。</li>
                     <li>后续审批复用证券池调库流程服务（会签/抢占/驳回/终态落库）。</li>
@@ -529,11 +530,12 @@
         <ul class="notes">
             <li>批量不是一条总申请：后端按证券分组，再为手工、联动、互斥、关联码明细分别保存调库日志。</li>
             <li>方向只允许 <code>in</code> 或 <code>out</code>；手工明细方向必须与本次批量方向一致。</li>
-            <li>手工项必须指定审批流程；联动/互斥/关联项复用同组手工项流程与批次号。</li>
+            <li>可提交手工项须选定流程候选（含直通选项）；联动/互斥/关联项复用同组手工项流程与批次号。</li>
             <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；弹性禁投为警告不阻断，与单券一致。</li>
             <li>步骤2原因/建议为整批共享文案，与单券调库页「每券可回填日志原因」场景不同。</li>
-            <li>审批运行、会签/抢占、驳回和最终落库复用证券池调库流程逻辑；细节见
-                <a href="security-pool-adjust-flow-tables.html">证券池调库</a> 文档。</li>
+            <li>submit 不整单重跑 checkAdjust；直通/终审仅 recheck 动态子集。细节见
+                <a href="security-pool-adjust-flow-tables.html">证券池调库</a> 文档「校验分层」。</li>
+            <li>与 Excel 导入差异：本页<strong>不</strong>注入 batchIn/batchOut；Excel 仍可能把目标池批量流程置顶推荐。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

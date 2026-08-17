@@ -382,18 +382,20 @@
         <div class="logic">
             <article class="card"><h3>主查询</h3>
                 <ul>
-                    <li>以 <code>ip_adjust_log</code> 为主表，固定过滤 <code>is_deleted=0</code>。</li>
-                    <li>关联投资池、证券基础信息和证券类型字典；Service 回填目标池全路径。</li>
+                    <li>以 <code>ip_adjust_log</code> 为主表，固定 <code>is_deleted=0</code>、<code>security_type != 'crmw'</code>。</li>
+                    <li><strong>默认不限 audit_status</strong>（全状态：-1/00/11/20/21/32/99 等均可出现）；可选审核状态下拉再过滤。对比：证券池查询当前态仅 20。</li>
+                    <li>关联投资池（<code>p.is_deleted=0</code>）、证券基础信息和类型字典；Service 回填目标池全路径。已删池路径可能空白。</li>
+                    <li><strong>不做 VIEWABLE</strong>；池树前端 <code>excludePoolTypes: ['crmw','forbidden']</code>（与查询页同，与主体历史不同）。</li>
                     <li>排序与禁投/主体/CRMW 历史统一：<code>submit_time DESC, adjust_batch_no DESC, id DESC</code>。</li>
-                    <li>同批明细在提交时写入<strong>同一</strong> <code>submit_time</code>，配合批次号排序使同批聚拢展示。</li>
+                    <li>同批明细同一 <code>submit_time</code>，配合批次号聚拢展示。</li>
                 </ul>
             </article>
             <article class="card"><h3>筛选与派生</h3>
                 <ul>
-                    <li>支持多池树筛选、证券代码/简称/类型、方向、审核状态、提交日期区间、调整人、发行人。</li>
-                    <li>证券存续/到期通过 <code>rrs_securityinfo.maturity_date</code> 动态判断（非独立状态表）。</li>
-                    <li>「我的债券」按 <code>adjuster_id=currentUserId</code> 过滤本人作为调整人发起的日志。</li>
+                    <li>支持多池树、证券代码/简称/类型、方向（调入/调出）、审核状态、提交日期区间（结束日补 23:59:59）、调整人、发行人。</li>
+                    <li>「我的调整」按 <code>adjuster_id=currentUserId</code> 过滤本人发起的日志（页面文案，非收藏表）。</li>
                     <li>类型下拉来自历史日志中出现过的证券类型（<code>querySecurityTypeList</code>）。</li>
+                    <li>后端 Mapper 预留 <code>securityStatus</code>（存续/到期）过滤，当前前端<strong>未暴露</strong>该筛选项，列表也不展示存续/到期列。</li>
                 </ul>
             </article>
         </div>
@@ -442,11 +444,11 @@
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
             <li>页面为只读查询，不修改任何业务表；不调用调库写接口。</li>
-            <li>历史记录包括手工、联动、互斥、关联码和自动调整，覆盖禁投/观察/黑名单等目标池（不仅限于筛选条件显式列出的类型）。</li>
-            <li>固定排除 <code>security_type='crmw'</code>（CRMW 历史在独立页面查询），其余目标池均展示。</li>
-            <li>「我的债券」命名容易误解：当前口径是本人作为 <code>adjuster_id</code> 发起的日志，不是收藏表。</li>
-            <li>审核状态展示原始 code，中文标签由前端字典映射（后端不做 code→name）。</li>
-            <li>点证券名称/代码走 <code>openSecurityAdjustDetail</code>：工作台新开详情页签，参数含 <code>securityCode</code> / <code>targetPoolId</code> / <code>adjustLogId</code>（与 <code>id</code> 同值，<code>resolveAdjustLogId(row, true)</code>） / <code>adjustBatchNo</code> / <code>entryMode=view</code>；脱离工作台回退 <code>location.href</code>。</li>
+            <li>默认全 audit_status 流水；仅 20 表示审批通过（是否已落池取决于当时成功写状态），不等于「当前仍在池」——当前在池请看证券池查询。</li>
+            <li>历史含手工、联动、互斥、关联码、自动调整及 Excel 等渠道；固定排除 <code>security_type='crmw'</code>（CRMW 历史独立页）。</li>
+            <li>「我的调整」= <code>adjuster_id</code> 本人发起，不是收藏表；无 VIEWABLE 过滤。</li>
+            <li>审核状态展示原始 code，中文由前端字典映射。</li>
+            <li>点证券名称/代码：工作台新开详情，<code>resolveAdjustLogId(row, true)</code>（可回退行 <code>id</code>）/ <code>entryMode=view</code>；脱离工作台回退 <code>location.href</code>。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

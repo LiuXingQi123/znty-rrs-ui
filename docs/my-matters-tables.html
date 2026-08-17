@@ -360,7 +360,7 @@
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>我的事宜</h1>
         <p class="desc">按当前用户汇总与本人相关的调库流程事项，区分待办与已办，并根据业务场景跳转到证券、主体禁投或 CRMW
-            审批/详情页。第三页签「分级规则提醒」独立列表，不与审批混排。</p>
+            审批/详情页。禁投池 ABS 债归证券审核（非主体禁投）。第三页签「分级规则提醒」独立列表，不与审批混排。</p>
         <div class="stats"><span class="stat">7 项表/表组</span><span class="stat">4 个主要接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
@@ -408,9 +408,10 @@
             </article>
             <article class="card"><h3>场景判断</h3>
                 <ul>
-                    <li>pool_type='crmw' → CRMW 调整。</li>
-                    <li>company 且（<code>pool_type</code> 为 forbidden/observe/blacklist/restricted，或目标池 15/16/17/23）→ 主体禁投调整。</li>
-                    <li>其他 → 证券池调整；待办进 approve（<code>entryMode=process</code>），已办进 detail（<code>view</code>）。</li>
+                    <li><code>pool_type='crmw'</code> → <code>crmwAdjust</code>（CRMW 审核/详情）。</li>
+                    <li><code>category_type=company</code> 且（<code>pool_type</code> 为 forbidden/observe/blacklist/restricted，或目标池 15/16/17/23）→ <code>forbiddenCompanyAdjust</code>（主体禁投审核/详情）。</li>
+                    <li><strong>其余一律</strong> <code>securityAdjust</code>（证券池审核/详情）。含禁投池 ABS 债调整：ABS 的 <code>category_type≠company</code>，即使目标池 15/16/17/23 也<strong>不</strong>进主体禁投审核页。</li>
+                    <li>待办进 approve（<code>entryMode=process</code>），已办进 detail（<code>view</code>）。</li>
                     <li>第三页签 <code>gradeRuleAlert</code> 单独查 <code>ip_grade_rule_alert</code>，列与操作与审批表不同。</li>
                 </ul>
             </article>
@@ -479,10 +480,10 @@
         <ul class="notes">
             <li>管理员用户ID在当前代码中固定为 <code>1</code>，待办不加 handler 限制。</li>
             <li>已完成（<code>completed</code>）判断是同批次无待处理（<code>pending</code>）步骤，不只看当前步骤一行。</li>
-            <li>业务场景：<code>pool_type=crmw</code> → CRMW；company 且风险池类型（forbidden/observe/blacklist/restricted）→ 禁投主体；旧数据无 <code>pool_type</code> 时再用目标池 15/16/17/23 兜底。否则证券池。</li>
+            <li>业务场景 SQL（<code>MyMattersMapper</code>）：crmw → <code>crmwAdjust</code>；company +（风险 pool_type 或目标池 15/16/17/23）→ <code>forbiddenCompanyAdjust</code>；否则 <code>securityAdjust</code>。ABS 债禁投调库归证券审核，不进主体禁投审核。</li>
             <li>待办/已办在工作台内按记录新开审核或详情页签，同键复用；返回关闭页签回到本页并刷新列表。提醒「去调库」新开证券池调整页签并带入证券代码。公司工作台不兼容时可还原 <code>location.href</code> / <code>history.back()</code>。</li>
-            <li>分级规则提醒是独立页签，入口在「我的事宜」，不再单列业务菜单。旧页 <code>grade_rule_alert.html</code> 仅重定向。</li>
-            <li>审核状态等 code 由前端字典映射展示；不直接改池状态。</li>
+            <li>分级规则提醒是独立页签，入口在「我的事宜」，研究管理无独立业务菜单。旧页 <code>grade_rule_alert.html</code> 仅重定向。业务说明文档见 <a class="back" href="grade-rule-alert-tables.html">分级规则提醒（并入事宜）</a>（文档管理 · RRS配置）。</li>
+            <li>审批页签无证券代码筛选项；审核状态等 code 由前端字典映射展示；本页查询不直接改池状态。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

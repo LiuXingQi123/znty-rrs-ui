@@ -385,13 +385,15 @@
                     <li>以 <code>ip_pool_status</code> 为主表。</li>
                     <li>内连接 <code>dict_security_type</code>，固定 <code>category_type='company'</code>。</li>
                     <li>固定 <code>audit_status='20'</code>、<code>is_deleted=0</code>；排序 <code>entry_time DESC, id DESC</code>。</li>
-                    <li>Service：可查看池 ID 与页面 <code>poolIds</code> 求交集后写入 <code>viewablePoolIds</code>。</li>
+                    <li><strong>INNER JOIN</strong> 未删除投资池（<code>p.is_deleted=0</code>）：目标池已软删则状态行<strong>不出列表</strong>。</li>
+                    <li>Service：VIEWABLE 可查看池与页面 <code>poolIds</code> 求交集写入 <code>viewablePoolIds</code>；普通用户空集合无数据；管理员 null 不过滤池 ID。</li>
                 </ul>
             </article>
             <article class="card"><h3>筛选和路径</h3>
                 <ul>
                     <li>支持多目标池、主体代码（匹配 security_code）、入池起止日期、调整人。</li>
-                    <li>关联投资池取叶子名，再回填全路径。</li>
+                    <li>入池日期闭区间：起 <code>00:00:00</code> / 止 <code>23:59:59</code>（前端或后端补秒，与列表 <code>&gt;=</code>/<code>&lt;=</code> 一致）。</li>
+                    <li>关联投资池取叶子名，再回填全路径；池树 <code>queryPoolTreeList</code> 传 <code>permissionType=viewable</code>，并保留授权叶子的祖先节点。</li>
                     <li>当前 Mapper 无主体名称/评级等扩展筛选（名称以状态快照字段为准）。</li>
                 </ul>
             </article>
@@ -440,10 +442,11 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>页面只读，不修改主体池状态。点主体名称/代码走 <code>openForbiddenPoolAdjustDetail</code>，工作台新开禁投主体详情（<code>companyCode</code>、<code>targetPoolId</code>、<code>adjustLogId</code>、<code>adjustBatchNo</code>、<code>entryMode=view</code>）。调库仍走「禁投池调整」。</li>
-            <li>主体身份由 security_type → 字典 category_type='company' 判断，不限定 pool_type 必须为 forbidden。</li>
+            <li>页面只读。点主体名称/代码走禁投主体详情（view）；<code>resolveAdjustLogId(row, false)</code> 只用状态表 <code>adjust_log_id</code>，禁止用状态主键 <code>id</code> 冒充。调库仍走「禁投池调整」。</li>
+            <li>主体身份由 security_type → 字典 category_type='company' 判断，不限定 pool_type 必须为 forbidden（与禁投查询按四类 pool_type 过滤不同）。</li>
+            <li>本页查当前态 company 行，无关旗下债自动同步日志（债同步看禁投查询/历史）。</li>
             <li>列表字段主要来自池状态快照；未强制关联 rrs_securityinfo / wind_cbondissuer。</li>
-            <li>无权限可见池时结果为空（viewable 空集合）。</li>
+            <li>普通用户无 VIEWABLE 可见池时结果为空；管理员 null 不过滤。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。

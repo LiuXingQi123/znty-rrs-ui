@@ -333,21 +333,17 @@
         <p class="sub">按当前前后端实现归纳主要触发场景。</p>
         <div class="logic-grid">
             <article class="logic-card"><h3>页面加载</h3>
-                <p>根据 URL 中的业务代码和 adjustBatchNo
-                    定位申请，读取详情、池状态、日志、步骤与附件。页面展示的是申请快照及当前状态，不把历史日志当作最终在池事实。</p>
+                <p>URL <strong>须同时带</strong> <code>crmwScode</code> + <code>securityCode</code>（组合键），以及 <code>adjustBatchNo</code>/<code>adjustLogId</code>；常见 <code>entryMode=process|next</code>。读取双码详情、池状态、日志、步骤与附件；申请快照 ≠ 当前在池事实。</p>
             </article>
             <article class="logic-card"><h3>并发与权限</h3>
-                <p>提交前重新查询当前步骤；只有待处理（<code>pending</code>）状态和合法处理人才能更新。Mapper
-                    采用状态条件更新防止重复审批，管理员也必须遵循步骤状态。</p></article>
+                <p>仅 pending 且合法处理人可更新；发起人不能后续审批（管理员除外）。与证券/禁投审核同构。</p></article>
             <article class="logic-card"><h3>会签与抢占</h3>
-                <p>会签节点等待配置人员全部处理；抢占节点由首位处理人完成后，其余待处理（<code>pending</code>）步骤标记为已跳过（<code>skipped</code>）。之后依据动作和条件边寻找下一节点。</p></article>
+                <p><code>approval_strategy</code> 会签/抢占；条件路由预留 false。动作后按 routeAction 找下一节点。</p></article>
             <article class="logic-card"><h3>修改后重提</h3>
-                <p>修改节点重新
-                    <code>checkCrmwAdjust</code>（目标池为 crmw，不跑信用债内评矩阵）；可增删附件。原因建议可回填；失败时「调整说明」分条展示「未通过（共 N 项）」+ 编号列表（保留全部 failReasons，检查项文案不含「无法调入」终局语气）；同组底色区分。首次提交走详情/申请页。</p>
+                <p>修改节点重新 <code>checkCrmwAdjust</code>（目标 crmw；无内评矩阵；行业已注释）；可增删附件。failReasons 分条。首次提交走详情/申请页。</p>
             </article>
             <article class="logic-card"><h3>流程结束</h3>
-                <p>日志/步骤复用通用表；落池前锁池复核；最终只写/软删 <code>ip_pool_status_crmw</code>（不写普通 <code>ip_pool_status</code>）。驳回/终止不落最终状态。无
-                    crmwMktcode 字段。</p></article>
+                <p>日志/步骤复用通用表。最终通过：<code>recheckBeforeFinalApproval</code>（组合键：调入锁池/凭证已在池/品种/来源限制禁投/容量；调出组合仍在池/锁/限制/冻结）后只写/软删 <code>ip_pool_status_crmw</code>。驳回/终止不落池。业务键无 mktcode。</p></article>
             <article class="logic-card"><h3>附件与报告</h3>
                 <p>审批附件写 sys_attachment；最终入池通过且满足条件时生成 rrs_report_in，并将相关附件复制到报告关联。</p>
             </article>
