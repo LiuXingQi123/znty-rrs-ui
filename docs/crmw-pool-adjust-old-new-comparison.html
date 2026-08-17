@@ -528,7 +528,7 @@ new Vue({
             "市场码依赖"
         ],
         [
-            "2026-08-08",
+            "2026-08-17",
             "分析日期"
         ]
     ],
@@ -550,9 +550,9 @@ new Vue({
     ],
     "flowTitle": "CRMW 组合调库工作流",
     "flowSub": "业务对象是「凭证+标的」组合，不是单券或主体。与证券/禁投同构校验与审批，落地表独立。",
-    "alertHtml": "<b>直接结论：</b>组合键已统一为 crmwScode+securityCode；历史 CIBM 记录可命中；待处理（pending）/落池保护/批次前缀 CRMW 已落地；冻结缺时间已阻断（已修复）；提交落调库证券信息快照。仍须整改：可绑定标的未排除 company；有效状态缺库表唯一约束。",
+    "alertHtml": "<b>直接结论：</b>组合键 crmwScode+securityCode（业务键不依赖 mktcode；凭证身份仍用 crmwStype）；落 ip_pool_status_crmw；pending/落池保护/CRMW 批次前缀已落地；冻结缺时间已阻断。仍须整改：标的未排除 company；有效状态缺物理唯一。check 全量 vs 终审动态子集分层；标的为债时仅到期校验、不套信用债分级矩阵。",
     "issuesSub": "CRMW 相对证券链路的特有边界。",
-    "checksSub": "组合入出池、历史 CIBM、company 候选、直通容量。",
+    "checksSub": "组合入出池、历史 CIBM、company 候选、直通容量、分层校验。",
     "relatedSub": "需求 19–21、CrmwPoolAdjust*、crmw-pool-link-audit。",
     "tables": [
         {
@@ -577,7 +577,7 @@ new Vue({
             "rows": [
                 {
                     "q": "业务键是什么？",
-                    "a": "crmwScode + securityCode（+ 目标池）。调库不再读写/过滤 crmwMktcode。",
+                    "a": "crmwScode + securityCode（+ 目标池）。状态/pending/落池不依赖 crmwMktcode；凭证身份校验仍用 crmwStype=crmw。",
                     "status": "已对齐重构"
                 },
                 {
@@ -591,8 +591,13 @@ new Vue({
                     "status": "明确对齐"
                 },
                 {
+                    "q": "校验在哪做？",
+                    "a": "check 全量通用规则；标的为债时 checkBondIn 仅到期（无信用债分级矩阵/特殊债）；submit 防重/pending/互斥/报告；终审动态子集。",
+                    "status": "分层重构"
+                },
+                {
                     "q": "标的能选公司主体吗？",
-                    "a": "候选 SQL 只排除 security_type=crmw，未排除 company；提交层主要禁 CRMW 凭证作标的。",
+                    "a": "候选 SQL 只排除 security_type=crmw，未排除 company；提交主要禁 CRMW 作标的；company 时 checkCompanyIn 为空，仅通用规则。",
                     "status": "待整改"
                 },
                 {
@@ -715,14 +720,20 @@ new Vue({
         {
             "level": "P1",
             "title": "可绑定标的未排除 company",
-            "desc": "queryBindableSecurityPage 仅 security_type != crmw。",
-            "suggestion": "排除 company，并在提交层复核。"
+            "desc": "queryBindableSecurityPage 仅 security_type != crmw；提交不禁 company；checkCompanyIn 为空。",
+            "suggestion": "候选与提交均排除 company（或业务确认允许后再写清）。"
         },
         {
-            "level": "P1",
-            "title": "冻结缺时间已阻断（已修复）",
-            "desc": "Crmw outCheckFrozenPeriod entryTime 空则返回阻断（已对齐单券）。",
-            "suggestion": "对齐单券阻断文案与行为。"
+            "level": "P2",
+            "title": "冻结缺时间已阻断（已对齐单券）",
+            "desc": "Crmw outCheckFrozenPeriod 在 entryTime 为空时返回「证券入池生效时间缺失」。",
+            "suggestion": "回归：缺入池时间的组合调出应阻断。"
+        },
+        {
+            "level": "P2",
+            "title": "标的为债不套信用债分级矩阵",
+            "desc": "checkBondIn 仅到期；无 inCheckMainGradeRule（特殊债/观察封顶仅证券池进分级库时生效）。",
+            "suggestion": "勿按证券池大库矩阵验收 CRMW 标的。"
         },
         {
             "level": "P1",

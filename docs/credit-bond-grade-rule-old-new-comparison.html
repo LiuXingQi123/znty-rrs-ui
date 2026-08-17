@@ -513,22 +513,22 @@ new Vue({
     data() {
         return {
     "title": "RRS配置 · 主体内评分档规则新老对比",
-    "desc": "对照老信用债主体评级×期限准入与新 RRS「主体内评分档规则」：期限档、评分档、信用债池矩阵、调库矩阵校验消费，以及 parent_id=1 与硬删除无事件表问题。",
+    "desc": "对照老信用债主体评级×期限准入与新 RRS「主体内评分档规则」：期限档、评分档、池矩阵、特殊债/观察封顶/重点观察、不符提醒任务，以及 parent_id=1 与硬删除无事件表问题。",
     "metrics": [
         [
             "3",
             "矩阵相关表"
         ],
         [
-            "期限×评分",
-            "准入"
+            "特殊债+封顶",
+            "运行时叠加"
         ],
         [
-            "调库消费",
-            "校验"
+            "不符提醒",
+            "定时+事宜"
         ],
         [
-            "2026-08-08",
+            "2026-08-17",
             "分析日期"
         ]
     ],
@@ -547,11 +547,11 @@ new Vue({
         "主体评级×期限"
     ],
     "flowTitle": "评分档矩阵到调库",
-    "flowSub": "矩阵为「信用债大库(new)」调入重要准入；观察池/可转债等分支在调库侧另有跳过逻辑。",
-    "alertHtml": "<b>直接结论：</b>矩阵维护与调库消费主路径已通。P1：评级池查询依赖 parent_id=1 演示主键；矩阵硬删除重建且无事件表，审计弱。",
-    "issuesSub": "主键依赖与审计。",
-    "checksSub": "档位准入、跳过分支、主键迁移。",
-    "relatedSub": "需求 23、CreditBondGradeRule*、调库矩阵校验。",
+    "flowSub": "矩阵为「信用债/境外债分级库」调入准入；观察名单按标准最好档封顶（不再跳过）；可转债/releaseRules 仍可跳过矩阵；私募/永续/次级/ABS 叠加下调；重点观察禁新增。",
+    "alertHtml": "<b>直接结论：</b>矩阵维护与调库消费主路径已通，特殊债/观察封顶/重点观察已落地。P1：queryCreditBondPoolList 硬编码 parent_id=1 + pool_level=2 + inner_sort 1～5（演示主键，跨环境可能失效）；矩阵硬删除重建且无事件表。已在库不符由定时任务 bond_grade_inconformity_alert 生成待办（不自动出池），在我的事宜第三页签处理。",
+    "issuesSub": "主键依赖、审计、特殊债与不符提醒。",
+    "checksSub": "档位准入、观察封顶、重点观察、不符提醒。",
+    "relatedSub": "需求 23/04/29、CreditBondSpecialInboundRule、GradeRuleAlert。",
     "tables": [
         {
             "title": "一句话结论",
@@ -585,13 +585,23 @@ new Vue({
                 },
                 {
                     "q": "根池怎么找？",
-                    "a": "当前查询依赖 parent_id=1 等固定结构。",
+                    "a": "CreditBondGradeRuleMapper.queryCreditBondPoolList：parent_id=1 且 credit_bond 二级池 inner_sort 1～5。",
                     "status": "待整改"
                 },
                 {
                     "q": "谁改过矩阵？",
                     "a": "硬删除重建，无事件表，难审计。",
                     "status": "待整改"
+                },
+                {
+                    "q": "观察名单？",
+                    "a": "老系统 openrule 跳过矩阵；新系统标准最好档封顶，不跳过。",
+                    "status": "有意差异"
+                },
+                {
+                    "q": "已在库不符？",
+                    "a": "定时 bond_grade_inconformity_alert 写待办；我的事宜第三页签处理，不自动出池。",
+                    "status": "已落地"
                 }
             ]
         },
@@ -627,10 +637,28 @@ new Vue({
                     "status": "已对齐重构"
                 },
                 {
-                    "dim": "跳过",
-                    "oldScope": "观察池/可转债等",
-                    "newScope": "调库侧保留跳过分支",
+                    "dim": "观察名单",
+                    "oldScope": "ASTRICTPOOLS→openrule 跳过矩阵",
+                    "newScope": "券或主体在 observe 时按标准最好档封顶",
+                    "status": "有意差异"
+                },
+                {
+                    "dim": "特殊债",
+                    "oldScope": "私募/永续/次级/ABS 等降档分支",
+                    "newScope": "CreditBondSpecialInboundRule 在标准最好档上至少下调一级；重点观察禁新增",
+                    "status": "已落地"
+                },
+                {
+                    "dim": "可跳过",
+                    "oldScope": "可转债等",
+                    "newScope": "可转债 / releaseRules 仍可跳过矩阵",
                     "status": "部分对齐"
+                },
+                {
+                    "dim": "不符提醒",
+                    "oldScope": "InconformityMaingrade*Job",
+                    "newScope": "bond_grade_inconformity_alert + 我的事宜第三页签",
+                    "status": "已对齐意图"
                 },
                 {
                     "dim": "主键",
@@ -645,14 +673,20 @@ new Vue({
         {
             "level": "P1",
             "title": "评级池依赖 parent_id=1",
-            "desc": "迁移主键变化导致无可选池。",
-            "suggestion": "按稳定根池编码/类型查询。"
+            "desc": "queryCreditBondPoolList 写死 parent_id=1 + pool_type=credit_bond + pool_level=2 + inner_sort 1～5；大库根非 id=1 时矩阵可选池为空。",
+            "suggestion": "按稳定根池编码/类型查询，去掉演示主键依赖。"
         },
         {
             "level": "P2",
             "title": "矩阵无事件审计",
             "desc": "硬删除重建无法回看删除人。",
             "suggestion": "版本或 _evt 表。"
+        },
+        {
+            "level": "P2",
+            "title": "特殊债与观察封顶已在调库侧落地",
+            "desc": "维护页只管标准矩阵；运行时 CreditBondSpecialInboundRule + inCheckMainGradeRule 叠加。",
+            "suggestion": "业务文档与调库对比页保持同步，避免再写「观察跳过」。"
         }
     ],
     "checks": [
@@ -665,15 +699,31 @@ new Vue({
             "expected": "调入被拦。"
         },
         {
+            "scene": "观察封顶",
+            "expected": "观察名单券/主体不可越过标准最好档。"
+        },
+        {
+            "scene": "重点观察",
+            "expected": "禁止新增分级库（强担保豁免）；已在库只能去五级或出库。"
+        },
+        {
             "scene": "批量放开",
             "expected": "仅矩阵跳过，容量等仍拦。"
+        },
+        {
+            "scene": "不符提醒",
+            "expected": "定时扫描写入 ip_grade_rule_alert；我的事宜可处理，不自动改池。"
         }
     ],
     "sources": [
         "requirements/23-credit-bond-grade-rule.md",
+        "requirements/04-security-pool-adjust.md",
+        "requirements/29-scheduled-task.md",
         "CreditBondGradeRuleService/Mapper",
+        "CreditBondSpecialInboundRule",
+        "GradeRuleAlertService",
         "docs/credit-bond-grade-rule-tables.html",
-        "docs/rule-rating-temp-audit.html"
+        "docs/grade-rule-alert-tables.html"
     ],
     "related": [
         [
@@ -693,8 +743,16 @@ new Vue({
             "security-pool-adjust-old-new-comparison.html"
         ],
         [
+            "我的事宜新老对比",
+            "my-matters-old-new-comparison.html"
+        ],
+        [
             "业务文档·评分档规则",
             "credit-bond-grade-rule-tables.html"
+        ],
+        [
+            "业务文档·不符分级规则提醒",
+            "grade-rule-alert-tables.html"
         ]
     ],
     "tag": "主体内评分档规则"

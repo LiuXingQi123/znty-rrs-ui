@@ -528,7 +528,7 @@ new Vue({
             "唯一落池状态"
         ],
         [
-            "2026-08-08",
+            "2026-08-16",
             "分析日期"
         ]
     ],
@@ -552,10 +552,10 @@ new Vue({
     ],
     "flowTitle": "单券调库工作流总览",
     "flowSub": "新老意图一致：选标的 → 校验 → 写申请 → 审批/直通 → 仅通过落池。新系统把联动/互斥前移到校验阶段生成自动项，落池统一加锁复核。",
-    "alertHtml": "<b>直接结论：</b>主链路已大体对齐：池组待处理（pending）、锁池、容量、来源池、限制池、报告来源、互斥反阻断、弹性禁投警告放行均已落地。仍须关注：条件路由/自动任务/通知预留、身份靠前端、行业名称匹配、股票分管人未迁、冻结缺时间四链路已统一阻断（原批量/CRMW/主体差异已修复）。",
+    "alertHtml": "<b>直接结论：</b>主链路已大体对齐：池组待处理（pending）、锁池、容量、来源池、限制池、报告、互斥反阻断、弹性 warning 均已落地。评级矩阵/观察封顶/特殊债见下表（有意差异与暂缓项）。仍须关注：身份靠前端、条件路由预留、分管人/自定义研报未迁、白名单空集、简易⑤未启用。",
     "issuesSub": "聚焦单券路径与老 investpool 的关键差异，以及仍待整改项。",
-    "checksSub": "覆盖预校验、提交、直通与非直通、最终通过与查询回看。",
-    "relatedSub": "需求 04/05/11、SecurityPoolAdjust* 与业务体检页。",
+    "checksSub": "覆盖预校验、提交、直通与非直通、矩阵/观察、最终通过与查询回看。",
+    "relatedSub": "需求 04/05/11、validation/flow-type/credit-bond 专题与业务体检页。",
     "tables": [
         {
             "title": "一句话结论",
@@ -590,7 +590,7 @@ new Vue({
                 },
                 {
                     "q": "校验在哪做？",
-                    "a": "checkAdjust 做全量静态+动态规则；提交（submit）保留防重复与待处理（pending）；最终落池只复核动态状态（容量、在池、限制、冻结等）。",
+                    "a": "checkAdjust 做全量规则（含矩阵/特殊债/观察封顶）；submit 防重复、pending、互斥配套与报告；终审/直通只复核动态子集（容量、在池、限制、冻结等），不重跑矩阵与特殊债。",
                     "status": "分层重构"
                 },
                 {
@@ -602,6 +602,80 @@ new Vue({
                     "q": "互斥配套失败？",
                     "a": "互斥调出失败反阻断同组手工调入；信用债大库默认不强制 special-inbound。",
                     "status": "已对齐"
+                },
+                {
+                    "q": "观察名单怎么拦分级库？",
+                    "a": "老：openrule 跳过矩阵。新：标准最好档封顶（CreditBondSpecialInboundRule），不跳过。",
+                    "status": "有意差异"
+                },
+                {
+                    "q": "简易/白名单流程？",
+                    "a": "白名单：骨架有、WHITELIST_POOL_IDS 空集条件4不命中。简易：①–④参与，⑤评级注释；④须近180天有非简易入库（软删仍计）。",
+                    "status": "部分对齐"
+                }
+            ]
+        },
+        {
+            "title": "评级矩阵 / 流程候选（新老差异）",
+            "sub": "与 validation-comparison、flow-type、credit-bond 专题交叉；此处只记单券路径要点。",
+            "columns": [
+                [
+                    "dim",
+                    "维度",
+                    140
+                ],
+                [
+                    "oldScope",
+                    "老系统",
+                    280
+                ],
+                [
+                    "newScope",
+                    "新系统",
+                    300
+                ],
+                [
+                    "status",
+                    "对齐度",
+                    120
+                ]
+            ],
+            "rows": [
+                {
+                    "dim": "主体债入库矩阵",
+                    "oldScope": "IP_MainGradeRule + 观察跳过/特殊债分支",
+                    "newScope": "矩阵 + 特殊债下调 + 观察封顶 + 重点观察禁新增",
+                    "status": "有意差异/已落地"
+                },
+                {
+                    "dim": "特殊债",
+                    "oldScope": "私募/永续/次级/ABS 等降档",
+                    "newScope": "CreditBondSpecialInboundRule 标准最好档至少下调一级",
+                    "status": "已落地"
+                },
+                {
+                    "dim": "互斥特殊审批",
+                    "oldScope": "IncompatiblePoolWfmode 可配置",
+                    "newScope": "bond:special-inbound 常量；信用债大库排除",
+                    "status": "部分对齐"
+                },
+                {
+                    "dim": "白名单流程",
+                    "oldScope": "WHITEPOOLID 真查库",
+                    "newScope": "5条件骨架，空集永不命中",
+                    "status": "部分对齐"
+                },
+                {
+                    "dim": "简易流程",
+                    "oldScope": "多条件+约1年历史表",
+                    "newScope": "①–④生效；⑤注释；④须近180天有非简易入库",
+                    "status": "部分对齐"
+                },
+                {
+                    "dim": "分管人/自定义研报",
+                    "oldScope": "IsManage、RschDocMode>100",
+                    "newScope": "未迁移",
+                    "status": "未迁移"
                 }
             ]
         },
@@ -736,10 +810,10 @@ new Vue({
             "suggestion": "页面标注暂未启用，或实现执行器后再开放配置。"
         },
         {
-            "level": "P1",
-            "title": "行业限制名称匹配脆弱",
-            "desc": "security.industryName 与 pool.industryCode 精确比较，易因编码/名称不一致误拦或漏拦。",
-            "suggestion": "统一业务行业编码字典后再作为硬规则。"
+            "level": "P2",
+            "title": "行业校验已注释未启用",
+            "desc": "inCheckIndustry 实现为 industry_name==industry_code，但四链路调用处已注释，当前不触发。若放开则存在名称 vs 编码错配风险。",
+            "suggestion": "启用前先补行业编码主数据与层级匹配，再放开调用。"
         },
         {
             "level": "P2",
@@ -805,6 +879,10 @@ new Vue({
         [
             "调库流程类型对比",
             "flow-type-comparison-audit.html"
+        ],
+        [
+            "主体内评分档规则新老对比",
+            "credit-bond-grade-rule-old-new-comparison.html"
         ],
         [
             "老项目债券池调库链路",

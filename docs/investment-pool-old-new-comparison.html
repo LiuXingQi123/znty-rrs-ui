@@ -513,7 +513,7 @@ new Vue({
     data() {
         return {
     "title": "RRS配置 · 投资池维护新老对比",
-    "desc": "对照老投资池配置与新 RRS「投资池维护」：池树、关系、六类流程绑定、锁池、调入冻结期、容量、三类人员权限，以及行业/基金评分/开放日开关等仍隐藏的配置字段。",
+    "desc": "对照老投资池配置与新 RRS「投资池维护」：池树、关系、六类流程绑定、锁池、调入冻结期、容量、三类人员权限，以及行业/基金评分/开放日开关等仍隐藏或运行时未启用的配置字段。",
     "metrics": [
         [
             "9",
@@ -528,7 +528,7 @@ new Vue({
             "权限类型"
         ],
         [
-            "2026-08-08",
+            "2026-08-17",
             "分析日期"
         ]
     ],
@@ -548,7 +548,7 @@ new Vue({
     ],
     "flowTitle": "投资池配置消费总览",
     "flowSub": "维护页写配置，调库/查询读配置。删除缺引用检查仍是 P0。",
-    "alertHtml": "<b>直接结论：</b>锁池与调入冻结期已可维护并被运行时消费；MarketCode 权威 code 已统一；poolType 可编辑（仅当前节点不级联子树）、poolCode 新增/编辑均校验未删除范围内唯一；PoolType 扩展业务域枚举，风险池为四元（forbidden/observe/blacklist/restricted）。仍须整改：删除不检查调库引用；行业/基金评分/开放日开关在 BO 有字段但维护接口/页未开放；容量保存不校验当前在池数；poolName 同父级仍无唯一校验。",
+    "alertHtml": "<b>直接结论：</b>锁池与调入冻结期已可维护并被运行时消费；MarketCode 权威 code 已统一；poolType 可编辑（仅当前节点不级联子树）、poolCode 新增/编辑均校验未删除范围内唯一；PoolType 扩展业务域枚举，风险池为四元（forbidden/observe/blacklist/restricted）。仍须整改：删除不检查调库引用；行业/基金评分/开放日开关在 BO 有字段但维护接口/页未开放；行业校验运行时整段注释；基金评分仅 check 阶段、submit 不带 fundRate；容量保存不校验当前在池数；poolName 同父级仍无唯一校验。",
     "issuesSub": "配置完备性与删除安全。",
     "checksSub": "保存回显、运行时生效、删除拦截。",
     "relatedSub": "需求 02、InvestmentPool*、investment-pool-permission-audit。",
@@ -587,6 +587,11 @@ new Vue({
                     "q": "开放日开关？",
                     "a": "库表/BO 有 openDayAdjust，维护页与 Req 未开放；开放日区间走独立开放日页。",
                     "status": "按范围暂缓"
+                },
+                {
+                    "q": "行业/基金评分？",
+                    "a": "industryCode/fundRateLimit 仅 BO 有字段、Req/页不可维护；inCheckIndustry 在 checkCommonIn 整段注释；基金评分仅 checkAdjust 可拦，submit 不携带 fundRate。",
+                    "status": "隐藏且未全开"
                 },
                 {
                     "q": "删除安全？",
@@ -665,6 +670,18 @@ new Vue({
                     "consumer": "申请附件校验",
                     "rule": "none/any/internal + 真实来源",
                     "status": "已对齐增强"
+                },
+                {
+                    "config": "行业限制",
+                    "consumer": "证券调入 checkCommonIn",
+                    "rule": "inCheckIndustry 方法保留但调用已注释，不生效",
+                    "status": "运行时关闭"
+                },
+                {
+                    "config": "基金评分",
+                    "consumer": "基金 checkFundIn",
+                    "rule": "fundRateLimit 表达式仅 check 阶段；submit 不带 fundRate",
+                    "status": "分层/未全开"
                 }
             ]
         },
@@ -723,9 +740,9 @@ new Vue({
         },
         {
             "level": "P2",
-            "title": "行业/基金评分/开放日开关隐藏",
-            "desc": "InvestmentPoolReq 未开放，页面不可维护。",
-            "suggestion": "上线前补入口或明确仅用独立开放日页。"
+            "title": "行业/基金评分/开放日：维护隐藏且运行时未全开",
+            "desc": "InvestmentPoolReq 未开放 openDayAdjust/industryCode/fundRateLimit，页面不可维护。行业：SecurityPoolAdjustService.checkCommonIn 中 inCheckIndustry 调用已注释。基金：checkFundIn 读 fundRateLimit，但 submit 不携带 fundRate 且不再次校验。",
+            "suggestion": "产品确认是否启用；启用前补维护入口，并统一 check/submit/终审口径。"
         },
         {
             "level": "P1",
@@ -809,7 +826,7 @@ new Vue({
         statusTagType(status) {
             if (!status) return 'info'
             if (status.indexOf('对齐') > -1 || status.indexOf('一致') > -1 || status.indexOf('明确') > -1 || status.indexOf('已修复') > -1 || status.indexOf('可接受') > -1) return 'success'
-            if (status.indexOf('不同') > -1 || status.indexOf('不一致') > -1 || status.indexOf('未迁移') > -1 || status.indexOf('收窄') > -1 || status.indexOf('合并') > -1 || status.indexOf('重构') > -1 || status.indexOf('更严') > -1 || status.indexOf('部分') > -1 || status.indexOf('时机') > -1 || status.indexOf('分层') > -1 || status.indexOf('体验') > -1 || status.indexOf('待整改') > -1 || status.indexOf('模型') > -1 || status.indexOf('产品') > -1 || status.indexOf('既定') > -1 || status.indexOf('增强') > -1 || status.indexOf('固定') > -1 || status.indexOf('独立') > -1 || status.indexOf('预留') > -1 || status.indexOf('暂缓') > -1 || status.indexOf('隐藏') > -1) return 'warning'
+            if (status.indexOf('不同') > -1 || status.indexOf('不一致') > -1 || status.indexOf('未迁移') > -1 || status.indexOf('收窄') > -1 || status.indexOf('合并') > -1 || status.indexOf('重构') > -1 || status.indexOf('更严') > -1 || status.indexOf('部分') > -1 || status.indexOf('时机') > -1 || status.indexOf('分层') > -1 || status.indexOf('体验') > -1 || status.indexOf('待整改') > -1 || status.indexOf('模型') > -1 || status.indexOf('产品') > -1 || status.indexOf('既定') > -1 || status.indexOf('增强') > -1 || status.indexOf('固定') > -1 || status.indexOf('独立') > -1 || status.indexOf('预留') > -1 || status.indexOf('暂缓') > -1 || status.indexOf('隐藏') > -1 || status.indexOf('运行时') > -1 || status.indexOf('未全开') > -1) return 'warning'
             if (status.indexOf('风险') > -1 || status.indexOf('失败') > -1) return 'danger'
             return 'info'
         },

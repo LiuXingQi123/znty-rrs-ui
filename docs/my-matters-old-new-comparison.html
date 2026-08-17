@@ -394,7 +394,7 @@
 <div id="my_matters_old_new" class="docs-business-issue-page">
     <header class="doc-header">
         <div class="wrap">
-            <p class="kicker">ZNTY RRS · 审核详情 · 业务问题专题</p>
+            <p class="kicker">ZNTY RRS · RRS配置 · 业务问题专题</p>
             <h1>{{ title }}</h1>
             <p class="desc">{{ desc }}</p>
             <el-row v-if="metrics.length" :gutter="10" class="stats">
@@ -512,8 +512,8 @@ new Vue({
     el: '#my_matters_old_new',
     data() {
         return {
-    "title": "审核详情 · 我的事宜新老对比",
-    "desc": "对照老待办工作台与新 RRS「我的事宜」：待办/已办汇总、第三页签分级规则提醒、证券/禁投/CRMW 场景跳转、待处理（pending）步骤定位、抢占会签入口与身份来源风险。",
+    "title": "RRS配置 · 我的事宜新老对比",
+    "desc": "对照老待办工作台与新 RRS「我的事宜」：待办/已办汇总、第三页签分级规则提醒、证券/禁投/CRMW 场景跳转、ABS 债归证券审核、待处理（pending）步骤定位、抢占会签入口与身份来源风险。",
     "metrics": [
         [
             "3",
@@ -528,7 +528,7 @@ new Vue({
             "审核页"
         ],
         [
-            "2026-08-08",
+            "2026-08-17",
             "分析日期"
         ]
     ],
@@ -541,14 +541,14 @@ new Vue({
     ],
     "stepHints": [
         "依赖请求用户 ID（暂缓）",
-        "证券/禁投/CRMW",
+        "证券/禁投主体/CRMW；ABS 归证券",
         "approve 页面带日志/步骤参数",
         "条件更新当前步骤",
         "已办列表"
     ],
     "flowTitle": "事宜工作台总览",
     "flowSub": "事宜是审批入口聚合页，不落池；真正推进在各链路 Flow Service。",
-    "alertHtml": "<b>直接结论：</b>三场景待办跳转与步骤待处理（pending）条件更新已具备；菜单已迁至工作台「RRS配置」分组下（2026-07-27）。P0：用户身份仍可由前端传入；禁投场景识别仍可能依赖固定池 ID。",
+    "alertHtml": "<b>直接结论：</b>三场景待办跳转与步骤待处理（pending）条件更新已具备；第三页签分级规则提醒已落地。菜单在「RRS配置」分组。P0：用户身份仍可由前端传入。禁投识别：优先 pool_type 四类，旧数据兜底池 ID 15/16/17/23。ABS 债（非 company）businessScene=securityAdjust，打开证券池审核页，不进禁投主体审核。",
     "issuesSub": "工作台与身份/场景识别。",
     "checksSub": "待办隔离、跳转正确、处理后消失。",
     "relatedSub": "需求 06、MyMatters*、approval-matters-audit。",
@@ -580,7 +580,7 @@ new Vue({
                 },
                 {
                     "q": "怎么进审核？",
-                    "a": "按业务类型打开证券/禁投/CRMW 审核页。",
+                    "a": "按 businessScene 打开证券/禁投主体/CRMW 审核页；ABS 债走 securityAdjust→证券池审核。",
                     "status": "已对齐"
                 },
                 {
@@ -590,8 +590,13 @@ new Vue({
                 },
                 {
                     "q": "禁投怎么识别？",
-                    "a": "部分逻辑仍用固定池债券禁止库(15)/观察池(16)/黑名单质押库(17)。",
-                    "status": "待整改"
+                    "a": "须 category_type=company 且（pool_type∈forbidden/observe/blacklist/restricted 或 target_pool_id∈(15,16,17,23)）。ABS 债 category 为 bond，不进 forbiddenCompanyAdjust。",
+                    "status": "部分对齐"
+                },
+                {
+                    "q": "第三页签是什么？",
+                    "a": "分级规则提醒：定时 bond_grade_inconformity_alert 写入待办；可标记处理/去调库；不自动出池。",
+                    "status": "已落地"
                 }
             ]
         },
@@ -650,9 +655,27 @@ new Vue({
         },
         {
             "level": "P1",
-            "title": "禁投场景固定池 ID",
-            "desc": "与禁投调整同源风险。",
-            "suggestion": "稳定 poolCode/类型识别。"
+            "title": "禁投场景仍有固定池 ID 兜底",
+            "desc": "MyMattersMapper 优先 pool_type 四类，旧数据兜底 target_pool_id IN (15,16,17,23)（已含重点观察）；且须 dict 上 category_type=company。",
+            "suggestion": "生产尽量写齐 pool_type；长期用稳定 poolCode。"
+        },
+        {
+            "level": "P2",
+            "title": "ABS 债事宜走证券池审核",
+            "desc": "ABS 债申请 category_type≠company，businessScene 落 securityAdjust，前端打开 security_pool_adjust_approve/detail；主体禁投才进 forbidden 审核页。与 [26] ABS 独立入口并存，属既定分流。",
+            "suggestion": "验收：ABS 禁投申请从事宜进入证券审核页，不误开主体禁投审核。"
+        },
+        {
+            "level": "P2",
+            "title": "第三页签分级规则提醒已落地",
+            "desc": "gradeRuleAlert 页签查 ip_grade_rule_alert；定时 bond_grade_inconformity_alert 扫描；可标记处理/去调库；与审批待办隔离，不自动出池。",
+            "suggestion": "回归：扫描写入→事宜可见→处理后消失→去调库带证券代码。"
+        },
+        {
+            "level": "P2",
+            "title": "工作台新开页签跳转",
+            "desc": "处理/查看/去调库优先 RrsWorkbench.openDetailTab；脱离工作台才 location.href。",
+            "suggestion": "勿再按纯 iframe 内跳转验收。"
         }
     ],
     "checks": [
@@ -662,7 +685,7 @@ new Vue({
         },
         {
             "scene": "三场景跳转",
-            "expected": "证券/禁投/CRMW 分别打开正确审核页。"
+            "expected": "证券/禁投主体/CRMW 分别打开正确审核页；ABS 债打开证券审核页。"
         },
         {
             "scene": "处理后",

@@ -528,7 +528,7 @@ new Vue({
             "双校验"
         ],
         [
-            "2026-08-08",
+            "2026-08-17",
             "分析日期"
         ]
     ],
@@ -548,9 +548,9 @@ new Vue({
     ],
     "flowTitle": "开放日配置与消费",
     "flowSub": "开放日数据在本页维护；是否启用取决于池上 openDayAdjust（当前维护页未开放该开关时需库表/脚本配置）。",
-    "alertHtml": "<b>直接结论：</b>独立开放日表与调库校验已接通。差异：投资池维护页不配 openDayAdjust，易出现「配了区间但开关未开则永不校验」或相反。",
-    "issuesSub": "开关与区间入口分离。",
-    "checksSub": "区间命中/未命中、开关关闭。",
+    "alertHtml": "<b>直接结论：</b>独立开放日表与调库校验已接通。差异：投资池维护页不配 openDayAdjust，易出现「配了区间但开关未开则永不校验」或相反。开关开且无区间/不在区间时，统一失败文案「当前不在本池开放日内」。终审 recheck 不重跑开放日（既定分层）。",
+    "issuesSub": "开关与区间入口分离；空区间与终审分层。",
+    "checksSub": "区间命中/未命中、开关关闭、空区间。",
     "relatedSub": "需求 25、PoolOpenDay*、调库 open day 校验。",
     "tables": [
         {
@@ -590,8 +590,13 @@ new Vue({
                 },
                 {
                     "q": "审批中改区间？",
-                    "a": "最终落池不重跑开放日等静态规则（既定分层）。",
+                    "a": "最终落池 recheckBeforeFinalApproval 不重跑开放日等静态规则（既定分层）。",
                     "status": "既定口径"
+                },
+                {
+                    "q": "开关开但无区间？",
+                    "a": "queryPoolInOpenDay 为 false，与区间外相同，返回「当前不在本池开放日内」。",
+                    "status": "明确口径"
                 }
             ]
         },
@@ -631,6 +636,12 @@ new Vue({
                     "oldScope": "checkIn/Out",
                     "newScope": "预校验阶段；最终不重跑静态开放日",
                     "status": "分层重构"
+                },
+                {
+                    "dim": "开关入口",
+                    "oldScope": "池配置一体",
+                    "newScope": "区间独立页；openDayAdjust 投资池维护未开放",
+                    "status": "体验分离"
                 }
             ]
         }
@@ -639,14 +650,20 @@ new Vue({
         {
             "level": "P2",
             "title": "开关与区间维护分离",
-            "desc": "用户只配区间可能误以为已启用。",
+            "desc": "用户只配区间可能误以为已启用；开关须库表/脚本写 open_day_adjust=1。",
             "suggestion": "开放日页提示依赖 openDayAdjust，或投资池页补开关。"
         },
         {
             "level": "P2",
-            "title": "无区间时行为",
-            "desc": "开关开但无区间数据时的失败文案需明确。",
-            "suggestion": "验收覆盖空区间。"
+            "title": "空区间与区间外同文案",
+            "desc": "openDayAdjust=1 且当日无匹配区间（含完全未配区间）时，in/outCheckOpenDay 统一返回「当前不在本池开放日内」。",
+            "suggestion": "验收覆盖空区间；若需区分「未配置」可另加文案（产品决策）。"
+        },
+        {
+            "level": "P2",
+            "title": "终审不重跑开放日",
+            "desc": "recheckBeforeFinalApproval 只复核锁池/已在池/品种/来源/限制/禁投/容量/冻结等动态项，不含 openDay。",
+            "suggestion": "跨日审批验收按既定分层：申请日过、终审日不在开放日仍可落池。"
         }
     ],
     "checks": [
@@ -656,11 +673,19 @@ new Vue({
         },
         {
             "scene": "开关开+区间外",
-            "expected": "调入/调出被拦。"
+            "expected": "调入/调出被拦，文案「当前不在本池开放日内」。"
+        },
+        {
+            "scene": "开关开+无区间",
+            "expected": "与区间外相同，被拦且同文案。"
         },
         {
             "scene": "开关关",
             "expected": "有区间也不校验开放日。"
+        },
+        {
+            "scene": "跨日终审",
+            "expected": "申请日过开放日、终审日不在开放日：仍可按 recheck 子集通过（既定分层）。"
         }
     ],
     "sources": [

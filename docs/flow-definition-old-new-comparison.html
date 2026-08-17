@@ -528,7 +528,7 @@ new Vue({
             "节点专属配置"
         ],
         [
-            "2026-08-08",
+            "2026-08-17",
             "分析日期"
         ]
     ],
@@ -550,7 +550,7 @@ new Vue({
     ],
     "flowTitle": "流程配置到运行",
     "flowSub": "发布后调库按快照运行；条件表达式与通知发送仍为预留。",
-    "alertHtml": "<b>直接结论：</b>版本与画布模型完整；运行时以 routeAction/审批策略推进，发起人后多层 auto/auto 节点自动直通（AUTO_PROCESS 推进）至人工审批节点。P0：停用/删除缺完整在途引用检查。P1：条件路由 matches 固定 false，自动任务体不执行，通知只存配置（自动审批 AUTO_PROCESS 例外，已接通）。",
+    "alertHtml": "<b>直接结论：</b>版本与画布模型完整；运行时以 routeAction/审批策略推进，发起人后多层 auto/auto 节点自动直通（AUTO_PROCESS 推进）至人工审批节点。P0：停用有 TODO 不查在途；删除直接软删（is_deleted=1），无在途申请/投资池绑定引用检查。P1：条件路由 matchesConditionRoute 固定 false，自动任务体不执行，通知只存配置（自动审批 AUTO_PROCESS 例外，已接通）。",
     "issuesSub": "发布治理与预留能力。",
     "checksSub": "发布、调库命中、停用保护。",
     "relatedSub": "需求 01、FlowService、workflow-engine-audit。",
@@ -592,12 +592,12 @@ new Vue({
                 },
                 {
                     "q": "停用安全？",
-                    "a": "Service 仍有 TODO，未充分检查运行中申请。",
+                    "a": "editFlowStatus 有 TODO「检查运行中实例」，当前不拦截在途申请。",
                     "status": "待整改"
                 },
                 {
                     "q": "删除安全？",
-                    "a": "说明有引用不可删，实现可能直接软删。",
+                    "a": "deleteFlow 直接逻辑删除（is_deleted=1），无在途申请/投资池绑定等引用检查。",
                     "status": "待整改"
                 }
             ]
@@ -699,8 +699,8 @@ new Vue({
         {
             "level": "P0",
             "title": "停用/删除缺引用检查",
-            "desc": "在途申请或投资池绑定可能悬空。",
-            "suggestion": "停用前检查在途；删除检查绑定与历史策略。"
+            "desc": "停用：editFlowStatus 仅 TODO，不查在途。删除：deleteFlow 直接软删定义，不查 ip_adjust_log 快照引用与投资池流程绑定，可能产生悬空引用。",
+            "suggestion": "停用前检查在途；删除检查绑定与历史策略；或明确「已发布快照独立运行」并禁止删仍被池绑定的 flow。"
         },
         {
             "level": "P1",

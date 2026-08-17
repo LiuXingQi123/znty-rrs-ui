@@ -528,7 +528,7 @@ new Vue({
             "可放开规则"
         ],
         [
-            "2026-08-08",
+            "2026-08-16",
             "分析日期"
         ]
     ],
@@ -550,10 +550,10 @@ new Vue({
     ],
     "flowTitle": "批量调库工作流总览",
     "flowSub": "新系统整批一个事务：任一券失败全部回滚。流程候选与推荐与单券调库一致，不再使用批量专用流程。放开规则仅跳过主体评级×期限矩阵，其它硬规则仍执行。",
-    "alertHtml": "<b>直接结论：</b>流程与单券 checkAdjust 一致、放开规则、整批防重复、互斥反阻断、直通落池保护已对齐。差异点：失败只暴露首个异常；列表未强制仅债券大类。",
-    "issuesSub": "批量独有边界与相对单券的漂移点。",
-    "checksSub": "整批成功/中途失败、放开规则、批量直通与审批。",
-    "relatedSub": "需求 12、BatchSecurityPoolAdjust* 与体检页。",
+    "alertHtml": "<b>直接结论：</b>流程与单券 checkAdjust 一致、放开规则、整批防重复、互斥反阻断、直通落池保护已对齐。因委托单券，故共享单券未完成项：白名单空集、简易⑤未启用、观察封顶有意差异、分管人/自定义研报未迁。批量独有差异：失败只暴露首个异常；列表未强制仅债券大类。",
+    "issuesSub": "批量独有边界 + 与单券共享的未完成项。",
+    "checksSub": "整批成功/中途失败、放开规则、批量直通与审批、继承单券流程/矩阵。",
+    "relatedSub": "需求 12、证券池调整新老对比、flow-type/validation 专题。",
     "tables": [
         {
             "title": "一句话结论",
@@ -590,6 +590,11 @@ new Vue({
                     "q": "放开规则放什么？",
                     "a": "releaseRules=yes 仅跳过主体评级×期限矩阵；容量、来源池、硬限制、禁投等仍执行。",
                     "status": "已对齐"
+                },
+                {
+                    "q": "是否继承单券未完成项？",
+                    "a": "是。观察封顶/特殊债/简易①–④与⑤注释/白名单空集/分管人未迁等与单券同一套 SecurityPoolAdjustService。",
+                    "status": "共享口径"
                 },
                 {
                     "q": "和单券重复提交？",
@@ -656,7 +661,7 @@ new Vue({
                 {
                     "dim": "冻结缺时间",
                     "oldScope": "通常有入池时间",
-                    "newScope": "Batch outCheckFrozenPeriod entryTime 空则阻断（已对齐单券）",
+                    "newScope": "委托单券 SecurityPoolAdjustService.outCheckFrozenPeriod；entryTime 空返回「证券入池生效时间缺失」",
                     "status": "已对齐"
                 }
             ]
@@ -707,10 +712,10 @@ new Vue({
     ],
     "findings": [
         {
-            "level": "P1",
-            "title": "冻结缺时间已对齐单券（已修复）",
-            "desc": "BatchSecurityPoolAdjustService.outCheckFrozenPeriod 在 entryTime 为空时返回阻断（已对齐单券）；单券原提示“入池生效时间缺失”。",
-            "suggestion": "四链路统一缺时间阻断。"
+            "level": "P2",
+            "title": "冻结缺时间已委托单券（已对齐）",
+            "desc": "批量无独立 outCheckFrozenPeriod；走 SecurityPoolAdjustService 校验/提交路径，entryTime 为空时阻断并提示「证券入池生效时间缺失」。",
+            "suggestion": "回归：缺入池时间的在池券批量调出应失败且整批回滚。"
         },
         {
             "level": "P2",
