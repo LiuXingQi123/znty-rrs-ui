@@ -781,7 +781,7 @@
         </div>
 
         <div class="detail-body" v-loading="absDetailLoading">
-            <!-- 证券基本信息（只读） -->
+            <!-- 证券基本信息（与证券池调库对齐：步骤1可编辑，步骤2只读） -->
             <div class="section-card">
                 <div class="section-header" @click="toggleAbsSection('bondInfo')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
@@ -791,61 +791,117 @@
                 <div v-show="absSectionExpanded.bondInfo" style="padding:0;">
                     <el-descriptions :column="3" border size="small" class="bond-info-descriptions">
                         <el-descriptions-item label="证券全称">
-                            <el-input v-model.trim="absBondDetail.fullName" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.fullName" size="small" placeholder="请输入" disabled maxlength="100"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券简称">
-                            <el-input v-model.trim="absBondDetail.shortName" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.shortName" size="small" placeholder="请输入" disabled maxlength="100"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券代码">
-                            <el-input v-model.trim="absBondDetail.windCode" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.windCode" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="发行人名称">
-                            <el-input v-model.trim="absBondDetail.issuer" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.issuer" size="small" placeholder="请输入" disabled maxlength="30"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="银行间代码">
-                            <el-input v-model.trim="absBondDetail.windCodeNib" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.windCodeNib" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="沪市证券代码">
-                            <el-input v-model.trim="absBondDetail.windCodeSh" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.windCodeSh" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="深市证券代码">
-                            <el-input v-model.trim="absBondDetail.windCodeSz" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.windCodeSz" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="北交所代码">
-                            <el-input v-model.trim="absBondDetail.windCodeBj" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.windCodeBj" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="发行总额(亿元)">
-                            <el-input v-model.trim="absBondDetail.issueAmountplan" size="small" disabled></el-input>
+                            <el-input type="number" v-model="absBondDetail.issueAmountplan" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="12"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="当期利率(%)">
-                            <el-input v-model.trim="absBondDetail.couponRate" size="small" disabled></el-input>
+                            <el-input type="number" v-model="absBondDetail.couponRate" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="含权期限说明">
-                            <el-input v-model.trim="absBondDetail.maturityembeddedDesc" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.maturityembeddedDesc" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="255"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="起息日期">
-                            <el-input v-model.trim="absBondDetail.carryDate" size="small" disabled></el-input>
+                            <el-date-picker
+                                    v-model="absBondDetail.carryDate"
+                                    type="date"
+                                    size="small"
+                                    format="yyyy-MM-dd"
+                                    value-format="yyyyMMdd"
+                                    placeholder="请选择"
+                                    class="detail-date-picker"
+                                    :disabled="absAdjustStep === 2">
+                            </el-date-picker>
                         </el-descriptions-item>
                         <el-descriptions-item label="到期日">
-                            <el-input v-model.trim="absBondDetail.maturityDate" size="small" disabled></el-input>
+                            <el-date-picker
+                                    v-model="absBondDetail.maturityDate"
+                                    type="date"
+                                    size="small"
+                                    format="yyyy-MM-dd"
+                                    value-format="yyyyMMdd"
+                                    placeholder="请选择"
+                                    class="detail-date-picker"
+                                    :disabled="absAdjustStep === 2">
+                            </el-date-picker>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="质押比率(%)">
+                            <el-input type="number" v-model="absBondDetail.infoPledgeRatio" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="12"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="评级机构">
+                            <el-input v-model.trim="absBondDetail.ratingBondAgency" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="50"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券评级">
-                            <el-input v-model.trim="absBondDetail.ratingBond" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.ratingBond" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="10"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主体评级">
-                            <el-input v-model.trim="absBondDetail.ratingBondissuer" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.ratingBondissuer" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="10"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="展望评级">
+                            <el-input v-model.trim="absBondDetail.ratingOutlook" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="10"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="担保人*">
+                            <el-select v-if="absGuarantorOptions.length > 0" v-model="absBondDetail.selectedGuarantorCode"
+                                       size="small" placeholder="请选择担保人" style="width:100%;"
+                                       :disabled="absAdjustStep === 2">
+                                <el-option v-for="opt in absGuarantorOptions" :key="opt.code"
+                                           :label="opt.name" :value="opt.code"></el-option>
+                            </el-select>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="主承销商">
+                            <el-input v-model.trim="absBondDetail.agencyName" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="50"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主体内评分档">
-                            <el-input v-model.trim="absBondDetail.innerIssuerRating" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.innerIssuerRating" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券类型">
-                            <el-input v-model.trim="absBondDetail.securityTypeName" size="small" disabled></el-input>
+                            <el-input v-model.trim="absBondDetail.securityTypeName" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="20"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="赎回行权剩余期限(年)">
+                            <el-input type="number" v-model="absBondDetail.dateCallExists" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="10"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="担保人主体内评分">
+                            <el-input v-model.trim="absBondDetail.innerGuarantorRating" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="20"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="含权债剩余期限(年)">
+                            <el-input type="number" v-model="absBondDetail.dateInrightExists" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="10"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="剩余期限(天)">
                             <div class="date-exists-field">
-                                <el-input v-model.trim="absBondDetail.dateExists" size="small" disabled></el-input>
+                                <el-input type="number" v-model="absBondDetail.dateExists" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="10"></el-input>
                                 <span v-if="formatRemainTermYears(absBondDetail.dateExists) !== ''" class="date-exists-years">{{ formatRemainTermYears(absBondDetail.dateExists) }}年</span>
                             </div>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="募集资金用途" :span="3">
+                            <el-input type="textarea" :rows="3" v-model="absBondDetail.fundUse" size="small" placeholder="请输入" maxlength="1000" show-word-limit :disabled="absAdjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="提示原因" :span="3">
+                            <el-input type="textarea" :rows="3" v-model="absBondDetail.promptReason" size="small" placeholder="请输入" maxlength="500" show-word-limit :disabled="absAdjustStep === 2"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券分析" :span="3">
+                            <el-input type="textarea" :rows="3" v-model="absBondDetail.analysis" size="small" placeholder="请输入" maxlength="500" show-word-limit :disabled="absAdjustStep === 2"></el-input>
                         </el-descriptions-item>
                     </el-descriptions>
                 </div>
@@ -1931,6 +1987,10 @@
                 return this.absValidManualAdjustReviewList.length > 0
                     && this.absValidManualAdjustReviewList.every(row => !!this.selectedRowFlowOption(row));
             },
+            // ABS 担保人下拉选项：由 guarantorId（代码，逗号分隔）与 guarantor（名称，逗号分隔）按位置配对
+            absGuarantorOptions() {
+                return this.parseGuarantorOptions(this.absBondDetail.guarantorId, this.absBondDetail.guarantor);
+            },
         },
         // 页面初始化：带主体/ABS 代码时筛出并进入该对象
         created() {
@@ -1958,6 +2018,20 @@
                 const n = Number(days);
                 if (!isFinite(n)) return '';
                 return (n / 365).toFixed(4);
+            },
+            // 空字符串转 null，便于数值字段提交
+            toNullableNumber(val) {
+                if (val === '' || val === undefined || val === null) {
+                    return null;
+                }
+                return val;
+            },
+            // 解析担保人下拉选项：guarantorId（代码，逗号分隔）与 guarantor（名称，逗号分隔）按位置配对
+            parseGuarantorOptions(guarantorId, guarantor) {
+                const codes = (guarantorId || '').split(',').map(s => s.trim()).filter(s => s !== '');
+                if (codes.length === 0) return [];
+                const names = (guarantor || '').split(',').map(s => s.trim());
+                return codes.map((code, idx) => ({ code, name: names[idx] || code }));
             },
             // 列表 Tab 切换：主体 loadList / ABS absLoadList
             handleListTabClick() {
@@ -3427,6 +3501,9 @@
                         this.apiPost('/api/v1/forbiddenAbsPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode })
                     ]);
                     this.absBondDetail = detail || {};
+                    // 担保人下拉默认值：单担保人默认选中，多担保人默认不选（下一步校验提示选择）
+                    const absGuarantorOpts = this.parseGuarantorOptions(detail && detail.guarantorId, detail && detail.guarantor);
+                    this.$set(this.absBondDetail, 'selectedGuarantorCode', absGuarantorOpts.length === 1 ? absGuarantorOpts[0].code : '');
                     this.absSecurityCurrentPools = (poolStatus && poolStatus.securityCurrentPools) || [];
                     this.absIssuerCurrentPools = (poolStatus && poolStatus.issuerCurrentPools) || [];
 
@@ -3688,6 +3765,11 @@
                     this.$message.warning('请至少选择一个调入或调出投资池');
                     return;
                 }
+                // 担保人选择校验：有担保人时必须选择一个（多担保人默认不选，此处提示）
+                if (this.absGuarantorOptions.length > 0 && !this.absBondDetail.selectedGuarantorCode) {
+                    this.$message.warning('请选择担保人');
+                    return;
+                }
                 this.absAdjustCheckLoading = true;
                 const currentSeq = ++this.absAdjustCheckSeq;
                 try {
@@ -3695,6 +3777,7 @@
                         securityCode: this.absBondDetail.windCode || '',
                         securityShortName: this.absBondDetail.shortName || '',
                         securityType: this.absBondDetail.securityType || '',
+                        guarantorCode: this.absBondDetail.selectedGuarantorCode || '',
                         items
                     };
                     const result = await this.apiPost('/api/v1/forbiddenAbsPoolAdjust/checkAdjust', checkParams);
@@ -3789,16 +3872,25 @@
                     windCodeSh: this.absBondDetail.windCodeSh,
                     windCodeSz: this.absBondDetail.windCodeSz,
                     windCodeBj: this.absBondDetail.windCodeBj,
-                    issueAmountplan: this.absBondDetail.issueAmountplan,
-                    couponRate: this.absBondDetail.couponRate,
+                    issueAmountplan: this.toNullableNumber(this.absBondDetail.issueAmountplan),
+                    couponRate: this.toNullableNumber(this.absBondDetail.couponRate),
                     maturityembeddedDesc: this.absBondDetail.maturityembeddedDesc,
-                    dateInrightExists: this.absBondDetail.dateInrightExists,
+                    dateInrightExists: this.toNullableNumber(this.absBondDetail.dateInrightExists),
                     carryDate: this.absBondDetail.carryDate,
                     maturityDate: this.absBondDetail.maturityDate,
+                    infoPledgeRatio: this.toNullableNumber(this.absBondDetail.infoPledgeRatio),
+                    ratingBondAgency: this.absBondDetail.ratingBondAgency,
                     ratingBond: this.absBondDetail.ratingBond,
                     ratingBondissuer: this.absBondDetail.ratingBondissuer,
+                    ratingOutlook: this.absBondDetail.ratingOutlook,
+                    agencyName: this.absBondDetail.agencyName,
                     innerIssuerRating: this.absBondDetail.innerIssuerRating,
-                    dateExists: this.absBondDetail.dateExists
+                    dateCallExists: this.toNullableNumber(this.absBondDetail.dateCallExists),
+                    innerGuarantorRating: this.absBondDetail.innerGuarantorRating,
+                    dateExists: this.toNullableNumber(this.absBondDetail.dateExists),
+                    fundUse: this.absBondDetail.fundUse,
+                    promptReason: this.absBondDetail.promptReason,
+                    analysis: this.absBondDetail.analysis
                 };
                 const payload = {
                     securityCode: this.absBondDetail.windCode || '',
