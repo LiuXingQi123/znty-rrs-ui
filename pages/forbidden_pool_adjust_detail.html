@@ -1597,12 +1597,18 @@
                 try {
                     const inPoolParams = { companyCode: companyCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
                     const outPoolParams = { companyCode: companyCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
+                    // 有批次：同批主体行一起展示；adjustLogId 仅用于选中原因/流程（后端有批时不按 id 缩窄列表）。
+                    // 无批次时后端会排除终态（调库页面/调库入口未带批次时的查询）；adjust 模式 UI 常不展示调库记录区，但仍一并请求。
+                    const logReq = { companyCode: companyCode, adjustBatchNo: this.selectedAdjustBatchNo };
+                    if (this.selectedAdjustLogId) {
+                        logReq.adjustLogId = this.selectedAdjustLogId;
+                    }
                     const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyDetail',     { companyCode: companyCode }),
                         this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustPoolList', inPoolParams),
                         this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustPoolList', outPoolParams),
                         this.apiPost('/api/v1/forbiddenPoolAdjust/queryCompanyPoolStatus', { companyCode: companyCode }),
-                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustLogList',  { companyCode: companyCode, adjustBatchNo: this.selectedAdjustBatchNo })
+                        this.apiPost('/api/v1/forbiddenPoolAdjust/queryAdjustLogList', logReq)
                     ]);
                     this.companyDetail    = detail  || {};
                     // 当前所在池
@@ -1666,11 +1672,18 @@
                 this.refreshTableLayout('adjustLogTable');
             },
             /**
-             * 从调库记录回填调整原因、调整建议
-             * 同一次提交各 log 原因/建议一致，取列表首条即可
+             * 从调库记录回填调整原因、调整建议。
+             * 历史跳转优先选中 adjustLogId 对应行；否则取列表首条（同批原因通常一致）。
              */
             fillReasonAdviceFromLogs(adjustLogList) {
-                const log = (adjustLogList || [])[0];
+                const list = adjustLogList || [];
+                let log = null;
+                if (this.selectedAdjustLogId) {
+                    log = list.find(item => String(item.id) === String(this.selectedAdjustLogId)) || null;
+                }
+                if (!log) {
+                    log = list[0];
+                }
                 if (!log) return;
                 this.adjustReason = log.adjustReason || '';
                 this.adjustAdvice = log.adjustAdvice || '';
