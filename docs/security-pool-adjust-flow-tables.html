@@ -686,7 +686,7 @@
                     <h3>请求与分页</h3>
                     <ul>
                         <li>筛选字段：<code>securityCode</code>、<code>securityShortName</code>、<code>securityType</code>、<code>issuer</code>。</li>
-                        <li>证券类型下拉来自 <code>POST /api/v1/securityPoolAdjust/querySecurityTypeList</code>，关联 <code>rrs_securityinfo</code> 与 <code>dict_security_type</code>，与列表同口径（排除 <code>crmw</code>/<code>company</code> 及已删除态）。</li>
+                        <li>证券类型下拉来自 <code>POST /api/v1/securityPoolAdjust/querySecurityTypeList</code>，关联 <code>rrs_securityinfo</code> 与 <code>dict_security_type</code>，与列表同口径：仅 <code>category_type=bond</code>，并排除 <code>crmw</code>（字典归 bond）及已删除态；<code>company</code> 本就非 bond，无需再排。</li>
                         <li>分页字段：<code>pageIndex</code>、<code>pageSize</code>。</li>
                         <li>初始化走 <code>applyUrlSecurityOrList</code>：URL 带 <code>securityCode</code>（事宜「去调库」等）时写入筛选并进入该券详情；无参数才只加载列表。</li>
                         <li>查询、重置、切换页码或每页条数都会重新调用接口；新查询回到第 1 页。</li>
@@ -697,11 +697,12 @@
                     <h3>SQL 与返回数据</h3>
                     <ul>
                         <li>主表为 <code>rrs_securityinfo</code>。</li>
-                        <li>左连接 <code>dict_security_type</code> 获取 <code>security_type_name</code>。</li>
+                        <li>内连接 <code>dict_security_type</code> 取名称，并限制 <code>category_type=bond</code>（本页仅债券；股/基等走其它入口）。</li>
                         <li>证券代码、简称、发行人均使用包含式模糊匹配：<code>LIKE %条件%</code>；证券类型为精确匹配 <code>si.security_type = #{securityType}</code>。</li>
                         <li>候选证券查询无固定 <code>ORDER BY</code>（与需求 04「列表无固定排序」一致），分页结果顺序不作保证。</li>
-                        <li>固定排除 <code>security_type IN ('crmw','company')</code>，避免 CRMW 凭证与主体混入证券池调库。</li>
+                        <li>固定排除 <code>security_type = 'crmw'</code>（凭证字典大类为 bond，须单独挡）；主体 <code>company</code> 已由大类过滤。</li>
                         <li>固定排除 <code>si.security_status != 'D'</code>，过滤已删除态证券。</li>
+                        <li>与禁投池「旗下债券数量」主数据统计同口径；对比时证券池侧按<strong>发行人名称</strong>模糊筛，禁投侧按<strong>主体代码 issuer_code</strong>精确关联。</li>
                     </ul>
                 </article>
             </div>
