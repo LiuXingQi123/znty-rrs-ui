@@ -402,14 +402,15 @@
         <div class="logic">
             <article class="card"><h3>新增</h3>
                 <ul>
-                    <li>状态固定 temporary，仅写临时字段。</li>
-                    <li>同步插入 <code>rrs_securityinfo</code>（wind_code=临时代码，security_source=temporary）。</li>
+                    <li>状态固定 temporary，仅写临时字段。新增代码框提示需带市场后缀；名称必填并有输入提示。</li>
+                    <li>同步插入 <code>rrs_securityinfo</code>（wind_code=临时代码，security_source=temporary，<code>security_status=L</code> 上市中，issuer_code 取主体代码，发行/到期取表单；起息/止息/剩余期限未知不写）。未写 L 时调库列表 <code>security_status != 'D'</code> 会因 NULL 查不到。</li>
                     <li>若临时码已在主数据存在则拒绝新增。</li>
                 </ul>
             </article>
             <article class="card"><h3>转正式（核心）</h3>
                 <ul>
                     <li>仅 temporary；正式码从主数据选券，临时信息只读；正式码不能等于临时码。</li>
+                    <li>先把主表写成 updated（必须命中 1 行），再改调库/池状态；避免已在途或已在池时主表状态没改却提示成功。</li>
                     <li><b>在途</b>（ip_adjust_log audit_status=00/11）：只改日志上证券/CRMW 字段为正式码，不写出/入业务单。</li>
                     <li><b>已在池</b>（ip_pool_status 等 audit_status=20）：每池写「债券临时代码调出」+ 软删临时状态；正式未在池再写正式调入 + 新建池状态。</li>
                     <li>正式主数据已存在则不再 upsert；临时占位置 security_status=D。</li>
