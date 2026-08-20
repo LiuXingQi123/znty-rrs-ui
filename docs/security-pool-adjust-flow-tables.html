@@ -781,7 +781,7 @@
                         <li>按池 ID 组装 <code>inMutexPoolIds</code> 和 <code>outMutexPoolIds</code>。</li>
                         <li>汇总 <code>ip_pool_status</code> 中已生效且未删除的证券数量。</li>
                         <li>为每个池返回 <code>maxCapacity</code> 与 <code>currentCount</code>。</li>
-                        <li><strong>调入方向</strong>：<code>filterInboundByGradeRule</code>——正式证券无内评去掉信用债/境外债分级库；临时代码默认 <code>grade_code=4</code>；私募/永续/次级/ABS 在标准最好档上至少下调一级（永续 1 档也下调，其余类型 1 档可进一级库）；担保孰高；观察名单按标准最好档封顶（不再跳过）；重点观察禁止新增（强担保豁免）；<code>releaseRules=true</code>/可转债跳过。</li>
+                        <li><strong>调入方向</strong>：<code>filterInboundByGradeRule</code>——正式证券无内评去掉信用债/境外债分级库；临时代码默认 <code>grade_code=4</code>；期限为空默认最长档（期限&gt;5 / <code>GT_5</code>）继续走矩阵，不跳过；私募/永续/次级/ABS 在标准最好档上至少下调一级（永续 1 档也下调，其余类型 1 档可进一级库）；担保孰高；观察名单按标准最好档封顶（不再跳过）；重点观察禁止新增（强担保豁免）；<code>releaseRules=true</code>/可转债跳过。</li>
                     </ol>
                 </article>
                 <article class="logic-card">
@@ -803,7 +803,7 @@
                     </ol>
                 </article>
             </div>
-            <div class="implementation-note"><strong>当前实现说明：</strong>前端分别携带 <code>adjustDirection='in'</code> / <code>'out'</code> 调用两次接口。后端会按方向区分：<strong>调入</strong>时排除 CRMW 池，并执行 <code>filterInboundByGradeRule</code>（正式证券无内评去掉信用债大库 1～5 级；临时代码无内评默认 <code>grade_code=4</code> 再按矩阵过滤；有内评按矩阵保留允许池；<code>releaseRules=true</code>/可转债跳过矩阵；<strong>观察名单按标准最好档封顶，不再跳过</strong>）；<strong>调出</strong>不做上述矩阵过滤。两侧结果再由前端按当前在池状态分别生成可调入/可调出树。</div>
+            <div class="implementation-note"><strong>当前实现说明：</strong>前端分别携带 <code>adjustDirection='in'</code> / <code>'out'</code> 调用两次接口。后端会按方向区分：<strong>调入</strong>时排除 CRMW 池，并执行 <code>filterInboundByGradeRule</code>（正式证券无内评去掉信用债大库 1～5 级；临时代码无内评默认 <code>grade_code=4</code> 再按矩阵过滤；有内评按矩阵保留允许池；期限为空默认最长档（期限&gt;5 / <code>GT_5</code>）继续走矩阵，不跳过；<code>releaseRules=true</code>/可转债跳过矩阵；<strong>观察名单按标准最好档封顶，不再跳过</strong>）；<strong>调出</strong>不做上述矩阵过滤。两侧结果再由前端按当前在池状态分别生成可调入/可调出树。</div>
             <div class="data-strip"><code>ip_investment_pool：读</code><code>ip_pool_permission：读</code><code>ip_pool_relation：读</code><code>ip_pool_status：读</code><code>rrs_securityinfo：读</code><code>credit_bond_*：读（调入矩阵）</code><code>t_sys_user_role：读</code><code>t_sys_role：读</code></div>
         </section>
 
@@ -826,7 +826,7 @@
                     <h3>调入校验（通用 + 类型特有）</h3>
                     <ol>
                         <li><strong>通用</strong>（顺序与 <code>checkCommonIn</code> 一致）：池锁定 → 品种 → 市场 → 进行中流程（pending）→ 是否已在目标池 → 容量 → 来源池 → 调入限制池（<code>in_restrict</code>）→ 本次是否同时调入互斥池 → 弹性禁投池（<code>in_soft_restrict</code>，警告不阻断）→ 全局禁止池（禁投池，<code>forbidden</code>）→ 行业限制（已注释）→ 开放日。</li>
-                        <li><strong>债券</strong>（顺序与 <code>checkBondIn</code> 一致）：到期校验 → 主体内评×期限矩阵 + 特殊债天花板（可转债/<code>releaseRules</code> 跳过；观察名单封顶不跳过；重点观察禁新增；正式无内评禁止入信用债 1～5 级；含权回售按行权期限；境外债不走评分档套件）。</li>
+                        <li><strong>债券</strong>（顺序与 <code>checkBondIn</code> 一致）：到期校验 → 主体内评×期限矩阵 + 特殊债天花板（可转债/<code>releaseRules</code> 跳过；期限为空默认最长档继续走矩阵，不跳过；观察名单封顶不跳过；重点观察禁新增；正式无内评禁止入信用债 1～5 级；含权回售按行权期限；境外债不走评分档套件）。</li>
                         <li><strong>股票</strong>（顺序与 <code>checkStockIn</code> 一致）：退市校验 → 股票入池评级限制（入口保留，当前空实现不拦截，未接 investrank）。</li>
                         <li><strong>基金</strong>（顺序与 <code>checkFundIn</code> 一致）：基金评分（仅 check 阶段按请求 fundRate 校验；正式提交不携带 fundRate、不再次校验）。</li>
                         <li><strong>主体 company</strong>：类型特有校验暂无（调入不校验到期）。</li>
