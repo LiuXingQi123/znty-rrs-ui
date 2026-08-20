@@ -384,7 +384,7 @@
             <article class="card"><h3>查询主线</h3>
                 <ul>
                     <li>主表 <code>ip_pool_status</code> 固定过滤
-                        <code>audit_status='20'</code>、<code>is_deleted=0</code>、<code>security_type != 'crmw'</code>（仅排除 CRMW 凭证；禁投/观察/黑名单中的<strong>债券</strong>仍可展示）。
+                        <code>audit_status='20'</code>、<code>is_deleted=0</code>，内连字典 <code>category_type='bond'</code> 且 <code>security_type != 'crmw'</code>（仅债券大类；CRMW 凭证走独立查询；主体走主体池查询；禁投/观察/黑名单中的<strong>债券</strong>仍可展示）。
                     </li>
                     <li>关联投资池：<code>LEFT JOIN ... p.is_deleted=0</code>。池被软删后，状态行仍可因 audit=20 出现，但<strong>池名/全路径常为空</strong>（路径映射也只含未删除池）。</li>
                     <li>按 <code>entry_time DESC, id DESC</code>（id 为 <code>ip_pool_status</code> 主键）倒序分页，Service 回填池全路径。</li>
@@ -470,7 +470,7 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>正式池查询只认 <code>ip_pool_status.audit_status='20'</code> 且 <code>is_deleted=0</code>，并固定排除 CRMW 凭证（<code>security_type != 'crmw'</code>；CRMW 在独立页面查询）。对比：调整历史默认<strong>全</strong> audit_status。</li>
+            <li>正式池查询只认 <code>ip_pool_status.audit_status='20'</code> 且 <code>is_deleted=0</code>，范围与证券池调整/历史一致：<code>category_type='bond'</code> 且 <code>security_type != 'crmw'</code>（CRMW 在独立页面查询，主体在主体池查询）。对比：调整历史默认<strong>全</strong> audit_status。</li>
             <li>本页<strong>无 VIEWABLE</strong> 过滤；池树 exclude crmw/forbidden。与主体/禁投查询（有 viewable）不同。</li>
             <li>证券状态不是独立表字段，由到期日动态计算；默认不限（不传筛选），空到期日边界见上。</li>
             <li>收藏表与正式证券池状态完全分离，取消收藏不会调出证券。</li>
