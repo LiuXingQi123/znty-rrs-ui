@@ -245,6 +245,17 @@
             font-size: 14px;
         }
 
+        .docs-page-security-pool-adjust-flow-tables .table-wrap.filter-table table {
+            min-width: 860px;
+        }
+
+        .docs-page-security-pool-adjust-flow-tables .filter-heading {
+            margin: 18px 0 8px;
+            color: #1f3683;
+            font-size: 16px;
+            font-weight: 800;
+        }
+
         .docs-page-security-pool-adjust-flow-tables th,.docs-page-security-pool-adjust-flow-tables td {
             padding: 13px 14px;
             border-bottom: 1px solid var(--line);
@@ -458,6 +469,10 @@
         }
 
         .docs-page-security-pool-adjust-flow-tables .logic-card li + li {
+            margin-top: 6px;
+        }
+
+        .docs-page-security-pool-adjust-flow-tables .logic-card li ul {
             margin-top: 6px;
         }
 
@@ -757,54 +772,135 @@
 
         <section id="adjustable-pools" class="section">
             <h2 class="section-title">可调入 / 可调出库查询逻辑</h2>
-            <p class="section-subtitle">这一段分为后端“权限基础集”和前端“方向二次过滤”，不能只看接口返回判断最终可选范围。</p>
+            <p class="section-subtitle">对应详情页左右两栏「可调入库」「可调出库」。整段以 <code>queryAdjustPoolList</code> 为准：先查、再滤、前端再按是否已在池筛成两边。下面按代码执行顺序写。</p>
             <div class="logic-header">
                 <strong>接口</strong>
                 <span class="api-path">POST /api/v1/securityPoolAdjust/queryAdjustPoolList</span>
                 <span class="method-name">SecurityPoolAdjustService.queryAdjustPoolList</span>
             </div>
-            <div class="logic-grid">
-                <article class="logic-card">
-                    <h3>后端：加载有权限的基础池集合</h3>
-                    <ol>
-                        <li>查询 <code>ip_investment_pool</code> 中 <code>is_deleted=0</code> 的未删除投资池。</li>
-                        <li>管理员用户 <code>1</code> 返回全量；普通用户进入权限过滤。</li>
-                        <li>普通用户读取 <code>t_sys_user_role</code> 和 <code>t_sys_role</code> 获取启用角色。</li>
-                        <li>从 <code>ip_pool_permission</code> 匹配用户或角色的“可调整”权限。</li>
-                        <li>保留有权限的池及其所有祖先节点，保证前端树路径完整。</li>
-                    </ol>
-                </article>
-                <article class="logic-card">
-                    <h3>后端：补充约束和容量信息</h3>
-                    <ol>
-                        <li>查询 <code>ip_pool_relation</code> 的调入互斥（<code>in_mutex</code>）、调出互斥（<code>out_mutex</code>）关系。</li>
-                        <li>按池 ID 组装 <code>inMutexPoolIds</code> 和 <code>outMutexPoolIds</code>。</li>
-                        <li>汇总 <code>ip_pool_status</code> 中已生效且未删除的证券数量。</li>
-                        <li>为每个池返回 <code>maxCapacity</code> 与 <code>currentCount</code>。</li>
-                        <li><strong>调入方向</strong>：<code>filterInboundByGradeRule</code>——正式证券无内评去掉信用债/境外债分级库；临时代码默认 <code>grade_code=4</code>；期限为空默认最长档（期限&gt;5 / <code>GT_5</code>）继续走矩阵，不跳过；私募/永续/次级/ABS 在标准最好档上至少下调一级（永续 1 档也下调，其余类型 1 档可进一级库）；担保孰高；观察名单按标准最好档封顶（不再跳过）；重点观察禁止新增（强担保豁免）；<code>releaseRules=true</code>/可转债跳过。</li>
-                    </ol>
-                </article>
-                <article class="logic-card">
-                    <h3>前端：生成可调出树</h3>
-                    <ol>
-                        <li>取当前证券有效在池 ID 集合。</li>
-                        <li>只保留证券当前已经在其中的池。</li>
-                        <li>同时保留这些池的父节点，用于形成可展示的树路径。</li>
-                        <li>最终只有叶子节点允许勾选调出。</li>
-                    </ol>
-                </article>
-                <article class="logic-card">
-                    <h3>前端：生成可调入树</h3>
-                    <ol>
-                        <li>排除证券当前已经在其中的叶子池，防止重复调入。</li>
-                        <li>叶子池只要未在池即可保留。</li>
-                        <li>父节点仅在仍存在至少一个可调入子节点时保留。</li>
-                        <li>最终只有叶子节点允许勾选调入。</li>
-                    </ol>
-                </article>
+
+            <h3 class="filter-heading">1. 页面怎么看、何时查</h3>
+            <div class="logic-card">
+                <ol>
+                    <li>进入某只证券的调库详情后，左右两栏分别是可调入库、可调出库。列：投资池名称、上限数量、现有数量；可调入库末级池还可选信评报告 / 其他材料。</li>
+                    <li>只有<strong>末级池</strong>能勾选（有下级的节点不能勾）。勾选时若与已选池互斥，自动取消先选的冲突项并提示。</li>
+                    <li>进入详情时并发请求两次本接口：一次 <code>adjustDirection=in</code>（带当前「是否放开规则」），一次 <code>adjustDirection=out</code>。同时查证券详情、当前所在池、调库记录。</li>
+                    <li>页面上切换「是否放开规则」后，只重查 <code>in</code> 这一次；已勾但不在新结果里的调入项会被清掉。</li>
+                    <li>可调入库结果出来后，若其中含信用债 1～5 级，会按池预填近 6 个月最近一条信评报告（该级尚无手工选择时才填）。</li>
+                </ol>
             </div>
-            <div class="implementation-note"><strong>当前实现说明：</strong>前端分别携带 <code>adjustDirection='in'</code> / <code>'out'</code> 调用两次接口。后端会按方向区分：<strong>调入</strong>时排除 CRMW 池，并执行 <code>filterInboundByGradeRule</code>（正式证券无内评去掉信用债大库 1～5 级；临时代码无内评默认 <code>grade_code=4</code> 再按矩阵过滤；有内评按矩阵保留允许池；期限为空默认最长档（期限&gt;5 / <code>GT_5</code>）继续走矩阵，不跳过；<code>releaseRules=true</code>/可转债跳过矩阵；<strong>观察名单按标准最好档封顶，不再跳过</strong>）；<strong>调出</strong>不做上述矩阵过滤。两侧结果再由前端按当前在池状态分别生成可调入/可调出树。</div>
-            <div class="data-strip"><code>ip_investment_pool：读</code><code>ip_pool_permission：读</code><code>ip_pool_relation：读</code><code>ip_pool_status：读</code><code>rrs_securityinfo：读</code><code>credit_bond_*：读（调入矩阵）</code><code>t_sys_user_role：读</code><code>t_sys_role：读</code></div>
+
+            <h3 class="filter-heading">2. 请求参数</h3>
+            <div class="table-wrap filter-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 180px;">字段</th>
+                            <th>含义</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>securityCode</code></td>
+                            <td>当前证券代码。调入过滤信用债 1～5 级时必用；为空则不做信用债 1～5 级那套过滤。</td>
+                        </tr>
+                        <tr>
+                            <td><code>adjustDirection</code></td>
+                            <td><code>in</code> = 可调入库（会过滤信用债 1～5 级）；<code>out</code> = 可调出库（不做信用债 1～5 级过滤）。</td>
+                        </tr>
+                        <tr>
+                            <td><code>currentUserId</code></td>
+                            <td>当前登录用户。空或不合法直接报错。值为 <code>1</code> 视为管理员，不做人员权限过滤。</td>
+                        </tr>
+                        <tr>
+                            <td><code>releaseRules</code></td>
+                            <td>是否放开规则。页面「是」传 <code>true</code>：调入时跳过信用债 1～5 级矩阵过滤。仅 <code>in</code> 有意义。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="filter-heading">3. 后端主流程（按执行顺序）</h3>
+            <div class="callout">方法：<code>queryAdjustPoolList</code>。任一步滤空则返回空列表。</div>
+            <div class="logic-card" style="margin-top: 12px;">
+                <ol>
+                    <li>查 <code>ip_investment_pool</code>，条件仅 <code>is_deleted=0</code>，按 <code>outer_sort</code> / <code>parent_id</code> / <code>inner_sort</code> 排序。本接口<strong>不按</strong> <code>status=enabled</code> 再筛一层。</li>
+                    <li><strong>人员权限</strong>：管理员 <code>currentUserId=1</code> 不过滤。普通用户查「可调整」权限（<code>ip_pool_permission.permission_type=adjustable</code>）：处理人是本人，或处理人是其启用角色。命中的池及其全部上级都保留，方便页面按层级展示。一个权限都没有则返回空。</li>
+                    <li><strong>排除 CRMW 池</strong>：<code>pool_type=crmw</code> 的入、出都去掉（CRMW 走独立链路）。禁投、观察、黑名单、重点观察等<strong>不在这一步排除</strong>，单券仍可调这些池。</li>
+                    <li><strong>仅 <code>adjustDirection=in</code></strong>：再走第 4 节「调入过滤信用债 1～5 级」。<code>out</code> 跳过。</li>
+                    <li>查全部调入互斥（<code>in_mutex</code>）、调出互斥（<code>out_mutex</code>），按池 ID 挂到返回对象上。</li>
+                    <li>汇总各池当前有效在池数量（<code>ip_pool_status</code> 审批通过且未删除），写入 <code>currentCount</code>；<code>maxCapacity</code> 取池配置。</li>
+                    <li>转成 <code>PoolDto</code> 列表返回（扁平，带 <code>parentId</code>）。</li>
+                </ol>
+            </div>
+
+            <h3 class="filter-heading">4. 调入过滤信用债 1～5 级（按执行顺序）</h3>
+            <div class="callout">方法：<code>filterInboundByGradeRule</code>。只处理信用债 1～5 级（<code>pool_type=credit_bond</code> 且 <code>inner_sort</code> 1～5）。其它池原样留下。前面步骤命中「结束」则不再往后。调出不走本节。</div>
+            <div class="logic-card" style="margin-top: 12px;">
+                <ol>
+                    <li><code>releaseRules=true</code> 或没有证券代码：不过滤，信用债 1～5 级原样返回（结束）。</li>
+                    <li>当前列表里没有任何信用债池：结束。</li>
+                    <li>按证券代码查不到证券主数据：结束。</li>
+                    <li>证券类型是<strong>可转债 / 可交换债 / 可分离转债 / CRMW</strong>：信用债 1～5 级全部不显示（结束）。</li>
+                    <li>证券或发行主体在<strong>重点观察</strong>，当前未在信用债 1～5 级，且不是强担保（有担保且担保人内评 1 档）：信用债 1～5 级全部不显示（结束）。已在 1～4 级的，第 11 步只留五级。</li>
+                    <li>取主体内评分档：正式证券读 <code>innerIssuerRating</code>；临时代码无内评默认 <code>4</code>；<strong>担保债</strong>再和担保人内评取孰高（用来查矩阵的档，不是再降一级）。</li>
+                    <li>正式证券仍无内评：信用债 1～5 级全部不显示（结束）。</li>
+                    <li>匹配期限档：普通债用 <code>date_exists</code>（天÷365）；<strong>含权债</strong>回售按行权期限、赎回按到期剩余期限，两者都有取更短；期限为空默认最长档（期限&gt;5 / <code>GT_5</code>），不跳过。</li>
+                    <li>用第 6 步内评档 × 第 8 步期限档查矩阵，得到允许的信用债级别，并算出标准最好档。</li>
+                    <li>决定各信用债级别是否保留：
+                        <ul>
+                            <li><strong>永续</strong>，或<strong>私募 / ABS / 次级且内评不是 1 档</strong>：标准最好档至少下调 1 级，然后保留<strong>该级到五级</strong>。矩阵只给 1 级 → 显示 2～5；最好档是 2 → 显示 3～5。</li>
+                            <li><strong>其余</strong>（普通债、1 档私募/ABS/次级、担保债、含权债、观察名单）：矩阵给哪几级就保留哪几级。匹配 2、3 只显示 2、3；匹配 1 只显示 1。</li>
+                        </ul>
+                    </li>
+                    <li>重点观察且已在 1～4 级：只保留五级；已在五级不可再上调。</li>
+                    <li>期限档匹配不上（没有启用档，或算出的年数落不进任何档）：信用债 1～5 级不显示，不放开。</li>
+                    <li>非信用债 1～5 级的池全部保留；某级被保留时，其上级（如信用债大库）一并保留，便于按层级展示。</li>
+                </ol>
+            </div>
+
+            <h3 class="filter-heading">5. 返回字段</h3>
+            <div class="table-wrap filter-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 180px;">字段</th>
+                            <th>含义</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>id</code> / <code>parentId</code> / <code>poolName</code> / <code>poolCode</code></td>
+                            <td>池主键、上级、名称、编码。前端靠 <code>parentId</code> 拼层级。</td>
+                        </tr>
+                        <tr>
+                            <td><code>poolType</code> / <code>poolLevel</code></td>
+                            <td>池类型、层级。</td>
+                        </tr>
+                        <tr>
+                            <td><code>maxCapacity</code> / <code>currentCount</code></td>
+                            <td>上限数量、现有数量。页面只在末级池展示。</td>
+                        </tr>
+                        <tr>
+                            <td><code>inMutexPoolIds</code> / <code>outMutexPoolIds</code></td>
+                            <td>调入互斥、调出互斥的对方池 ID。勾选时用来自动取消冲突项。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="filter-heading">6. 前端再筛成可调入库 / 可调出库</h3>
+            <div class="logic-card">
+                <ol>
+                    <li>先用 <code>querySecurityPoolStatus</code> 得到该券当前有效在池 ID（<code>audit_status=20</code> 且未删除的末级池）。</li>
+                    <li><strong>可调出库</strong>：在 <code>out</code> 结果里，只留「当前已在」的池，以及这些池的上级。没有在池记录则右栏为空。</li>
+                    <li><strong>可调入库</strong>：在 <code>in</code> 结果里去掉「当前已在」的末级池，避免重复调入；某个上级若全部下级都已在池，该上级也不再显示。</li>
+                    <li>按 <code>parentId</code> 组装成带下级的列表给表格展示，默认全部展开。只有没有下级的行能勾选。</li>
+                    <li>调入、调出两边的互斥 ID 合并后，勾选时跨栏也会互斥替换。</li>
+                </ol>
+            </div>
+            <div class="implementation-note">选池第 4 节与提交时的 <code>inCheckMainGradeRule</code> 同一套口径：选不中的信用债 1～5 级，校验也不该过。</div>
+            <div class="data-strip"><code>ip_investment_pool：读</code><code>ip_pool_permission：读</code><code>ip_pool_relation：读</code><code>ip_pool_status：读</code><code>rrs_securityinfo：读</code><code>credit_bond_*：读（仅调入）</code><code>t_sys_user_role：读</code><code>t_sys_role：读</code></div>
         </section>
 
         <section id="validation" class="section">
@@ -826,7 +922,7 @@
                     <h3>调入校验（通用 + 类型特有）</h3>
                     <ol>
                         <li><strong>通用</strong>（顺序与 <code>checkCommonIn</code> 一致）：池锁定 → 品种 → 市场 → 进行中流程（pending）→ 是否已在目标池 → 容量 → 来源池 → 调入限制池（<code>in_restrict</code>）→ 本次是否同时调入互斥池 → 弹性禁投池（<code>in_soft_restrict</code>，警告不阻断）→ 全局禁止池（禁投池，<code>forbidden</code>）→ 行业限制（已注释）→ 开放日。</li>
-                        <li><strong>债券</strong>（顺序与 <code>checkBondIn</code> 一致）：到期校验 → 主体内评×期限矩阵 + 特殊债天花板（可转债/<code>releaseRules</code> 跳过；期限为空默认最长档继续走矩阵，不跳过；观察名单封顶不跳过；重点观察禁新增；正式无内评禁止入信用债 1～5 级；含权回售按行权期限；境外债不走评分档套件）。</li>
+                        <li><strong>债券</strong>（顺序与 <code>checkBondIn</code> 一致）：到期校验 → 主体内评×期限矩阵，口径与上方第 4 节同一套。</li>
                         <li><strong>股票</strong>（顺序与 <code>checkStockIn</code> 一致）：退市校验 → 股票入池评级限制（入口保留，当前空实现不拦截，未接 investrank）。</li>
                         <li><strong>基金</strong>（顺序与 <code>checkFundIn</code> 一致）：基金评分（仅 check 阶段按请求 fundRate 校验；正式提交不携带 fundRate、不再次校验）。</li>
                         <li><strong>主体 company</strong>：类型特有校验暂无（调入不校验到期）。</li>
