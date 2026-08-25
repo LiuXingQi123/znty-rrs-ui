@@ -827,7 +827,7 @@
                 <ol>
                     <li>查 <code>ip_investment_pool</code>，条件仅 <code>is_deleted=0</code>，按 <code>outer_sort</code> / <code>parent_id</code> / <code>inner_sort</code> 排序。本接口<strong>不按</strong> <code>status=enabled</code> 再筛一层。</li>
                     <li><strong>人员权限</strong>：管理员 <code>currentUserId=1</code> 不过滤。普通用户查「可调整」权限（<code>ip_pool_permission.permission_type=adjustable</code>）：处理人是本人，或处理人是其启用角色。命中的池及其全部上级都保留，方便页面按层级展示。一个权限都没有则返回空。</li>
-                    <li><strong>排除 CRMW 池</strong>：<code>pool_type=crmw</code> 的入、出都去掉（CRMW 走独立链路）。禁投、观察、黑名单、重点观察等<strong>不在这一步排除</strong>，单券仍可调这些池。</li>
+                    <li><strong>排除 CRMW 池</strong>：<code>pool_type=crmw</code> 的入、出都去掉（CRMW 走独立链路）。禁投池、观察池、黑名单、重点观察名单等<strong>不在这一步排除</strong>，单券仍可调这些池。</li>
                     <li><strong>仅 <code>adjustDirection=in</code></strong>：再走第 4 节「调入过滤信用债 1～5 级」。<code>out</code> 跳过。</li>
                     <li>查全部调入互斥（<code>in_mutex</code>）、调出互斥（<code>out_mutex</code>），按池 ID 挂到返回对象上。</li>
                     <li>汇总各池当前有效在池数量（<code>ip_pool_status</code> 审批通过且未删除），写入 <code>currentCount</code>；<code>maxCapacity</code> 取池配置。</li>
@@ -843,18 +843,22 @@
                     <li>当前列表里没有任何信用债池：结束。</li>
                     <li>按证券代码查不到证券主数据：结束。</li>
                     <li>证券类型是<strong>可转债 / 可交换债 / 可分离转债 / CRMW</strong>：信用债 1～5 级全部不显示（结束）。</li>
-                    <li>证券或发行主体在<strong>重点观察</strong>，当前未在信用债 1～5 级，且不是强担保（有担保且担保人内评 1 档）：信用债 1～5 级全部不显示（结束）。已在 1～4 级的，第 11 步只留五级。</li>
+                    <li>证券或发行主体已在<strong>重点观察名单</strong>，当前未在信用债 1～5 级，且不是强担保（有担保且担保人内评 1 档）：信用债 1～5 级全部不显示（结束）。已在 1～4 级的，第 11 步只留五级。</li>
                     <li>取主体内评分档：正式证券读 <code>innerIssuerRating</code>；临时代码无内评默认 <code>4</code>；<strong>担保债</strong>再和担保人内评取孰高（用来查矩阵的档，不是再降一级）。</li>
                     <li>正式证券仍无内评：信用债 1～5 级全部不显示（结束）。</li>
-                    <li>匹配期限档：普通债用 <code>date_exists</code>（天÷365）；<strong>含权债</strong>回售按行权期限、赎回按到期剩余期限，两者都有取更短；期限为空默认最长档（期限&gt;5 / <code>GT_5</code>），不跳过。</li>
+                    <li>匹配期限档：普通债用 <code>date_exists</code>（天÷365）；<strong>含权债</strong>回售按行权期限、赎回按到期剩余期限，两者都有取更短；期限为空默认最长档（期限>5 / <code>GT_5</code>），不跳过。</li>
                     <li>用第 6 步内评档 × 第 8 步期限档查矩阵，得到允许的信用债级别，并算出标准最好档。</li>
-                    <li>决定各信用债级别是否保留：
+                    <li>决定各信用债级别是否保留。多种类型只留一个标签，后写覆盖先写：私募 → 次级 → 永续 → 担保（永续+担保按担保）。
                         <ul>
-                            <li><strong>永续</strong>，或<strong>私募 / ABS / 次级且内评不是 1 档</strong>：标准最好档至少下调 1 级，然后保留<strong>该级到五级</strong>。矩阵只给 1 级 → 显示 2～5；最好档是 2 → 显示 3～5。</li>
-                            <li><strong>其余</strong>（普通债、1 档私募/ABS/次级、担保债、含权债、观察名单）：矩阵给哪几级就保留哪几级。匹配 2、3 只显示 2、3；匹配 1 只显示 1。</li>
+                            <li>口径：<strong>可调入一级库</strong>=1～5 都可进（私募/ABS 1 档）；<strong>只能调入一级库</strong>=仅一级（次级 1 档）；<strong>下调一级</strong>=矩阵最好档再降一档且只留那一档；<strong>至少下调一级</strong>=从该降一档开到五级。<strong>1 档只看发债主体内评</strong>（<code>innerIssuerRating</code>），不用担保孰高。</li>
+                            <li><strong>ABS</strong>（<code>absFlag=1</code> 或类型 abs/abn）或覆盖后仍是<strong>私募</strong>：发债主体内评 1 档可调入一级库，其余至少下调一级。</li>
+                            <li>覆盖后仍是<strong>永续</strong>：发债主体内评 1 档下调一级，其余至少下调一级。</li>
+                            <li>覆盖后仍是<strong>次级</strong>：发债主体内评 1 档只能调入一级库；2+/2/2- 下调一级；其余至少下调一级。</li>
+                            <li><strong>担保债</strong>，或证券/主体已在<strong>观察池</strong>：入库不得高于矩阵最好档，从该档开到五级。担保查矩阵前先把主体内评和担保人内评取更好的一档（只影响查哪一格，不把发债主体非 1 档当成 1 档）。</li>
+                            <li><strong>普通债</strong>：矩阵给哪几级就保留哪几级。匹配 2、3 只显示 2、3。</li>
                         </ul>
                     </li>
-                    <li>重点观察且已在 1～4 级：只保留五级；已在五级不可再上调。</li>
+                    <li>已在重点观察名单且已在 1～4 级：只保留五级；已在五级不可再上调。</li>
                     <li>期限档匹配不上（没有启用档，或算出的年数落不进任何档）：信用债 1～5 级不显示，不放开。</li>
                     <li>非信用债 1～5 级的池全部保留；某级被保留时，其上级（如信用债大库）一并保留，便于按层级展示。</li>
                 </ol>
@@ -959,7 +963,7 @@
                         <li>调入 → 若当前已在目标池 <code>in_mutex</code> 互斥池中：优先特殊审批（<code>bond:special-inbound</code>）；信用债大库（pool_type=credit_bond）默认排除特殊审批。</li>
                         <li>调入 → 目标池非信用债大库：默认调入（inFlow）。</li>
                         <li>调入 → 已在信用债大库：同父级按 <code>innerSort</code> 上调 / 下调流程。</li>
-                        <li>调入 → 不在信用债大库：同时评估白名单 / 简易 / 默认调入，推荐优先级 白名单 &gt; 简易 &gt; 默认。</li>
+                        <li>调入 → 不在信用债大库：同时评估白名单 / 简易 / 默认调入，推荐优先级 白名单 > 简易 > 默认。</li>
                         <li>白名单条件顺序：剩余期限≤3年 → 非永续/私募/ABS → 债券类 → 主体在白名单池（<code>WHITELIST_POOL_IDS</code> 当前为空，本条件固定不成立）→ 非担保债。</li>
                         <li>简易条件顺序：目标池为一/二/三级信用债库 → 剩余期限可解析（date_exists）→ 不超过同主体在池最大期限 → 180 天内一般流程入过目标池 → 主体/展望未下调或下调时担保人未下调（已注释）。</li>
                     </ul>
