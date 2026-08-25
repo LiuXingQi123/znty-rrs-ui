@@ -836,30 +836,28 @@
             </div>
 
             <h3 class="filter-heading">4. 调入过滤信用债 1～5 级（按执行顺序）</h3>
-            <div class="callout">方法：<code>filterInboundByGradeRule</code>。只处理信用债 1～5 级（<code>pool_type=credit_bond</code> 且 <code>inner_sort</code> 1～5）。其它池原样留下。前面步骤命中「结束」则不再往后。调出不走本节。</div>
+            <div class="callout">方法：<code>filterInboundByGradeRule</code>。只改 <code>pool_type=credit_bond</code> 那棵树（大库根 + 1～5 级叶子）。其它池原样留下。调出不走本节。境外债不套这套规则。</div>
             <div class="logic-card" style="margin-top: 12px;">
                 <ol>
-                    <li><code>releaseRules=true</code> 或没有证券代码：不过滤，信用债 1～5 级原样返回（结束）。</li>
-                    <li>当前列表里没有任何信用债池：结束。</li>
-                    <li>按证券代码查不到证券主数据：结束。</li>
-                    <li>证券类型是<strong>可转债 / 可交换债 / 可分离转债 / CRMW</strong>：信用债 1～5 级全部不显示（结束）。</li>
-                    <li>证券或发行主体已在<strong>重点观察名单</strong>，当前未在信用债 1～5 级，且不是强担保（有担保且担保人内评 1 档）：信用债 1～5 级全部不显示（结束）。已在 1～4 级的，第 11 步只留五级。</li>
-                    <li>取主体内评分档：正式证券读 <code>innerIssuerRating</code>；临时代码无内评默认 <code>4</code>；<strong>担保债</strong>再和担保人内评取孰高（用来查矩阵的档，不是再降一级）。</li>
-                    <li>正式证券仍无内评：信用债 1～5 级全部不显示（结束）。</li>
-                    <li>匹配期限档：普通债用 <code>date_exists</code>（天÷365）；<strong>含权债</strong>回售按 <code>date_inright_exists</code>/<code>date_repurchase_exists</code>（年）、赎回按 <code>date_exists</code>（天÷365），两者都有取更短；<code>date_call_exists</code> 为赎回行权剩余期限（年），仅展示/落库，不参与矩阵匹配；期限为空默认最长档（期限>5 / <code>GT_5</code>），不跳过。</li>
-                    <li>用第 6 步内评档 × 第 8 步期限档查矩阵，得到允许的信用债级别，并算出标准最好档。</li>
-                    <li>决定各信用债级别是否保留。多种类型只留一个标签，后写覆盖先写：私募 → 次级 → 永续 → 担保（永续+担保按担保）。
+                    <li><code>releaseRules=true</code> 或没有证券代码：不过滤，信用债池原样返回（结束）。</li>
+                    <li>当前列表里没有任何 <code>pool_type=credit_bond</code> 的池：结束。</li>
+                    <li>按证券代码查不到证券主数据：结束（列表原样返回）。</li>
+                    <li>证券类型是<strong>可转债 / 可交换债 / 可分离转债 / CRMW</strong>：整棵信用债树不显示（结束）。</li>
+                    <li><strong>重点观察名单</strong>（券或主体在 <code>restricted</code>，且不是强担保：有担保且担保人内评 1 档）：当前<strong>未</strong>在信用债 1～5 级 → 整棵信用债树不显示（结束）；已在 1～4 级 → 后面选叶子时只留五级；已在五级不可再上调。</li>
+                    <li>取<strong>查矩阵用的内评档</strong>（和下面「1 档」判定不是同一件事）：正式证券读发债主体内评 <code>innerIssuerRating</code>；临时代码无内评默认 <code>4</code>；担保债再和担保人内评取孰高（只决定查矩阵哪一格）。正式证券仍无内评：整棵信用债树不显示（结束）。</li>
+                    <li>匹配期限档：普通债用 <code>date_exists</code>（天÷365）；<strong>含权债</strong>回售按 <code>date_inright_exists</code>/<code>date_repurchase_exists</code>（年）、赎回按 <code>date_exists</code>（天÷365），两者都有取更短；<code>date_call_exists</code> 仅展示/落库，不参与匹配。期限为空默认最长档（期限>5 / <code>GT_5</code>）。无可用期限档、年数落不进任何档、或矩阵未配置允许池：后面信用债 1～5 级全部不显示（档位规则也算不出起始档）。</li>
+                    <li>用第 6 步内评档 × 第 7 步期限档查矩阵，得到允许的信用债级别，并算出标准最好档。</li>
+                    <li>按券类型决定准入方式（先命中先走）。口径：<strong>只能调入一级库</strong>=仅一级；<strong>下调一级</strong>=矩阵最好档再降一档且只留那一档；<strong>至少下调一级</strong>=从该降一档开到五级（x～5）。
                         <ul>
-                            <li>口径：ABS/私募/永续/次级 1 档<strong>只能调入一级库</strong>（仅一级）；<strong>下调一级</strong>=矩阵最好档再降一档且只留那一档（次级 2+/2/2-）；<strong>至少下调一级</strong>=从该降一档开到五级（x～5）。私募/永续/次级 <strong>1 档只看发债主体内评</strong>（<code>innerIssuerRating</code>）；ABS <strong>1 档只看担保人内评</strong>（<code>innerGuarantorRating</code>，无担保人则不是 1 档）。</li>
-                            <li><strong>ABS</strong>（<code>absFlag=1</code> 或类型 abs/abn）：担保人内评 1 档只能调入一级库，无担保人或非 1 档至少下调一级。覆盖后仍是<strong>私募</strong> / <strong>永续</strong>：发债主体内评 1 档只能调入一级库，其余至少下调一级。</li>
+                            <li><strong>ABS</strong>（<code>absFlag=1</code> 或类型 abs/abn）不走覆盖链，始终走 ABS：「1 档」只看页面所选担保人内评 <code>innerGuarantorRating</code>。担保人内评 1 档只能调入一级库；无担保人或非 1 档，在矩阵最好档上至少下调一级。</li>
+                            <li>非 ABS：多种类型只留一个标签，后写覆盖先写：私募 → 次级 → 永续 → 担保（永续+担保按担保）。「1 档」只看发债主体内评 <code>innerIssuerRating</code>。</li>
+                            <li>覆盖后仍是<strong>私募 / 永续</strong>：发债主体内评 1 档只能调入一级库，其余至少下调一级。</li>
                             <li>覆盖后仍是<strong>次级</strong>：发债主体内评 1 档只能调入一级库；2+/2/2- 下调一级（只留那一档）；其余至少下调一级。</li>
-                            <li><strong>担保债</strong>，或证券/主体已在<strong>观察池</strong>：入库不得高于矩阵最好档，从该档开到五级。担保查矩阵前先把主体内评和担保人内评取更好的一档（只影响查哪一格，不把发债主体非 1 档当成 1 档）。</li>
-                            <li><strong>普通债</strong>：矩阵给哪几级就保留哪几级。匹配 2、3 只显示 2、3。</li>
+                            <li>覆盖后是<strong>担保债</strong>，或券/主体已在<strong>观察池</strong>：不得高于矩阵最好档，从该档开到五级。第 6 步的孰高只影响查哪一格，不把发债主体非 1 档当成 1 档。</li>
+                            <li><strong>普通债</strong>：矩阵给哪几级就留哪几级。匹配 2、3 只显示 2、3。</li>
                         </ul>
                     </li>
-                    <li>已在重点观察名单且已在 1～4 级：只保留五级；已在五级不可再上调。</li>
-                    <li>期限档匹配不上（没有启用档，或算出的年数落不进任何档）：信用债 1～5 级不显示，不放开。</li>
-                    <li>非信用债 1～5 级的池全部保留；某级被保留时，其上级（如信用债大库）一并保留，便于按层级展示。</li>
+                    <li>逐个信用债 1～5 级叶子按上面口径（含重点观察名单已在库限制）决定是否保留；非信用债叶子全部保留。某级留下时，其上级（如信用债大库）一并保留，便于按层级展示。</li>
                 </ol>
             </div>
 
