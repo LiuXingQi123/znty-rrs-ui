@@ -190,6 +190,36 @@
                                         <el-tag v-if="row.innerIssuerRating" size="mini">{{ row.innerIssuerRating }}</el-tag>
                                     </template>
                                 </el-table-column>
+                                <el-table-column label="是否担保" min-width="90" align="center">
+                                    <template slot-scope="{ row }">
+                                        <el-tag size="mini" :type="yesNoTagType(isYesFlag(row.guarantFlag))">{{ yesNoLabel(isYesFlag(row.guarantFlag)) }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="是否含权" min-width="90" align="center">
+                                    <template slot-scope="{ row }">
+                                        <el-tag size="mini" :type="yesNoTagType(isYesFlag(row.inrightFlag))">{{ yesNoLabel(isYesFlag(row.inrightFlag)) }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="是否永续" min-width="90" align="center">
+                                    <template slot-scope="{ row }">
+                                        <el-tag size="mini" :type="yesNoTagType(isYesFlag(row.yxFlag))">{{ yesNoLabel(isYesFlag(row.yxFlag)) }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="是否私募" min-width="90" align="center">
+                                    <template slot-scope="{ row }">
+                                        <el-tag size="mini" :type="yesNoTagType(isPrivateBond(row))">{{ yesNoLabel(isPrivateBond(row)) }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="是否ABS" min-width="90" align="center">
+                                    <template slot-scope="{ row }">
+                                        <el-tag size="mini" :type="yesNoTagType(isAbsBond(row))">{{ yesNoLabel(isAbsBond(row)) }}</el-tag>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="是否次级" min-width="90" align="center">
+                                    <template slot-scope="{ row }">
+                                        <el-tag size="mini" :type="yesNoTagType(isYesFlag(row.cjFlag))">{{ yesNoLabel(isYesFlag(row.cjFlag)) }}</el-tag>
+                                    </template>
+                                </el-table-column>
                                 <el-table-column label="操作" width="90" fixed="right" align="center">
                                     <template slot-scope="{ row }">
                                         <el-button class="pool-row-action" type="primary" size="mini" @click="absHandleAdjust(row)">调库</el-button>
@@ -2018,6 +2048,40 @@
                 const n = Number(days);
                 if (!isFinite(n)) return '';
                 return (n / 365).toFixed(4);
+            },
+            // 是否类标志：1 / '1' / true 视为是
+            isYesFlag(value) {
+                return value === 1 || value === '1' || value === true;
+            },
+            // 文案是否包含「私募」
+            containsPrivateText(text) {
+                return text != null && String(text).indexOf('私募') >= 0;
+            },
+            // 是否私募：发行方式或内部分类含「私募」，对齐 CreditBondSpecialInboundRule.isPrivateBond
+            isPrivateBond(row) {
+                if (!row) {
+                    return false;
+                }
+                return this.containsPrivateText(row.issueType) || this.containsPrivateText(row.innerClass);
+            },
+            // 是否 ABS：absFlag=1，或证券类型为 abs / abn，对齐 CreditBondSpecialInboundRule.isAbs
+            isAbsBond(row) {
+                if (!row) {
+                    return false;
+                }
+                if (this.isYesFlag(row.absFlag)) {
+                    return true;
+                }
+                const type = row.securityType;
+                return type === 'abs' || type === 'abn';
+            },
+            // 是否类文案
+            yesNoLabel(yes) {
+                return yes ? '是' : '否';
+            },
+            // 是否类 Tag 配色：是=success / 否=info
+            yesNoTagType(yes) {
+                return yes ? 'success' : 'info';
             },
             // 空字符串转 null，便于数值字段提交
             toNullableNumber(val) {
