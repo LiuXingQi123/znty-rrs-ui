@@ -451,13 +451,14 @@
                 <ul>
                     <li>不同 taskCode 无编排、无全局锁，先后全靠 cron；列表 id 不要求与顺序一致。</li>
                     <li>02 到期债/股出 → 03 CRMW 到期出 → 04 外评出主体 → 05 外评入主体 → 06 同池入债 → 07 Job 入债 → 08 主体不在池出债 → 09 不符合分级规则提醒。</li>
+                    <li><code>wind_code_sync</code>（每 10 分钟）无池依赖，不插入上序，可并行。</li>
                     <li>页面「立即执行」不校验顺序。完整规则见需求 29 第 4.1 / 4.2 节。</li>
                 </ul>
             </article>
             <article class="card">
                 <h3>到期证券自动出池 security_expired_auto_out</h3>
                 <ul>
-                    <li>默认 Cron 示例：<code>0 0 2 * * ?</code></li>
+                    <li>每天 02:00 执行（Cron：<code>0 0 2 * * ?</code>）</li>
                     <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"poolIds":[10,15]}</code></li>
                     <li>扫描所列投资池中 audit_status=20 的债/股，主数据到期日早于昨天（T-2）则自动调出（不含主体/基金/CRMW）；当前在调出限制池则跳过；仅软删成功才写日志（自动调整、不走审批）。</li>
                 </ul>
@@ -465,7 +466,7 @@
             <article class="card">
                 <h3>CRMW到期自动出池 crmw_expired_auto_out</h3>
                 <ul>
-                    <li>默认 Cron 示例：<code>0 0 3 * * ?</code></li>
+                    <li>每天 03:00 执行（Cron：<code>0 0 3 * * ?</code>）</li>
                     <li>对应老 IP_RULE <code>AdjustRuleCrmwDueOutPool</code></li>
                     <li>参数：<code>{"poolIds":[18]}</code></li>
                     <li>CRMW 池已生效组合、凭证到期日早于昨天（T-2）→ 自动调出；调出限制池阻断；仅软删成功才写日志。</li>
@@ -474,7 +475,7 @@
             <article class="card">
                 <h3>外评非AA-及以下主体自动出池 company_outer_rating_not_aa_minus_auto_out</h3>
                 <ul>
-                    <li>默认 Cron 示例：<code>0 0 4 * * ?</code></li>
+                    <li>每天 04:00 执行（Cron：<code>0 0 4 * * ?</code>）</li>
                     <li>参数：<code>{"poolIds":[16],"limitPoolIds":[15]}</code></li>
                     <li>有效外评（近 12 个月取档）<strong>不在</strong> AA-/A/BBB… 则出主体，并顺带出同池债；已在 limitPoolIds（默认禁投池）则不出；调出限制池阻断。</li>
                 </ul>
@@ -482,7 +483,7 @@
             <article class="card">
                 <h3>外评AA-及以下主体自动入池 company_outer_rating_aa_minus_auto_in</h3>
                 <ul>
-                    <li>默认 Cron 示例：<code>0 0 5 * * ?</code></li>
+                    <li>每天 05:00 执行（Cron：<code>0 0 5 * * ?</code>）</li>
                     <li>参数：<code>{"poolIds":[15]}</code></li>
                     <li>有效外评（近 12 个月取档）在 AA-/A/BBB…（不含 AA/AA+/AAA）且未在目标池 → 自动入主体；调入限制池阻断。</li>
                 </ul>
@@ -490,7 +491,7 @@
             <article class="card">
                 <h3>主体下债券自动入库 company_same_pool_bond_auto_in</h3>
                 <ul>
-                    <li>默认 Cron 示例：<code>0 0 6 * * ?</code></li>
+                    <li>每天 06:00 执行（Cron：<code>0 0 6 * * ?</code>）</li>
                     <li>对应老系统 IP_RULE type=0「主体下债券自动入库」</li>
                     <li>参数：<code>{"poolIds":[15]}</code>（主体与债<strong>必须同一池</strong>，无 mappings）</li>
                     <li>主体已在本池 → 旗下债未到期（含当天）未在本池 → 同池自动入；尊重 market_codes；不排除临时代码/ABS；调入限制池阻断。</li>
@@ -499,7 +500,7 @@
             <article class="card">
                 <h3>在池主体旗下债券自动入池 company_inpool_bond_auto_in</h3>
                 <ul>
-                    <li>默认 Cron 示例：<code>0 0 7 * * ?</code></li>
+                    <li>每天 07:00 执行（Cron：<code>0 0 7 * * ?</code>）</li>
                     <li>对应老系统 <code>AutoAdjustInNewBondToLimitPoolJob</code></li>
                     <li>同池：<code>{"poolIds":[15]}</code>；跨池：<code>{"mappings":[{"companyInPoolId":15,"bondTargetPoolId":100}]}</code></li>
                     <li>主体已在池 → 旗下债未到期（不含当天）、尚未在<strong>目标池</strong>则入；排除临时代码已更新、ABS、CRMW；不看限制池。</li>
@@ -508,7 +509,7 @@
             <article class="card">
                 <h3>主体不在池债券自动出池 company_not_in_pool_bond_auto_out</h3>
                 <ul>
-                    <li>默认 Cron 示例：<code>0 0 8 * * ?</code>（Demo 默认关闭）</li>
+                    <li>每天 08:00 执行（Cron：<code>0 0 8 * * ?</code>；Demo 默认关闭）</li>
                     <li>对应老 <code>AutoAdjustInLimitPoolToNewBondJob</code></li>
                     <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"mappings":[{"bondPoolId":15,"companyPoolId":15}]}</code></li>
                     <li>债已在债券池、主体不在主体池 → 出债；排除 ABS/CRMW（ABS 走禁投独立链路）；不看限制池。</li>
@@ -517,18 +518,26 @@
             <article class="card">
                 <h3>不符合主体债入库规则提醒 bond_grade_inconformity_alert</h3>
                 <ul>
-                    <li>默认 Cron 示例：<code>0 0 9 * * ?</code>（Demo 默认关闭）</li>
+                    <li>每天 09:00 执行（Cron：<code>0 0 9 * * ?</code>；Demo 默认关闭）</li>
                     <li>对应老 <code>InconformityMaingrade2Job</code>（每天 9 点提醒，不自动出池）</li>
                     <li>无需 param_json。扫描已在信用债 1～5 级但按当前特殊债规则不再允许的债券（不含境外债），写入 <code>ip_grade_rule_alert</code> 待办。</li>
                     <li>执行摘要区分：本轮命中 / 本轮失效（曾待处理、本轮未再命中）/ 仍待处理；影响条数取仍待处理。</li>
                     <li>人工在「我的事宜」分级规则提醒页签去调库或标记已处理。</li>
                 </ul>
             </article>
+            <article class="card">
+                <h3>Wind代码变更同步 wind_code_sync</h3>
+                <ul>
+                    <li>每 10 分钟执行一次（Cron：<code>0 */10 * * * ?</code>；Demo 默认关闭）</li>
+                    <li>作用：将临时代码同步为正式代码。入口不是「临时代码管理」页的人工更新，但逻辑一致，复用同一套更新方法；部分临时代码可能未经过管理页，而是 Wind 变更后直接在库中把临时代码更新为正式代码，由本任务扫描落业务数据。</li>
+                    <li>实现类 <code>WindCodeSyncService</code>（空壳，后续迁入公司逻辑）。无需 param_json。与自动调库无池依赖，不插入 02～09 顺序链。</li>
+                </ul>
+            </article>
         </div>
         <div class="note">
             <ul class="notes">
                 <li>新增任务步骤：① <b>先评估执行顺序</b>（需求 29 第 4.1 / 4.2 节）再定 cron；② 页面新增配置记下 task_code；③ 实现 <code>RrsScheduledTask</code> 并覆盖 <code>getParamHelp</code>；④ 部署后执行。</li>
-                <li>不同 taskCode 无全局锁：有池状态依赖必须把 cron 配成先后，禁止同一分钟。Demo：02 到期债股 → 03 CRMW 到期 → 04 外评出主体 → 05 外评入主体 → 06 同池入债 → 07 Job 入债 → 08 主体不在池出债 → 09 不符合分级规则提醒。</li>
+                <li>不同 taskCode 无全局锁：有池状态依赖必须把 cron 配成先后，禁止同一分钟。Demo：02 到期债股 → 03 CRMW 到期 → 04 外评出主体 → 05 外评入主体 → 06 同池入债 → 07 Job 入债 → 08 主体不在池出债 → 09 不符合分级规则提醒；另 <code>wind_code_sync</code> 每 10 分钟、无池依赖可并行。</li>
                 <li>演示数据：<code>rrs_scheduled_task_demo_data.sql</code>（脚本工具可初始化；<b>cron</b> 须与上述执行顺序一致，列表 id 不要求）。</li>
             </ul>
         </div>
