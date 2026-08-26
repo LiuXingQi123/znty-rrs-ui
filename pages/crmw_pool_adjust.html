@@ -2436,11 +2436,18 @@
                 });
                 return ids;
             },
+            // 往 FormData 追加 files，并附带同序原始文件名 JSON 数组（兼容公司环境中文名乱码）
+            appendUploadFiles(formData, files) {
+                const list = Array.isArray(files) ? files : [];
+                list.forEach(file => formData.append('files', file));
+                formData.append('originalFileNameListJson', JSON.stringify(list.map(f => (f && f.name) ? f.name : '')));
+            },
+
             // 一次性提交业务数据和附件
             async submitAdjustMultipart(path, payload, files) {
                 const formData = new FormData();
                 formData.append('request', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
-                files.forEach(file => formData.append('files', file));
+                this.appendUploadFiles(formData, files);
                 return this.apiPost(path, formData);
             },
 
