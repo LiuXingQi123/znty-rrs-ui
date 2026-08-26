@@ -718,7 +718,7 @@
                         <li>固定排除 <code>security_type = 'crmw'</code>（凭证字典大类为 bond，须单独挡）；主体 <code>company</code> 已由大类过滤。</li>
                         <li>固定排除退市：<code>si.security_status != 'D'</code>（上市状态 <code>SecurityStatus</code>：<code>L</code>上市中 / <code>N</code>待上市 / <code>D</code>退市 / <code>U</code>未知；仅排除 <code>D</code>，<code>U</code> 可查；勿留 <code>NULL</code>，否则三值逻辑滤行）。</li>
                         <li>与禁投池「旗下债券数量」主数据统计同口径；对比时证券池侧按<strong>发行人名称</strong>模糊筛，禁投侧按<strong>主体代码 issuer_code</strong>精确关联。</li>
-                        <li>主列表在操作列前由前端展示是否类字段（后端 <code>SELECT si.*</code> 已带回原始标志，不做中文映射）：是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」，对齐 <code>isPrivateBond</code>）、是否ABS（<code>absFlag=1</code> 或证券类型 <code>abs</code>/<code>abn</code>）、是否次级（<code>cjFlag=1</code>）。展示「是/否」Tag；详情页证券基本信息不增加这些字段。</li>
+                        <li>主列表在操作列前由前端展示是否类字段（后端 <code>SELECT si.*</code> 已带回原始标志，不做中文映射）：是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」，对齐 <code>isPrivateBond</code>）、是否ABS（<code>absFlag=1</code> 或证券类型 <code>abs</code>；<code>abs_all</code> 不算）、是否次级（<code>cjFlag=1</code>）。展示「是/否」Tag；详情页证券基本信息不增加这些字段。</li>
                     </ul>
                 </article>
             </div>
@@ -849,7 +849,7 @@
                     <li>用第 6 步内评档 × 第 7 步期限档查矩阵，得到允许的信用债级别，并算出标准最好档。</li>
                     <li>按券类型决定准入方式（先命中先走）。口径：<strong>只能调入一级库</strong>=仅一级；<strong>下调一级</strong>=按内评×期限矩阵最好档再降一档且只留那一档；<strong>至少下调一级</strong>=从该降一档开到五级（x～5）。
                         <ul>
-                            <li><strong>ABS</strong>（<code>absFlag=1</code> 或类型 abs/abn）不走覆盖链，始终走 ABS：「1 档」只看页面所选担保人内评 <code>innerGuarantorRating</code>。担保人内评 1 档只能调入一级库；无担保人或非 1 档，在矩阵最好档上至少下调一级。</li>
+                            <li><strong>ABS</strong>（<code>absFlag=1</code> 或类型 <code>abs</code>；<code>abs_all</code> 不算）不走覆盖链，始终走 ABS：「1 档」只看页面所选担保人内评 <code>innerGuarantorRating</code>。担保人内评 1 档只能调入一级库；无担保人或非 1 档，在矩阵最好档上至少下调一级。</li>
                             <li>非 ABS：多种类型只留一个标签，后写覆盖先写：私募 → 次级 → 永续 → 担保（永续+担保按担保）。「1 档」只看发债主体内评 <code>innerIssuerRating</code>。</li>
                             <li>覆盖后仍是<strong>私募</strong>：发债主体内评 1 档只能调入一级库，其余至少下调一级。</li>
                             <li>覆盖后仍是<strong>永续</strong>：发债主体内评 1 档下调一级（只留那一档），其余至少下调一级。</li>
