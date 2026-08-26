@@ -2109,12 +2109,12 @@
                 const names = (guarantor || '').split(',').map(s => s.trim());
                 return codes.map((code, idx) => ({ code, name: names[idx] || code }));
             },
-            // 列表 Tab 切换：主体 loadList / ABS absLoadList
+            // 列表 Tab 切换：打开时已预载两 Tab，切换只刷新表格布局、不重新查询
             handleListTabClick() {
                 if (this.listTab === 'abs') {
-                    this.absLoadList();
+                    this.absRefreshListTableLayout();
                 } else {
-                    this.loadList();
+                    this.refreshListTableLayout();
                 }
             },
             // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
@@ -2137,7 +2137,7 @@
                 if (hashQueryIndex < 0) return '';
                 return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
             },
-            // 从 URL 带入主体或 ABS 债并打开调库；无参数则只加载主体列表
+            // 从 URL 带入主体或 ABS 债并打开调库；默认并行预载主体 + ABS 两列表
             async applyUrlCompanyOrList() {
                 const companyCode = this.getUrlParam('companyCode');
                 const securityCode = this.getUrlParam('securityCode');
@@ -2145,7 +2145,8 @@
                     this.listTab = 'company';
                     this.searchForm.companyCode = companyCode;
                     this.pagination.pageIndex = 1;
-                    await this.loadList();
+                    // 预载两 Tab，切 Tab 不再查询
+                    await Promise.all([this.loadList(), this.absLoadList()]);
                     const row = (this.tableData || []).find(item => item.companyCode === companyCode);
                     if (row) {
                         await this.handleAdjust(row);
@@ -2162,7 +2163,8 @@
                     this.listTab = 'abs';
                     this.absSearchForm.securityCode = securityCode;
                     this.absPagination.pageIndex = 1;
-                    await this.absLoadList();
+                    // 预载两 Tab，切 Tab 不再查询
+                    await Promise.all([this.loadList(), this.absLoadList()]);
                     const row = (this.absTableData || []).find(item =>
                         item.windCode === securityCode || item.securityCode === securityCode
                     );
@@ -2174,7 +2176,8 @@
                     await this.absLoadDetailData(securityCode);
                     return;
                 }
-                this.loadList();
+                // 普通进入：并行查询主体与 ABS 列表
+                await Promise.all([this.loadList(), this.absLoadList()]);
             },
             // 查看主体旗下债券在指定投资池中的明细
             async openCompanyBondDialog(pool) {
