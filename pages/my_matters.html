@@ -248,9 +248,9 @@ new Vue({
             },
             alertTableData: [],           // 分级规则提醒列表
             alertLoading: false,          // 提醒表格加载状态
-            pendingCount: 0,              // 待处理事宜条数，用于 Tab 角标
-            completedCount: 0,            // 已完成事宜条数，用于 Tab 角标
-            alertOpenCount: 0,            // 待处理提醒条数，用于 Tab 角标
+            pendingCount: 0,              // 待处理 Tab 角标（取该 Tab 列表查询 total）
+            completedCount: 0,            // 已完成 Tab 角标（取该 Tab 列表查询 total）
+            alertOpenCount: 0,            // 分级规则提醒 Tab 角标（取该 Tab 列表查询 total）
             alertPagination: {            // 提醒分页
                 pageIndex: 1,
                 pageSize: 20,
@@ -277,14 +277,11 @@ new Vue({
             this.activeTab = 'gradeRuleAlert';
         }
         this.loadFlowOptions();
-        this.loadMatterTabCounts();
-        this.loadAlertOpenCount();
-        this.reloadCurrentTab();
-        // 从审核/详情页签返回时由工作台回调，刷新列表和角标
+        // 进入页时三个 Tab 各查一遍（当前 Tab 填列表，其余只取 total 填角标）
+        this.loadAllTabsOnEnter();
+        // 从审核/详情页签返回时由工作台回调，重新预载三个 Tab 角标并刷新当前列表
         window.RrsPageOnShow = () => {
-            this.loadMatterTabCounts();
-            this.loadAlertOpenCount();
-            this.reloadCurrentTab();
+            this.loadAllTabsOnEnter();
         };
         this.handleWindowResize = () => {
             window.clearTimeout(this.resizeLayoutTimer);
@@ -386,6 +383,74 @@ new Vue({
             }
         },
 
+        // 进入页面：三个 Tab 并行各查一次；当前 Tab 加载列表，其余只取 total
+        async loadAllTabsOnEnter() {
+            const tasks = [];
+            if (this.activeTab === 'pending') {
+                tasks.push(this.loadList());
+            } else {
+                tasks.push(this.queryMatterTabTotal('pending'));
+            }
+            if (this.activeTab === 'completed') {
+                tasks.push(this.loadList());
+            } else {
+                tasks.push(this.queryMatterTabTotal('completed'));
+            }
+            if (this.isAlertTab) {
+                tasks.push(this.loadAlertList());
+            } else {
+                tasks.push(this.queryAlertTabTotal());
+            }
+            await Promise.all(tasks);
+        },
+
+        // 仅查询事宜 Tab 的 total（进入页预载角标用）
+        async queryMatterTabTotal(stepStatus) {
+            try {
+                const data = await this.apiPost('/api/v1/myMatters/queryMyMattersPage', {
+                    flowIds: this.searchForm.flowIds.length > 0 ? this.searchForm.flowIds : null,
+                    securityCode: this.searchForm.securityCode || null,
+                    securityShortName: this.searchForm.securityShortName || null,
+                    startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
+                    startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
+                    processDescription: this.searchForm.processDescription || null,
+                    auditStatus: this.searchForm.auditStatus || null,
+                    stepStatus: stepStatus,
+                    initiatorName: this.searchForm.initiatorName || null,
+                    currentUserId: this.searchForm.currentUserId,
+                    pageIndex: 1,
+                    pageSize: 1,
+                });
+                const total = data && data.total != null ? Number(data.total) : 0;
+                if (stepStatus === 'pending') {
+                    this.pendingCount = total;
+                } else {
+                    this.completedCount = total;
+                }
+            } catch (e) {
+                if (stepStatus === 'pending') {
+                    this.pendingCount = 0;
+                } else {
+                    this.completedCount = 0;
+                }
+            }
+        },
+
+        // 仅查询分级规则提醒 Tab 的 total（进入页预载角标用）
+        async queryAlertTabTotal() {
+            try {
+                const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
+                    securityCode: this.alertSearchForm.securityCode || null,
+                    alertStatus: this.alertSearchForm.alertStatus || null,
+                    pageIndex: 1,
+                    pageSize: 1,
+                });
+                this.alertOpenCount = data && data.total != null ? Number(data.total) : 0;
+            } catch (e) {
+                this.alertOpenCount = 0;
+            }
+        },
+
         // 加载我的事宜列表
         async loadList() {
             this.loading = true;
@@ -406,7 +471,13 @@ new Vue({
                 };
                 const data = await this.apiPost('/api/v1/myMatters/queryMyMattersPage', params);
                 this.tableData = data.records || [];
-                this.pagination.total = data.total || 0;
+                this.pagination.total = data.total != null ? Number(data.total) : 0;
+                // Tab 角标直接用本次查询 total
+                if (this.activeTab === 'pending') {
+                    this.pendingCount = this.pagination.total;
+                } else if (this.activeTab === 'completed') {
+                    this.completedCount = this.pagination.total;
+                }
             } catch (e) {}
             this.loading = false;
             // 数据渲染后同步列表固定列布局
@@ -436,52 +507,6 @@ new Vue({
             });
         },
 
-        // 查询待处理 / 已完成事宜条数，供 Tab 展示（不受当前筛选影响）
-        async loadMatterTabCounts() {
-            await Promise.all([
-                this.loadMatterCount('pending'),
-                this.loadMatterCount('completed'),
-            ]);
-        },
-
-        // 按步骤状态取事宜总数
-        async loadMatterCount(stepStatus) {
-            try {
-                const data = await this.apiPost('/api/v1/myMatters/queryMyMattersPage', {
-                    stepStatus: stepStatus,
-                    currentUserId: this.searchForm.currentUserId,
-                    pageIndex: 1,
-                    pageSize: 1,
-                });
-                const total = data && data.total ? data.total : 0;
-                if (stepStatus === 'pending') {
-                    this.pendingCount = total;
-                } else {
-                    this.completedCount = total;
-                }
-            } catch (e) {
-                if (stepStatus === 'pending') {
-                    this.pendingCount = 0;
-                } else {
-                    this.completedCount = 0;
-                }
-            }
-        },
-
-        // 查询待处理提醒条数，供 Tab 展示
-        async loadAlertOpenCount() {
-            try {
-                const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
-                    alertStatus: '00',
-                    pageIndex: 1,
-                    pageSize: 1,
-                });
-                this.alertOpenCount = data && data.total ? data.total : 0;
-            } catch (e) {
-                this.alertOpenCount = 0;
-            }
-        },
-
         // 加载分级规则提醒列表（后端 gradeRuleAlert 接口不变）
         async loadAlertList() {
             this.alertLoading = true;
@@ -493,11 +518,14 @@ new Vue({
                     pageSize: this.alertPagination.pageSize,
                 });
                 this.alertTableData = (data && data.records) ? data.records : [];
-                this.alertPagination.total = data && data.total ? data.total : 0;
+                this.alertPagination.total = data && data.total != null ? Number(data.total) : 0;
+                // Tab 角标直接用本次查询 total
+                this.alertOpenCount = this.alertPagination.total;
             } catch (e) {
                 this.$message.error((e && e.message) || '查询失败');
                 this.alertTableData = [];
                 this.alertPagination.total = 0;
+                this.alertOpenCount = 0;
             }
             this.alertLoading = false;
             this.refreshTableLayout('alertTableRef');
@@ -548,7 +576,6 @@ new Vue({
             };
             this.pagination.pageIndex = 1;
             this.loadFlowOptions();
-            this.loadMatterTabCounts();
             this.loadList();
         },
 
@@ -616,7 +643,6 @@ new Vue({
                 });
                 this.$message.success('已标记处理');
                 this.loadAlertList();
-                this.loadAlertOpenCount();
             } catch (e) {
                 this.alertLoading = false;
                 this.$message.error((e && e.message) || '处理失败');
