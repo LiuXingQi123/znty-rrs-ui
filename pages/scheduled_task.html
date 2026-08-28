@@ -179,7 +179,7 @@
     <!-- ── 配置弹窗 ── -->
     <el-dialog
         :visible.sync="configVisible"
-        width="50%"
+        width="80%"
         custom-class="scheduled-task-config-dialog"
         :append-to-body="false"
         :close-on-click-modal="false"
@@ -227,7 +227,7 @@
                     <el-input
                         v-model="configForm.description"
                         type="textarea"
-                        :rows="3"
+                        :rows="6"
                         maxlength="500"
                         show-word-limit
                         placeholder="请输入任务说明，支持多行">
@@ -276,13 +276,27 @@
                     <el-input
                         v-model="configForm.paramJson"
                         type="textarea"
-                        :rows="3"
+                        :rows="6"
                         maxlength="1000"
                         show-word-limit
                         placeholder="通用字段：仅 JSON；格式见下方「本任务参数说明」，无说明时请对照任务实现">
                     </el-input>
                     <div v-if="paramHelpLines.length" class="cfg-help">
-                        <div class="cfg-help-title">本任务参数说明</div>
+                        <div class="cfg-help-title cfg-help-title-with-tip">
+                            <span>本任务参数说明</span>
+                            <el-tooltip v-if="paramHelpTooltipLines.length" effect="dark" placement="top-start" :popper-append-to-body="false" popper-class="scheduled-task-param-example-tooltip">
+                                <div slot="content" class="cfg-param-example-tooltip-content">
+                                    <div class="cfg-param-example-tooltip-title">参数详细说明</div>
+                                    <ul>
+                                        <li v-for="(line, idx) in paramHelpTooltipLines" :key="'pht-' + idx" v-html="formatParamHelpLine(line)"></li>
+                                    </ul>
+                                </div>
+                                <i class="el-icon-question cfg-help-tip-icon" aria-label="查看参数详细说明"></i>
+                            </el-tooltip>
+                        </div>
+                        <div v-if="paramPoolIdLabels.length" class="cfg-pool-id-labels">
+                            池 ID 对照：{{ paramPoolIdLabels.join('、') }}
+                        </div>
                         <ul class="cfg-help-list">
                             <li
                                 v-for="(line, idx) in paramHelpLines"
@@ -487,8 +501,32 @@ new Vue({
         currentDateText() {
             return moment().format('YYYY年MM月DD日')
         },
-        // 本任务参数说明：按行拆成列表，样式与「配置说明」一致
+        // 本任务参数说明：正文只展示未标记为悬浮说明的内容
         paramHelpLines() {
+            return this.rawParamHelpLines.filter(line => !line.startsWith('[[TOOLTIP]]'))
+        },
+        // 后端以 [[TOOLTIP]] 前缀标记的参数示例、配置含义和字段说明
+        paramHelpTooltipLines() {
+            const prefix = '[[TOOLTIP]]'
+            return this.rawParamHelpLines
+                .filter(line => line.startsWith(prefix))
+                .map(line => line.slice(prefix.length))
+        },
+        // 当前任务帮助中出现的已知投资池 ID 中文名称
+        paramPoolIdLabels() {
+            const poolNameMap = { 15: '债券禁止库', 16: '观察池', 18: 'CRMW库' }
+            const text = this.configForm && this.configForm.paramHelp ? String(this.configForm.paramHelp) : ''
+            const idSet = new Set()
+            const matcher = /\b(15|16|18)\b/g
+            let matched = matcher.exec(text)
+            while (matched) {
+                idSet.add(Number(matched[1]))
+                matched = matcher.exec(text)
+            }
+            return Array.from(idSet).sort((a, b) => a - b).map(id => id + '（' + poolNameMap[id] + '）')
+        },
+        // 原始参数说明按行拆分，供正文和悬浮示例共用
+        rawParamHelpLines() {
             const text = this.configForm && this.configForm.paramHelp
             if (!text) {
                 return []
