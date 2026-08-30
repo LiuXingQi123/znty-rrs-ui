@@ -362,7 +362,7 @@
         <div class="stats">
             <span class="stat">3 张核心表</span>
             <span class="stat">8 个主要接口</span>
-            <span class="stat">8 个内置任务</span>
+            <span class="stat">11 个内置任务</span>
         </div>
     </div>
 </header>
@@ -451,8 +451,24 @@
                 <ul>
                     <li>不同 taskCode 无编排、无全局锁，先后全靠 cron；列表 id 不要求与顺序一致。</li>
                     <li>02 到期债/股出 → 03 CRMW 到期出 → 04 外评出主体 → 05 外评入主体 → 06 同池入债 → 07 Job 入债 → 08 主体不在池出债 → 09 不符合分级规则提醒。</li>
-                    <li><code>wind_code_sync</code>（每 10 分钟）无池依赖，不插入上序，可并行。</li>
+                    <li><code>wind_code_sync</code> 与两项恒生池 Excel 导出任务不改池状态，不插入上序，可并行。</li>
                     <li>页面「立即执行」不校验顺序。完整规则见需求 29 第 4.1 / 4.2 节。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>恒生池全量数据导出 hs_pool_full_excel_export</h3>
+                <ul>
+                    <li>每天 01:00 执行（Cron：<code>0 0 1 * * ?</code>；Demo 默认关闭）</li>
+                    <li>可选参数：<code>{"outputDir":"D:/exports"}</code>；未填写时使用应用默认目录。</li>
+                    <li>每个已配置恒生池名称的叶子投资池生成一个 Sheet，导出当前在库普通债券和 ABS；关联 CRMW 的普通债券仍导出，CRMW 凭证不导出；按沪市、深市、银行间、北交所及其他市场代码拆行。</li>
+                </ul>
+            </article>
+            <article class="card">
+                <h3>恒生池增量数据导出 hs_pool_increment_excel_export</h3>
+                <ul>
+                    <li>每天 01:30 执行（Cron：<code>0 30 1 * * ?</code>；Demo 默认关闭）</li>
+                    <li>首次执行按全量导出；后续以上次成功执行开始时间为下界、本次开始时间为上界。</li>
+                    <li>仅导出窗口内已生效调入且当前仍在对应池的证券，不导出调出记录；备注取当前在池状态关联调库日志的调整原因。</li>
                 </ul>
             </article>
             <article class="card">
@@ -537,7 +553,7 @@
         <div class="note">
             <ul class="notes">
                 <li>新增任务步骤：① <b>先评估执行顺序</b>（需求 29 第 4.1 / 4.2 节）再定 cron；② 页面新增配置记下 task_code；③ 实现 <code>RrsScheduledTask</code> 并覆盖 <code>getParamHelp</code>；④ 部署后执行。</li>
-                <li>不同 taskCode 无全局锁：有池状态依赖必须把 cron 配成先后，禁止同一分钟。Demo：02 到期债股 → 03 CRMW 到期 → 04 外评出主体 → 05 外评入主体 → 06 同池入债 → 07 Job 入债 → 08 主体不在池出债 → 09 不符合分级规则提醒；另 <code>wind_code_sync</code> 每 10 分钟、无池依赖可并行。</li>
+                <li>不同 taskCode 无全局锁：有池状态依赖必须把 cron 配成先后，禁止同一分钟。Demo：02 到期债股 → 03 CRMW 到期 → 04 外评出主体 → 05 外评入主体 → 06 同池入债 → 07 Job 入债 → 08 主体不在池出债 → 09 不符合分级规则提醒；另 <code>wind_code_sync</code> 与两项恒生池 Excel 导出任务不改池状态，可并行执行。</li>
                 <li>演示数据：<code>rrs_scheduled_task_demo_data.sql</code>（脚本工具可初始化；<b>cron</b> 须与上述执行顺序一致，列表 id 不要求）。</li>
             </ul>
         </div>
