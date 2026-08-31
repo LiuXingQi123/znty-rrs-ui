@@ -15,6 +15,7 @@
 </head>
 <body class="credit-bond-grade-rule-page">
 <div id="credit_bond_grade_rule" class="app-shell" v-cloak>
+    <!-- ── 顶栏 ── -->
     <header class="topbar">
         <div class="topbar-brand">
             <div class="topbar-icon"><i class="el-icon-s-operation"></i></div>
@@ -26,6 +27,7 @@
     </header>
 
     <main class="list-body">
+        <!-- 工具栏：刷新 / 修改 / 保存 -->
         <section class="toolbar">
             <div class="toolbar-main">
                 <div class="toolbar-title"><span class="title-line"></span>信用债大库评级准入矩阵</div>
@@ -36,6 +38,7 @@
             <el-button v-if="editing" size="small" type="primary" icon="el-icon-check" :loading="saving" @click="saveMatrix">保存</el-button>
         </section>
 
+        <!-- 评级准入矩阵：行=主体内评分档，列=债券期限 -->
         <section class="matrix-wrap" v-loading="loading">
             <div class="matrix-scroll">
                 <table class="rule-matrix">
@@ -150,30 +153,31 @@
         data() {
             return {
                 moment: moment, // 日期处理工具
-                today: moment().format('YYYY年MM月DD日'),
-                loading: false,
-                saving: false,
-                editing: false,
-                termBuckets: [],
-                ratingGrades: [],
-                poolOptions: [],
-                poolTreeData: [],
-                poolTreeKeyword: '',
-                poolPickerVisibleMap: {},
-                poolPickerOriginalIdsMap: {},
-                poolTreeProps: {
+                today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期
+                loading: false,              // 矩阵加载状态
+                saving: false,               // 保存中
+                editing: false,              // 是否处于编辑态
+                termBuckets: [],             // 债券期限分档
+                ratingGrades: [],            // 主体内评分档
+                poolOptions: [],             // 可选投资池
+                poolTreeData: [],            // 单元格投资池树
+                poolTreeKeyword: '',         // 投资池树搜索词
+                poolPickerVisibleMap: {},    // 单元格选择器显示状态
+                poolPickerOriginalIdsMap: {}, // 打开选择器时的原始池 ID
+                poolTreeProps: {             // 投资池树字段配置
                     children: 'children',
                     label: 'poolName',
                     disabled(data) {
                         return data.disabled
                     }
                 },
-                matrixMap: {},
-                originalMatrixMap: {},
-                lastLoadedAt: ''
+                matrixMap: {},               // 单元格 -> 投资池 ID 列表
+                originalMatrixMap: {},       // 编辑前矩阵快照
+                lastLoadedAt: ''             // 最后刷新时间
             }
         },
         computed: {
+            // 当前矩阵关系条数
             totalRuleCount() {
                 return Object.keys(this.matrixMap).reduce((total, key) => {
                     const list = this.matrixMap[key] || []

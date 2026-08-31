@@ -1800,7 +1800,7 @@
                 // ── ABS债列表/详情（与主体状态完全隔离）──
                 absSearchForm: { securityCode: '', securityShortName: '', issuer: '', bondYesFlags: [] }, // ABS 列表筛选
                 // 是否特征多选：勾选即筛「是」，多选 AND
-                bondYesFlagOptions: [
+                bondYesFlagOptions: [     // 是否特征多选：勾选即筛「是」，多选 AND
                     { value: 'abs', label: '是否ABS' },
                     { value: 'guarant', label: '是否担保' },
                     { value: 'yx', label: '是否永续' },
@@ -1816,8 +1816,8 @@
                 absAdjustStep: 1,             // ABS 调库步骤 1/2
                 absSecurityCurrentPools: [],  // ABS 证券当前所在池
                 absIssuerCurrentPools: [],    // ABS 主体当前所在池
-                absSecurityPoolExpanded: false,
-                absIssuerPoolExpanded: false,
+                absSecurityPoolExpanded: false, // ABS 证券所在池是否展开
+                absIssuerPoolExpanded: false,   // ABS 主体所在池是否展开
                 absInPools: [],               // ABS 可调入池树
                 absOutPools: [],              // ABS 可调出池树
                 absSelectedInPools: [],       // ABS 已选调入池
@@ -3549,13 +3549,17 @@
                 this.absLoading = false;
                 this.absRefreshListTableLayout();
             },
+            // ABS 查询（回到第一页）
             absHandleSearch() { this.absPagination.pageIndex = 1; this.absLoadList(); },
+            // ABS 重置筛选
             absHandleReset() {
                 this.absSearchForm = { securityCode: '', securityShortName: '', issuer: '', bondYesFlags: [] };
                 this.absPagination.pageIndex = 1;
                 this.absLoadList();
             },
+            // ABS 翻页
             absHandlePageChange(page) { this.absPagination.pageIndex = page; this.absLoadList(); },
+            // ABS 切换每页条数
             absHandleSizeChange(size) {
                 this.absPagination.pageSize = size;
                 this.absPagination.pageIndex = 1;
@@ -3668,12 +3672,14 @@
                     })]);
                 });
             },
+            // 折叠/展开 ABS 详情区块
             toggleAbsSection(key) {
                 this.$set(this.absSectionExpanded, key, !this.absSectionExpanded[key]);
                 if (key === 'adjustReview' && this.absSectionExpanded[key]) {
                     this.absRefreshAdjustReviewTableLayout();
                 }
             },
+            // 重新计算 ABS 列表表格布局
             absRefreshListTableLayout() {
                 this.$nextTick(() => {
                     const table = this.$refs.absListTable;
@@ -3682,6 +3688,7 @@
                     }
                 });
             },
+            // 重新计算 ABS 校验结果表格布局
             absRefreshAdjustReviewTableLayout() {
                 this.$nextTick(() => {
                     const table = this.$refs.absAdjustReviewTable;
@@ -3690,40 +3697,50 @@
                     }
                 });
             },
+            // 取 ABS 手工信评附件
             absGetAttachmentFiles(poolId) { return this.absAttachmentFiles[poolId] || []; },
+            // 取 ABS 手工其他材料
             absGetMaterialFiles(poolId) { return this.absMaterialFiles[poolId] || []; },
+            // 取 ABS 已选信评报告
             absGetCreditReportSelections(poolId) { return this.absCreditReportSelections[poolId] || []; },
+            // 取 ABS 已选其他材料报告
             absGetOtherMaterialSelections(poolId) { return this.absOtherMaterialSelections[poolId] || []; },
+            // ABS 手工信评附件变更
             absHandleAttachmentChange(poolId, file) {
                 const current = this.absAttachmentFiles[poolId] || [];
                 if (!file.raw || current.some(f => f.name === file.name)) return;
                 this.$set(this.absAttachmentFiles, poolId, [...current, file]);
                 this.absRefreshAdjustReviewTableLayout();
             },
+            // ABS 手工其他材料变更
             absHandleMaterialChange(poolId, file) {
                 const current = this.absMaterialFiles[poolId] || [];
                 if (!file.raw || current.some(f => f.name === file.name)) return;
                 this.$set(this.absMaterialFiles, poolId, [...current, file]);
                 this.absRefreshAdjustReviewTableLayout();
             },
+            // 移除 ABS 手工信评附件
             absRemoveAttachmentFile(poolId, index) {
                 const files = [...(this.absAttachmentFiles[poolId] || [])];
                 files.splice(index, 1);
                 this.$set(this.absAttachmentFiles, poolId, files);
                 this.absRefreshAdjustReviewTableLayout();
             },
+            // 移除 ABS 手工其他材料
             absRemoveMaterialFile(poolId, index) {
                 const files = [...(this.absMaterialFiles[poolId] || [])];
                 files.splice(index, 1);
                 this.$set(this.absMaterialFiles, poolId, files);
                 this.absRefreshAdjustReviewTableLayout();
             },
+            // 移除 ABS 已选信评报告
             absRemoveCreditReportSelection(poolId, index) {
                 const arr = [...(this.absCreditReportSelections[poolId] || [])];
                 arr.splice(index, 1);
                 this.$set(this.absCreditReportSelections, poolId, arr);
                 this.absRefreshAdjustReviewTableLayout();
             },
+            // 移除 ABS 已选其他材料报告
             absRemoveOtherMaterialSelection(poolId, index) {
                 const arr = [...(this.absOtherMaterialSelections[poolId] || [])];
                 arr.splice(index, 1);
@@ -3752,6 +3769,7 @@
                     ? this.normalizeSelectedPools([...this.absSelectedInPools, row])
                     : this.absSelectedInPools.filter(p => p.id !== id);
             },
+            // ABS 调入池全选/取消全选
             absHandleInPoolSelectAll() {
                 const leafRows = this.flattenPoolTree(this.absInPools);
                 if (leafRows.length === 0) return;
@@ -3774,6 +3792,7 @@
                     }
                 });
             },
+            // ABS 调出池勾选（含互斥）
             absHandleOutPoolSelect(selection, row) {
                 const id = row.id;
                 const wasSelected = this.absSelectedOutPools.some(p => p.id === id);
@@ -3801,6 +3820,7 @@
                     ? this.normalizeSelectedPools([...this.absSelectedOutPools, row])
                     : this.absSelectedOutPools.filter(p => p.id !== id);
             },
+            // ABS 调出池全选/取消全选
             absHandleOutPoolSelectAll() {
                 const leafRows = this.flattenPoolTree(this.absOutPools);
                 if (leafRows.length === 0) return;
@@ -3823,6 +3843,7 @@
                     }
                 });
             },
+            // 规范化 ABS 已选调入/调出池
             absSyncSelectedPoolsFromTables() {
                 this.absSelectedInPools = this.normalizeSelectedPools(this.absSelectedInPools);
                 this.absSelectedOutPools = this.normalizeSelectedPools(this.absSelectedOutPools);
@@ -3916,10 +3937,12 @@
                 }
                 this.absRefreshAdjustReviewTableLayout();
             },
+            // 返回 ABS 调库步骤 1
             absGoToStep1() {
                 this.absAdjustStep = 1;
                 this.absFlowDialogVisible = false;
             },
+            // ABS 提交前打开流程选择弹窗
             async absHandleSubmit() {
                 if (this.absSubmitLoading) return;
                 if (this.absValidCount === 0) {
@@ -3932,6 +3955,7 @@
                 }
                 this.absFlowDialogVisible = true;
             },
+            // 确认 ABS 审批流程选择并提交
             async absConfirmFlowSelection() {
                 if (this.absSubmitLoading) return;
                 if (!this.absAllValidRowsHaveFlow) {
@@ -3941,6 +3965,7 @@
                 this.absFlowDialogVisible = false;
                 await this.absSubmitAdjustLog();
             },
+            // 提交 ABS 调库申请
             async absSubmitAdjustLog() {
                 if (this.absSubmitLoading) return;
                 this.absSubmitLoading = true;

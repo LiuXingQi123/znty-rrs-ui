@@ -15,6 +15,7 @@
 </head>
 <body class="hs-pool-manual-export-page">
 <div id="hs_pool_manual_export" v-cloak>
+    <!-- ── 顶栏 ── -->
     <header class="topbar">
         <div class="topbar-brand">
             <div class="topbar-icon"><i class="el-icon-download"></i></div>
@@ -25,6 +26,7 @@
         <div class="topbar-meta"><span class="topbar-date-badge">{{ currentDateText }}</span></div>
     </header>
 
+    <!-- ── 导出条件 ── -->
     <main class="list-body">
         <section class="search-panel">
             <div class="section-header">
@@ -115,6 +117,7 @@
         </section>
     </main>
 
+    <!-- 投资池选择弹窗 -->
     <el-dialog title="选择投资池" :visible.sync="poolDialogVisible" width="700px" @closed="handlePoolDialogClosed">
         <div class="pool-tree-dialog-body">
             <div class="ptd-left">
@@ -178,17 +181,22 @@ new Vue({
     el: '#hs_pool_manual_export',
     data() {
         return {
-            currentDateText: moment().format('YYYY年MM月DD日 dddd'),
-            exportLoading: false,
-            poolDialogVisible: false,
-            poolKeyword: '',
-            poolFlatList: [],
-            poolTree: [],
-            poolParentMap: {},
-            poolPickerSelected: [],
-            poolTreeProps: { children: 'children', label: 'poolName' },
-            exportForm: { poolIds: [], startTime: '', endTime: '', exportMode: 'increment' },
-            rules: {
+            currentDateText: moment().format('YYYY年MM月DD日 dddd'), // 顶栏当前日期
+            exportLoading: false,          // 导出按钮加载状态
+            poolDialogVisible: false,      // 投资池选择弹窗
+            poolKeyword: '',               // 投资池树搜索词
+            poolFlatList: [],              // 投资池扁平列表
+            poolTree: [],                  // 投资池树
+            poolParentMap: {},             // 投资池父路径映射
+            poolPickerSelected: [],        // 弹窗内已选投资池
+            poolTreeProps: { children: 'children', label: 'poolName' }, // 投资池树字段配置
+            exportForm: {                  // 导出条件
+                poolIds: [],               // 已选叶子投资池 ID
+                startTime: '',             // 开始时间
+                endTime: '',               // 结束时间（空则用服务器当前时间）
+                exportMode: 'increment',   // 导出模式：increment=增量 / full=全量
+            },
+            rules: {                       // 导出表单校验
                 startTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
                 exportMode: [{ required: true, message: '请选择导出模式', trigger: 'change' }],
             },
@@ -198,6 +206,7 @@ new Vue({
         this.loadPoolTree()
     },
     methods: {
+        // 加载投资池树
         async loadPoolTree() {
             try {
                 const list = await this.apiPost('/api/v1/common/queryPoolTreeList', {})
@@ -211,6 +220,7 @@ new Vue({
                 this.$message.error(e.message || '投资池加载失败')
             }
         },
+        // 将扁平投资池列表组装为树
         buildPoolTree(list) {
             const nodeMap = {}
             const roots = []
@@ -224,6 +234,7 @@ new Vue({
             })
             return roots
         },
+        // 递归记录每个节点的父路径，供面包屑与可选判断
         buildPoolParentMap(nodes, parentPath) {
             ;(nodes || []).forEach(node => {
                 this.poolParentMap[node.id] = {
@@ -237,6 +248,7 @@ new Vue({
                 }
             })
         },
+        // 打开投资池选择弹窗
         openPoolDialog() {
             this.poolDialogVisible = true
             this.poolKeyword = ''
@@ -248,30 +260,38 @@ new Vue({
                 this.$refs.poolTreeRef.filter('')
             })
         },
+        // 关闭投资池弹窗后清空临时选择
         handlePoolDialogClosed() {
             this.poolKeyword = ''
             this.poolPickerSelected = []
         },
+        // 按关键字过滤投资池树
         filterPoolTree(value) {
             if (this.$refs.poolTreeRef) this.$refs.poolTreeRef.filter(value)
         },
+        // 投资池树节点过滤
         filterPoolNode(value, data) {
             return !value || String(data.poolName || '').toLowerCase().indexOf(value.toLowerCase()) !== -1
                 || String(data.poolFullName || '').toLowerCase().indexOf(value.toLowerCase()) !== -1
         },
+        // 仅叶子投资池可选
         isPoolSelectable(data) {
             return !!data && !(data.children && data.children.length)
         },
+        // 按 ID 判断是否为叶子投资池
         isPoolIdSelectable(id) {
             const info = this.poolParentMap[id]
             return !info || !info.hasChildren
         },
+        // 不可选节点附加禁用样式
         poolNodeClass(data) {
             return this.isPoolSelectable(data) ? '' : 'is-picker-disabled'
         },
+        // 判断弹窗内是否已选该投资池
         isPoolSelected(id) {
             return this.poolPickerSelected.some(item => String(item.id) === String(id))
         },
+        // 点击树节点切换选中（父节点不可选）
         handlePoolNodeClick(data) {
             if (!this.isPoolSelectable(data)) {
                 this.$nextTick(() => this.$refs.poolTreeRef.setCurrentKey())
@@ -289,27 +309,33 @@ new Vue({
                 parentPath: info ? info.parentPath : '',
             })
         },
+        // 从弹窗已选列表移除投资池
         removePickerPool(poolId) {
             const index = this.poolPickerSelected.findIndex(item => String(item.id) === String(poolId))
             if (index !== -1) this.poolPickerSelected.splice(index, 1)
         },
+        // 确认弹窗选择并写回导出表单
         confirmPoolSelection() {
             this.exportForm.poolIds = this.poolPickerSelected.map(item => item.id)
             this.poolDialogVisible = false
         },
+        // 从表单已选投资池中移除
         removePool(poolId) {
             this.exportForm.poolIds = this.exportForm.poolIds.filter(id => String(id) !== String(poolId))
         },
+        // 生成投资池面包屑（父路径 + 当前名称）
         poolBreadcrumb(poolId) {
             const pool = this.poolFlatList.find(item => String(item.id) === String(poolId)) || {}
             const fullName = pool.poolFullName || pool.poolName || String(poolId)
             const parts = fullName.split('/').filter(Boolean)
             return { parent: parts.slice(0, -1).join(' › '), name: parts[parts.length - 1] || fullName }
         },
+        // 重置导出条件
         resetForm() {
             this.exportForm = { poolIds: [], startTime: '', endTime: '', exportMode: 'increment' }
             this.$nextTick(() => this.$refs.exportFormRef.clearValidate())
         },
+        // 提交导出并下载 Excel
         async submitExport() {
             const valid = await new Promise(resolve => this.$refs.exportFormRef.validate(resolve))
             if (!valid || this.exportLoading) return
