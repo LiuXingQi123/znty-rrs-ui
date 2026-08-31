@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>恒生格式手动导出</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <link rel="stylesheet" href="../css/hs_pool_manual_export.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="hs-pool-manual-export-page">
+<div id="hs_pool_manual_export" v-cloak>
+    <header class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon"><i class="el-icon-download"></i></div>
+            <h2>恒生格式手动导出</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta"><span class="topbar-date-badge">{{ currentDateText }}</span></div>
+    </header>
+
+    <main class="list-body">
+        <section class="search-panel">
+            <div class="section-header">
+                <span class="section-title">导出条件</span>
+                <span class="section-tip">未选择投资池时导出全部叶子投资池</span>
+            </div>
+            <el-form ref="exportFormRef" :model="exportForm" :rules="rules" label-width="88px" size="small" class="export-form">
+                <el-form-item label="投资池">
+                    <div class="relation-card">
+                        <div class="relation-card-header">
+                            <div class="relation-card-label">
+                                <span>导出投资池</span>
+                                <span class="relation-card-count" :class="{ empty: !exportForm.poolIds.length }">{{ exportForm.poolIds.length }}</span>
+                            </div>
+                            <el-button class="relation-select-btn" type="text" size="mini" @click="openPoolDialog">
+                                <i class="el-icon-plus"></i> 选择
+                            </el-button>
+                        </div>
+                        <div class="relation-card-body">
+                            <template v-if="exportForm.poolIds.length">
+                                <div v-for="poolId in exportForm.poolIds" :key="poolId" class="relation-pool-chip">
+                                    <template v-if="poolBreadcrumb(poolId).parent">
+                                        <span class="chip-path">{{ poolBreadcrumb(poolId).parent }}</span><span class="chip-arrow">›</span>
+                                    </template>
+                                    <span class="chip-name">{{ poolBreadcrumb(poolId).name }}</span>
+                                    <el-button type="text" size="mini" class="chip-remove" @click="removePool(poolId)"><i class="el-icon-close"></i></el-button>
+                                </div>
+                            </template>
+                            <div v-else class="relation-card-empty" @click="openPoolDialog">
+                                <i class="el-icon-plus"></i> 点击选择投资池
+                            </div>
+                        </div>
+                    </div>
+                </el-form-item>
+
+                <div class="form-grid">
+                    <el-form-item label="开始时间" prop="startTime">
+                        <el-date-picker v-model="exportForm.startTime" type="datetime" size="small" value-format="yyyy-MM-dd HH:mm:ss"
+                                        format="yyyy-MM-dd HH:mm:ss" placeholder="请选择开始时间" :clearable="false"
+                                        style="width:100%"></el-date-picker>
+                    </el-form-item>
+                    <el-form-item label="结束时间" prop="endTime">
+                        <el-date-picker v-model="exportForm.endTime" type="datetime" size="small" value-format="yyyy-MM-dd HH:mm:ss"
+                                        format="yyyy-MM-dd HH:mm:ss" placeholder="不填写时使用当前时间"
+                                        style="width:100%"></el-date-picker>
+                    </el-form-item>
+                    <el-form-item label="导出模式" prop="exportMode">
+                        <el-radio-group v-model="exportForm.exportMode" size="small">
+                            <el-radio-button label="increment">增量</el-radio-button>
+                            <el-radio-button label="full">全量</el-radio-button>
+                        </el-radio-group>
+                    </el-form-item>
+                </div>
+
+                <div class="export-rule-panel">
+                    <div class="export-rule-title"><i class="el-icon-info"></i> 导出规则说明</div>
+                    <div class="export-rule-grid">
+                        <div class="export-rule-item">
+                            <span class="export-rule-label">增量模式：</span>
+                            <span>导出时间窗口 <strong>(开始时间, 结束时间]</strong> 内审批通过的调入、调出事件；未填写结束时间时，以服务器当前时间为上界。</span>
+                        </div>
+                        <div class="export-rule-item">
+                            <span class="export-rule-label">全量模式：</span>
+                            <span>导出执行时点仍在所选叶子池中的全部有效数据；开始时间不参与数据过滤，结束时间仅用于确定文件时间。</span>
+                        </div>
+                        <div class="export-rule-item">
+                            <span class="export-rule-label">投资池范围：</span>
+                            <span>仅处理叶子投资池；未选择投资池时导出全部叶子池，父级池不会单独生成 Sheet。</span>
+                        </div>
+                        <div class="export-rule-item">
+                            <span class="export-rule-label">文件结构：</span>
+                            <span>每个叶子池按恒生池名称生成 Sheet；没有符合条件数据的空池也会保留表头。</span>
+                        </div>
+                        <div class="export-rule-item">
+                            <span class="export-rule-label">执行影响：</span>
+                            <span>手动导出不会改变增量定时任务的执行水位，也不会更新业务调库日志的导出状态。</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <el-button size="small" icon="el-icon-refresh" @click="resetForm">重置</el-button>
+                    <el-button size="small" type="primary" icon="el-icon-download" :loading="exportLoading" @click="submitExport">
+                        {{ exportLoading ? '正在生成...' : '导出 Excel' }}
+                    </el-button>
+                </div>
+            </el-form>
+        </section>
+    </main>
+
+    <el-dialog title="选择投资池" :visible.sync="poolDialogVisible" width="700px" @closed="handlePoolDialogClosed">
+        <div class="pool-tree-dialog-body">
+            <div class="ptd-left">
+                <div class="dialog-section-title" style="margin-bottom:0;">投资池树</div>
+                <el-input
+                        v-model.trim="poolKeyword"
+                        placeholder="搜索投资池..."
+                        clearable size="small"
+                        prefix-icon="el-icon-search"
+                        class="ptd-search"
+                        @input="filterPoolTree">
+                </el-input>
+                <div class="ptd-tree-scroll">
+                    <el-tree ref="poolTreeRef" class="pool-picker-tree" :data="poolTree" node-key="id"
+                             :props="poolTreeProps" :filter-node-method="filterPoolNode"
+                             :node-class-name="poolNodeClass" default-expand-all highlight-current
+                             @node-click="handlePoolNodeClick">
+                        <span slot-scope="{ node, data }" class="tree-node" :class="{ 'is-disabled': !isPoolSelectable(data) }">
+                          <i :class="data.children && data.children.length ? 'el-icon-folder-opened tree-node-icon' : 'el-icon-document tree-node-icon'"></i>
+                          <span class="tree-node-name">{{ node.label }}</span>
+                          <i v-if="isPoolSelected(data.id)" class="el-icon-check" style="color: var(--accent-blue-bright); font-size:12px; flex-shrink:0;"></i>
+                        </span>
+                    </el-tree>
+                </div>
+            </div>
+            <div class="ptd-right">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="ptd-right-label">已选投资池</div>
+                    <span class="ptd-count-badge">{{ poolPickerSelected.length }}</span>
+                    <el-button v-if="poolPickerSelected.length" class="btn btn-ghost compact-clear-btn picker-header-clear"
+                               @click="poolPickerSelected = []" size="small" type="default">
+                        <i class="el-icon-delete"></i> 清空
+                    </el-button>
+                </div>
+                <div class="ptd-selected-list">
+                    <div v-if="!poolPickerSelected.length" class="ptd-selected-empty">
+                        <span>从左侧树中点击节点添加</span>
+                    </div>
+                    <div v-for="item in poolPickerSelected" :key="item.id" class="ptd-selected-item">
+                        <div class="ptd-item-info">
+                            <div class="ptd-item-name">{{ item.poolName }}</div>
+                            <div v-if="item.parentPath" class="ptd-item-path">{{ item.parentPath }}</div>
+                        </div>
+                        <el-button class="ptd-item-remove" type="text" size="mini" title="移除"
+                                   @click="removePickerPool(item.id)"><i class="el-icon-close"></i></el-button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <span slot="footer">
+            <el-button class="btn btn-ghost" @click="poolDialogVisible = false" size="small" type="default">取消</el-button>
+            <el-button class="btn btn-primary" @click="confirmPoolSelection" size="small" type="primary">
+                <i class="el-icon-check"></i> 确认（{{ poolPickerSelected.length }} 项）
+            </el-button>
+        </span>
+    </el-dialog>
+</div>
+
+<script>
+new Vue({
+    el: '#hs_pool_manual_export',
+    data() {
+        return {
+            currentDateText: moment().format('YYYY年MM月DD日 dddd'),
+            exportLoading: false,
+            poolDialogVisible: false,
+            poolKeyword: '',
+            poolFlatList: [],
+            poolTree: [],
+            poolParentMap: {},
+            poolPickerSelected: [],
+            poolTreeProps: { children: 'children', label: 'poolName' },
+            exportForm: { poolIds: [], startTime: '', endTime: '', exportMode: 'increment' },
+            rules: {
+                startTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
+                exportMode: [{ required: true, message: '请选择导出模式', trigger: 'change' }],
+            },
+        }
+    },
+    mounted() {
+        this.loadPoolTree()
+    },
+    methods: {
+        async loadPoolTree() {
+            try {
+                const list = await this.apiPost('/api/v1/common/queryPoolTreeList', {})
+                this.poolFlatList = list || []
+                this.poolTree = this.buildPoolTree(this.poolFlatList)
+                this.poolParentMap = {}
+                this.buildPoolParentMap(this.poolTree, '')
+            } catch (e) {
+                this.poolFlatList = []
+                this.poolTree = []
+                this.$message.error(e.message || '投资池加载失败')
+            }
+        },
+        buildPoolTree(list) {
+            const nodeMap = {}
+            const roots = []
+            ;(list || []).forEach(item => {
+                nodeMap[item.id] = Object.assign({}, item, { children: [] })
+            })
+            ;(list || []).forEach(item => {
+                const node = nodeMap[item.id]
+                if (item.parentId && nodeMap[item.parentId]) nodeMap[item.parentId].children.push(node)
+                else roots.push(node)
+            })
+            return roots
+        },
+        buildPoolParentMap(nodes, parentPath) {
+            ;(nodes || []).forEach(node => {
+                this.poolParentMap[node.id] = {
+                    poolName: node.poolName,
+                    parentPath: parentPath || '',
+                    hasChildren: !!(node.children && node.children.length),
+                }
+                if (node.children && node.children.length) {
+                    const nextPath = parentPath ? parentPath + ' › ' + node.poolName : node.poolName
+                    this.buildPoolParentMap(node.children, nextPath)
+                }
+            })
+        },
+        openPoolDialog() {
+            this.poolDialogVisible = true
+            this.poolKeyword = ''
+            this.poolPickerSelected = this.exportForm.poolIds.map(id => {
+                const info = this.poolParentMap[id]
+                return { id, poolName: info ? info.poolName : String(id), parentPath: info ? info.parentPath : '' }
+            }).filter(item => this.isPoolIdSelectable(item.id))
+            this.$nextTick(() => {
+                this.$refs.poolTreeRef.filter('')
+            })
+        },
+        handlePoolDialogClosed() {
+            this.poolKeyword = ''
+            this.poolPickerSelected = []
+        },
+        filterPoolTree(value) {
+            if (this.$refs.poolTreeRef) this.$refs.poolTreeRef.filter(value)
+        },
+        filterPoolNode(value, data) {
+            return !value || String(data.poolName || '').toLowerCase().indexOf(value.toLowerCase()) !== -1
+                || String(data.poolFullName || '').toLowerCase().indexOf(value.toLowerCase()) !== -1
+        },
+        isPoolSelectable(data) {
+            return !!data && !(data.children && data.children.length)
+        },
+        isPoolIdSelectable(id) {
+            const info = this.poolParentMap[id]
+            return !info || !info.hasChildren
+        },
+        poolNodeClass(data) {
+            return this.isPoolSelectable(data) ? '' : 'is-picker-disabled'
+        },
+        isPoolSelected(id) {
+            return this.poolPickerSelected.some(item => String(item.id) === String(id))
+        },
+        handlePoolNodeClick(data) {
+            if (!this.isPoolSelectable(data)) {
+                this.$nextTick(() => this.$refs.poolTreeRef.setCurrentKey())
+                return
+            }
+            const index = this.poolPickerSelected.findIndex(item => String(item.id) === String(data.id))
+            if (index !== -1) {
+                this.poolPickerSelected.splice(index, 1)
+                return
+            }
+            const info = this.poolParentMap[data.id]
+            this.poolPickerSelected.push({
+                id: data.id,
+                poolName: data.poolName,
+                parentPath: info ? info.parentPath : '',
+            })
+        },
+        removePickerPool(poolId) {
+            const index = this.poolPickerSelected.findIndex(item => String(item.id) === String(poolId))
+            if (index !== -1) this.poolPickerSelected.splice(index, 1)
+        },
+        confirmPoolSelection() {
+            this.exportForm.poolIds = this.poolPickerSelected.map(item => item.id)
+            this.poolDialogVisible = false
+        },
+        removePool(poolId) {
+            this.exportForm.poolIds = this.exportForm.poolIds.filter(id => String(id) !== String(poolId))
+        },
+        poolBreadcrumb(poolId) {
+            const pool = this.poolFlatList.find(item => String(item.id) === String(poolId)) || {}
+            const fullName = pool.poolFullName || pool.poolName || String(poolId)
+            const parts = fullName.split('/').filter(Boolean)
+            return { parent: parts.slice(0, -1).join(' › '), name: parts[parts.length - 1] || fullName }
+        },
+        resetForm() {
+            this.exportForm = { poolIds: [], startTime: '', endTime: '', exportMode: 'increment' }
+            this.$nextTick(() => this.$refs.exportFormRef.clearValidate())
+        },
+        async submitExport() {
+            const valid = await new Promise(resolve => this.$refs.exportFormRef.validate(resolve))
+            if (!valid || this.exportLoading) return
+            if (this.exportForm.endTime && moment(this.exportForm.endTime).isBefore(moment(this.exportForm.startTime))) {
+                this.$message.warning('结束时间不能早于开始时间')
+                return
+            }
+            this.exportLoading = true
+            try {
+                const file = await this.apiPost('/api/v1/hsPoolManualExport/exportHsPoolExcel', {
+                    poolIds: this.exportForm.poolIds,
+                    startTime: this.exportForm.startTime,
+                    endTime: this.exportForm.endTime,
+                    exportMode: this.exportForm.exportMode,
+                })
+                this.downloadBase64File(file.contentBase64, file.fileName, file.contentType)
+                this.$message.success('恒生格式文件已生成')
+            } catch (e) {
+                this.$message.error(e.message || '导出失败')
+            } finally {
+                this.exportLoading = false
+            }
+        },
+    },
+})
+</script>
+</body>
+</html>

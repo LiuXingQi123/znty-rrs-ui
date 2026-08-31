@@ -35,6 +35,7 @@
 | `security_pool_adjust_history.html` | 证券池调整历史 | `css/security_pool_adjust_history.css`、`css/common.css` |
 | `security_pool_query.html` | 证券池查询 | `css/security_pool_query.css`、`css/common.css` |
 | `temp_security_code.html` | 临时代码管理 | `css/temp_security_code.css`、`css/common.css` |
+| `hs_pool_manual_export.html` | 恒生格式手动导出 | `css/hs_pool_manual_export.css`、`css/common.css` |
 | `pool_open_day.html` | 投资池开放日维护 | `css/pool_open_day.css`、`css/common.css` |
 | `scheduled_task.html` | 定时任务管理 | `css/scheduled_task.css`、`css/common.css` |
 | `docs/script_tool.html` | 数据初始化 | `css/script_tool.css`、`css/common.css` |
@@ -136,6 +137,7 @@
 | `css/script_table_row_counts.css` | 表记录数统计页面样式 | `docs/script_table_row_counts.html` |
 | `css/script_tool.css` | 数据初始化页面样式 | `docs/script_tool.html` |
 | `css/temp_security_code.css` | 临时代码管理页面样式 | `temp_security_code.html` |
+| `css/hs_pool_manual_export.css` | 恒生格式手动导出页面样式 | `hs_pool_manual_export.html` |
 | `css/pool_open_day.css` | 投资池开放日维护页面样式 | `pool_open_day.html` |
 | `css/scheduled_task.css` | 定时任务管理页面样式 | `scheduled_task.html` |
 | `css/security_pool_excel_import.css` | 证券池 Excel 导入页面样式 | `security_pool_excel_import.html` |
@@ -155,6 +157,7 @@
 | `docs/security-pool-adjust-history-tables.html` | 证券池调整历史文档 | HTML 内联样式 |
 | `docs/grade-rule-alert-tables.html` | 分级规则提醒业务说明（并入我的事宜；文档挂 RRS配置，非债券研究） | HTML 内联样式 |
 | `docs/temp-security-code-tables.html` | 临时代码管理文档 | HTML 内联样式 |
+| `docs/hs-pool-manual-export-tables.html` | 恒生格式手动导出文档 | HTML 内联样式 |
 | `docs/forbidden-pool-adjust-tables.html` | 禁投池调整文档 | HTML 内联样式 |
 | `docs/forbidden-pool-query-tables.html` | 禁投池查询文档 | HTML 内联样式 |
 | `docs/forbidden-pool-history-tables.html` | 禁投池历史文档 | HTML 内联样式 |
