@@ -373,10 +373,10 @@
     <section class="panel" id="overview"><h2>业务流程总览</h2>
         <p class="sub">前端 <code>pages/forbidden_pool_adjust.html</code>：<code>listTab=company|abs</code>；主体详情页 <code>currentPage=detail</code>，ABS 详情页 <code>currentPage=absDetail</code>（步骤 <code>absAdjustStep</code> 1/2）。状态字段主体与 ABS 完全隔离，禁止复用同名 data。</p>
         <div class="flow">
-            <div class="step"><b>1. 列表双 Tab</b><span>主体：查 wind_cbondissuer；ABS：查 ABS 证券分页（证券代码/简称/发行人）。</span></div>
+            <div class="step"><b>1. 列表双 Tab</b><span>进入页面时并行预载主体和 ABS 两个列表，切换 Tab 只重排表格、不重复查询；主体查 wind_cbondissuer，ABS 查 ABS 证券分页。</span></div>
             <div class="step"><b>2. 加载详情</b><span>主体/ABS 详情、当前在池、可调池树（债券禁止库等四池）。</span></div>
             <div class="step"><b>3. 校验调整</b><span>主体或 ABS 各自 checkAdjust + 联动互斥 + 流程。</span></div>
-            <div class="step"><b>4. 提交审批</b><span>multipart 附件；主体 company / ABS 证券级写日志。</span></div>
+            <div class="step"><b>4. 提交审批</b><span>multipart 附件随 <code>files</code> 传同序 <code>originalFileNameListJson</code> 以保留中文原始文件名；主体 company / ABS 证券级分别写日志。</span></div>
             <div class="step"><b>5. 生效</b><span>仅 20 落池；仅债券禁止库另同步旗下未到期债（含 ABS/crmw）。</span></div>
         </div>
     </section>
@@ -569,7 +569,7 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>页面列表 <strong>主体 | ABS债</strong> 双 Tab；主体逻辑与 ABS 状态字段隔离（ABS 使用 <code>abs*</code> 前缀 data）。初始化 <code>applyUrlCompanyOrList</code>：URL 有 <code>companyCode</code> 进主体详情，仅有 <code>securityCode</code> 切 ABS Tab。</li>
+            <li>页面列表 <strong>主体 | ABS债</strong> 双 Tab；首次进入及带主体/证券代码进入时均并行预载两边列表，切换 Tab 不重新请求。主体逻辑与 ABS 状态字段隔离（ABS 使用 <code>abs*</code> 前缀 data）。初始化 <code>applyUrlCompanyOrList</code>：URL 有 <code>companyCode</code> 进主体详情，仅有 <code>securityCode</code> 切 ABS Tab。</li>
             <li>主体调库日志 <code>security_type</code> 固定为 <code>company</code>；对象代码为 Wind 主体码（<code>s_info_compcode</code>），不是债券 wind_code；主体主数据读 <code>ais_inv_ods.wind_cbondissuer</code>。</li>
             <li>ABS 调库走 <code>/api/v1/forbiddenAbsPoolAdjust/*</code>，仅 <code>abs_flag=1</code>；可调池 15/16/17/23；不同步同主体其它债。</li>
             <li>主体级校验<strong>跳过</strong>品种、市场、债券到期；保留池锁定、pending、容量、来源/限制、互斥、全局禁止、开放日等；行业校验调用已注释。</li>
