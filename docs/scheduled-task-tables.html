@@ -459,16 +459,20 @@
                 <h3>恒生池全量数据导出 hs_pool_full_excel_export</h3>
                 <ul>
                     <li>每天 01:00 执行（Cron：<code>0 0 1 * * ?</code>；Demo 默认关闭）</li>
-                    <li>可选参数：<code>{"outputDir":"D:/exports"}</code>；未填写时使用应用默认目录。</li>
-                    <li>每个已配置恒生池名称的叶子投资池生成一个 Sheet，导出当前在库普通债券和 ABS；关联 CRMW 的普通债券仍导出，CRMW 凭证不导出；按沪市、深市、银行间、北交所及其他市场代码拆行。</li>
+                    <li>参数示例：<code>{"poolIds":[15,16],"exportEmptyPool":true,"outputDir":"D:/exports"}</code>；poolIds 省略或为空时导出全部叶子池。</li>
+                    <li>导出当前已生效的非主体证券和 CRMW；普通证券排除已到期数据，CRMW 按老系统定时任务口径不校验到期日。</li>
+                    <li>恒生池名称为空时使用投资池完整名称，竖线可拆分多个 Sheet；同名 Sheet 合并并记录警告。市场使用中文名称并按多个市场代码字段拆行，该口径后续再确认。</li>
+                    <li>文件写入输出根目录下的 yyyyMMdd 日期目录，同时复制到 bak；FTP 暂未接入。</li>
                 </ul>
             </article>
             <article class="card">
                 <h3>恒生池增量数据导出 hs_pool_increment_excel_export</h3>
                 <ul>
                     <li>每天 01:30 执行（Cron：<code>0 30 1 * * ?</code>；Demo 默认关闭）</li>
-                    <li>首次执行按全量导出；后续以上次成功执行开始时间为下界、本次开始时间为上界。</li>
-                    <li>仅导出窗口内已生效调入且当前仍在对应池的证券，不导出调出记录；备注取当前在池状态关联调库日志的调整原因。</li>
+                    <li>首次以参数 <code>initialStartTime</code> 为下界；后续以上次成功执行开始时间为下界、本次开始时间为上界。</li>
+                    <li>导出窗口内审批通过的调入和调出事件，不要求证券当前仍在池；调出操作类型写“删除”。交易日列表入口已预留，当前列表为空，因此交易日和非交易日均正常执行。</li>
+                    <li>老系统通过调库日志 exportflag 控制增量；新系统使用任务成功时间水位线，不更新业务调库日志。市场继续使用中文名称。</li>
+                    <li>poolIds、exportEmptyPool、日期目录和 bak 备份规则与全量任务一致；不更新业务调库日志。</li>
                 </ul>
             </article>
             <article class="card">
