@@ -187,10 +187,10 @@
                         <!-- 规则基本信息表单 -->
                         <el-form :model="form" label-width="90px" ref="ruleForm">
                             <el-form-item label="规则名称" prop="name">
-                                <el-input v-model.trim="form.name" placeholder="例如：订单金额折扣规则" maxlength="50" show-word-limit></el-input>
+                                <el-input v-model.trim="form.name" placeholder="请输入规则名称" maxlength="50" show-word-limit></el-input>
                             </el-form-item>
                             <el-form-item label="规则描述">
-                                <el-input v-model="form.description" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="简要描述规则的用途和适用场景..."></el-input>
+                                <el-input v-model="form.description" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="请输入规则描述"></el-input>
                             </el-form-item>
                             <el-form-item label="规则分类">
                                 <el-select v-model="form.category" placeholder="选择分类" style="width:200px" popper-class="rule-manager-popper">
@@ -236,7 +236,7 @@
                             <textarea
                                     class="code-textarea"
                                     v-model="form.script"
-                                    placeholder="// 在此编写 QLExpress 规则脚本&#10;// 示例：&#10;if (orderAmount > 1000) {&#10;    discount = 0.9;&#10;} else {&#10;    discount = 1.0;&#10;}"
+                                    placeholder="// 请输入 QLExpress 规则脚本"
                                     rows="10"
                                     spellcheck="false"
                             ></textarea>
@@ -422,7 +422,7 @@
     <el-dialog
             :title="'执行测试 · ' + (testingRule ? testingRule.name : '')"
             :visible.sync="testDialogVisible"
-            width="560px"
+            width="640px"
             :close-on-click-modal="false"
     >
         <div v-if="testingRule">
@@ -436,7 +436,7 @@
                         size="small"
                         maxlength="50"
                         show-word-limit
-                        placeholder="例如：VIP 用户大额订单折扣"
+                        placeholder="请输入测试用例名称"
                 ></el-input>
             </div>
 
@@ -471,7 +471,7 @@
                                     maxlength="20"
                                     placeholder="输入数值"
                             ></el-input>
-                            <!-- 单选 -->
+                            <!-- 单选：编码在左，中文名靠右 -->
                             <el-select
                                     v-else-if="param.type==='select'"
                                     v-model="param._value"
@@ -480,9 +480,16 @@
                                     style="width:100%"
                                     popper-class="rule-manager-popper"
                             >
-                                <el-option v-for="opt in (param.options||[])" :key="opt" :label="opt" :value="opt"></el-option>
+                                <el-option
+                                        v-for="opt in (param.options||[])"
+                                        :key="optionValue(opt)"
+                                        :label="optionSelectLabel(opt)"
+                                        :value="optionValue(opt)">
+                                    <span class="rule-option-value">{{ optionValue(opt) }}</span>
+                                    <span v-if="optionHasSeparateLabel(opt)" class="rule-option-label">{{ optionLabelText(opt) }}</span>
+                                </el-option>
                             </el-select>
-                            <!-- 多选 -->
+                            <!-- 多选：编码在左，中文名靠右 -->
                             <el-select
                                     v-else-if="param.type==='multiselect'"
                                     v-model="param._multiValue"
@@ -493,7 +500,14 @@
                                     style="width:100%"
                                     popper-class="rule-manager-popper"
                             >
-                                <el-option v-for="opt in (param.options||[])" :key="opt" :label="opt" :value="opt"></el-option>
+                                <el-option
+                                        v-for="opt in (param.options||[])"
+                                        :key="optionValue(opt)"
+                                        :label="optionSelectLabel(opt)"
+                                        :value="optionValue(opt)">
+                                    <span class="rule-option-value">{{ optionValue(opt) }}</span>
+                                    <span v-if="optionHasSeparateLabel(opt)" class="rule-option-label">{{ optionLabelText(opt) }}</span>
+                                </el-option>
                             </el-select>
                             <!-- 未知类型兜底 -->
                             <el-input
@@ -521,12 +535,14 @@
                 <div class="code-preview">{{ testingRule.script }}</div>
             </div>
 
-            <!-- 输出结果 -->
-            <div v-if="testOutput.length">
-                <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">
-                    执行输出
+            <!-- 输出结果：返回值摘要 + 逐步日志 -->
+            <div v-if="testOutput.length" class="test-output-block">
+                <div class="test-output-title">执行输出</div>
+                <div v-if="testRunOutput" class="test-output-summary" :class="'is-' + testRunTone">
+                    <span class="test-output-summary-label">返回值</span>
+                    <span class="test-output-summary-value">{{ testRunOutput }}</span>
                 </div>
-                <div class="result-console">
+                <div class="result-console" ref="resultConsole">
                     <div class="console-line" v-for="(line, i) in testOutput" :key="i">
                         <span class="console-time">{{ line.time }}</span>
                         <span class="console-tag" :class="line.type">{{ '[' + line.type.toUpperCase() + ']' }}</span>
@@ -607,7 +623,10 @@
                         >
                             <div class="preset-set-name">{{ ps.name }}</div>
                             <div class="preset-set-opts">
-                                <span class="preset-set-chip" v-for="o in ps.options" :key="o">{{ o }}</span>
+                                <span class="preset-set-chip" v-for="o in ps.options" :key="optionValue(o)">
+                                    <span class="preset-set-chip-value">{{ optionValue(o) }}</span>
+                                    <span v-if="optionHasSeparateLabel(o)" class="preset-set-chip-label">{{ optionLabelText(o) }}</span>
+                                </span>
                             </div>
                         </div>
                         <div
@@ -623,7 +642,7 @@
                     <div v-if="newParam.presetKey==='__custom__'" class="preset-custom-input">
                         <div class="options-tag-list">
                             <el-tag class="options-tag" v-for="(opt,i) in newParam.options" :key="i" size="small" closable effect="plain" @close="removeCustomOption(i)">
-                {{ opt }}
+                {{ optionSelectLabel(opt) }}
                             </el-tag>
                         </div>
                         <div style="display:flex;gap:8px;margin-top:8px">
@@ -714,6 +733,7 @@
                 testingRule: null,        // 当前测试规则
                 testCaseName: '',         // 测试用例名称
                 testOutput: [],           // 测试输出日志
+                testRunOutput: '',        // 最近一次执行返回值
 
                 // 删除dialog
                 deleteDialogVisible: false, // 删除弹窗显示
@@ -724,11 +744,11 @@
                 isRunningAll: false, // 批量运行状态
                 runProgress: 0,      // 批量运行进度
 
-                scriptTemplates: [    // 脚本模板
-                    { name: '条件折扣', code: 'if (amount > 1000) {\n    return amount * 0.9;\n}\nreturn amount;' },
-                    { name: '分级评分', code: 'int score = 0;\nif (param1 > 100) { score += 30; }\nif (param2 < 50) { score += 20; }\nreturn score;' },
-                    { name: '开关控制', code: 'if (flag == true && value > threshold) {\n    return "通过";\n}\nreturn "拒绝";' },
-                    { name: '加权计算', code: 'double result = a * 0.4 + b * 0.3 + c * 0.3;\nreturn Math.round(result * 100) / 100.0;' },
+                scriptTemplates: [    // 脚本模板：先走 checkAdjust 前置，再返回与 Java 相同的失败文案
+                    { name: '池锁定', code: 'if (securityCode == null || securityCode == "") {\n    return "证券代码不能为空";\n}\nif (targetPoolId == null || targetPoolId == "") {\n    return "调库项不能为空";\n}\nif (lockFlag == "是" || lockFlag == "1" || lockFlag == 1) {\n    return "目标投资池已锁定";\n}\nreturn "通过";' },
+                    { name: '进行中流程', code: 'if (securityCode == null || securityCode == "") {\n    return "证券代码不能为空";\n}\nif (hasPendingProcess == "是" || hasPendingProcess == "1" || hasPendingProcess == 1) {\n    return "证券存在进行中的调库流程";\n}\nreturn "通过";' },
+                    { name: '债券到期', code: 'if (securityCode == null || securityCode == "") {\n    return "证券代码不能为空";\n}\nif (maturityDate != null && maturityDate != "" && maturityDate < today) {\n    return "债券已到期";\n}\nreturn "通过";' },
+                    { name: 'ABS只能一级库', code: 'if (securityCode == null || securityCode == "") {\n    return "证券代码不能为空";\n}\nif (innerGuarantorRating == "1" && targetPoolLevel != 1) {\n    return "目标池「" + targetPoolName + "」不在特殊债调整后的允许范围内（仅 1 级）";\n}\nreturn "通过";' },
                 ]
             };
         },
@@ -740,6 +760,15 @@
                 if (!total) return 'N/A';
                 const pass = this.testCases.filter(t => t.lastResult === 'pass').length;
                 return Math.round(pass / total * 100) + '%';
+            },
+            // 返回值摘要配色：通过 / 脚本异常 / 业务失败
+            testRunTone() {
+                const output = this.testRunOutput || '';
+                if (output === '通过' || output === '不适用') return 'success';
+                const last = this.testOutput[this.testOutput.length - 1];
+                if (last && last.type === 'error') return 'error';
+                if (!output) return 'info';
+                return 'warning';
             },
         },
         // 初始化：加载选项字典、规则列表和测试用例
@@ -940,6 +969,27 @@
                 if (!exists && this.categories.length) {
                     this.form.category = this.categoryCode(this.categories[0]);
                 }
+            },
+            // 选项脚本取值（兼容字符串和 {value,label}）
+            optionValue(opt) {
+                if (opt && typeof opt === 'object') return opt.value == null ? '' : String(opt.value);
+                return opt == null ? '' : String(opt);
+            },
+            // 选项中文名称，没有则回退到取值
+            optionLabelText(opt) {
+                if (opt && typeof opt === 'object') {
+                    const label = opt.label == null ? '' : String(opt.label);
+                    return label || this.optionValue(opt);
+                }
+                return this.optionValue(opt);
+            },
+            // 取值与中文名不同时才额外展示中文
+            optionHasSeparateLabel(opt) {
+                return this.optionLabelText(opt) !== this.optionValue(opt);
+            },
+            // 选中后输入框展示：有中文名则显示中文
+            optionSelectLabel(opt) {
+                return this.optionHasSeparateLabel(opt) ? this.optionLabelText(opt) : this.optionValue(opt);
             },
             // 获取参数显示名
             paramLabel(param) {
@@ -1168,7 +1218,8 @@
                 const v = this.customOptionInput.trim();
                 if (!v) return;
                 // 避免重复添加相同选项
-                if (!this.newParam.options.includes(v)) this.newParam.options.push(v);
+                if (this.newParam.options.some(opt => this.optionValue(opt) === v)) return;
+                this.newParam.options.push({ value: v, label: v });
                 this.customOptionInput = '';
             },
             // 删除自定义选项
@@ -1259,20 +1310,33 @@
                 // 自动生成默认测试用例名
                 this.testCaseName = `${rule.name} 测试 #${moment().format('ssSS')}`;
                 this.testOutput = [];
+                this.testRunOutput = '';
                 this.testDialogVisible = true;
+            },
+            // 日志滚到最新一行
+            scrollTestConsole() {
+                this.$nextTick(() => {
+                    const el = this.$refs.resultConsole;
+                    if (el) el.scrollTop = el.scrollHeight;
+                });
             },
             // 执行当前弹窗中的测试
             async runTest() {
                 this.testOutput = [];
+                this.testRunOutput = '';
                 try {
                     const result = await this.apiPost('/api/v1/rules/executeRule', {
                         id: this.testingRule.id,
                         runParams: this.collectTestingParams()
                     });
                     this.testOutput = result.logs || [];
+                    this.testRunOutput = result.output || '';
+                    this.scrollTestConsole();
                     this.$forceUpdate();
                 } catch (e) {
                     this.testOutput.push({ time: moment().format('HH:mm:ss'), type: 'error', msg: '执行异常: ' + e.message });
+                    this.testRunOutput = e.message || '执行异常';
+                    this.scrollTestConsole();
                     this.$message.error(e.message || '操作失败');
                 }
             },
@@ -1310,11 +1374,12 @@
                     const updated = await this.apiPost('/api/v1/testCases/runTestCase', { id: tc.id });
                     tc.lastResult = updated.lastResult;
                     tc.lastOutput = updated.lastOutput;
-                    const passed = tc.lastResult === 'pass';
+                    const engineOk = tc.lastResult === 'pass';
+                    const businessPass = tc.lastOutput === '通过' || tc.lastOutput === '不适用';
                     this.$notify({
-                        title: passed ? '测试通过' : '测试失败',
-                        message: `测试用例「${tc.name}」${passed ? '执行通过' : '执行失败'}${tc.lastOutput ? '：' + tc.lastOutput : ''}`,
-                        type: passed ? 'success' : 'error',
+                        title: engineOk ? '执行完成' : '执行失败',
+                        message: `测试用例「${tc.name}」${engineOk ? '已执行' : '执行异常'}${tc.lastOutput ? '：' + tc.lastOutput : ''}`,
+                        type: engineOk ? (businessPass ? 'success' : 'warning') : 'error',
                         duration: 2500,
                         customClass: 'rule-manager-notification'
                     });
@@ -1349,7 +1414,7 @@
                     await this.loadTestCases();
                     this.$notify({
                         title: '全量测试完成',
-                        message: `共 ${total} 条用例，通过 ${pass}，失败 ${total - pass}`,
+                        message: `共 ${total} 条用例，脚本成功 ${pass}，异常 ${total - pass}（业务是否拦截看返回值）`,
                         type: pass === total ? 'success' : 'warning',
                         duration: 3000,
                         customClass: 'rule-manager-notification'

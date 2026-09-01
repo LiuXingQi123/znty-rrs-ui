@@ -299,8 +299,8 @@
 <header>
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>规则管理中心</h1>
-        <p class="desc">管理风控规则、参数和预置选项，使用 QLExpress
-            执行规则，并通过测试用例、批量运行与运行日志形成可追溯验证链路。</p>
+        <p class="desc">规则按 checkAdjust 真实检查项拆分（调入/调出通用、债券矩阵、流程匹配、提交报告、自动调库），返回文案与 Java 失败原因对齐，便于后续按规则名调用。QLExpress
+            试跑与测试用例形成可追溯验证链路。</p>
         <div class="stats"><span class="stat">10 项业务表</span><span class="stat">17 个主要接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
@@ -326,7 +326,7 @@
             <article class="step"><b>2. 维护定义</b>
                 <p>新增或编辑表达式、参数、选项和启停状态。</p></article>
             <article class="step"><b>3. 执行验证</b>
-                <p>按参数类型构造上下文并交给 QLExpress 执行。</p></article>
+                <p>按参数类型构造上下文并交给 QLExpress 执行；弹窗展示返回值摘要与逐步日志。</p></article>
             <article class="step"><b>4. 管理用例</b>
                 <p>保存规则输入，支持单条或全部运行。</p></article>
             <article class="step"><b>5. 留存轨迹</b>
@@ -456,11 +456,12 @@
             <article class="rule"><h3>事务一致性</h3>
                 <p>规则及参数、用例及参数、运行及日志分别在事务中维护，任一写入失败应整体回滚。</p></article>
             <article class="rule"><h3>代码值口径</h3>
-                <p>后端返回分类、状态等原始 code，中文由前端字典完成。执行引擎 <strong>QLExpress</strong>；number 用 BigDecimal；运行写入
+                <p>后端返回分类、状态等原始 code，中文由前端字典完成。预设选项和参数下拉同时返回 value（脚本取值）与
+                    label（中文名称），页面编码在左、中文靠右。执行引擎 <strong>QLExpress</strong>；number 用 BigDecimal；运行写入
                     <code>rule_test_run</code> / <code>rule_test_run_log</code>（无 <code>t_</code> 前缀）。参数类型枚举另有
                     select / multiselect，执行注入主路径当前仍以 string / number 为主。</p></article>
             <article class="rule"><h3>与调库运行时的关系</h3>
-                <p>规则中心负责定义、试跑与用例；投资池「自动规则」仅存 rule_id/描述，一期<strong>不</strong>在调库 Service 中自动执行本引擎。调库硬规则（锁池、关系、内评矩阵等）在各自 AdjustService 内实现，不经本页脚本。</p></article>
+                <p>当前运行时仍走 AdjustService 硬编码。Demo 每条规则描述带 <code>[checkCommonIn] inCheckPoolLocked</code> 这类调用点，返回「通过」或与 Java 相同的失败文案，后续可按规则名 <code>executeRule</code> 替换硬编码。调库类脚本开头对齐 checkAdjust 前置：未填证券代码返回「证券代码不能为空」，未填目标池返回「调库项不能为空」，不得空跑直接通过。投资池自动规则已挂接「自动-到期出池 / 主体外评AA-入池」。</p></article>
         </div>
         <div class="note">文档口径来自 rule_manager.html、RuleController、TestCaseController、Service、Mapper XML 与
             03-rule-manager.md。

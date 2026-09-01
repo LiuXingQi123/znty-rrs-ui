@@ -419,7 +419,7 @@ const DICT_RATING_AGENCY = {
 // 表：rrs_securityinfo.inner_issuer_rating；字典表 credit_bond_inner_rating_grade
 // 说明：信用债大库准入矩阵（credit_bond_pool_grade_rule）使用本套 8 档 code；
 //       演示数据与调库校验均为 grade_code=1 / 2+ / 2 / 2- / 3+ / 3 / 3- / 4（1 最优，4 最低）。
-//       规则引擎预设选项「主体内评」另有 1级～10级，见 DICT_RULE_INNER_RATING，勿与本字典混用。
+//       规则引擎预设选项「主体内评分档」与本字典同一套 8 档，见 DICT_RULE_INNER_RATING。
 const DICT_INNER_RATING = {
     '1':  '1（最高档）',
     '2+': '2+',
@@ -431,19 +431,17 @@ const DICT_INNER_RATING = {
     '4':  '4（最低档；临时代码无内评时默认按此档走矩阵）',
 };
 
-// ── 27b. 规则引擎预设「主体内评」（rule_preset_option，非调库矩阵）
-// 表：rule_preset_option（选项集「主体内评」）；仅规则管理参数用，不参与信用债入库矩阵匹配
+// ── 27b. 规则引擎预设「主体内评分档」（与调库矩阵同一套 8 档）
+// 表：rule_preset_option_item（选项集「主体内评分档」）
 const DICT_RULE_INNER_RATING = {
-    '1级':  '1级',
-    '2级':  '2级',
-    '3级':  '3级',
-    '4级':  '4级',
-    '5级':  '5级',
-    '6级':  '6级',
-    '7级':  '7级',
-    '8级':  '8级',
-    '9级':  '9级',
-    '10级': '10级',
+    '1':  '1（最高档）',
+    '2+': '2+',
+    '2':  '2',
+    '2-': '2-',
+    '3+': '3+',
+    '3':  '3',
+    '3-': '3-',
+    '4':  '4（最低档）',
 };
 
 // ── 28. 证券内部分类（inner_class）─────────────────
@@ -634,12 +632,16 @@ const DICT_FLOW_COND_FIELD = {
 // ── 42. 规则分类（category_code）─────────────────────────
 // 表：rule_category（无独立后端枚举）
 const DICT_RULE_CATEGORY = {
-    'risk':      '风控规则',
-    'credit':    '信用评估',
-    'pricing':   '定价规则',
-    'admission': '准入规则',
-    'warning':   '预警规则',
-    'other':     '其他',
+    'adjust_in':    '调入通用校验',
+    'adjust_out':   '调出通用校验',
+    'bond':         '债券特有校验',
+    'stock':        '股票特有校验',
+    'fund':         '基金特有校验',
+    'grade_matrix': '信用债分级矩阵',
+    'flow_match':   '流程匹配',
+    'submit':       '提交校验',
+    'auto_adjust':  '自动调库',
+    'other':        '其他',
 };
 
 // ── 43. 规则状态（status）────────────────────────────────
