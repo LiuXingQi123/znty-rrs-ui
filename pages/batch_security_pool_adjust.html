@@ -313,7 +313,10 @@
                             <el-select v-if="row.guarantorOptions && row.guarantorOptions.length > 0"
                                        v-model="row.selectedGuarantorCode" size="small" placeholder="请选择担保人" style="width:100%;">
                                 <el-option v-for="opt in row.guarantorOptions" :key="opt.code"
-                                           :label="opt.name" :value="opt.code"></el-option>
+                                           :label="opt.name" :value="opt.code">
+                                    <span>{{ opt.name }}</span>
+                                    <span style="float:right;color:var(--text-muted);font-size:12px;margin-left:20px;">{{ opt.rating }}</span>
+                                </el-option>
                             </el-select>
                         </template>
                     </el-table-column>
@@ -1188,9 +1191,11 @@
                     };
                     const data = await this.apiPost('/api/v1/batchSecurityPoolAdjust/querySecurityPage', securityQueryParams)
                     const records = data.records || []
+                    // 当前页全部担保人代码合并为一次 AIS 内评查询
+                    const guarantorGradeMap = await this.queryGuarantorGradeMapByRecords(records)
                     // 担保人下拉：预置选项与默认值（单担保人默认选中，多担保人默认不选，下一步校验提示选择）
                     records.forEach(r => {
-                        const opts = this.parseGuarantorOptions(r.guarantorId, r.guarantor)
+                        const opts = this.parseGuarantorOptions(r.guarantorId, r.guarantor, guarantorGradeMap)
                         r.guarantorOptions = opts
                         r.selectedGuarantorCode = opts.length === 1 ? opts[0].code : ''
                     })
@@ -1269,12 +1274,35 @@
                 if (this.$refs.securityTableRef) this.$refs.securityTableRef.clearSelection()
             },
 
-            // 解析担保人下拉选项：guarantorId（代码，逗号分隔）与 guarantor（名称，逗号分隔）按位置配对
-            parseGuarantorOptions(guarantorId, guarantor) {
+            // 解析担保人下拉选项：代码与名称按位置配对，评分按担保人代码匹配
+            parseGuarantorOptions(guarantorId, guarantor, gradeMap) {
                 const codes = (guarantorId || '').split(',').map(s => s.trim()).filter(s => s !== '')
                 if (codes.length === 0) return []
                 const names = (guarantor || '').split(',').map(s => s.trim())
-                return codes.map((code, idx) => ({ code, name: names[idx] || code }))
+                return codes.map((code, idx) => ({
+                    code,
+                    name: names[idx] || code,
+                    rating: gradeMap[code] || ''
+                }))
+            },
+
+            // 合并当前页证券的全部担保人代码，一次查询 AIS 最新主体内评
+            async queryGuarantorGradeMapByRecords(records) {
+                const windCodes = []
+                const sourceRecords = records || []
+                sourceRecords.forEach(record => {
+                    const recordCodes = (record.guarantorId || '').split(',')
+                    recordCodes.forEach(code => {
+                        const normalized = code.trim()
+                        if (normalized && windCodes.indexOf(normalized) === -1) windCodes.push(normalized)
+                    })
+                })
+                if (windCodes.length === 0) return {}
+                const gradeList = await this.apiPost('/api/v1/common/queryGuarantorGradeList', { windCodes })
+                return (gradeList || []).reduce((result, item) => {
+                    result[item.windcode] = item.totalScore || ''
+                    return result
+                }, {})
             },
 
             // 进入步骤2并执行调库校验
@@ -1457,6 +1485,7 @@
                             securityCode: item.securityCode,
                             securityShortName: item.securityShortName || '',
                             securityType: item.securityType || '',
+                            guarantorCode: this.selectedGuarantorCodeFor(item.sourceSecurityCode || item.securityCode),
                             sourceSecurityCode: item.sourceSecurityCode || item.securityCode,
                             targetPoolId: item.poolId,
                             targetPoolName: item.poolName,
@@ -1483,6 +1512,12 @@
                 } finally {
                     this.submitLoading = false
                 }
+            },
+
+            // 根据校验结果所属主券取回步骤1选择的担保人代码，保证提交与校验口径一致
+            selectedGuarantorCodeFor(securityCode) {
+                const selected = this.selectedSecurities.find(item => item.securityCode === securityCode)
+                return selected ? (selected.selectedGuarantorCode || '') : ''
             },
 
             // 调库校验结果中的调整类型展示
