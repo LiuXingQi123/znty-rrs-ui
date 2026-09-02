@@ -365,7 +365,7 @@
                                             </div>
                                         </template>
                                         <div v-else class="relation-card-empty" @click="openRulePicker('autoIn')">
-                                            <i class="el-icon-plus" style="margin-right:5px;"></i> 点击选择规则
+                                            <i class="el-icon-plus" style="margin-right:5px;"></i> 点击选择定时任务
                                         </div>
                                     </div>
                                 </div>
@@ -395,7 +395,7 @@
                                             </div>
                                         </template>
                                         <div v-else class="relation-card-empty" @click="openRulePicker('autoOut')">
-                                            <i class="el-icon-plus" style="margin-right:5px;"></i> 点击选择规则
+                                            <i class="el-icon-plus" style="margin-right:5px;"></i> 点击选择定时任务
                                         </div>
                                     </div>
                                 </div>
@@ -693,37 +693,24 @@
     </span>
     </el-dialog>
 
-    <!-- 自动规则选择弹窗：选择自动调入/调出规则关联到当前投资池 -->
+    <!-- 自动规则选择弹窗：选择自动调入/调出定时任务关联到当前投资池 -->
     <el-dialog
-            :title="rulePickerType === 'autoIn' ? '选择自动调入规则' : '选择自动调出规则'"
+            :title="rulePickerType === 'autoIn' ? '选择自动调入定时任务' : '选择自动调出定时任务'"
             :visible.sync="rulePickerVisible"
             width="900px"
             @closed="handleRulePickerClosed">
         <div class="pool-tree-dialog-body">
-            <!-- Left: search + category filter + table -->
+            <!-- Left: search + table -->
             <div class="ptd-left" style="width: 540px;">
                 <div style="display:flex;gap:8px;margin-bottom:10px;">
                     <el-input
                         v-model.trim="rulePickerSearch"
-                        placeholder="搜索规则名称..."
+                        placeholder="搜索任务名称或说明..."
                         clearable size="small"
                         prefix-icon="el-icon-search"
                         style="flex:1;"
                         @input="handleRulePickerSearch">
                     </el-input>
-                    <el-select
-                        v-model="rulePickerCategoryFilter"
-                        placeholder="规则分类"
-                        clearable size="small"
-                        style="width: 140px;"
-                        @change="handleRulePickerCategoryChange">
-                        <el-option
-                            v-for="cat in ruleCategoryOptions"
-                            :key="cat.code"
-                            :label="cat.name"
-                            :value="cat.code">
-                        </el-option>
-                    </el-select>
                 </div>
                 <div style="flex:1;overflow:auto;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-md);">
                     <el-table
@@ -733,25 +720,15 @@
                         stripe border
                         @selection-change="handleRulePickerSelect">
                         <el-table-column type="selection" width="46"></el-table-column>
-                        <el-table-column label="序号" width="50" align="center">
-                            <template slot-scope="{ $index }">
-                                {{ $index + 1 }}
-                            </template>
-                        </el-table-column>
-                        <el-table-column prop="name" label="规则名称" width="160"></el-table-column>
-                        <el-table-column prop="description" label="规则描述" min-width="160" show-overflow-tooltip></el-table-column>
-                        <el-table-column label="规则分类" width="110">
-                            <template slot-scope="{ row }">
-                                <el-tag size="mini">{{ getCategoryLabel(row.category) }}</el-tag>
-                            </template>
-                        </el-table-column>
+                        <el-table-column prop="taskName" label="任务名称" width="180" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="description" label="任务说明" min-width="200" show-overflow-tooltip></el-table-column>
                     </el-table>
                 </div>
             </div>
             <!-- Right: selected list -->
             <div class="ptd-right">
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <div class="ptd-right-label">已选规则</div>
+                    <div class="ptd-right-label">已选任务</div>
                     <span class="ptd-count-badge">{{ rulePickerSelected.length }}</span>
                     <el-button v-if="rulePickerSelected.length" class="btn btn-ghost compact-clear-btn picker-header-clear" @click="clearRulePickerSelection" size="small" type="default">
                         <i class="el-icon-delete"></i> 清空
@@ -759,15 +736,15 @@
                 </div>
                 <div class="ptd-selected-list">
                     <div v-if="!rulePickerSelected.length" class="ptd-selected-empty">
-                        <span>勾选左侧表格中的规则</span>
+                        <span>勾选左侧表格中的定时任务</span>
                     </div>
                     <div
                         v-for="item in rulePickerSelected"
                         :key="item.id"
                         class="ptd-selected-item">
                         <div class="ptd-item-info">
-                            <div class="ptd-item-name">{{ item.name }}</div>
-                            <div class="ptd-item-path">{{ getCategoryLabel(item.category) }}</div>
+                            <div class="ptd-item-name">{{ item.taskName || item.name }}</div>
+                            <div class="ptd-item-path">{{ item.description }}</div>
                         </div>
                         <el-button class="ptd-item-remove" @click="removeFromRulePickerSelected(item.id)" title="移除" size="mini" type="text">
                             <i class="el-icon-close"></i>
@@ -953,10 +930,10 @@
                 relationForm: {          // 投资池关系配置表单
                     id: null,               // 当前投资池 ID
                     relationPoolIds: {},    // 各关系类型对应的池 ID 数组（key: 关系类型，value: id[]）
-                    autoInRuleIds: [],      // 自动调入规则 ID 列表
-                    autoInRuleDescs: [],    // 自动调入规则名称列表（与 ID 一一对应）
-                    autoOutRuleIds: [],     // 自动调出规则 ID 列表
-                    autoOutRuleDescs: []    // 自动调出规则名称列表
+                    autoInRuleIds: [],      // 自动调入定时任务 ID 列表
+                    autoInRuleDescs: [],    // 自动调入定时任务名称列表（与 ID 一一对应）
+                    autoOutRuleIds: [],     // 自动调出定时任务 ID 列表
+                    autoOutRuleDescs: []    // 自动调出定时任务名称列表
                 },
                 childForm: {             // 新增子池表单
                     parentId: null,         // 父节点 ID
@@ -1256,15 +1233,13 @@
                 poolPickerTreeData: [],         // 弹窗内的池树数据（深拷贝）
                 poolParentMap: {},              // id -> { parentPath, poolName } 面包屑映射
 
-                // 自动规则选择弹窗状态
+                // 自动规则选择弹窗状态（数据源为全部定时任务）
                 rulePickerVisible: false,           // 弹窗显示状态
                 rulePickerType: 'autoIn',           // 当前选规则类型：'autoIn' | 'autoOut'
-                rulePickerSearch: '',               // 规则名称搜索
-                rulePickerCategoryFilter: '',       // 规则分类过滤
-                rulePickerList: [],                 // 所有启用规则列表（全量）
+                rulePickerSearch: '',               // 任务名称/说明搜索
+                rulePickerList: [],                 // 全部定时任务列表
                 rulePickerFilteredList: [],         // 当前显示的过滤后列表
-                rulePickerSelected: [],             // 弹窗中已勾选的规则
-                ruleCategoryOptions: [],            // 规则分类下拉选项
+                rulePickerSelected: [],             // 弹窗中已勾选的定时任务
                 restoringRulePickerSelection: false, // 是否正在恢复规则表格勾选状态
 
                 permissionSubmitLoading: false,     // 权限配置保存按钮加载状态
@@ -1289,13 +1264,12 @@
                 templatePickerSearch: ''            // 树搜索关键字
             }
         },
-        // 生命周期：组件创建时初始化关系表单、加载审批流程选项、投资池树、规则分类及规则列表
+        // 生命周期：组件创建时初始化关系表单、加载审批流程选项、投资池树及定时任务列表
         created() {
             this.initRelationForm()
             this.loadFlowOptions()
             this.loadPoolTree()
-            this.loadRuleCategories()
-            this.loadRules()
+            this.loadScheduledTasks()
         },
         methods: {
             // 根据池 ID 获取带完整路径的显示标签
@@ -1923,24 +1897,11 @@
                 this.permissionSubmitLoading = false
             },
 
-            // 加载规则分类选项
-            async loadRuleCategories() {
+            // 加载全部定时任务（自动调入/调出绑定用）
+            async loadScheduledTasks() {
                 try {
-                    const data = await this.apiPost('/api/v1/rules/options/queryCategoryList', {})
-                    this.ruleCategoryOptions = (data || []).map(function(item) {
-                        return { code: item.code, name: item.name }
-                    })
-                } catch (e) {
-                    this.ruleCategoryOptions = []
-                }
-            },
-
-            // 加载规则列表（仅启用的规则）
-            async loadRules() {
-                try {
-                    const queryParams = { pageIndex: 1, pageSize: 9999, status: 'active' };
-                    const data = await this.apiPost('/api/v1/rules/queryRulePage', queryParams)
-                    this.rulePickerList = (data && data.records) ? data.records : []
+                    const data = await this.apiPost('/api/v1/scheduledTask/queryTaskList', {})
+                    this.rulePickerList = Array.isArray(data) ? data : []
                     this.applyRulePickerFilters()
                 } catch (e) {
                     this.rulePickerList = []
@@ -1948,34 +1909,41 @@
                 }
             },
 
-            // 应用规则筛选条件
+            // 按任务名称、说明过滤定时任务
             applyRulePickerFilters() {
                 let list = this.rulePickerList
                 const kw = this.rulePickerSearch
                 if (kw) {
                     const lowerKw = kw.toLowerCase()
                     list = list.filter(function(r) {
-                        return (r.name && r.name.toLowerCase().indexOf(lowerKw) !== -1) ||
-                               (r.description && r.description.toLowerCase().indexOf(lowerKw) !== -1)
+                        const name = r.taskName || ''
+                        const desc = r.description || ''
+                        return name.toLowerCase().indexOf(lowerKw) !== -1
+                            || desc.toLowerCase().indexOf(lowerKw) !== -1
                     })
-                }
-                const cat = this.rulePickerCategoryFilter
-                if (cat) {
-                    list = list.filter(function(r) { return r.category === cat })
                 }
                 this.rulePickerFilteredList = list
             },
 
-            // 打开规则选择弹窗
+            // 打开定时任务选择弹窗
             openRulePicker(type) {
                 this.rulePickerType = type
                 this.rulePickerSearch = ''
-                this.rulePickerCategoryFilter = ''
                 const ids = type === 'autoIn' ? this.relationForm.autoInRuleIds : this.relationForm.autoOutRuleIds
                 const descs = type === 'autoIn' ? this.relationForm.autoInRuleDescs : this.relationForm.autoOutRuleDescs
                 this.rulePickerSelected = (ids || []).map(function(id, i) {
-                    return { id: id, name: (descs && descs[i]) ? descs[i] : String(id), category: '' }
-                })
+                    const fromList = this.rulePickerList.find(function(r) { return String(r.id) === String(id) })
+                    if (fromList) {
+                        return {
+                            id: fromList.id,
+                            taskName: fromList.taskName,
+                            description: fromList.description,
+                            name: fromList.taskName
+                        }
+                    }
+                    const snapshot = (descs && descs[i]) ? descs[i] : String(id)
+                    return { id: id, taskName: snapshot, description: '', name: snapshot }
+                }.bind(this))
                 this.restoringRulePickerSelection = true
                 this.applyRulePickerFilters()
                 this.rulePickerVisible = true
@@ -2007,7 +1975,6 @@
             handleRulePickerClosed() {
                 this.rulePickerType = 'autoIn'
                 this.rulePickerSearch = ''
-                this.rulePickerCategoryFilter = ''
                 this.rulePickerSelected = []
                 this.restoringRulePickerSelection = false
             },
@@ -2021,16 +1988,7 @@
                 }.bind(this))
             },
 
-            // 规则分类筛选
-            handleRulePickerCategoryChange() {
-                this.restoringRulePickerSelection = true
-                this.applyRulePickerFilters()
-                this.$nextTick(function() {
-                    this.restoreRulePickerTableSelection()
-                }.bind(this))
-            },
-
-            // 多选规则行
+            // 多选定时任务行
             handleRulePickerSelect(rows) {
                 if (this.restoringRulePickerSelection) return
                 const visibleIds = this.rulePickerFilteredList.map(function(r) { return String(r.id) })
@@ -2039,7 +1997,12 @@
                     if (visibleIds.indexOf(String(s.id)) === -1) keepMap[String(s.id)] = s
                 })
                 rows.forEach(function(row) {
-                    keepMap[String(row.id)] = { id: row.id, name: row.name, category: row.category }
+                    keepMap[String(row.id)] = {
+                        id: row.id,
+                        taskName: row.taskName,
+                        description: row.description,
+                        name: row.taskName
+                    }
                 })
                 this.rulePickerSelected = Object.keys(keepMap).map(function(id) { return keepMap[id] })
             },
@@ -2061,10 +2024,10 @@
                 }.bind(this))
             },
 
-            // 确认选择规则
+            // 确认选择定时任务
             confirmRulePicker() {
                 const ids = this.rulePickerSelected.map(function(s) { return s.id })
-                const descs = this.rulePickerSelected.map(function(s) { return s.name })
+                const descs = this.rulePickerSelected.map(function(s) { return s.taskName || s.name })
                 if (this.rulePickerType === 'autoIn') {
                     this.relationForm.autoInRuleIds = ids
                     this.relationForm.autoInRuleDescs = descs
@@ -2086,34 +2049,15 @@
                 }
             },
 
-            // 获取已选规则名称（从本地规则列表查找，兜底用描述）
+            // 获取已选定时任务名称（优先实时列表，兜底用保存时的名称快照）
             getSelectedRuleName(ruleId) {
-                const rule = this.rulePickerList.find(function(r) { return r.id === ruleId })
-                if (rule) return rule.name
-                const inIdx = (this.relationForm.autoInRuleIds || []).indexOf(ruleId)
+                const task = this.rulePickerList.find(function(r) { return String(r.id) === String(ruleId) })
+                if (task) return task.taskName
+                const inIdx = (this.relationForm.autoInRuleIds || []).findIndex(function(id) { return String(id) === String(ruleId) })
                 if (inIdx !== -1 && this.relationForm.autoInRuleDescs[inIdx]) return this.relationForm.autoInRuleDescs[inIdx]
-                const outIdx = (this.relationForm.autoOutRuleIds || []).indexOf(ruleId)
+                const outIdx = (this.relationForm.autoOutRuleIds || []).findIndex(function(id) { return String(id) === String(ruleId) })
                 if (outIdx !== -1 && this.relationForm.autoOutRuleDescs[outIdx]) return this.relationForm.autoOutRuleDescs[outIdx]
                 return String(ruleId)
-            },
-
-            // 规则分类编码映射为中文
-            getCategoryLabel(code) {
-                const cat = this.ruleCategoryOptions.find(c => c.code === code)
-                if (cat) return cat.name
-                const map = {
-                    'adjust_in': '调入通用校验',
-                    'adjust_out': '调出通用校验',
-                    'bond': '债券特有校验',
-                    'stock': '股票特有校验',
-                    'fund': '基金特有校验',
-                    'grade_matrix': '信用债分级矩阵',
-                    'flow_match': '流程匹配',
-                    'submit': '提交校验',
-                    'auto_adjust': '自动调库',
-                    'other': '其他'
-                }
-                return map[code] || code || ''
             }
         }
     })

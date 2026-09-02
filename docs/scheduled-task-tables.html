@@ -489,7 +489,7 @@
                 <h3>到期证券自动出池 security_expired_auto_out</h3>
                 <ul>
                     <li>每天 23:00 执行（Cron：<code>0 0 23 * * ?</code>；Demo 默认关闭）</li>
-                    <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"poolIds":[10,15]}</code></li>
+                    <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"poolIds":[10,15]}</code>；<code>poolIds</code> 可选，与投资池关系配置中绑定本任务的池取并集。</li>
                     <li>扫描所列投资池中 audit_status=20 的债/股，主数据到期日早于昨天（T-2）则自动调出（不含主体/基金/CRMW）；当前在调出限制池则跳过；仅软删成功才写日志（自动调整、不走审批）。</li>
                 </ul>
             </article>
@@ -498,7 +498,7 @@
                 <ul>
                     <li>每天 23:05 执行（Cron：<code>0 5 23 * * ?</code>；Demo 默认关闭）</li>
                     <li>对应老 IP_RULE <code>AdjustRuleCrmwDueOutPool</code></li>
-                    <li>参数：<code>{"poolIds":[18]}</code></li>
+                    <li>参数：<code>{"poolIds":[18]}</code>；<code>poolIds</code> 可选，与投资池关系配置绑定本任务的池取并集。</li>
                     <li>CRMW 池已生效组合、凭证到期日早于昨天（T-2）→ 自动调出；调出限制池阻断；仅软删成功才写日志。</li>
                 </ul>
             </article>
@@ -506,7 +506,7 @@
                 <h3>外评非AA-及以下主体自动出池 company_outer_rating_not_aa_minus_auto_out</h3>
                 <ul>
                     <li>每天 23:10 执行（Cron：<code>0 10 23 * * ?</code>；Demo 默认关闭）</li>
-                    <li>参数：<code>{"poolIds":[16],"limitPoolIds":[15]}</code></li>
+                    <li>参数：<code>{"poolIds":[16],"limitPoolIds":[15]}</code>；<code>poolIds</code> 可选，与关系配置绑定池取并集。</li>
                     <li>有效外评（近 12 个月取档）<strong>不在</strong> AA-/A/BBB… 则出主体，并顺带出同池债；已在 limitPoolIds（默认禁投池）则不出；调出限制池阻断。</li>
                 </ul>
             </article>
@@ -514,7 +514,7 @@
                 <h3>外评AA-及以下主体自动入池 company_outer_rating_aa_minus_auto_in</h3>
                 <ul>
                     <li>每天 23:15 执行（Cron：<code>0 15 23 * * ?</code>；Demo 默认关闭）</li>
-                    <li>参数：<code>{"poolIds":[15]}</code></li>
+                    <li>参数：<code>{"poolIds":[15]}</code>；<code>poolIds</code> 可选，与关系配置绑定池取并集。</li>
                     <li>有效外评（近 12 个月取档）在 AA-/A/BBB…（不含 AA/AA+/AAA）且未在目标池 → 自动入主体；调入限制池阻断。</li>
                 </ul>
             </article>
@@ -523,7 +523,7 @@
                 <ul>
                     <li>每天 23:20 执行（Cron：<code>0 20 23 * * ?</code>；Demo 默认关闭）</li>
                     <li>对应老系统 IP_RULE type=0「主体下债券自动入库」</li>
-                    <li>参数：<code>{"poolIds":[15]}</code>（主体与债<strong>必须同一池</strong>，无 mappings）</li>
+                    <li>参数：<code>{"poolIds":[15]}</code>（主体与债<strong>必须同一池</strong>，无 mappings）；<code>poolIds</code> 可选，与关系配置绑定池取并集。</li>
                     <li>主体已在本池 → 旗下债未到期（含当天）未在本池 → 同池自动入；尊重 market_codes；不排除临时代码/ABS；调入限制池阻断。</li>
                 </ul>
             </article>
@@ -532,7 +532,7 @@
                 <ul>
                     <li>每 10 分钟执行一次（Cron：<code>0 */10 * * * ?</code>；Demo 默认关闭）</li>
                     <li>对应老系统 <code>AutoAdjustInNewBondToLimitPoolJob</code></li>
-                    <li>同池：<code>{"poolIds":[15]}</code>；跨池：<code>{"mappings":[{"companyInPoolId":15,"bondTargetPoolId":100}]}</code></li>
+                    <li>同池：<code>{"poolIds":[15]}</code>；跨池：<code>{"mappings":[{"companyInPoolId":15,"bondTargetPoolId":100}]}</code>；关系配置绑定本任务的池按同池映射并入。</li>
                     <li>主体已在池 → 旗下债未到期（不含当天）、尚未在<strong>目标池</strong>则入；排除临时代码已更新、ABS、CRMW；不看限制池。</li>
                 </ul>
             </article>
@@ -541,7 +541,7 @@
                 <ul>
                     <li>每天 00:00 执行（Cron：<code>0 0 0 * * ?</code>；Demo 默认关闭，建议按需手动执行）</li>
                     <li>对应老 <code>AutoAdjustInLimitPoolToNewBondJob</code></li>
-                    <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"mappings":[{"bondPoolId":15,"companyPoolId":15}]}</code></li>
+                    <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"mappings":[{"bondPoolId":15,"companyPoolId":15}]}</code>；关系配置绑定本任务的池按同池映射并入。</li>
                     <li>债已在债券池、主体不在主体池 → 出债；排除 ABS/CRMW（ABS 走禁投独立链路）；不看限制池。</li>
                 </ul>
             </article>
