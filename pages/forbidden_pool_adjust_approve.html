@@ -829,7 +829,14 @@
                                 {{ $index + 1 }}
                             </template>
                         </el-table-column>
+                        <el-table-column prop="securityCode" label="证券代码" min-width="125" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="securityShortName" label="证券简称" min-width="130" show-overflow-tooltip></el-table-column>
                         <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                        <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center">
+                            <template slot-scope="{ row }">
+                                <el-tag size="mini" :type="adjustTypeTagType(row.adjustType)">{{ row.adjustType }}</el-tag>
+                            </template>
+                        </el-table-column>
                         <el-table-column prop="direction" label="调库方向" min-width="90" align="center">
                             <template slot-scope="{ row }">
                                 <el-tag class="adjust-direction-tag" size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
@@ -2415,6 +2422,7 @@
                 }
 
                 const itemTagLabelMap = { manual: '手工', linkage: '联动', mutex: '互斥' }
+                const adjustTypeMap = { manual: '手工调整', linkage: '联动调整', mutex: '互斥调整' }
                 this.adjustReviewList = this.applyAdjustGroupColors(result.items.map((item, rowIndex) => {
                     const typePrefix = (itemTagLabelMap[item.itemTag] || '手工') + item.adjustMode
                     const failReasons = item.failReasons || []
@@ -2426,11 +2434,15 @@
                         ? ('未通过（共 ' + failReasons.length + ' 项）：' + failReasons.map((r, i) => (i + 1) + '. ' + r).join(' '))
                         : typePrefix
                     return {
+                        securityCode: item.securityCode || this.companyDetail.companyCode || '',
+                        securityShortName: item.securityShortName || this.companyDetail.companyShortName || '',
+                        securityType: item.securityType || this.companyDetail.securityType || 'company',
                         poolId: item.targetPoolId,
                         poolName: item.poolName,
                         poolType: item.poolType,
                         direction: item.adjustMode,
                         itemTag: item.itemTag,
+                        adjustType: adjustTypeMap[item.itemTag] || '手工调整',
                         adjustGroupKey: item.adjustGroupKey,
                         valid: item.canAdjust,
                         failReasons: failReasons,
@@ -2502,7 +2514,7 @@
             async submitAdjustLog() {
                 if (this.submitLoading) return;
                 this.submitLoading = true;
-                const validItems = this.adjustReviewList.filter(r => r.valid);
+                const validItems = this.validAdjustReviewList;
                 const submitFiles = [];
                 validItems.forEach(item => {
                     item.creditReportFileIndexes = this.collectSubmitFiles(item.attachmentFiles || [], submitFiles);
@@ -2519,6 +2531,9 @@
                     adjusterId: this.currentLoginUserId,
                     adjusterName: this.currentLoginUserName,
                     items: validItems.map(r => ({
+                        securityCode: r.securityCode,
+                        securityShortName: r.securityShortName,
+                        securityType: r.securityType,
                         targetPoolId: r.poolId,
                         targetPoolName: r.poolName,
                         poolType: r.poolType || '',
