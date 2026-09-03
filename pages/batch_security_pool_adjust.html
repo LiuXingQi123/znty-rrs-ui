@@ -311,11 +311,15 @@
                     <el-table-column label="担保人*" min-width="180">
                         <template slot-scope="{ row }">
                             <el-select v-if="row.guarantorOptions && row.guarantorOptions.length > 0"
-                                       v-model="row.selectedGuarantorCode" size="small" placeholder="请选择担保人" style="width:100%;">
+                                       v-model="row.selectedGuarantorCode" size="small" placeholder="请选择担保人" style="width:100%;"
+                                       popper-class="guarantor-select-dropdown">
                                 <el-option v-for="opt in row.guarantorOptions" :key="opt.code"
-                                           :label="opt.name" :value="opt.code">
-                                    <span>{{ opt.name }}</span>
-                                    <span style="float:right;color:var(--text-muted);font-size:12px;margin-left:20px;">{{ opt.rating }}</span>
+                                           :label="opt.label" :value="opt.code">
+                                    <span class="guarantor-option">
+                                        <span class="guarantor-option-name">{{ opt.name }}</span>
+                                        <el-tag v-if="opt.typeName" size="mini" type="info" class="guarantor-type-tag">{{ opt.typeName }}</el-tag>
+                                        <span class="guarantor-option-rating">{{ opt.rating }}</span>
+                                    </span>
                                 </el-option>
                             </el-select>
                         </template>
@@ -1191,11 +1195,11 @@
                     };
                     const data = await this.apiPost('/api/v1/batchSecurityPoolAdjust/querySecurityPage', securityQueryParams)
                     const records = data.records || []
-                    // 当前页全部担保人代码合并为一次 AIS 内评查询
-                    const guarantorGradeMap = await this.queryGuarantorGradeMapByRecords(records)
+                    // 当前页全部证券代码合并查询 Wind 担保人关系及 AIS 内评
+                    const guarantorOptionsBySecurityCode = await this.queryGuarantorGradeMapByRecords(records)
                     // 担保人下拉：预置选项与默认值（单担保人默认选中，多担保人默认不选，下一步校验提示选择）
                     records.forEach(r => {
-                        const opts = this.parseGuarantorOptions(r.guarantorId, r.guarantor, guarantorGradeMap)
+                        const opts = guarantorOptionsBySecurityCode[r.windCode] || []
                         r.guarantorOptions = opts
                         r.selectedGuarantorCode = opts.length === 1 ? opts[0].code : ''
                     })
@@ -1274,35 +1278,34 @@
                 if (this.$refs.securityTableRef) this.$refs.securityTableRef.clearSelection()
             },
 
-            // 解析担保人下拉选项：代码与名称按位置配对，评分按担保人代码匹配
-            parseGuarantorOptions(guarantorId, guarantor, gradeMap) {
-                const codes = (guarantorId || '').split(',').map(s => s.trim()).filter(s => s !== '')
-                if (codes.length === 0) return []
-                const names = (guarantor || '').split(',').map(s => s.trim())
-                return codes.map((code, idx) => ({
-                    code,
-                    name: names[idx] || code,
-                    rating: gradeMap[code] || ''
-                }))
-            },
-
-            // 合并当前页证券的全部担保人代码，一次查询 AIS 最新主体内评
+            // 合并当前页证券代码，一次查询各券的 Wind 担保人关系及 AIS 最新内评
             async queryGuarantorGradeMapByRecords(records) {
-                const windCodes = []
-                const sourceRecords = records || []
-                sourceRecords.forEach(record => {
-                    const recordCodes = (record.guarantorId || '').split(',')
-                    recordCodes.forEach(code => {
-                        const normalized = code.trim()
-                        if (normalized && windCodes.indexOf(normalized) === -1) windCodes.push(normalized)
-                    })
-                })
-                if (windCodes.length === 0) return {}
-                const gradeList = await this.apiPost('/api/v1/common/queryGuarantorGradeList', { windCodes })
+                const securityCodes = (records || []).map(record => record.windCode)
+                    .filter((code, index, values) => code && values.indexOf(code) === index)
+                if (securityCodes.length === 0) return {}
+                const gradeList = await this.apiPost('/api/v1/common/queryGuarantorGradeList', { securityCodes })
                 return (gradeList || []).reduce((result, item) => {
-                    result[item.windcode] = item.totalScore || ''
+                    if (!result[item.securityCode]) result[item.securityCode] = []
+                    const name = item.windname || item.windcode
+                    const typeName = this.guarantorTypeName(item.guarantorTypeCode)
+                    result[item.securityCode].push({
+                        code: item.windcode,
+                        name,
+                        typeName,
+                        label: typeName ? name + '（' + typeName + '）' : name,
+                        rating: item.totalScore || ''
+                    })
                     return result
                 }, {})
+            },
+
+            // Wind 担保人类型由前端统一映射展示
+            guarantorTypeName(typeCode) {
+                const typeNameMap = {
+                    '115203000': '差额支付承诺人',
+                    '115201000': '原始权益人'
+                }
+                return typeNameMap[String(typeCode)] || ''
             },
 
             // 进入步骤2并执行调库校验

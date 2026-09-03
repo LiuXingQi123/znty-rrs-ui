@@ -290,11 +290,15 @@
                         <el-descriptions-item label="担保人*">
                             <el-select v-if="guarantorOptions.length > 0" v-model="bondDetail.selectedGuarantorCode"
                                        size="small" placeholder="请选择担保人" style="width:100%;"
+                                       popper-class="guarantor-select-dropdown"
                                        :disabled="adjustStep === 2" @change="handleGuarantorChange">
                                 <el-option v-for="opt in guarantorOptions" :key="opt.code"
-                                           :label="opt.name" :value="opt.code">
-                                    <span>{{ opt.name }}</span>
-                                    <span style="float:right;color:var(--text-muted);font-size:12px;margin-left:20px;">{{ opt.rating }}</span>
+                                           :label="opt.label" :value="opt.code">
+                                    <span class="guarantor-option">
+                                        <span class="guarantor-option-name">{{ opt.name }}</span>
+                                        <el-tag v-if="opt.typeName" size="mini" type="info" class="guarantor-type-tag">{{ opt.typeName }}</el-tag>
+                                        <span class="guarantor-option-rating">{{ opt.rating }}</span>
+                                    </span>
                                 </el-option>
                             </el-select>
                         </el-descriptions-item>
@@ -1173,7 +1177,7 @@
                 selectedAdjustLogId: null,    // 从调库记录入口进入时携带的调库记录ID
                 selectedAdjustBatchNo: null,  // 从调库记录入口进入时携带的调库批次号
                 bondDetail: {},               // 证券基本信息（详情页）
-                guarantorGradeMap: {},        // 担保人代码对应的 AIS 主体内评分
+                guarantorGradeMap: {},        // 当前证券从 Wind 查询到的担保人代码、名称和 AIS 内评
                 fundRate: '',                 // 基金评分（基金证券调入校验用，前端传入）
                 detailLoading: false,         // 详情页加载状态
                 securityCurrentPools: [],     // 当前证券所在的投资池列表
@@ -1305,13 +1309,9 @@
                 if (this.invalidCount === 0) return '';
                 return '请根据上述提示原因，调整所选投资池或补充相关材料后重新提交校验。如确认无法调整，可剔除不可调整的库后单独提交可调整的部分。';
             },
-            // 担保人下拉选项：代码与名称按位置配对，评分按担保人代码从 AIS 查询结果获取
+            // 担保人下拉选项：直接使用按证券代码查询到的 Wind 担保人关系
             guarantorOptions() {
-                return this.parseGuarantorOptions(
-                    this.bondDetail.guarantorId,
-                    this.bondDetail.guarantor,
-                    this.guarantorGradeMap
-                );
+                return Object.keys(this.guarantorGradeMap).map(code => this.guarantorGradeMap[code]);
             },
             // 当前选中的流程候选项
             selectedFlowOption() {
@@ -1419,27 +1419,32 @@
             yesNoTagType(yes) {
                 return yes ? 'success' : 'info'
             },
-            // 解析担保人下拉选项，名称按位置匹配，评分按担保人代码匹配
-            parseGuarantorOptions(guarantorId, guarantor, gradeMap) {
-                const codes = (guarantorId || '').split(',').map(s => s.trim());
-                const names = (guarantor || '').split(',').map(s => s.trim());
-                return codes.map((code, idx) => ({
-                    code,
-                    name: names[idx] || code,
-                    rating: gradeMap[code] || ''
-                })).filter(option => option.code !== '');
-            },
-            // 按担保人代码批量查询 AIS 主体内评分，查不到评分的担保人保留空值
-            async queryGuarantorGradeMap(guarantorId) {
-                const windCodes = (guarantorId || '').split(',')
-                    .map(code => code.trim())
-                    .filter(code => code !== '');
-                if (windCodes.length === 0) return {};
-                const gradeList = await this.apiPost('/api/v1/common/queryGuarantorGradeList', { windCodes });
+            // 按证券代码查询 Wind 担保人关系及 AIS 最新内评，合格但无评分时保留空值
+            async queryGuarantorGradeMap(securityCode) {
+                if (!securityCode) return {};
+                const gradeList = await this.apiPost('/api/v1/common/queryGuarantorGradeList', {
+                    securityCodes: [securityCode]
+                });
                 return (gradeList || []).reduce((result, item) => {
-                    result[item.windcode] = item.totalScore || '';
+                    const name = item.windname || item.windcode;
+                    const typeName = this.guarantorTypeName(item.guarantorTypeCode);
+                    result[item.windcode] = {
+                        code: item.windcode,
+                        name,
+                        typeName,
+                        label: typeName ? name + '（' + typeName + '）' : name,
+                        rating: item.totalScore || ''
+                    };
                     return result;
                 }, {});
+            },
+            // Wind 担保人类型由前端统一映射展示
+            guarantorTypeName(typeCode) {
+                const typeNameMap = {
+                    '115203000': '差额支付承诺人',
+                    '115201000': '原始权益人'
+                };
+                return typeNameMap[String(typeCode)] || '';
             },
             // 根据所选担保人回填只读评分，并按该担保人的最新内评重新计算可调入池
             async handleGuarantorChange(guarantorCode) {
@@ -1600,14 +1605,9 @@
                         detailReq.adjustLogId = this.selectedAdjustLogId;
                     }
                     const detail = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail', detailReq);
-                    const initialGuarantorOptions = this.parseGuarantorOptions(
-                        detail && detail.guarantorId,
-                        detail && detail.guarantor,
-                        {}
-                    );
-                    const initialGuarantorCode = initialGuarantorOptions.length === 1
-                        ? initialGuarantorOptions[0].code
-                        : '';
+                    const guarantorGradeMap = await this.queryGuarantorGradeMap(securityCode);
+                    const guarantorOpts = Object.keys(guarantorGradeMap).map(code => guarantorGradeMap[code]);
+                    const initialGuarantorCode = guarantorOpts.length === 1 ? guarantorOpts[0].code : '';
                     const inPoolParams = {
                         securityCode: securityCode,
                         adjustDirection: 'in',
@@ -1616,8 +1616,7 @@
                         guarantorCode: initialGuarantorCode
                     };
                     const outPoolParams = { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
-                    const [guarantorGradeMap, inPools, outPools, poolStatus, logList] = await Promise.all([
-                        this.queryGuarantorGradeMap(detail && detail.guarantorId),
+                    const [inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', inPoolParams),
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', outPoolParams),
                         this.apiPost('/api/v1/securityPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode }),
@@ -1627,11 +1626,6 @@
                     this.bondDetail = detail || {};
                     this.guarantorGradeMap = guarantorGradeMap;
                     // 担保人下拉默认值：单担保人默认选中，多担保人默认不选（下一步校验提示选择）
-                    const guarantorOpts = this.parseGuarantorOptions(
-                        detail && detail.guarantorId,
-                        detail && detail.guarantor,
-                        this.guarantorGradeMap
-                    );
                     const selectedGuarantor = guarantorOpts.length === 1 ? guarantorOpts[0] : null;
                     this.$set(this.bondDetail, 'selectedGuarantorCode', selectedGuarantor ? selectedGuarantor.code : '');
                     this.$set(this.bondDetail, 'selectedGuarantorRating', selectedGuarantor ? selectedGuarantor.rating : '');

@@ -901,11 +901,15 @@
                         <el-descriptions-item label="担保人*">
                             <el-select v-if="absGuarantorOptions.length > 0" v-model="absBondDetail.selectedGuarantorCode"
                                        size="small" placeholder="请选择担保人" style="width:100%;"
+                                       popper-class="guarantor-select-dropdown"
                                        :disabled="absAdjustStep === 2" @change="handleAbsGuarantorChange">
                                 <el-option v-for="opt in absGuarantorOptions" :key="opt.code"
-                                           :label="opt.name" :value="opt.code">
-                                    <span>{{ opt.name }}</span>
-                                    <span style="float:right;color:var(--text-muted);font-size:12px;margin-left:20px;">{{ opt.rating }}</span>
+                                           :label="opt.label" :value="opt.code">
+                                    <span class="guarantor-option">
+                                        <span class="guarantor-option-name">{{ opt.name }}</span>
+                                        <el-tag v-if="opt.typeName" size="mini" type="info" class="guarantor-type-tag">{{ opt.typeName }}</el-tag>
+                                        <span class="guarantor-option-rating">{{ opt.rating }}</span>
+                                    </span>
                                 </el-option>
                             </el-select>
                         </el-descriptions-item>
@@ -1817,7 +1821,7 @@
                 absLoading: false,            // ABS 列表加载
                 absPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // ABS 分页
                 absBondDetail: {},            // ABS 证券详情
-                absGuarantorGradeMap: {},     // ABS 担保人代码对应的 AIS 主体内评分
+                absGuarantorGradeMap: {},     // 当前 ABS 从 Wind 查询到的担保人代码、名称和 AIS 内评
                 absDetailLoading: false,      // ABS 详情加载
                 absAdjustStep: 1,             // ABS 调库步骤 1/2
                 absSecurityCurrentPools: [],  // ABS 证券当前所在池
@@ -2036,13 +2040,9 @@
                 return this.absValidManualAdjustReviewList.length > 0
                     && this.absValidManualAdjustReviewList.every(row => !!this.selectedRowFlowOption(row));
             },
-            // ABS 担保人下拉选项：代码与名称按位置配对，评分按担保人代码从 AIS 查询结果获取
+            // ABS 担保人下拉选项：直接使用按证券代码查询到的 Wind 担保人关系
             absGuarantorOptions() {
-                return this.parseGuarantorOptions(
-                    this.absBondDetail.guarantorId,
-                    this.absBondDetail.guarantor,
-                    this.absGuarantorGradeMap
-                );
+                return Object.keys(this.absGuarantorGradeMap).map(code => this.absGuarantorGradeMap[code]);
             },
         },
         // 页面初始化：带主体/ABS 代码时筛出并进入该对象
@@ -2112,27 +2112,32 @@
                 }
                 return val;
             },
-            // 解析担保人下拉选项，名称按位置匹配，评分按担保人代码匹配
-            parseGuarantorOptions(guarantorId, guarantor, gradeMap) {
-                const codes = (guarantorId || '').split(',').map(s => s.trim());
-                const names = (guarantor || '').split(',').map(s => s.trim());
-                return codes.map((code, idx) => ({
-                    code,
-                    name: names[idx] || code,
-                    rating: gradeMap[code] || ''
-                })).filter(option => option.code !== '');
-            },
-            // 按担保人代码批量查询 AIS 主体内评分，查不到评分的担保人保留空值
-            async queryGuarantorGradeMap(guarantorId) {
-                const windCodes = (guarantorId || '').split(',')
-                    .map(code => code.trim())
-                    .filter(code => code !== '');
-                if (windCodes.length === 0) return {};
-                const gradeList = await this.apiPost('/api/v1/common/queryGuarantorGradeList', { windCodes });
+            // 按证券代码查询 Wind 担保人关系及 AIS 最新内评，合格但无评分时保留空值
+            async queryGuarantorGradeMap(securityCode) {
+                if (!securityCode) return {};
+                const gradeList = await this.apiPost('/api/v1/common/queryGuarantorGradeList', {
+                    securityCodes: [securityCode]
+                });
                 return (gradeList || []).reduce((result, item) => {
-                    result[item.windcode] = item.totalScore || '';
+                    const name = item.windname || item.windcode;
+                    const typeName = this.guarantorTypeName(item.guarantorTypeCode);
+                    result[item.windcode] = {
+                        code: item.windcode,
+                        name,
+                        typeName,
+                        label: typeName ? name + '（' + typeName + '）' : name,
+                        rating: item.totalScore || ''
+                    };
                     return result;
                 }, {});
+            },
+            // Wind 担保人类型由前端统一映射展示
+            guarantorTypeName(typeCode) {
+                const typeNameMap = {
+                    '115203000': '差额支付承诺人',
+                    '115201000': '原始权益人'
+                };
+                return typeNameMap[String(typeCode)] || '';
             },
             // 根据所选 ABS 担保人回填对应的只读主体内评分，不改动主数据中的评分逗号串
             handleAbsGuarantorChange(guarantorCode) {
@@ -3640,14 +3645,11 @@
                         this.apiPost('/api/v1/forbiddenAbsPoolAdjust/querySecurityPoolStatus', { securityCode: securityCode })
                     ]);
                     this.absBondDetail = detail || {};
-                    // 担保人内评以 AIS 最新结果为准，不再读取证券主数据中的评分逗号串
-                    this.absGuarantorGradeMap = await this.queryGuarantorGradeMap(detail && detail.guarantorId);
+                    // 担保人关系以 Wind 按证券代码查询结果为准，不读取证券主数据中的担保人逗号串
+                    this.absGuarantorGradeMap = await this.queryGuarantorGradeMap(securityCode);
                     // 担保人下拉默认值：单担保人默认选中，多担保人默认不选（下一步校验提示选择）
-                    const absGuarantorOpts = this.parseGuarantorOptions(
-                        detail && detail.guarantorId,
-                        detail && detail.guarantor,
-                        this.absGuarantorGradeMap
-                    );
+                    const absGuarantorOpts = Object.keys(this.absGuarantorGradeMap)
+                        .map(code => this.absGuarantorGradeMap[code]);
                     const selectedAbsGuarantor = absGuarantorOpts.length === 1 ? absGuarantorOpts[0] : null;
                     this.$set(this.absBondDetail, 'selectedGuarantorCode', selectedAbsGuarantor ? selectedAbsGuarantor.code : '');
                     this.$set(this.absBondDetail, 'selectedGuarantorRating', selectedAbsGuarantor ? selectedAbsGuarantor.rating : '');
