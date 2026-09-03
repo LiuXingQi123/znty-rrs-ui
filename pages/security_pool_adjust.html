@@ -1445,7 +1445,7 @@
             async handleGuarantorChange(guarantorCode) {
                 const selected = this.guarantorOptions.find(option => option.code === guarantorCode);
                 this.$set(this.bondDetail, 'selectedGuarantorRating', selected ? selected.rating : '');
-                await this.refreshAdjustInPools(guarantorCode, false);
+                await this.refreshAdjustInPools();
             },
             // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
             adjustTypeTagType(adjustType) {
@@ -1561,7 +1561,7 @@
                 };
                 return map[poolType] || poolType || '';
             },
-            // 用最新接口结果重建可调入池，同时保留仍然有效的已选叶子节点
+            // 用最新接口结果重建可调入池；规则口径变化后清空原有调入选择
             applyAdjustInPoolList(inPools) {
                 const inPoolsData = inPools || [];
                 const currentSecurityPoolIds = new Set(
@@ -1574,15 +1574,9 @@
                     return inPoolsData.some(c => c.parentId === p.id && !currentSecurityPoolIds.has(c.id));
                 });
                 this.adjustInTree = this.buildPoolTree(inPoolsFiltered);
-
-                const selectedIds = new Set((this.selectedInPools || []).map(p => p.id));
-                const selectedRows = this.flattenPoolTree(this.adjustInTree)
-                    .filter(row => selectedIds.has(row.id));
-                this.selectedInPools = selectedRows;
+                this.selectedInPools = [];
                 this.$nextTick(() => {
-                    if (!this.$refs.inTableRef) return;
-                    this.$refs.inTableRef.clearSelection();
-                    selectedRows.forEach(row => this.$refs.inTableRef.toggleRowSelection(row, true));
+                    if (this.$refs.inTableRef) this.$refs.inTableRef.clearSelection();
                 });
 
                 const inMap = {};
@@ -1689,9 +1683,10 @@
                 this.detailLoading = false;
             },
             // 按当前担保人重新查询一次可调入池；不缓存，且仅最新一次请求可以更新页面
-            async refreshAdjustInPools(guarantorCode, refillCreditReport) {
+            async refreshAdjustInPools() {
                 if (!this.bondDetail || !this.bondDetail.windCode) return;
                 const securityCode = this.bondDetail.windCode;
+                const guarantorCode = this.bondDetail.selectedGuarantorCode || '';
                 const requestSeq = ++this.adjustInPoolQuerySeq;
                 const inPoolParams = {
                     securityCode: securityCode,
@@ -1704,18 +1699,20 @@
                     const inPools = await this.apiPost('/api/v1/securityPoolAdjust/queryAdjustPoolList', inPoolParams);
                     if (requestSeq !== this.adjustInPoolQuerySeq
                             || securityCode !== this.bondDetail.windCode
-                            || (guarantorCode || '') !== (this.bondDetail.selectedGuarantorCode || '')) {
+                            || guarantorCode !== (this.bondDetail.selectedGuarantorCode || '')) {
                         return;
                     }
-                    const inPoolsFiltered = this.applyAdjustInPoolList(inPools);
-                    if (refillCreditReport) {
-                        await this.applyLastCreditReportToPools(securityCode, inPoolsFiltered);
-                    }
-                } catch (e) {}
+                    return this.applyAdjustInPoolList(inPools);
+                } catch (e) {
+                    return null;
+                }
             },
             // 切换"是否放开规则"后按当前担保人重查可调入池，并为新增信用债池补充最近信评报告
             async onReleaseRulesChange() {
-                await this.refreshAdjustInPools(this.bondDetail.selectedGuarantorCode || '', true);
+                const inPools = await this.refreshAdjustInPools();
+                if (inPools) {
+                    await this.applyLastCreditReportToPools(this.bondDetail.windCode, inPools);
+                }
             },
 
             /**
