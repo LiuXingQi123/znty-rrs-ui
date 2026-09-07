@@ -532,7 +532,7 @@
                                 </div>
                                 <el-table :data="adjustInTree" size="small" stripe border style="width:100%;"
                                           row-key="id" :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
-                                          default-expand-all :empty-text="'暂无可调入的投资池'"
+                                          :expand-row-keys="adjustInDefaultExpandedRowKeys" :empty-text="'暂无可调入的投资池'"
                                           ref="inTableRef"
                                           @select="handleInPoolSelect"
                                           @select-all="handleInPoolSelectAll">
@@ -1240,6 +1240,7 @@
                 securityPoolExpanded: false,  // 证券所在池展开/折叠状态
                 issuerPoolExpanded: false,    // 主体所在池展开/折叠状态
                 adjustInTree: [],             // 可调入池树形数据
+                adjustInDefaultExpandedRowKeys: [], // 可调入池默认展开节点
                 adjustOutTree: [],            // 可调出池树形数据
                 selectedInPools: [],          // 步骤1中已勾选的调入池列表
                 selectedOutPools: [],         // 步骤1中已勾选的调出池列表
@@ -1694,6 +1695,10 @@
                         return inPoolsData.some(c => c.parentId === p.id && !currentSecurityPoolIds.has(c.id));
                     });
                     this.adjustInTree = this.buildPoolTree(inPoolsFiltered);
+                    this.adjustInDefaultExpandedRowKeys = this.adjustInTree
+                        .filter(row => row.poolCode === 'credit_bond_root' || row.poolName === '信用债大库(new)')
+                        .map(row => row.id);
+                    this.applyDefaultInPoolExpansion('inTableRef', this.adjustInTree);
 
                     // 构建互斥映射（合并调入/调出两边的数据，两边互斥关系一致）
                     const allPools = [...inPoolsData, ...outPoolsData];
@@ -1720,6 +1725,22 @@
                     this.otherMaterialSelections = {};
                 } catch (e) {}
                 this.detailLoading = false;
+            },
+            // 在树表格渲染完成后，仅展开信用债大库(new)
+            applyDefaultInPoolExpansion(tableRef, tree) {
+                this.$nextTick(() => {
+                    const table = this.$refs[tableRef];
+                    if (!table) return;
+                    const applyExpansion = rows => {
+                        (rows || []).forEach(row => {
+                            if (!row.children || row.children.length === 0) return;
+                            const expanded = row.poolCode === 'credit_bond_root' || row.poolName === '信用债大库(new)';
+                            table.toggleRowExpansion(row, expanded);
+                            applyExpansion(row.children);
+                        });
+                    };
+                    applyExpansion(tree);
+                });
             },
             // 由扁平的投资池列表组装树结构
             buildPoolTree(list) {

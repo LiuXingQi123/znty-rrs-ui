@@ -374,7 +374,7 @@
         <p class="sub">前端 <code>pages/forbidden_pool_adjust.html</code>：<code>listTab=company|abs</code>；主体详情页 <code>currentPage=detail</code>，ABS 详情页 <code>currentPage=absDetail</code>（步骤 <code>absAdjustStep</code> 1/2）。状态字段主体与 ABS 完全隔离，禁止复用同名 data。</p>
         <div class="flow">
             <div class="step"><b>1. 列表双 Tab</b><span>进入页面时并行预载主体和 ABS 两个列表，切换 Tab 只重排表格、不重复查询；主体查 wind_cbondissuer，ABS 查 ABS 证券分页。</span></div>
-            <div class="step"><b>2. 加载详情</b><span>主体/ABS 详情、当前在池、可调池树（债券禁止库等四池）；主体调库日志附件按日志 ID 去重后一次批量查询，并按返回的 <code>mainId</code> 回填。</span></div>
+            <div class="step"><b>2. 加载详情</b><span>主体/ABS 详情、当前在池、可调池树（债券禁止库等四池）；可调入库默认仅展开「信用债大库(new)」，其他根节点默认收起（当前四池不含该节点时即全部收起），可调出库默认全部展开；主体调库日志附件按日志 ID 去重后一次批量查询，并按返回的 <code>mainId</code> 回填。</span></div>
             <div class="step"><b>3. 校验调整</b><span>主体或 ABS 各自 checkAdjust + 联动互斥 + 流程。</span></div>
             <div class="step"><b>4. 提交审批</b><span>multipart 附件随 <code>files</code> 传同序 <code>originalFileNameListJson</code> 以保留中文原始文件名；主体 company / ABS 证券级分别写日志。</span></div>
             <div class="step"><b>5. 生效</b><span>仅 20 落池；债券禁止库15和黑名单质押库17同步旗下未到期债（含普通债、ABS、crmw）。</span></div>
@@ -387,7 +387,7 @@
             <article class="card"><h3>前端状态与页面</h3>
                 <ul>
                     <li>列表筛选：<code>absSearchForm</code>（securityCode / securityShortName / issuer）；表格 <code>absTableData</code> + <code>absPagination</code>。列对齐证券池调库主列表：在操作列前由前端展示是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」）、是否ABS（<code>absFlag=1</code> 或类型 <code>abs</code>；<code>abs_all</code> 不算）、是否次级（<code>cjFlag=1</code>）；后端 <code>SELECT si.*</code> 原样返回，不做中文映射；详情页证券基本信息不增加这些字段。</li>
-                    <li>详情：证券基本信息 <code>absBondDetail</code> 与证券池调库字段/交互对齐（步骤1可编辑、步骤2只读）；页面将当前证券代码传给 <code>queryGuarantorGradeList</code>，接口以该代码匹配 <code>ais_inv_ods.wind_cbondissuer.s_info_windcode</code>，仅保留 <code>s_info_typecode IN (115203000,115201000)</code> 的记录，并以 <code>s_info_compcode</code> / <code>s_info_compname</code> 作为担保人代码和名称，不读取或拆分证券主数据的担保人逗号串；内评从 <code>ais_inv_analysis.v_inv_grade_result</code> 按 <code>windcode</code> 取最新 <code>totalScore</code>，合格但缺失评分时显示空白；展开项显示名称、类型标签和右侧内评，类型映射为 <code>115203000=差额支付承诺人</code>、<code>115201000=原始权益人</code>，收起后显示“名称（类型）”；选中后评分只读展示且不覆盖主数据评分；当前证券/主体所在池；可调入/可调出双栏树 <code>absInPools</code> / <code>absOutPools</code>。</li>
+                    <li>详情：证券基本信息 <code>absBondDetail</code> 与证券池调库字段/交互对齐（步骤1可编辑、步骤2只读）；页面将当前证券代码传给 <code>queryGuarantorGradeList</code>，接口以该代码匹配 <code>ais_inv_ods.wind_cbondissuer.s_info_windcode</code>，仅保留 <code>s_info_typecode IN (115203000,115201000)</code> 的记录，并以 <code>s_info_compcode</code> / <code>s_info_compname</code> 作为担保人代码和名称，不读取或拆分证券主数据的担保人逗号串；内评从 <code>ais_inv_analysis.v_inv_grade_result</code> 按 <code>windcode</code> 取最新 <code>totalScore</code>，合格但缺失评分时显示空白；展开项显示名称、类型标签和右侧内评，类型映射为 <code>115203000=差额支付承诺人</code>、<code>115201000=原始权益人</code>，收起后显示“名称（类型）”；选中后评分只读展示且不覆盖主数据评分；当前证券/主体所在池；可调入/可调出双栏树 <code>absInPools</code> / <code>absOutPools</code>。可调入库默认仅展开「信用债大库(new)」，其他根节点默认收起（ABS 可选池不含该节点时即默认全部收起）；可调出库默认全部展开。</li>
                     <li>步骤：<code>absAdjustStep</code> 1 选池、2 校验结果 <code>absAdjustReviewList</code> + 原因建议；从 absDetail 返回保持 <code>listTab='abs'</code>。</li>
                     <li>附件与报告映射：<code>absAttachmentFiles</code> / <code>absCreditReportSelections</code> 等，与主体侧隔离；报告弹窗通过 <code>reportDialogContext</code> 分流。</li>
                 </ul>
