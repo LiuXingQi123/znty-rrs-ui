@@ -246,6 +246,24 @@
                         <el-descriptions-item label="展望评级">
                             <el-input v-model.trim="bondDetail.ratingOutlook" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly" maxlength="10"></el-input>
                         </el-descriptions-item>
+                        <el-descriptions-item :label="isAdjustMode ? '担保人*' : '担保人'">
+                            <el-select v-if="isAdjustMode && guarantorOptions.length > 0"
+                                       v-model="bondDetail.selectedGuarantorCode"
+                                       size="small" placeholder="请选择担保人" style="width:100%;"
+                                       popper-class="guarantor-select-dropdown"
+                                       :popper-append-to-body="false"
+                                       :disabled="adjustStep === 2" @change="handleGuarantorChange">
+                                <el-option v-for="opt in guarantorOptions" :key="opt.code"
+                                           :label="opt.label" :value="opt.code">
+                                    <span class="guarantor-option">
+                                        <span class="guarantor-option-name">{{ opt.name }}</span>
+                                        <el-tag v-if="opt.typeName" size="mini" type="info" class="guarantor-type-tag">{{ opt.typeName }}</el-tag>
+                                        <span class="guarantor-option-rating">{{ opt.rating }}</span>
+                                    </span>
+                                </el-option>
+                            </el-select>
+                            <el-input v-else-if="isViewMode" v-model.trim="bondDetail.guarantor" size="small" disabled maxlength="100"></el-input>
+                        </el-descriptions-item>
                         <el-descriptions-item label="主承销商">
                             <el-input v-model.trim="bondDetail.agencyName" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly" maxlength="50"></el-input>
                         </el-descriptions-item>
@@ -259,7 +277,8 @@
                             <el-input type="number" v-model="bondDetail.dateCallExists" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly" maxlength="10"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="担保人主体内评分">
-                            <el-input v-model.trim="bondDetail.innerGuarantorRating" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly" maxlength="20"></el-input>
+                            <el-input v-if="isAdjustMode" v-model="bondDetail.selectedGuarantorRating" size="small" disabled maxlength="20"></el-input>
+                            <el-input v-else v-model.trim="bondDetail.innerGuarantorRating" size="small" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="含权债剩余期限(年)">
                             <el-input type="number" v-model="bondDetail.dateInrightExists" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly" maxlength="10"></el-input>
@@ -1312,6 +1331,7 @@
                 selectedCrmwCode: '',         // 当前绑定的CRMW代码
                 entryMode: 'view',            // 入口模式：view=名称/编码详情 / adjust=调库调整
                 bondDetail: {},               // 证券基本信息（详情页）
+                guarantorGradeMap: {},        // 当前标的证券从 Wind 查询到的担保人代码、名称和 AIS 内评
                 crmwDetail: {},               // CRMW基本信息（详情页）
                 detailLoading: false,         // 详情页加载状态
                 securityCurrentPools: [],     // 当前证券所在的投资池列表
@@ -1487,6 +1507,10 @@
                 if (this.invalidCount === 0) return '';
                 return '请根据上述提示原因，调整所选投资池或补充相关材料后重新提交校验。如确认无法调整，可剔除不可调整的库后单独提交可调整的部分。';
             },
+            // 担保人下拉选项：直接使用按标的证券代码查询到的 Wind 担保人关系
+            guarantorOptions() {
+                return Object.keys(this.guarantorGradeMap).map(code => this.guarantorGradeMap[code]);
+            },
             // 当前选中的流程候选项
             selectedFlowOption() {
                 if (!this.selectedFlowKey) return null;
@@ -1558,6 +1582,40 @@
                 const n = Number(days)
                 if (!isFinite(n)) return ''
                 return (n / 365).toFixed(4)
+            },
+            // 按标的证券代码查询 Wind 担保人关系及 AIS 最新内评，合格但无评分时保留空值
+            async queryGuarantorGradeMap(securityCode) {
+                if (!securityCode) return {};
+                const gradeList = await this.apiPost('/api/v1/common/queryGuarantorGradeList', {
+                    securityCodes: [securityCode]
+                });
+                return (gradeList || []).reduce((result, item) => {
+                    const name = item.windname || item.windcode;
+                    const typeName = this.guarantorTypeName(item.guarantorTypeCode);
+                    result[item.windcode] = {
+                        code: item.windcode,
+                        name,
+                        typeName,
+                        label: typeName ? name + '（' + typeName + '）' : name,
+                        rating: item.totalScore || ''
+                    };
+                    return result;
+                }, {});
+            },
+            // Wind 担保人类型由前端统一映射展示
+            guarantorTypeName(typeCode) {
+                const typeNameMap = {
+                    '115200000': '债务主体',
+                    '115004000': '担保人',
+                    '115203000': '差额支付承诺人',
+                    '115201000': '原始权益人'
+                };
+                return typeNameMap[String(typeCode)] || '';
+            },
+            // 根据所选担保人联动回填只读的最新主体内评分
+            handleGuarantorChange(guarantorCode) {
+                const selected = this.guarantorOptions.find(option => option.code === guarantorCode);
+                this.$set(this.bondDetail, 'selectedGuarantorRating', selected ? selected.rating : '');
             },
             // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
             adjustTypeTagType(adjustType) {
@@ -1673,8 +1731,12 @@
                     if (this.selectedAdjustLogId) {
                         detailReq.adjustLogId = this.selectedAdjustLogId;
                     }
-                    const [detail, inPools, outPools, poolStatus, logList] = await Promise.all([
+                    const guarantorGradePromise = this.isAdjustMode
+                        ? this.queryGuarantorGradeMap(securityCode)
+                        : Promise.resolve({});
+                    const [detail, guarantorGradeMap, inPools, outPools, poolStatus, logList] = await Promise.all([
                         this.apiPost('/api/v1/crmwPoolAdjust/querySecurityDetail', detailReq),
+                        guarantorGradePromise,
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', inPoolParams),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', outPoolParams),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', { securityCode: securityCode, crmwScode: this.crmwDetail.windCode, crmwStype: this.crmwDetail.securityType || 'crmw' }),
@@ -1682,6 +1744,14 @@
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustLogList',  { securityCode: securityCode, crmwScode: this.crmwDetail.windCode, crmwStype: this.crmwDetail.securityType || 'crmw', adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
                     this.bondDetail    = detail  || {};
+                    this.guarantorGradeMap = guarantorGradeMap;
+                    if (this.isAdjustMode) {
+                        // 单担保人默认选中，多担保人默认不选并在下一步提示选择
+                        const guarantorOpts = this.guarantorOptions;
+                        const selectedGuarantor = guarantorOpts.length === 1 ? guarantorOpts[0] : null;
+                        this.$set(this.bondDetail, 'selectedGuarantorCode', selectedGuarantor ? selectedGuarantor.code : '');
+                        this.$set(this.bondDetail, 'selectedGuarantorRating', selectedGuarantor ? selectedGuarantor.rating : '');
+                    }
                     // 当前所在池
                     this.securityCurrentPools   = (poolStatus && poolStatus.securityCurrentPools)   || [];
                     this.issuerCurrentPools = (poolStatus && poolStatus.issuerCurrentPools) || [];
@@ -2252,6 +2322,11 @@
                 this.selectedOutPools.forEach(p => {
                     items.push({ targetPoolId: p.id, targetPoolName: p.poolName, poolType: p.poolType || '', adjustMode: '调出' });
                 });
+                // 有担保人候选时必须明确选择一个，多担保人不会自动选中
+                if (this.guarantorOptions.length > 0 && !this.bondDetail.selectedGuarantorCode) {
+                    this.$message.warning('请选择担保人');
+                    return;
+                }
 
                 this.adjustCheckLoading = true;
                 const checkParams = {
@@ -2260,6 +2335,7 @@
                     securityType: this.bondDetail.securityType || '',
                     crmwScode: this.crmwDetail.windCode || '',
                     crmwStype: this.crmwDetail.securityType || 'crmw',
+                    guarantorCode: this.bondDetail.selectedGuarantorCode || '',
                     items
                 };
                 let result = null;
@@ -2389,7 +2465,7 @@
                     agencyName: this.bondDetail.agencyName,
                     innerIssuerRating: this.bondDetail.innerIssuerRating,
                     dateCallExists: this.toNullableNumber(this.bondDetail.dateCallExists),
-                    innerGuarantorRating: this.bondDetail.innerGuarantorRating,
+                    innerGuarantorRating: this.bondDetail.selectedGuarantorRating || '',
                     dateExists: this.toNullableNumber(this.bondDetail.dateExists),
                     fundUse: this.bondDetail.fundUse,
                     promptReason: this.bondDetail.promptReason,
@@ -2402,6 +2478,7 @@
                     crmwName: this.crmwDetail.shortName || '',
                     crmwScode: this.crmwDetail.windCode || '',
                     crmwStype: this.crmwDetail.securityType || 'crmw',
+                    guarantorCode: this.bondDetail.selectedGuarantorCode || '',
                     adjustType: '手工调整',
                     adjustReason: this.adjustReason,
                     adjustAdvice: this.adjustAdvice,
