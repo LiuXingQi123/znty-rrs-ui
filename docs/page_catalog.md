@@ -14,6 +14,7 @@
 | `company_pool_query.html` | 主体池查询 | `css/company_pool_query.css`、`css/common.css` |
 | `credit_bond_grade_rule.html` | 主体内评分档规则 | `css/credit_bond_grade_rule.css`、`css/common.css` |
 | `batch_crmw_pool_adjust.html` | CRMW池批量调整 | `css/batch_crmw_pool_adjust.css`、`css/common.css` |
+| `crmw_pool_excel_import.html` | CRMW池 Excel 导入 | `css/crmw_pool_excel_import.css`、`css/common.css` |
 | `crmw_pool_adjust.html` | CRMW池调整 | `css/crmw_pool_adjust.css`、`css/common.css` |
 | `crmw_pool_adjust_approve.html` | CRMW池调库审核 | `css/crmw_pool_adjust_approve.css`、`css/common.css` |
 | `crmw_pool_adjust_detail.html` | CRMW池调库详情 | `css/crmw_pool_adjust_detail.css`、`css/common.css` |
@@ -107,6 +108,7 @@
 | `css/company_pool_adjust_history.css` | 主体池调整历史查询页面样式 | `company_pool_adjust_history.html` |
 | `css/company_pool_query.css` | 主体池查询页面样式 | `company_pool_query.html` |
 | `css/credit_bond_grade_rule.css` | 主体内评分档规则页面样式 | `credit_bond_grade_rule.html` |
+| `css/crmw_pool_excel_import.css` | CRMW池 Excel 导入页面样式 | `crmw_pool_excel_import.html` |
 | `css/crmw_pool_adjust.css` | CRMW池调整页面样式 | `crmw_pool_adjust.html` |
 | `css/crmw_pool_adjust_approve.css` | CRMW池调库审核页面样式 | `crmw_pool_adjust_approve.html` |
 | `css/crmw_pool_adjust_detail.css` | CRMW池调库详情页面样式 | `crmw_pool_adjust_detail.html` |
@@ -167,6 +169,7 @@
 | `docs/company-pool-adjust-history-tables.html` | 主体池调整历史文档 | HTML 内联样式 |
 | `docs/crmw-pool-adjust-tables.html` | CRMW池调整文档 | HTML 内联样式 |
 | `docs/batch-crmw-pool-adjust-tables.html` | CRMW池批量调整文档 | HTML 内联样式 |
+| `docs/crmw-pool-excel-import.html` | CRMW池 Excel 导入文档 | HTML 内联样式 |
 | `docs/crmw-pool-query-tables.html` | CRMW池查询文档 | HTML 内联样式 |
 | `docs/crmw-pool-adjust-history-tables.html` | CRMW池调整历史文档 | HTML 内联样式 |
 | `docs/my-matters-tables.html` | 我的事宜文档 | HTML 内联样式 |
