@@ -434,6 +434,7 @@
                 <h3>过程日志与历史</h3>
                 <ul>
                     <li>业务侧用 <code>TaskDetailLog</code> 采集过程行（带 <code>yyyy-MM-dd HH:mm:ss</code> 前缀）。</li>
+                    <li>系统全部定时任务每次执行均输出以“扫描条件：”开头的日志，记录实际目标表、池范围、时间窗口和关键过滤条件；空壳任务明确当前未扫描业务表。</li>
                     <li>债券维护与提醒任务按“任务开始 → 扫描条件/范围 → 扫描完成 → 处理明细 → 任务结束”输出；结束行包含候选、成功、跳过、失败或通知状态及耗时。</li>
                     <li>成功和异常路径均有明确结束标识；通知通道未接入时显示“待接入”，不显示为已发送。</li>
                     <li>结果写入 <code>ScheduledTaskResult.detailLog</code>，落库 <code>run_log.detail_log</code>。</li>
@@ -452,7 +453,7 @@
                 <h3>执行顺序（只约束 cron）</h3>
                 <ul>
                     <li>不同 taskCode 无编排、无全局锁，先后全靠 cron；列表 id 不要求与顺序一致。</li>
-                    <li>22:40 临时代码替换 → 22:50 债券类型变更 → 23:00 到期债/股出 → 23:05 CRMW 到期出 → 23:10 外评出主体 → 23:15 外评入主体 → 23:20 同池入债 → Job 入债 → 主体不在池出债 → 01:00 不符合分级规则提醒 → 01:30 黑名单增量提醒 → 01:40 主体不在池债券提醒。</li>
+                    <li>临时代码替换每天 04:40、08:40、09:40、13:40、18:40、22:40 执行；22:00 债券类型变更 → 22:40 临时代码替换 → 23:00 到期债/股出 → 23:05 CRMW 到期出 → 23:10 外评出主体 → 23:15 外评入主体 → 23:20 同池入债 → Job 入债 → 主体不在池出债 → 次日 09:00 两项提醒并行执行。</li>
                     <li><code>wind_code_sync</code> 与三项恒生池 Excel 导出任务不改池状态，不插入上序，可并行。</li>
                     <li>页面「立即执行」不校验顺序。完整规则见需求 29 第 4.1 / 4.2 节。</li>
                 </ul>
@@ -460,7 +461,7 @@
             <article class="card">
                 <h3>债券临时代码替换 bond_temp_code_replace</h3>
                 <ul>
-                    <li>每天 22:40 执行（Cron：<code>0 40 22 * * ?</code>；Demo 默认关闭），对应老系统 <code>BondTempCodeReplaceJob</code>。</li>
+                    <li>每天 04:40、08:40、09:40、13:40、18:40、22:40 执行（Cron：<code>0 40 4,8,9,13,18,22 * * ?</code>），对应老系统 <code>BondTempCodeReplaceJob</code>。</li>
                     <li>扫描 <code>rrs_temp_security_code</code> 中仍为 temporary、且已由外部数据补齐正式 <code>security_code</code> 的记录；不自行猜测映射。</li>
                     <li>复用临时代码人工转正式的完整逻辑：在途只改字段；已在池执行临时出、正式未在同池则正式入；同时处理普通池、CRMW 池和 CRMW 字段引用。</li>
                     <li>成功后状态置 updated、<code>oprt_source=job</code>；失败记录保留 temporary 供重试。</li>
@@ -470,7 +471,7 @@
             <article class="card">
                 <h3>债券类型变更 bond_security_type_change</h3>
                 <ul>
-                    <li>每天 22:50 执行（Cron：<code>0 50 22 * * ?</code>；Demo 默认关闭），对应老系统 <code>BondStypeChangeJob</code>。</li>
+                    <li>每天 22:00 执行（Cron：<code>0 0 22 * * ?</code>），对应老系统 <code>BondStypeChangeJob</code>。</li>
                     <li>以 <code>rrs_securityinfo.security_type</code> 为准，只处理新旧类型都属于 bond 大类的生效记录。</li>
                     <li>同步 <code>ip_pool_status</code>、<code>ip_pool_status_crmw</code> 的标的证券类型，以及各状态当前关联的 <code>ip_adjust_log</code>；其余历史日志不改。</li>
                     <li>不改 <code>crmw_stype</code>，因为它是凭证自身类型，不是标的债券类型。</li>
@@ -479,7 +480,7 @@
             <article class="card">
                 <h3>恒生池全量数据导出（不含已到期） hs_pool_full_excel_export</h3>
                 <ul>
-                    <li>每天 01:10 执行（Cron：<code>0 10 1 * * ?</code>；Demo 默认关闭）</li>
+                    <li>每天 01:10 执行（Cron：<code>0 10 1 * * ?</code>）</li>
                     <li>参数示例：<code>{"poolIds":[15,16],"exportEmptyPool":true,"outputDir":"D:/exports"}</code>；poolIds 省略或为空时导出全部叶子池。</li>
                     <li>导出当前已生效的非主体证券和 CRMW；普通证券排除已到期数据，CRMW 按老系统定时任务口径不校验到期日。</li>
                     <li>恒生池名称为空时使用投资池完整名称，竖线可拆分多个 Sheet；同名 Sheet 合并并记录警告。市场使用中文名称并按多个市场代码字段拆行，该口径后续再确认。</li>
@@ -489,7 +490,7 @@
             <article class="card">
                 <h3>恒生池全量数据导出（含已到期） hs_pool_full_including_expired_excel_export</h3>
                 <ul>
-                    <li>每天 01:20 执行（Cron：<code>0 20 1 * * ?</code>；Demo 默认关闭）</li>
+                    <li>每天 01:20 执行（Cron：<code>0 20 1 * * ?</code>）</li>
                     <li>参数与不含已到期全量任务一致：<code>poolIds</code>、<code>exportEmptyPool</code>、<code>outputDir</code>。</li>
                     <li>导出当前已生效的非主体证券和 CRMW；普通证券包含仍在池的已到期数据，CRMW 不校验到期日。</li>
                     <li>对应老系统 <code>ExportStatusToHsJob2</code>；文件使用独立前缀 <code>hs_pool_full_including_expired</code>，避免与 01:00 文件重名。</li>
@@ -499,7 +500,7 @@
             <article class="card">
                 <h3>质押黑名单库每日增量提醒 pledge_blacklist_daily_increment_reminder</h3>
                 <ul>
-                    <li>每天 01:30 执行（Cron：<code>0 30 1 * * ?</code>；Demo 默认关闭），对应老系统 <code>BlackPoolRemindJob</code>。</li>
+                    <li>每天 09:00 执行（Cron：<code>0 0 9 * * ?</code>），对应老系统 <code>BlackPoolRemindJob</code>。</li>
                     <li>参数 <code>{"poolIds":[17]}</code>；首次从当天 00:00:00 扫描，之后以上次成功执行开始时间为水位。</li>
                     <li>读取指定池在时间窗口内审批通过的债券、主体调入调出流水；债券到期日须为空或晚于当天。</li>
                     <li>当前生成提醒候选和过程日志；通知通道尚未接入，任务摘要明确显示“未发送”，不会伪报成功。</li>
@@ -508,7 +509,7 @@
             <article class="card">
                 <h3>主体库内债券主体不在池债邮件提醒 bond_issuer_not_in_company_pool_reminder</h3>
                 <ul>
-                    <li>每天 01:40 执行（Cron：<code>0 40 1 * * ?</code>；Demo 默认关闭），对应老系统 <code>RemindLimitPoolToNewBondJob</code>。</li>
+                    <li>每天 09:00 执行（Cron：<code>0 0 9 * * ?</code>），对应老系统 <code>RemindLimitPoolToNewBondJob</code>。</li>
                     <li>同池参数：<code>{"poolIds":[15]}</code>；跨池参数：<code>{"mappings":[{"bondPoolId":17,"companyPoolId":15}]}</code>。</li>
                     <li>扫描债券池中已生效、但发行主体未在对应主体池生效的债券；排除 CRMW，普通债和 ABS 参与。</li>
                     <li>主体主数据缺失也作为候选暴露；当前只写过程日志，邮件/站内信投递统一预留在 <code>ScheduledReminderDeliveryService</code>。</li>
@@ -517,7 +518,7 @@
             <article class="card">
                 <h3>恒生池增量数据导出 hs_pool_increment_excel_export</h3>
                 <ul>
-                    <li>每 6 分钟执行一次（Cron：<code>0 */6 * * * ?</code>；Demo 默认关闭）</li>
+                    <li>每 6 分钟执行一次（Cron：<code>0 */6 * * * ?</code>）</li>
                     <li>首次以参数 <code>initialStartTime</code> 为下界；后续以上次成功执行开始时间为下界、本次开始时间为上界。</li>
                     <li>导出窗口内审批通过的调入和调出事件，不要求证券当前仍在池；调出操作类型写“删除”。交易日列表入口已预留，当前列表为空，因此交易日和非交易日均正常执行。</li>
                     <li>老系统通过调库日志 exportflag 控制增量；新系统使用任务成功时间水位线，不更新业务调库日志。市场继续使用中文名称。</li>
@@ -527,7 +528,7 @@
             <article class="card">
                 <h3>到期证券自动出池 security_expired_auto_out</h3>
                 <ul>
-                    <li>每天 23:00 执行（Cron：<code>0 0 23 * * ?</code>；Demo 默认关闭）</li>
+                    <li>每天 23:00 执行（Cron：<code>0 0 23 * * ?</code>）</li>
                     <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"poolIds":[10,15]}</code>；<code>poolIds</code> 可选，与投资池关系配置中绑定本任务的池取并集。</li>
                     <li>扫描所列投资池中 audit_status=20 的债/股，主数据 <code>maturity_date</code> 按 <code>yyyyMMdd</code> 与数据库日期比较，早于昨天（T-2）则自动调出（不含主体/基金/CRMW）；当前在调出限制池则跳过；仅软删成功才写日志（自动调整、不走审批）。</li>
                 </ul>
@@ -535,7 +536,7 @@
             <article class="card">
                 <h3>CRMW到期自动出池 crmw_expired_auto_out</h3>
                 <ul>
-                    <li>每天 23:05 执行（Cron：<code>0 5 23 * * ?</code>；Demo 默认关闭）</li>
+                    <li>每天 23:05 执行（Cron：<code>0 5 23 * * ?</code>）</li>
                     <li>对应老 IP_RULE <code>AdjustRuleCrmwDueOutPool</code></li>
                     <li>参数：<code>{"poolIds":[18]}</code>；<code>poolIds</code> 可选，与投资池关系配置绑定本任务的池取并集。</li>
                     <li>CRMW 池已生效组合、凭证 <code>maturity_date</code> 按 <code>yyyyMMdd</code> 与数据库日期比较，早于昨天（T-2）→ 自动调出；调出限制池阻断；仅软删成功才写日志。</li>
@@ -544,7 +545,7 @@
             <article class="card">
                 <h3>外评非AA-及以下主体自动出池 company_outer_rating_not_aa_minus_auto_out</h3>
                 <ul>
-                    <li>每天 23:10 执行（Cron：<code>0 10 23 * * ?</code>；Demo 默认关闭）</li>
+                    <li>每天 23:10 执行（Cron：<code>0 10 23 * * ?</code>）</li>
                     <li>参数：<code>{"poolIds":[17],"limitPoolIds":[]}</code>；<code>poolIds</code> 可选，与关系配置绑定池取并集。省略或 <code>[]</code> 均不追加额外拦截。</li>
                     <li>已在17，且不在禁止库15、不在重点观察23、近一年孰低外评不属于AA-及以下 → 同批调出主体和符合范围的同池债。近一年无认可外评按条件（二）不满足处理。主体命中调出限制池时跳过；旗下债命中时阻断主体联动并回滚本轮。</li>
                 </ul>
@@ -552,7 +553,7 @@
             <article class="card">
                 <h3>外评AA-及以下主体自动入池 company_outer_rating_aa_minus_auto_in</h3>
                 <ul>
-                    <li>每天 23:15 执行（Cron：<code>0 15 23 * * ?</code>；Demo 默认关闭）</li>
+                    <li>每天 23:15 执行（Cron：<code>0 15 23 * * ?</code>）</li>
                     <li>参数：<code>{"poolIds":[17]}</code>；<code>poolIds</code> 可选，与关系配置绑定池取并集。</li>
                     <li>尚未在目标池，且满足（一）当前在禁止库15、（二）近一年认可外评孰低为AA-及以下、（三）当前在重点观察23之一 → 自动入主体，并同批调入旗下未到期（含当天）普通债、ABS、CRMW。</li>
                 </ul>
@@ -560,7 +561,7 @@
             <article class="card">
                 <h3>主体下债券自动入库 company_same_pool_bond_auto_in</h3>
                 <ul>
-                    <li>每天 23:20 执行（Cron：<code>0 20 23 * * ?</code>；Demo 默认关闭）</li>
+                    <li>每天 23:20 执行（Cron：<code>0 20 23 * * ?</code>）</li>
                     <li>对应老系统 IP_RULE type=0「主体下债券自动入库」</li>
                     <li>参数：<code>{"poolIds":[15,17]}</code>（主体与债<strong>必须同一池</strong>，无 mappings）；默认同时扫描15和17。</li>
                     <li>主体已在本池 → 旗下债未到期（含当天）未在本池 → 同池自动入；包含普通债、ABS、CRMW。扫描17时再次校验主体三个条件，均不满足则不补债。</li>
@@ -569,7 +570,7 @@
             <article class="card">
                 <h3>在池主体旗下债券自动入池 company_inpool_bond_auto_in</h3>
                 <ul>
-                    <li>每 10 分钟执行一次（Cron：<code>0 */10 * * * ?</code>；Demo 默认关闭）</li>
+                    <li>每 10 分钟执行一次（Cron：<code>0 */10 * * * ?</code>）</li>
                     <li>对应老系统 <code>AutoAdjustInNewBondToLimitPoolJob</code></li>
                     <li>同池：<code>{"poolIds":[15]}</code>；跨池：<code>{"mappings":[{"companyInPoolId":15,"bondTargetPoolId":100}]}</code>；关系配置绑定本任务的池按同池映射并入。</li>
                     <li>主体已在池 → 旗下债未到期（不含当天）、尚未在<strong>目标池</strong>则入；排除临时代码已更新、ABS、CRMW；不看限制池。</li>
@@ -587,7 +588,7 @@
             <article class="card">
                 <h3>不符合主体债入库规则提醒 bond_grade_inconformity_alert</h3>
                 <ul>
-                    <li>每天 01:00 执行（Cron：<code>0 0 1 * * ?</code>；Demo 默认关闭）</li>
+                    <li>每天 01:00 执行（Cron：<code>0 0 1 * * ?</code>）</li>
                     <li>对应老 <code>InconformityMaingrade2Job</code>（每天 9 点提醒，不自动出池）</li>
                     <li>无需 param_json。扫描已在信用债 1～5 级但按当前特殊债规则不再允许的债券（不含境外债），写入 <code>ip_grade_rule_alert</code> 待办。</li>
                     <li>执行摘要区分：本轮命中 / 本轮失效（曾待处理、本轮未再命中）/ 仍待处理；影响条数取仍待处理。</li>
@@ -597,7 +598,7 @@
             <article class="card">
                 <h3>Wind代码变更同步 wind_code_sync</h3>
                 <ul>
-                    <li>每 10 分钟执行一次（Cron：<code>0 */10 * * * ?</code>；Demo 默认关闭）</li>
+                    <li>每 10 分钟执行一次（Cron：<code>0 */10 * * * ?</code>）</li>
                     <li>实现类 <code>WindCodeSyncService</code> 仍为空壳，本次未修改。无需 param_json；与自动调库无池依赖，不插入上述顺序链。</li>
                     <li>债券临时代码替换由独立的 <code>bond_temp_code_replace</code> 完成，二者不复用任务编码。</li>
                 </ul>
@@ -606,7 +607,7 @@
         <div class="note">
             <ul class="notes">
                 <li>新增任务步骤：① <b>先评估执行顺序</b>（需求 29 第 4.1 / 4.2 节）再定 cron；② 页面新增配置记下 task_code；③ 实现 <code>RrsScheduledTask</code> 并覆盖 <code>getParamHelp</code>；④ 部署后执行。</li>
-                <li>不同 taskCode 无全局锁。Demo：22:40 临时代码替换 → 22:50 债券类型变更 → 23:00 到期债股 → 23:05 CRMW 到期 → 23:10 外评出主体 → 23:15 外评入主体 → 23:20 同池入债 → 次日 00:00 主体不在池出债（默认关闭）→ 01:00 不符合分级规则提醒 → 01:30 黑名单增量提醒 → 01:40 主体不在池债券提醒；<code>company_inpool_bond_auto_in</code> 每 10 分钟执行，会在部分时刻与固定任务同秒触发；另 <code>wind_code_sync</code> 与三项恒生池 Excel 导出任务不改池状态。</li>
+                <li>不同 taskCode 无全局锁。Demo：临时代码替换每天 04:40、08:40、09:40、13:40、18:40、22:40 执行；22:00 债券类型变更 → 22:40 临时代码替换 → 23:00 到期债股 → 23:05 CRMW 到期 → 23:10 外评出主体 → 23:15 外评入主体 → 23:20 同池入债 → 次日 00:00 主体不在池出债（默认关闭）→ 09:00 两项提醒并行执行；<code>company_inpool_bond_auto_in</code> 每 10 分钟执行，会在部分时刻与固定任务同秒触发；另 <code>wind_code_sync</code> 与三项恒生池 Excel 导出任务不改池状态。</li>
                 <li>演示数据：<code>rrs_scheduled_task_demo_data.sql</code>（脚本工具可初始化；<b>cron</b> 须与上述执行顺序一致，列表 id 不要求）。</li>
             </ul>
         </div>
