@@ -13,6 +13,7 @@
 | `company_pool_adjust_history.html` | 主体池调整历史查询 | `css/company_pool_adjust_history.css`、`css/common.css` |
 | `company_pool_query.html` | 主体池查询 | `css/company_pool_query.css`、`css/common.css` |
 | `credit_bond_grade_rule.html` | 主体内评分档规则 | `css/credit_bond_grade_rule.css`、`css/common.css` |
+| `batch_crmw_pool_adjust.html` | CRMW池批量调整 | `css/batch_crmw_pool_adjust.css`、`css/common.css` |
 | `crmw_pool_adjust.html` | CRMW池调整 | `css/crmw_pool_adjust.css`、`css/common.css` |
 | `crmw_pool_adjust_approve.html` | CRMW池调库审核 | `css/crmw_pool_adjust_approve.css`、`css/common.css` |
 | `crmw_pool_adjust_detail.html` | CRMW池调库详情 | `css/crmw_pool_adjust_detail.css`、`css/common.css` |
@@ -100,6 +101,7 @@
 | CSS 文件 | 功能名称 | 适用页面 |
 | --- | --- | --- |
 | `css/batch_security_pool_adjust.css` | 证券池批量调整页面样式 | `batch_security_pool_adjust.html` |
+| `css/batch_crmw_pool_adjust.css` | CRMW池批量调整页面样式 | `batch_crmw_pool_adjust.html` |
 | `css/stock_security_batch_adjust.css` | 存量证券批量调整页面样式 | `stock_security_batch_adjust.html` |
 | `css/common.css` | 全站公共基础样式 | 全部 HTML 页面 |
 | `css/company_pool_adjust_history.css` | 主体池调整历史查询页面样式 | `company_pool_adjust_history.html` |
@@ -164,6 +166,7 @@
 | `docs/company-pool-query-tables.html` | 主体池查询文档 | HTML 内联样式 |
 | `docs/company-pool-adjust-history-tables.html` | 主体池调整历史文档 | HTML 内联样式 |
 | `docs/crmw-pool-adjust-tables.html` | CRMW池调整文档 | HTML 内联样式 |
+| `docs/batch-crmw-pool-adjust-tables.html` | CRMW池批量调整文档 | HTML 内联样式 |
 | `docs/crmw-pool-query-tables.html` | CRMW池查询文档 | HTML 内联样式 |
 | `docs/crmw-pool-adjust-history-tables.html` | CRMW池调整历史文档 | HTML 内联样式 |
 | `docs/my-matters-tables.html` | 我的事宜文档 | HTML 内联样式 |

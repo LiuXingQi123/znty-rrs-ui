@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>CRMW池批量调整｜表与业务逻辑</title>
+    <style>
+        body.docs-page-batch-crmw-pool-adjust-tables {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body.docs-page-batch-crmw-pool-adjust-tables, body.docs-page-batch-crmw-pool-adjust-tables * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body.docs-page-batch-crmw-pool-adjust-tables {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables main {
+            padding: 28px 0 56px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .step span {
+            color: var(--regular)
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .card ul,.docs-page-batch-crmw-pool-adjust-tables .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .card li + li {
+            margin-top: 6px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables th,.docs-page-batch-crmw-pool-adjust-tables td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables tr:last-child td {
+            border-bottom: 0
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables tbody tr:hover {
+            background: #f8fbff
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables code,.docs-page-batch-crmw-pool-adjust-tables .name {
+            font-family: Consolas, monospace
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .notes li + li {
+            margin-top: 5px
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        .docs-page-batch-crmw-pool-adjust-tables footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            .docs-page-batch-crmw-pool-adjust-tables .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            .docs-page-batch-crmw-pool-adjust-tables .flow,.docs-page-batch-crmw-pool-adjust-tables .logic {
+                grid-template-columns: 1fr
+            }
+
+            .docs-page-batch-crmw-pool-adjust-tables .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            .docs-page-batch-crmw-pool-adjust-tables .wrap {
+                width: calc(100% - 24px)
+            }
+
+            .docs-page-batch-crmw-pool-adjust-tables header {
+                padding: 24px 0 20px
+            }
+
+            .docs-page-batch-crmw-pool-adjust-tables .stats {
+                grid-template-columns: 1fr
+            }
+
+            .docs-page-batch-crmw-pool-adjust-tables .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            .docs-page-batch-crmw-pool-adjust-tables .nav {
+                display: none
+            }
+
+            .docs-page-batch-crmw-pool-adjust-tables .panel {
+                break-inside: avoid
+            }
+        }
+    </style>
+</head>
+<body class="docs-page docs-page-batch-crmw-pool-adjust-tables">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>CRMW池批量调整</h1>
+        <p class="desc">
+            页面与证券池批量调整同构。仅展示 CRMW 叶子池；候选为凭证+标的组合；逐组合委托 CRMW 单笔校验/提交，整批事务落 <code>ip_pool_status_crmw</code>。</p>
+        <div class="stats"><span class="stat">14 项表/表组</span><span class="stat">5 个主要接口</span><span
+                class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">目标池与候选组合查询</a><a href="#logic-2">批量校验与提交</a><a
+            href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
+    <section class="panel" id="overview"><h2>业务流程总览</h2>
+        <p class="sub">从页面操作到数据库读写的主要路径。页面为单页两步工作台（池列表 → 选组合/校验/提交），交互对齐证券池批量调整。</p>
+        <div class="flow">
+            <div class="step"><b>1. 选择目标池</b><span>仅 CRMW 叶子池。按可调整权限查询，操作列调入/调出进入工作台。</span></div>
+            <div class="step"><b>2. 筛选组合</b><span>步骤1：选凭证+标的组合+材料；调入排除已在池组合，调出仅已在池组合。</span></div>
+            <div class="step"><b>3. 批量校验</b><span>步骤2：逐组合复用 CRMW 单笔校验，展示结果表与材料汇总。</span></div>
+            <div class="step"><b>4. 批量提交</b><span>整批事务按组合分组写申请/步骤/附件，统一 submit_time。</span></div>
+            <div class="step"><b>5. 审批生效</b><span>仅 audit_status=20 落 ip_pool_status_crmw；直通亦先锁池复核。</span></div>
+        </div>
+    </section>
+    <section class="panel" id="logic-1"><h2>目标池与候选组合查询</h2>
+        <p class="sub">先选有权限的启用 CRMW 叶子池，再按调入/调出分别查询凭证+标的组合。</p><span class="api">POST /api/v1/batchCrmwPoolAdjust/queryPoolPage · queryInboundCandidatePage · queryOutboundCandidatePage</span>
+        <div class="logic">
+            <article class="card"><h3>目标池查询</h3>
+                <ul>
+                    <li>筛选树 <code>includePoolTypes=['crmw']</code>；列表 SQL 固定 <code>pool_type='crmw'</code>。</li>
+                    <li>管理员可查看全部 CRMW 叶子池；普通用户依据 <code>ip_pool_permission</code> 的 adjustable 权限过滤。</li>
+                    <li>只返回 <code>status='enabled'</code>、未删除且没有启用子节点的叶子池。</li>
+                    <li>现有数量统计 <code>ip_pool_status_crmw</code> 有效组合数，分项 <code>typeCode=crmw</code>，并回填完整池路径。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>候选组合查询</h3>
+                <ul>
+                    <li>目标池必须存在、启用、为 CRMW 叶子池且当前用户有调整权限。</li>
+                    <li>调出走 <code>queryOutboundCandidatePage</code>：<code>ip_pool_status_crmw</code> 当前有效组合，左连标的证券主数据。</li>
+                    <li>调入走 <code>queryInboundCandidatePage</code>：CRMW 凭证 × 可绑定标的（排除 crmw/company）且该组合尚未在目标池。</li>
+                    <li>候选表列：证券名称/代码、市场、CRMW名称/代码、发行人、证券评级、主体评级、主体内评分档、到期日期、剩余期限(年)、担保人*。</li>
+                    <li>跨页多选键为 <code>crmwScode|securityCode</code>。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-2"><h2>批量校验与提交</h2>
+        <p class="sub">批量层负责聚合，规则与 CRMW 单笔调库一致。步骤2校验结果列：证券名称、证券代码、CRMW名称、CRMW代码、投资池名称、调整类型、调整方向、审批流程、调整说明、校验结果。</p><span class="api">POST /api/v1/batchCrmwPoolAdjust/checkAdjust · addAdjustLogWithFiles</span>
+        <div class="logic">
+            <article class="card"><h3>逐券校验与页面展示</h3>
+                <ul>
+                    <li>每个组合转换为单笔 <code>AdjustCheckReq</code>（含 <code>crmwScode/crmwStype/crmwName</code>），调用 <code>crmwPoolAdjustService.checkCrmwAdjust</code>，复用 CRMW 组合校验、联动互斥扩展与反阻断。结果项身份、流程候选与 <code>warnings</code> 透传单笔返回。</li>
+                    <li><strong>调入/调出顺序</strong>与 CRMW 单笔 <code>checkInConditions</code> / <code>checkOutConditions</code> 一致：目标池必须是 CRMW 池；已在池按凭证+标的组合判断；弹性禁投写 warnings 不阻断。CRMW 单笔<strong>不走</strong>主体债入库矩阵，也<strong>不消费</strong> <code>releaseRules</code> / <code>guarantorCode</code> / <code>fundRate</code>。</li>
+                    <li>页面工作台仍保留与证券池批量相同的「是否放开规则」和「担保人*」控件（多担保人默认不选、下一步必选）。前端会把这两项带进批量请求，但单笔 <code>AdjustCheckReq</code> 无对应字段，<strong>不改变</strong>校验结果；<code>releaseRules=yes</code> 仅在提交时把「放开主体债入库矩阵规则」追加到调整意见/调整说明。</li>
+                    <li>流程候选与推荐<strong>完全透传</strong>单笔 <code>checkCrmwAdjust</code>，<strong>不再注入</strong>目标池 batchIn/batchOut；前端默认选中 recommended，操作员可改选。</li>
+                    <li>步骤2 chips 汇总报告/附件/放开规则/条数；「调整说明」失败分条展示 failReasons，警告展示为「可调整(警告)」；同组 <code>adjustGroupKey</code> 底色区分。流程确认弹窗标题同时展示标的与 CRMW 凭证，避免同标的不同凭证混淆。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>提交和审批</h3>
+                <ul>
+                    <li>整个批量请求<strong>一个事务</strong>，任一失败全部回滚；约 30 秒窗口内防重复提交（按凭证+标的集合+手工项+流程+原因意见比较）。</li>
+                    <li>提交流程透传前端按单笔候选所选 flowId/flowKey/flowType，不再回填 batchIn/batchOut。前端须为可提交手工项<strong>选定流程候选</strong>（含「无需审批」/空 flow 直通）；后端允许空流程直通。</li>
+                    <li>按<strong>触发主组合</strong>（<code>crmwScode|securityCode</code>）分组后调用单笔 <code>submitAdjustLog</code>；共享 <code>SubmissionFiles</code> 与 <code>BatchNoContext</code>；手工项 <code>adjustType=手动批量调整</code>；批次号前缀仍为 <code>CRMW</code>。</li>
+                    <li>批量 multipart 提交在共享 <code>files</code> 外携带同序 <code>originalFileNameListJson</code>，后端据此保留中文原始文件名；未传数组时回退 multipart 文件名，数组数量与文件数不一致时直接拒绝提交。</li>
+                    <li>存在直通项时：先 <code>isDirectAdjustFlow</code> 判定，再整批 <code>recheckBeforeFinalApproval</code>。子集与单券终审一致——调入：池锁/已在池/品种/来源/限制/禁投/容量；调出：池锁/未在池/限制/冻结；不重跑开放日/矩阵等（见证券池调库「校验分层」）。</li>
+                    <li><code>releaseRules=yes</code> 不改变 CRMW 单笔校验（无主体债矩阵可跳过），只追加调整意见/说明文本；容量/来源/硬限制等仍执行。</li>
+                    <li>后续审批复用 CRMW 池调库审核页（会签/抢占/驳回/终态落 <code>ip_pool_status_crmw</code>）。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables"><h2>涉及表、用途与触发场景</h2>
+        <p class="sub">读写口径包含页面初始化、主业务接口及其正常后续流程。</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>表名</th>
+                    <th>用途</th>
+                    <th>读写</th>
+                    <th>触发场景</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><span class="name">ip_investment_pool</span></td>
+                    <td>目标池定义、容量；池上 batchIn/Out 配置仅维护展示，主链路校验/提交不注入该专用流程</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>池分页、叶子池校验；流程候选来自单券 checkAdjust</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_permission</span></td>
+                    <td>用户/角色可调整权限</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>普通用户查询池、提交前权限复核</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ais_inv_analysis.t_sys_user / t_sys_user_role / t_sys_role</span></td>
+                    <td>解析权限角色及审批处理人</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>角色型权限和审批待办人员</td>
+                </tr>
+                <tr>
+                    <td><span class="name">rrs_securityinfo</span></td>
+                    <td>凭证、标的证券基础信息</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>候选分页、逐组合校验与提交</td>
+                </tr>
+                <tr>
+                    <td><span class="name">dict_security_type</span></td>
+                    <td>证券大类及报告类型映射</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>审批通过后生成内部报告</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_status_crmw</span></td>
+                    <td>当前 CRMW 组合在池状态及最终生效结果</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span
+                            class='tag u'>逻辑删除</span></td>
+                    <td>候选过滤、容量校验、直通或审批通过</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_pool_relation</span></td>
+                    <td>来源、限制、联动与互斥关系</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>逐券校验及自动项扩展</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_adjust_log</span></td>
+                    <td>每券每池调库申请明细</td>
+                    <td><span class='tag w'>新增</span> <span class='tag u'>更新</span></td>
+                    <td>批量提交、审批状态流转</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_adjust_step</span></td>
+                    <td>审批运行步骤</td>
+                    <td><span class='tag w'>新增</span> <span class='tag u'>更新</span></td>
+                    <td>非直通流程及后续审批</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_definition / wf_flow_version</span></td>
+                    <td>选定流程及活跃版本</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>构建运行时流程快照</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_flow_node / wf_flow_edge / wf_edge_cond_rule</span></td>
+                    <td>节点、连线和条件分支</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>初始步骤及审批推进</td>
+                </tr>
+                <tr>
+                    <td><span class="name">wf_node_approval_config / wf_node_approval_handler</span></td>
+                    <td>审批策略和处理人</td>
+                    <td><span class='tag r'>查询</span></td>
+                    <td>展开具体待办人员</td>
+                </tr>
+                <tr>
+                    <td><span class="name">sys_attachment</span></td>
+                    <td>批量提交附件和报告附件副本</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>新增</span></td>
+                    <td>上传、引用报告、修改节点</td>
+                </tr>
+                <tr>
+                    <td><span class="name">rrs_report_in / rrs_report_out</span></td>
+                    <td>内部/外部报告来源；通过后可沉淀内部报告</td>
+                    <td><span class='tag r'>查询</span> <span class='tag w'>条件新增</span></td>
+                    <td>选择报告或审批通过后生成</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>批量不是一条总申请：后端按凭证+标的组合分组，再为手工、联动、互斥明细分别保存调库日志。</li>
+            <li>方向只允许 <code>in</code> 或 <code>out</code>；手工明细方向必须与本次批量方向一致。</li>
+            <li>可提交手工项须选定流程候选（含直通选项）；联动/互斥项复用同组手工项流程与批次号。</li>
+            <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status_crmw</code>；弹性禁投为警告不阻断，与单笔一致。</li>
+            <li>步骤2原因/建议为整批共享文案，与单笔调库页「每组合可回填日志原因」场景不同。</li>
+            <li>submit 不整单重跑 checkCrmwAdjust；直通/终审仅 recheck 动态子集。细节见
+                <a href="crmw-pool-adjust-tables.html">CRMW池调整</a>。</li>
+            <li>与 Excel 导入差异：本页<strong>不</strong>注入 batchIn/batchOut；Excel 仍可能把目标池批量流程置顶推荐。</li>
+        </ul>
+        <div class="note">本页依据当前 Controller、Service、Mapper
+            XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
+        </div>
+    </section>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p></main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
+</body>
+</html>
