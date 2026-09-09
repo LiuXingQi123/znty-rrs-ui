@@ -260,6 +260,10 @@
                         <el-select v-model="securitySearchForm.marketCodes" multiple collapse-tags clearable size="small" placeholder="市场（多选）" style="width:220px;">
                             <el-option v-for="item in securityMarketOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
                         </el-select>
+                        <el-select v-model="securitySearchForm.bondYesFlags" multiple collapse-tags clearable
+                                   placeholder="是否特征" size="small" style="width:220px;">
+                            <el-option v-for="opt in bondYesFlagOptions" :key="opt.value" :label="opt.label" :value="opt.value"></el-option>
+                        </el-select>
                         <el-button type="primary" size="small" icon="el-icon-search" @click="handleSecuritySearch">查询</el-button>
                         <el-button size="small" icon="el-icon-refresh" @click="handleSecurityReset">重置</el-button>
                     </div>
@@ -330,6 +334,24 @@
                     </el-table-column>
                     <el-table-column label="担保人主体内评分" min-width="140">
                         <template slot-scope="{ row }">{{ effectiveRelatedSubjectRating(row) }}</template>
+                    </el-table-column>
+                    <el-table-column label="是否ABS" min-width="90" align="center">
+                        <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isAbsBond(row))">{{ yesNoLabel(isAbsBond(row)) }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column label="是否担保" min-width="90" align="center">
+                        <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isYesFlag(row.guarantFlag))">{{ yesNoLabel(isYesFlag(row.guarantFlag)) }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column label="是否永续" min-width="90" align="center">
+                        <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isYesFlag(row.yxFlag))">{{ yesNoLabel(isYesFlag(row.yxFlag)) }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column label="是否次级" min-width="90" align="center">
+                        <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isYesFlag(row.cjFlag))">{{ yesNoLabel(isYesFlag(row.cjFlag)) }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column label="是否私募" min-width="90" align="center">
+                        <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isPrivateBond(row))">{{ yesNoLabel(isPrivateBond(row)) }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column label="是否含权" min-width="90" align="center">
+                        <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isYesFlag(row.inrightFlag))">{{ yesNoLabel(isYesFlag(row.inrightFlag)) }}</el-tag></template>
                     </el-table-column>
                 </el-table>
                 <div class="pagination-wrap">
@@ -825,7 +847,15 @@
                         return data.children && data.children.length > 0
                     }
                 },
-                securitySearchForm: { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [] }, // 证券查询条件
+                securitySearchForm: { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [], bondYesFlags: [] }, // 证券查询条件
+                bondYesFlagOptions: [ // 是否特征多选：勾选即筛「是」，多选 AND
+                    { value: 'abs', label: '是否ABS' },
+                    { value: 'guarant', label: '是否担保' },
+                    { value: 'yx', label: '是否永续' },
+                    { value: 'cj', label: '是否次级' },
+                    { value: 'private', label: '是否私募' },
+                    { value: 'inright', label: '是否含权' }
+                ],
                 sourcePoolOptions: [],                   // 来源池下拉（后端白名单）
                 securityTableData: [],                   // 当前页候选证券
                 securityLoading: false,                  // 候选证券加载状态
@@ -1231,7 +1261,7 @@
             // 重置工作台状态
             resetWorkbench() {
                 this.adjustStep = 1
-                this.securitySearchForm = { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [] }
+                this.securitySearchForm = { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [], bondYesFlags: [] }
                 // 来源池默认全选
                 this.applyDefaultSourcePoolSelection()
                 this.securityPagination = { pageIndex: 1, pageSize: 10, total: 0 }
@@ -1269,6 +1299,7 @@
                         securityCode: this.securitySearchForm.securityCode || null,
                         securityShortName: this.securitySearchForm.securityShortName || null,
                         marketCodes: this.securitySearchForm.marketCodes.length ? this.securitySearchForm.marketCodes : null,
+                        bondYesFlags: this.securitySearchForm.bondYesFlags.length ? this.securitySearchForm.bondYesFlags : null,
                         pageIndex: this.securityPagination.pageIndex,
                         pageSize: this.securityPagination.pageSize
                     };
@@ -1326,7 +1357,7 @@
 
             // 重置证券查询条件
             handleSecurityReset() {
-                this.securitySearchForm = { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [] }
+                this.securitySearchForm = { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [], bondYesFlags: [] }
                 // 重置后仍默认全选来源池，并重新查询
                 this.applyDefaultSourcePoolSelection()
                 this.securityPagination.pageIndex = 1
@@ -1381,6 +1412,28 @@
                 if (!row) return false
                 const flag = String(row.absFlag === undefined || row.absFlag === null ? '' : row.absFlag).toLowerCase()
                 return flag === '1' || flag === 'true' || flag === 'yes' || row.securityType === 'abs'
+            },
+
+            // 是否类标志：1 / '1' / true 视为是
+            isYesFlag(value) {
+                return value === 1 || value === '1' || value === true
+            },
+
+            // 是否私募：发行方式或内部分类含「私募」
+            isPrivateBond(row) {
+                if (!row) return false
+                return (row.issueType != null && String(row.issueType).indexOf('私募') >= 0)
+                    || (row.innerClass != null && String(row.innerClass).indexOf('私募') >= 0)
+            },
+
+            // 是否类文案
+            yesNoLabel(yes) {
+                return yes ? '是' : '否'
+            },
+
+            // 是否类 Tag 配色：是=success / 否=info
+            yesNoTagType(yes) {
+                return yes ? 'success' : 'info'
             },
 
             effectiveRelatedSubjectRating(row) {

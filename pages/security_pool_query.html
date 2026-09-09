@@ -113,6 +113,11 @@
                     <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
                 </el-input>
 
+                <el-select v-model="searchForm.bondYesFlags" multiple collapse-tags clearable
+                           placeholder="是否特征" size="small" style="width:220px;">
+                    <el-option v-for="opt in bondYesFlagOptions" :key="opt.value" :label="opt.label" :value="opt.value"></el-option>
+                </el-select>
+
                 <el-checkbox v-model="searchForm.mySecurities" @change="handleSearch">我的证券</el-checkbox>
 
                 <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
@@ -200,6 +205,24 @@
                 <el-table-column prop="repurchaseDate" label="行权日期（回售）" min-width="140" align="center">
                     <template slot-scope="{ row }">{{ row.repurchaseDate || '' }}</template>
                 </el-table-column>
+                <el-table-column label="是否ABS" min-width="90" align="center">
+                    <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isAbsBond(row))">{{ yesNoLabel(isAbsBond(row)) }}</el-tag></template>
+                </el-table-column>
+                <el-table-column label="是否担保" min-width="90" align="center">
+                    <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isYesFlag(row.guarantFlag))">{{ yesNoLabel(isYesFlag(row.guarantFlag)) }}</el-tag></template>
+                </el-table-column>
+                <el-table-column label="是否永续" min-width="90" align="center">
+                    <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isYesFlag(row.yxFlag))">{{ yesNoLabel(isYesFlag(row.yxFlag)) }}</el-tag></template>
+                </el-table-column>
+                <el-table-column label="是否次级" min-width="90" align="center">
+                    <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isYesFlag(row.cjFlag))">{{ yesNoLabel(isYesFlag(row.cjFlag)) }}</el-tag></template>
+                </el-table-column>
+                <el-table-column label="是否私募" min-width="90" align="center">
+                    <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isPrivateBond(row))">{{ yesNoLabel(isPrivateBond(row)) }}</el-tag></template>
+                </el-table-column>
+                <el-table-column label="是否含权" min-width="90" align="center">
+                    <template slot-scope="{ row }"><el-tag size="mini" :type="yesNoTagType(isYesFlag(row.inrightFlag))">{{ yesNoLabel(isYesFlag(row.inrightFlag)) }}</el-tag></template>
+                </el-table-column>
                 <el-table-column label="操作" width="60" fixed="right" align="center">
                     <template slot-scope="{ row }">
                         <el-button
@@ -247,10 +270,19 @@ new Vue({
                 entryTimeRange: null,  // 入池时间范围 [startDate, endDate]
                 adjusterName: '',      // 调整人姓名关键词
                 issuer: '',            // 发行主体名称关键词
+                bondYesFlags: [],      // 是否特征多选，勾选即筛「是」
                 mySecurities: false,   // 是否只看我的证券
                 currentUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
             },
             securityTypeOptions: [],   // 证券类型下拉（动态加载）
+            bondYesFlagOptions: [      // 是否特征多选：多选 AND
+                { value: 'abs', label: '是否ABS' },
+                { value: 'guarant', label: '是否担保' },
+                { value: 'yx', label: '是否永续' },
+                { value: 'cj', label: '是否次级' },
+                { value: 'private', label: '是否私募' },
+                { value: 'inright', label: '是否含权' },
+            ],
             securityStatusOptions: [   // 证券状态下拉
                 { value: 'active', label: '存续' },
                 { value: 'matured', label: '到期' },
@@ -304,6 +336,28 @@ new Vue({
             const n = Number(days)
             if (!isFinite(n)) return ''
             return (n / 365).toFixed(4)
+        },
+        // 是否类标志：1 / '1' / true 视为是
+        isYesFlag(value) {
+            return value === 1 || value === '1' || value === true;
+        },
+        // 是否私募：发行方式或内部分类含「私募」
+        isPrivateBond(row) {
+            if (!row) return false;
+            return (row.issueType != null && String(row.issueType).indexOf('私募') >= 0)
+                || (row.innerClass != null && String(row.innerClass).indexOf('私募') >= 0);
+        },
+        // 是否 ABS：absFlag=1，或证券类型为 abs（abs_all 不算）
+        isAbsBond(row) {
+            return !!row && (this.isYesFlag(row.absFlag) || row.securityType === 'abs');
+        },
+        // 是否类文案
+        yesNoLabel(yes) {
+            return yes ? '是' : '否';
+        },
+        // 是否类 Tag 配色：是=success / 否=info
+        yesNoTagType(yes) {
+            return yes ? 'success' : 'info';
         },
         // 加载投资池树
         async loadPoolTree() {
@@ -436,6 +490,7 @@ new Vue({
                         ? this.searchForm.entryTimeRange[1] + ' 23:59:59' : null,
                     adjusterName: this.searchForm.adjusterName || null,
                     issuer: this.searchForm.issuer || null,
+                    bondYesFlags: this.searchForm.bondYesFlags.length > 0 ? this.searchForm.bondYesFlags : null,
                     mySecurities: this.searchForm.mySecurities || null,
                     currentUserId: this.searchForm.currentUserId,
                     pageIndex: this.pagination.pageIndex,
@@ -490,6 +545,7 @@ new Vue({
                 entryTimeRange: null,
                 adjusterName: '',
                 issuer: '',
+                bondYesFlags: [],
                 mySecurities: false,
                 currentUserId: window.RrsAuth.getCurrentUser().userId,
             };
