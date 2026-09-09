@@ -550,7 +550,7 @@ new Vue({
     ],
     "flowTitle": "CRMW 组合调库工作流",
     "flowSub": "业务对象是「凭证+标的」组合，不是单券或主体。与证券/禁投同构校验与审批，落地表独立。",
-    "alertHtml": "<b>直接结论：</b>组合键 crmwScode+securityCode（业务键不依赖 mktcode；凭证身份仍用 crmwStype）；落 ip_pool_status_crmw；pending/落池保护/CRMW 批次前缀已落地；冻结缺时间已阻断。仍须整改：标的未排除 company；有效状态缺物理唯一。check 全量 vs 终审动态子集分层；标的为债时仅到期校验、不套信用债分级矩阵。",
+                    "alertHtml": "<b>直接结论：</b>组合键 crmwScode+securityCode（业务键不依赖 mktcode；凭证身份仍用 crmwStype）；落 ip_pool_status_crmw；pending/落池保护/CRMW 批次前缀已落地；冻结缺时间已阻断；候选标的已限定有效 bond 大类并排除 crmw。仍须整改：有效状态缺物理唯一。check 全量 vs 终审动态子集分层；标的债仅做对应规则校验，不套信用债分级矩阵。",
     "issuesSub": "CRMW 相对证券链路的特有边界。",
     "checksSub": "组合入出池、历史 CIBM、company 候选、直通容量、分层校验。",
     "relatedSub": "需求 19–21、CrmwPoolAdjust*、crmw-pool-link-audit。",
@@ -597,7 +597,7 @@ new Vue({
                 },
                 {
                     "q": "标的能选公司主体吗？",
-                    "a": "候选 SQL 只排除 security_type=crmw，未排除 company；提交主要禁 CRMW 作标的；company 时 checkCompanyIn 为空，仅通用规则。",
+                        "a": "候选 SQL 内连有效证券类型字典并限定 category_type=bond，同时排除 security_type=crmw；company、股票和基金不进入候选。",
                     "status": "待整改"
                 },
                 {
@@ -719,9 +719,9 @@ new Vue({
     "findings": [
         {
             "level": "P1",
-            "title": "可绑定标的未排除 company",
-            "desc": "queryBindableSecurityPage 仅 security_type != crmw；提交不禁 company；checkCompanyIn 为空。",
-            "suggestion": "候选与提交均排除 company（或业务确认允许后再写清）。"
+                        "title": "可绑定标的范围已收敛",
+                        "desc": "queryBindableSecurityPage 已限定有效的 category_type=bond，并排除 security_type=crmw。",
+                        "suggestion": "回归确认主体、股票、基金和 CRMW 凭证均不会进入候选。"
         },
         {
             "level": "P2",

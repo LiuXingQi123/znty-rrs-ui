@@ -324,7 +324,7 @@
             /api/v1/crmwPoolAdjustFlow/submitAdjustAuditWithFiles</code></div>
         <div class="steps">
             <article class="step"><b>1. 选择 CRMW</b>
-                <p>分页查凭证（security_type=crmw），再选可绑定标的（当前仅排除 security_type=crmw，<strong>未</strong>排除 company）；标的列表可按 ABS、担保、永续、次级、私募、含权筛选。</p></article>
+                <p>分页查凭证（security_type=crmw），再选可绑定债券类标的（限定有效字典的 category_type=bond，并排除 security_type=crmw）；标的列表可按 ABS、担保、永续、次级、私募、含权筛选。</p></article>
             <article class="step"><b>2. 加载上下文</b>
                 <p>并行读凭证/标的详情、担保人候选、ip_pool_status_crmw 当前池、可调 CRMW 池与历史申请；标的证券基本信息与证券池调库页保持同序。担保人按债券/ABS 口径提供下拉，单候选默认选中、多候选必须手工选择，选择后联动展示 AIS 最新主体内评分。</p></article>
             <article class="step"><b>3. 规则校验</b>
@@ -339,7 +339,7 @@
         <p class="sub">与证券池调库同构；对象=「CRMW 凭证 + 标的证券」组合，落地表独立。</p>
         <div class="logic-grid">
             <article class="logic-card"><h3>查询与选择</h3>
-                <p>凭证列表 <code>queryCrmwPage</code>（仅 crmw）；可绑定证券 <code>queryBindableSecurityPage</code>（SQL 仅 <code>security_type != 'crmw'</code>，<strong>未排除 company</strong>，业务问题已记 P1）。可绑定证券支持 <code>bondYesFlags</code> 多选：ABS、担保、永续、次级、私募、含权，勾选即筛“是”，多选条件按 AND 组合；表格同步展示六项是/否列。提交/日志业务键：
+                <p>凭证列表 <code>queryCrmwPage</code>（仅 crmw）；可绑定证券 <code>queryBindableSecurityPage</code> 通过有效证券类型字典限定 <code>category_type='bond'</code>，并排除 <code>security_type='crmw'</code>，因此主体、股票、基金和 CRMW 凭证均不会进入候选。可绑定证券支持 <code>bondYesFlags</code> 多选：ABS、担保、永续、次级、私募、含权，勾选即筛“是”，多选条件按 AND 组合；表格同步展示六项是/否列。提交/日志业务键：
                     <code>crmwScode</code> + <code>securityCode</code>（凭证身份仍用 <code>crmwStype</code>）。回显既有申请时，附件按全部调库日志 ID 去重后一次批量查询，并按返回的 <code>mainId</code> 回填。<strong>已移除市场代码 crmwMktcode</strong> 依赖。</p></article>
             <article class="logic-card"><h3>池与权限</h3>
                 <p><code>queryCrmwAdjustPoolList</code> 仅 <code>pool_type=crmw</code>（启用后再 adjustable）；in/out 两次结果相同（无内评矩阵过滤）。可调入库默认仅展开「信用债大库(new)」，其他根节点默认收起（CRMW 池树不含该节点时即默认全部收起）；可调出库默认全部展开。CRMW 在池读 <code>ip_pool_status_crmw</code>；标的普通池 <code>ip_pool_status</code> 仍参与来源/观察等规则。</p></article>
@@ -507,7 +507,7 @@
             <article class="rule"><h3>URL 入口</h3>
                 <p>初始化 <code>applyUrlCrmwOrList</code>：带 <code>crmwScode</code> / <code>securityCode</code> 时选中凭证并进入该标的；无参数才只加载列表。</p></article>
             <article class="rule"><h3>对象约束</h3>
-                <p>调库对象不能是 CRMW 凭证本身：可绑定标的 <code>queryBindableSecurityPage</code> 仅排除 <code>security_type=crmw</code>（当前<strong>未</strong>排除 company）。是否特征中 ABS 按 <code>abs_flag=1</code> 或证券类型为 <code>abs</code> 判断，私募按发行方式或内部分类含“私募”判断，其余按对应标志位判断。凭证与标的双身份字段必填。日志字段含
+                <p>调库对象不能是 CRMW 凭证本身：可绑定标的 <code>queryBindableSecurityPage</code> 仅查询有效字典中的债券大类，并排除 <code>security_type=crmw</code>。是否特征中 ABS 按 <code>abs_flag=1</code> 或证券类型为 <code>abs</code> 判断，私募按发行方式或内部分类含“私募”判断，其余按对应标志位判断。凭证与标的双身份字段必填。日志字段含
                     crmw_name/scode/stype，无 mktcode。</p></article>
             <article class="rule"><h3>状态边界</h3>
                 <p>仅 <code>audit_status=20</code> 改变 CRMW 池状态；流程中（<code>00</code>）/驳回待修改（<code>11</code>）/审批驳回（<code>21</code>）/已撤回（<code>99</code>）等只改日志与步骤。三链路同构：校验/流转改动时需同步评估证券池与禁投池。
