@@ -218,6 +218,8 @@ new Vue({
                 securityPoolAdjust: 'security_pool_adjust.html', // 证券池调整页（提醒去调库）
             },
             today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
+            currentUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
+            currentUserName: window.RrsAuth.getCurrentUser().userName, // 当前登录用户名称
             searchForm: {             // 查询条件
                 flowIds: [],              // 流程 ID 多选
                 securityCode: '',         // 证券编码关键词
@@ -226,7 +228,6 @@ new Vue({
                 processDescription: '',   // 流程描述关键词
                 auditStatus: '',          // 审核状态
                 initiatorName: '',        // 发起人姓名关键词
-                currentUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
             },
             auditStatusOptions: [     // 审核状态筛选选项
                 { value: '-1', label: '无效调整' },
@@ -373,7 +374,7 @@ new Vue({
         async loadFlowOptions() {
             try {
                 this.flowOptions = await this.apiPost('/api/v1/myMatters/queryFlowOptionList', {
-                    currentUserId: this.searchForm.currentUserId,
+                    currentUserId: this.currentUserId,
                 });
             } catch (e) {}
         },
@@ -421,7 +422,7 @@ new Vue({
                     auditStatus: this.searchForm.auditStatus || null,
                     stepStatus: stepStatus,
                     initiatorName: this.searchForm.initiatorName || null,
-                    currentUserId: this.searchForm.currentUserId,
+                    currentUserId: this.currentUserId,
                     pageIndex: 1,
                     pageSize: 1,
                 });
@@ -469,7 +470,7 @@ new Vue({
                     auditStatus: this.searchForm.auditStatus || null,
                     stepStatus: this.activeTab,
                     initiatorName: this.searchForm.initiatorName || null,
-                    currentUserId: this.searchForm.currentUserId,
+                    currentUserId: this.currentUserId,
                     pageIndex: this.pagination.pageIndex,
                     pageSize: this.pagination.pageSize,
                 };
@@ -576,7 +577,6 @@ new Vue({
                 processDescription: '',
                 auditStatus: '',
                 initiatorName: '',
-                currentUserId: window.RrsAuth.getCurrentUser().userId,
             };
             this.pagination.pageIndex = 1;
             this.loadFlowOptions();
@@ -622,7 +622,8 @@ new Vue({
                 query: params.toString(),
             });
             if (opened) return;
-            window.RrsAuth.appendUserParams(params);
+            params.set('loginUserId', this.currentUserId);
+            params.set('loginUserName', this.currentUserName);
             window.location.href = this.pagePaths.securityPoolAdjust + '?' + params.toString();
         },
 
@@ -639,11 +640,10 @@ new Vue({
             }
             this.alertLoading = true;
             try {
-                const loginUser = window.RrsAuth.getCurrentUser();
                 await this.apiPost('/api/v1/gradeRuleAlert/editAlertProcessed', {
                     id: row.id,
-                    currentUserId: loginUser && loginUser.userId,
-                    currentUserName: loginUser && loginUser.userName,
+                    currentUserId: this.currentUserId,
+                    currentUserName: this.currentUserName,
                 });
                 this.$message.success('已标记处理');
                 this.loadAlertList();
@@ -697,7 +697,8 @@ new Vue({
                 query: params.toString(),
             });
             if (opened) return;
-            window.RrsAuth.appendUserParams(params);
+            params.set('loginUserId', this.currentUserId);
+            params.set('loginUserName', this.currentUserName);
             window.location.href = page + '?' + params.toString();
         },
     }

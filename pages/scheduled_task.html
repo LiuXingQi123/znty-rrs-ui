@@ -420,7 +420,8 @@ new Vue({
             logVisible: false,        // 历史弹窗
             logLoading: false,        // 历史加载状态
             taskList: [],             // 当前页任务列表
-            loginUser: null,          // 当前登录用户
+            currentUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
+            currentUserName: window.RrsAuth.getCurrentUser().userName, // 当前登录用户名称
             queryParam: {             // 查询条件
                 keyword: '',          // 名称/编码关键字
                 enabledFilter: ''     // 调度状态：1 启用 / 0 关闭
@@ -542,13 +543,10 @@ new Vue({
         },
         // 是否管理员（userId=1，与全站约定一致；配置说明仅管理员可见）
         isAdmin() {
-            return this.loginUser && String(this.loginUser.userId) === '1'
+            return String(this.currentUserId) === '1'
         }
     },
     created() {
-        this.loginUser = (window.RrsAuth && window.RrsAuth.getCurrentUser)
-            ? window.RrsAuth.getCurrentUser()
-            : { userId: '1', userName: '管理员' }
         this.loadTaskList()
     },
     methods: {
@@ -710,8 +708,8 @@ new Vue({
                     cronExpression: this.configForm.cronExpression,
                     scheduleEnabled: this.configForm.scheduleEnabled,
                     paramJson: this.configForm.paramJson,
-                    operatorId: this.loginUser.userId,
-                    operatorName: this.loginUser.userName
+                    operatorId: this.currentUserId,
+                    operatorName: this.currentUserName
                 }
                 try {
                     if (this.configMode === 'add') {
@@ -745,8 +743,8 @@ new Vue({
             try {
                 await this.apiPost('/api/v1/scheduledTask/deleteTask', {
                     taskCode: row.taskCode,
-                    operatorId: this.loginUser.userId,
-                    operatorName: this.loginUser.userName
+                    operatorId: this.currentUserId,
+                    operatorName: this.currentUserName
                 })
                 this.$message.success('已删除')
                 // 当前页删空则回上一页
@@ -770,8 +768,8 @@ new Vue({
                     cronExpression: row.cronExpression,
                     scheduleEnabled: enabled,
                     paramJson: row.paramJson,
-                    operatorId: this.loginUser.userId,
-                    operatorName: this.loginUser.userName
+                    operatorId: this.currentUserId,
+                    operatorName: this.currentUserName
                 })
                 this.$message.success(enabled ? '已启用定时调度' : '已关闭定时调度')
                 await this.loadTaskList()
@@ -798,8 +796,8 @@ new Vue({
             try {
                 const result = await this.apiPost('/api/v1/scheduledTask/executeTask', {
                     taskCode: row.taskCode,
-                    operatorId: this.loginUser.userId,
-                    operatorName: this.loginUser.userName
+                    operatorId: this.currentUserId,
+                    operatorName: this.currentUserName
                 })
                 if (result && result.success) {
                     this.$message.success(result.message || '执行成功')
