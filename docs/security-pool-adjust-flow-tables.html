@@ -823,7 +823,7 @@
             </div>
 
             <h3 class="filter-heading">3. 后端主流程（按执行顺序）</h3>
-            <div class="callout">页面将当前证券代码一次传给 <code>queryGuarantorGradeList</code>；接口以该代码匹配 <code>ais_inv_ods.wind_cbondissuer.s_info_windcode</code>，并按证券主数据属性筛选：担保债且非 ABS 仅显示 <code>115004000=担保人</code>；ABS（含担保+ABS）显示 <code>115200000=债务主体</code>、<code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115201000=原始权益人</code>；非担保且非 ABS 为空。以 <code>s_info_compcode</code> / <code>s_info_compname</code> 作为担保人代码和名称，不读取或拆分证券主数据中的 <code>guarantorId</code> / <code>guarantor</code>。内评以 <code>ais_inv_analysis.v_inv_grade_result.windcode</code> 匹配各担保人的最新 <code>totalScore</code>，合格但无评分的主体仍展示且评分为空。展开项显示担保人名称、类型标签及右侧内评，选择框收起后显示“名称（类型）”。查询后仅剩一个担保人时首次加载自动选中，首次可调入池查询直接携带该代码且不重复请求；多个担保人切换时更新只读评分，并携带所选代码重新查询一次可调入池，不使用缓存、不重新查询信评报告。重新计算后清空原有调入选择。下一步由 <code>checkAdjust</code> 按同一证券—担保人关系校验所选代码；提交时后端再次查询 AIS 最新评分并覆盖调库快照，不采信前端评分值，不读取或覆盖主数据中的 <code>innerGuarantorRating</code>。</div>
+            <div class="callout">页面通过 <code>queryRelatedRatingSubjectList</code> 查询当前证券在 <code>ais_inv_ods.wind_cbondissuer</code> 中的四类关系主体：<code>115200000=债务主体</code>、<code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115201000=原始权益人</code>；与原公共担保人查询一致，不按 <code>used</code> 过滤。非 ABS 页面将其作为“担保人”候选，ABS 页面将其作为“权益人”候选；无内评主体仍展示。单候选自动选中，多候选必须手工选择。ABS 还可通过 <code>querySelfSelectedRightsHolderPage</code> 从 <code>ais_inv_analysis.t_inv_company</code> 分页查询自选权益人，默认每页 20 条，可切换 10/20/30/50 条，分页包含总数、页码和跳转，并显示跨页连续序号；编码/名称支持模糊查询。ABS 的“担保人主体内评分”优先显示自选权益人内评；没有自选时显示当前权益人内评，切换或清除选择后即时刷新。选择变化会清空原调入选择并重新查询可调入池。校验和提交阶段后端重新查询主体，防止伪造编码、名称或内评。</div>
             <div class="callout">方法：<code>queryAdjustPoolList</code>。任一步滤空则返回空列表。</div>
             <div class="logic-card" style="margin-top: 12px;">
                 <ol>
@@ -845,13 +845,13 @@
                     <li>当前列表里没有任何 <code>pool_type=credit_bond</code> 的池：结束。</li>
                     <li>按证券代码查不到证券主数据：结束（列表原样返回）。</li>
                     <li>证券类型是<strong>可转债 / 可交换债 / 可分离转债 / CRMW</strong>：整棵信用债树不显示（结束）。</li>
-                    <li><strong>重点观察名单</strong>（券或主体在 <code>restricted</code>，且不是强担保：有担保且担保人内评 1 档）：当前<strong>未</strong>在信用债 1～5 级 → 整棵信用债树不显示（结束）；已在 1～4 级 → 后面选叶子时只留五级；已在五级不可再上调。</li>
-                    <li>取<strong>查矩阵用的内评档</strong>（和下面「1 档」判定不是同一件事）：正式证券读发债主体内评 <code>innerIssuerRating</code>；临时代码无内评默认 <code>4</code>；担保债再和担保人内评取孰高（只决定查矩阵哪一格）。正式证券仍无内评：整棵信用债树不显示（结束）。</li>
+                    <li><strong>重点观察名单</strong>（券或主体在 <code>restricted</code>）：非 ABS 强担保债（有担保且担保人内评 1 档）可豁免；ABS 权益人内评不属于强担保，不豁免。未在信用债 1～5 级则整棵信用债树不显示；已在 1～4 级只留五级；已在五级不可上调。</li>
+                    <li>取<strong>查矩阵用的内评档</strong>：非 ABS 非担保债只用发债主体内评；非 ABS 担保债取发债主体与所选担保人内评较优值；ABS 直接用自选权益人（优先）或普通权益人内评，不与债务主体或担保人孰高。ABS 最终权益人无内评时提示“未配置权益人内评分档”，不以债务主体兜底。</li>
                     <li>匹配期限档：普通债用 <code>date_exists</code>（天÷365）；<strong>含权债</strong>回售按 <code>date_inright_exists</code>/<code>date_repurchase_exists</code>（年）、赎回按 <code>date_exists</code>（天÷365），两者都有取更短；<code>date_call_exists</code> 仅展示/落库，不参与匹配。期限为空默认最长档（期限>5 / <code>GT_5</code>）。无可用期限档、年数落不进任何档、或矩阵未配置允许池：后面信用债 1～5 级全部不显示（档位规则也算不出起始档）。</li>
                     <li>用第 6 步内评档 × 第 7 步期限档查矩阵，得到允许的信用债级别，并算出标准最好档。</li>
                     <li>按券类型决定准入方式（先命中先走）。口径：<strong>只能调入一级库</strong>=仅一级；<strong>下调一级</strong>=按内评×期限矩阵最好档再降一档且只留那一档；<strong>至少下调一级</strong>=从该降一档开到五级（x～5）。
                         <ul>
-                            <li><strong>ABS</strong>（<code>absFlag=1</code> 或类型 <code>abs</code>；<code>abs_all</code> 不算）不走覆盖链，始终走 ABS：「1 档」只看页面所选担保人内评 <code>innerGuarantorRating</code>。担保人内评 1 档只能调入一级库；无担保人或非 1 档，在矩阵最好档上至少下调一级。</li>
+                            <li><strong>ABS</strong>（<code>absFlag=1</code> 或类型 <code>abs</code>；<code>abs_all</code> 不算）不走覆盖链，始终走 ABS：“1 档”只看最终权益人内评。权益人内评 1 档只能调入一级库；非 1 档在矩阵最好档上至少下调一级。</li>
                             <li>非 ABS：多种类型只留一个标签，后写覆盖先写：私募 → 次级 → 永续 → 担保（永续+担保按担保）。「1 档」只看发债主体内评 <code>innerIssuerRating</code>。</li>
                             <li>覆盖后仍是<strong>私募</strong>：发债主体内评 1 档只能调入一级库，其余至少下调一级。</li>
                             <li>覆盖后仍是<strong>永续</strong>：发债主体内评 1 档下调一级（只留那一档），其余至少下调一级。</li>
