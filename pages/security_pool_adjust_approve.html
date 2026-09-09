@@ -249,8 +249,14 @@
                         <el-descriptions-item label="展望评级">
                             <el-input v-model.trim="bondDetail.ratingOutlook" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly" maxlength="10"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="担保人">
+                        <el-descriptions-item v-if="!isAbsBond(bondDetail)" label="担保人">
                             <el-input v-model.trim="bondDetail.guarantor" size="small" disabled maxlength="100"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="isAbsBond(bondDetail)" label="权益人">
+                            <el-input v-model.trim="bondDetail.absOriginatorName" size="small" disabled maxlength="100"></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="isAbsBond(bondDetail)" label="自选权益人">
+                            <el-input v-model.trim="bondDetail.companySelector" size="small" disabled maxlength="100"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主承销商">
                             <el-input v-model.trim="bondDetail.agencyName" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly" maxlength="50"></el-input>
@@ -1637,6 +1643,16 @@
             }
         },
         methods: {
+
+            // 是否 ABS：absFlag=1，或证券类型为 abs（abs_all 不算）
+            isAbsBond(row) {
+                if (!row) {
+                    return false;
+                }
+                const absFlag = String(row.absFlag === undefined || row.absFlag === null ? '' : row.absFlag).toLowerCase();
+                return absFlag === '1' || absFlag === 'true' || absFlag === 'yes'
+                    || row.securityType === 'abs';
+            },
 
             // 数字输入空串转 null，避免后端 BigDecimal 反序列化失败
             toNullableNumber(val) {

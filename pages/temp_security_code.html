@@ -69,6 +69,21 @@
                         :value="item.value">
                     </el-option>
                 </el-select>
+                <el-select
+                    v-model="queryParam.oprtSourceList"
+                    size="small"
+                    multiple
+                    collapse-tags
+                    clearable
+                    placeholder="操作来源"
+                    style="width: 220px;">
+                    <el-option
+                        v-for="item in oprtSourceFilterOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value">
+                    </el-option>
+                </el-select>
                 <el-button size="small" type="primary" icon="el-icon-search" @click="handleSearch">查询</el-button>
                 <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
                 <el-button size="small" type="primary" icon="el-icon-plus" @click="openAddDialog">新增</el-button>
@@ -113,6 +128,11 @@
                 <el-table-column label="状态" width="92" align="center">
                     <template slot-scope="{ row }">
                         <el-tag v-if="row.status" size="mini" :type="statusTagType(row.status)">{{ statusName(row.status) }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="操作来源" width="100" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.oprtSource" size="mini" :type="oprtSourceTagType(row.oprtSource)">{{ oprtSourceName(row.oprtSource) }}</el-tag>
                     </template>
                 </el-table-column>
                 <el-table-column prop="securityName" label="证券名称" min-width="170" show-overflow-tooltip></el-table-column>
@@ -390,13 +410,19 @@
                 queryParam: {               // 查询条件
                     tempSecurityCode: '',   // 临时证券代码
                     tempSecurityName: '',   // 临时证券名称
-                    statusList: []          // 状态多选
+                    statusList: [],         // 状态多选
+                    oprtSourceList: ['manual'] // 操作来源多选，默认人工
                 },
                 statusFilterOptions: [      // 状态筛选选项
                     { value: 'temporary', label: '临时' },
                     { value: 'updated', label: '已更新' },
                     { value: 'cancelled', label: '已取消' },
                     { value: 'deleted', label: '已删除' }
+                ],
+                oprtSourceFilterOptions: [  // 操作来源筛选选项
+                    { value: 'manual', label: '人工' },
+                    { value: 'job', label: '定时任务' },
+                    { value: 'other', label: '其他' }
                 ],
                 pagination: {               // 分页参数
                     pageIndex: 1,           // 当前页码
@@ -422,6 +448,11 @@
                     updated: '已更新',
                     cancelled: '已取消',
                     deleted: '已删除'
+                },
+                oprtSourceOptions: {        // 操作来源字典
+                    manual: '人工',
+                    job: '定时任务',
+                    other: '其他'
                 },
                 addRules: {                 // 新增表单校验
                     tempSecurityName: [{ required: true, message: '请输入临时证券名称', trigger: 'blur' }],
@@ -533,12 +564,13 @@
                 this.loadList()
             },
 
-            // 重置查询条件
+            // 重置查询条件（操作来源恢复默认「人工」）
             handleReset() {
                 this.queryParam = {
                     tempSecurityCode: '',
                     tempSecurityName: '',
-                    statusList: []
+                    statusList: [],
+                    oprtSourceList: ['manual']
                 }
                 this.pagination.pageIndex = 1
                 this.loadList()
@@ -766,6 +798,17 @@
             statusTagType(status) {
                 const map = { temporary: 'info', updated: 'success', cancelled: 'warning', deleted: 'danger' }
                 return map[status] || 'info'
+            },
+
+            // 获取操作来源名称
+            oprtSourceName(oprtSource) {
+                return this.oprtSourceOptions[oprtSource] || ''
+            },
+
+            // 获取操作来源对应的 el-tag type
+            oprtSourceTagType(oprtSource) {
+                const map = { manual: '', job: 'warning', other: 'info' }
+                return map[oprtSource] || 'info'
             },
 
             // 格式化日期

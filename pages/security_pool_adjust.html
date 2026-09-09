@@ -872,14 +872,14 @@
             </div>
             <el-table v-loading="selfRightsHolderLoading" :data="selfRightsHolderData" border stripe
                       height="420" highlight-current-row @row-click="handleSelfRightsHolderCurrentChange">
-                <el-table-column type="index" label="序号" width="70" align="center"
-                                 :index="selfRightsHolderIndex"></el-table-column>
                 <el-table-column width="55" align="center">
                     <template slot-scope="scope">
                         <el-radio v-model="pendingSelfRightsHolderCode" :label="scope.row.companyCode"
                                   @change="handleSelfRightsHolderCurrentChange(scope.row)"><span></span></el-radio>
                     </template>
                 </el-table-column>
+                <el-table-column type="index" label="序号" width="70" align="center"
+                                 :index="selfRightsHolderIndex"></el-table-column>
                 <el-table-column prop="companyCode" label="主体编码" width="180"></el-table-column>
                 <el-table-column prop="companyName" label="主体名称" min-width="300" show-overflow-tooltip></el-table-column>
                 <el-table-column prop="innerRating" label="最新内评" width="110" align="center"></el-table-column>
@@ -1388,7 +1388,9 @@
             },
             // 担保人、权益人下拉共用当前证券查询到的四类关系主体
             relatedRatingSubjectOptions() {
-                return Object.keys(this.relatedRatingSubjectMap).map(code => this.relatedRatingSubjectMap[code]);
+                return Object.keys(this.relatedRatingSubjectMap)
+                    .map(code => this.relatedRatingSubjectMap[code])
+                    .sort((left, right) => left.sortOrder - right.sortOrder);
             },
             // ABS 担保人主体内评分：自选权益人优先，否则取普通权益人
             effectiveRightsHolderRating() {
@@ -1504,13 +1506,13 @@
             yesNoTagType(yes) {
                 return yes ? 'success' : 'info'
             },
-            // 按证券代码查询四类关系主体及 AIS 最新内评，无评分的关系主体仍保留
+            // 按证券代码查询四类有内评的关系主体，并保留接口确定的候选顺序
             async queryRelatedRatingSubjectMap(securityCode) {
                 if (!securityCode) return {};
                 const gradeList = await this.apiPost('/api/v1/securityPoolAdjust/queryRelatedRatingSubjectList', {
                     securityCode
                 });
-                return (gradeList || []).reduce((result, item) => {
+                return (gradeList || []).reduce((result, item, index) => {
                     const name = item.companyName || item.companyCode;
                     const typeName = this.guarantorTypeName(item.relationTypeCode);
                     result[item.companyCode] = {
@@ -1518,7 +1520,8 @@
                         name,
                         typeName,
                         label: typeName ? name + '（' + typeName + '）' : name,
-                        rating: item.innerRating || ''
+                        rating: item.innerRating || '',
+                        sortOrder: index
                     };
                     return result;
                 }, {});
@@ -1526,9 +1529,9 @@
             // Wind 担保人类型由前端统一映射展示
             guarantorTypeName(typeCode) {
                 const typeNameMap = {
-                    '115200000': '债务主体',
                     '115004000': '担保人',
                     '115203000': '差额支付承诺人',
+                    '115202000': '债务主体',
                     '115201000': '原始权益人'
                 };
                 return typeNameMap[String(typeCode)] || '';
@@ -1757,7 +1760,7 @@
                 this.inMutexMap = inMap;
                 return inPoolsFiltered;
             },
-            // 先加载证券详情与四类关系主体，再按证券类型确定单候选默认值并加载池列表
+            // 先加载证券详情与四类关系主体，再按接口顺序确定首条默认值并加载池列表
             async loadDetailData(securityCode) {
                 this.detailLoading = true;
                 this.adjustInPoolQuerySeq++;
@@ -1771,12 +1774,13 @@
                     const detail = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail', detailReq);
                     const relatedRatingSubjectMap = await this.queryRelatedRatingSubjectMap(securityCode);
                     const relatedSubjectOptions = Object.keys(relatedRatingSubjectMap)
-                        .map(code => relatedRatingSubjectMap[code]);
-                    const singleRelatedSubjectCode = relatedSubjectOptions.length === 1
+                        .map(code => relatedRatingSubjectMap[code])
+                        .sort((left, right) => left.sortOrder - right.sortOrder);
+                    const firstRelatedSubjectCode = relatedSubjectOptions.length > 0
                         ? relatedSubjectOptions[0].code : '';
                     const isAbs = this.isAbsBond(detail || {});
-                    const initialGuarantorCode = isAbs ? '' : singleRelatedSubjectCode;
-                    const initialRightsHolderCode = isAbs ? singleRelatedSubjectCode : '';
+                    const initialGuarantorCode = isAbs ? '' : firstRelatedSubjectCode;
+                    const initialRightsHolderCode = isAbs ? firstRelatedSubjectCode : '';
                     const inPoolParams = {
                         securityCode: securityCode,
                         adjustDirection: 'in',
@@ -1797,8 +1801,8 @@
                     this.bondDetail = detail || {};
                     this.relatedRatingSubjectMap = relatedRatingSubjectMap;
                     this.selectedSelfRightsHolder = null;
-                    // 担保人/权益人单候选自动选中，多候选由用户手工选择
-                    const selectedGuarantor = !isAbs && relatedSubjectOptions.length === 1
+                    // 担保人/权益人按后端确定的顺序默认选中首条
+                    const selectedGuarantor = !isAbs && relatedSubjectOptions.length > 0
                         ? relatedSubjectOptions[0] : null;
                     this.$set(this.bondDetail, 'selectedGuarantorCode', selectedGuarantor ? selectedGuarantor.code : '');
                     this.$set(this.bondDetail, 'selectedGuarantorRating', selectedGuarantor ? selectedGuarantor.rating : '');
@@ -2561,7 +2565,7 @@
                     this.$message.warning('请至少选择一个调入或调出投资池');
                     return;
                 }
-                // ABS 必须选择普通权益人或自选权益人；非 ABS 有候选时必须选择担保人
+                // 默认首条仍可由用户改选；清空后按原校验阻止提交
                 if (this.isAbsBond(this.bondDetail)
                         && !this.bondDetail.selectedRightsHolderCode
                         && !this.bondDetail.selectedSelfSelectedRightsHolderCode) {

@@ -387,7 +387,7 @@
             <article class="card"><h3>前端状态与页面</h3>
                 <ul>
                     <li>列表筛选：<code>absSearchForm</code>（securityCode / securityShortName / issuer）；表格 <code>absTableData</code> + <code>absPagination</code>。列对齐证券池调库主列表：在操作列前由前端展示是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」）、是否ABS（<code>absFlag=1</code> 或类型 <code>abs</code>；<code>abs_all</code> 不算）、是否次级（<code>cjFlag=1</code>）；后端 <code>SELECT si.*</code> 原样返回，不做中文映射；详情页证券基本信息不增加这些字段。</li>
-                    <li>详情：证券基本信息 <code>absBondDetail</code> 与证券池调库字段/交互对齐（步骤1可编辑、步骤2只读）；页面将当前证券代码传给 <code>queryGuarantorGradeList</code>，接口以该代码匹配 <code>ais_inv_ods.wind_cbondissuer.s_info_windcode</code>，显示 <code>115200000=债务主体</code>、<code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115201000=原始权益人</code> 四类记录，并以 <code>s_info_compcode</code> / <code>s_info_compname</code> 作为担保人代码和名称，不读取或拆分证券主数据的担保人逗号串；内评从 <code>ais_inv_analysis.v_inv_grade_result</code> 按 <code>windcode</code> 取最新 <code>totalScore</code>，合格但缺失评分时显示空白；展开项显示名称、类型标签和右侧内评，收起后显示“名称（类型）”；选中后评分只读展示且不覆盖主数据评分；当前证券/主体所在池；可调入/可调出双栏树 <code>absInPools</code> / <code>absOutPools</code>。可调入库默认仅展开「信用债大库(new)」，其他根节点默认收起（ABS 可选池不含该节点时即默认全部收起）；可调出库默认全部展开。</li>
+                    <li>详情：证券基本信息 <code>absBondDetail</code> 与证券池调库字段/交互对齐（步骤1可编辑、步骤2只读）；页面将当前证券代码传给 <code>queryGuarantorGradeList</code>，接口以该代码匹配 <code>ais_inv_ods.wind_cbondissuer.s_info_windcode</code>，查询 <code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115202000=权益相关主体</code>、<code>115201000=原始权益人</code> 四类有最新内评的记录，并以 <code>s_info_compcode</code> / <code>s_info_compname</code> 作为担保人代码和名称，不读取或拆分证券主数据的担保人逗号串；四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条；展开项显示名称、类型标签和右侧内评，收起后显示“名称（类型）”；选中后评分只读展示且不覆盖主数据评分；当前证券/主体所在池；可调入/可调出双栏树 <code>absInPools</code> / <code>absOutPools</code>。可调入库默认仅展开「信用债大库(new)」，其他根节点默认收起（ABS 可选池不含该节点时即默认全部收起）；可调出库默认全部展开。</li>
                     <li>步骤：<code>absAdjustStep</code> 1 选池、2 校验结果 <code>absAdjustReviewList</code> + 原因建议；从 absDetail 返回保持 <code>listTab='abs'</code>。</li>
                     <li>附件与报告映射：<code>absAttachmentFiles</code> / <code>absCreditReportSelections</code> 等，与主体侧隔离；报告弹窗通过 <code>reportDialogContext</code> 分流。</li>
                 </ul>
@@ -571,6 +571,7 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
+            <li>禁投池 ABS 证券基本信息的字段与顺序与证券池调整一致，显示权益人、自选权益人和担保人主体内评分；<code>115202000</code> 展示为“债务主体”。</li>
             <li>页面列表 <strong>主体 | ABS债</strong> 双 Tab；首次进入及带主体/证券代码进入时均并行预载两边列表，切换 Tab 不重新请求。主体逻辑与 ABS 状态字段隔离（ABS 使用 <code>abs*</code> 前缀 data）。初始化 <code>applyUrlCompanyOrList</code>：URL 有 <code>companyCode</code> 进主体详情，仅有 <code>securityCode</code> 切 ABS Tab。</li>
             <li>主体调库日志 <code>security_type</code> 固定为 <code>company</code>；对象代码为 Wind 主体码（<code>s_info_compcode</code>），不是债券 wind_code；主体主数据读 <code>ais_inv_ods.wind_cbondissuer</code>。</li>
             <li>ABS 调库走 <code>/api/v1/forbiddenAbsPoolAdjust/*</code>，仅 <code>abs_flag=1</code>；可调池 15/16/17/23；不同步同主体其它债。</li>
