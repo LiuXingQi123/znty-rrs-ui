@@ -1400,6 +1400,7 @@
                 if (this.$refs.securityTableRef) this.$refs.securityTableRef.clearSelection()
             },
 
+            // 批量查询当前页证券的关系主体及最新内评
             async queryGuarantorGradeMapByRecords(records) {
                 const securityCodes = (records || []).map(record => record.securityCode).filter((code, index, values) => code && values.indexOf(code) === index)
                 if (securityCodes.length === 0) return {}
@@ -1413,10 +1414,12 @@
                 }, {})
             },
 
+            // 将 Wind 关系主体类型编码转换为展示名称
             guarantorTypeName(typeCode) {
                 return ({ '115004000': '担保人', '115203000': '差额支付承诺人', '115202000': '债务主体', '115201000': '原始权益人' })[String(typeCode)] || ''
             },
 
+            // 判断当前证券是否为 ABS
             isAbsBond(row) {
                 if (!row) return false
                 const flag = String(row.absFlag === undefined || row.absFlag === null ? '' : row.absFlag).toLowerCase()
@@ -1445,16 +1448,19 @@
                 return yes ? 'success' : 'info'
             },
 
+            // 获取当前行最终生效的担保人或权益人主体内评分
             effectiveRelatedSubjectRating(row) {
                 if (this.isAbsBond(row) && row.selectedSelfRightsHolder) return row.selectedSelfRightsHolder.innerRating || ''
                 const selected = (row.guarantorOptions || []).find(option => option.code === row.selectedRelatedSubjectCode)
                 return selected ? (selected.rating || '') : ''
             },
 
+            // 同步当前行关系主体选择到跨页已选记录
             handleRelatedSubjectChange(row) {
                 if (this.selectedSecurityMap[row.securityCode]) this.$set(this.selectedSecurityMap, row.securityCode, row)
             },
 
+            // 打开当前证券的自选权益人弹窗
             async openSelfRightsHolderDialog(row) {
                 this.selfRightsHolderTargetCode = row.securityCode
                 this.pendingSelfRightsHolder = row.selectedSelfRightsHolder || null
@@ -1464,6 +1470,7 @@
                 await this.loadSelfRightsHolderPage()
             },
 
+            // 分页查询自选权益人候选列表
             async loadSelfRightsHolderPage() {
                 this.selfRightsHolderLoading = true
                 try {
@@ -1472,12 +1479,19 @@
                     this.selfRightsHolderPagination.total = data.total || 0
                 } finally { this.selfRightsHolderLoading = false }
             },
+            // 按查询条件搜索自选权益人
             searchSelfRightsHolders() { this.selfRightsHolderPagination.pageIndex = 1; this.loadSelfRightsHolderPage() },
+            // 重置自选权益人查询条件
             resetSelfRightsHolderSearch() { this.selfRightsHolderFilters = { companyCode: '', companyName: '' }; this.selfRightsHolderPagination.pageIndex = 1; this.loadSelfRightsHolderPage() },
+            // 切换自选权益人列表页码
             handleSelfRightsHolderPageChange(page) { this.selfRightsHolderPagination.pageIndex = page; this.loadSelfRightsHolderPage() },
+            // 切换自选权益人列表每页数量
             handleSelfRightsHolderSizeChange(size) { this.selfRightsHolderPagination.pageSize = size; this.selfRightsHolderPagination.pageIndex = 1; this.loadSelfRightsHolderPage() },
+            // 计算自选权益人跨页连续序号
             selfRightsHolderIndex(index) { return (this.selfRightsHolderPagination.pageIndex - 1) * this.selfRightsHolderPagination.pageSize + index + 1 },
+            // 暂存自选权益人单选结果
             handleSelfRightsHolderCurrentChange(row) { this.pendingSelfRightsHolder = row; this.pendingSelfRightsHolderCode = row ? row.companyCode : '' },
+            // 确认当前证券的自选权益人
             confirmSelfRightsHolder() {
                 const target = this.securityTableData.find(row => row.securityCode === this.selfRightsHolderTargetCode) || this.selectedSecurityMap[this.selfRightsHolderTargetCode]
                 if (!target || !this.pendingSelfRightsHolder) return
@@ -1486,8 +1500,10 @@
                 if (this.selectedSecurityMap[target.securityCode]) this.$set(this.selectedSecurityMap, target.securityCode, target)
                 this.selfRightsHolderDialogVisible = false
             },
+            // 清空当前证券的自选权益人
             clearSelfRightsHolder(row) { this.$set(row, 'selectedSelfRightsHolder', null); this.$set(row, 'selectedSelfSelectedRightsHolderCode', ''); if (this.selectedSecurityMap[row.securityCode]) this.$set(this.selectedSecurityMap, row.securityCode, row) },
 
+            // 获取指定证券提交校验所需的评级主体编码
             selectedRatingSubjectCodesFor(securityCode) {
                 const selected = this.selectedSecurityMap[securityCode]
                 if (!selected) return { guarantorCode: '', rightsHolderCode: '', selfSelectedRightsHolderCode: '' }

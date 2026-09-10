@@ -865,14 +865,14 @@
                 securityPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 候选证券分页
                 selectedSecurityMap: {},                 // 跨页已选证券映射
                 selectionSyncing: false,                 // 恢复勾选状态标记
-                selfRightsHolderDialogVisible: false,
-                selfRightsHolderTargetCode: '',
-                selfRightsHolderFilters: { companyCode: '', companyName: '' },
-                selfRightsHolderData: [],
-                selfRightsHolderLoading: false,
-                pendingSelfRightsHolder: null,
-                pendingSelfRightsHolderCode: '',
-                selfRightsHolderPagination: { pageIndex: 1, pageSize: 20, total: 0 },
+                selfRightsHolderDialogVisible: false,      // 自选权益人弹窗显示状态
+                selfRightsHolderTargetCode: '',            // 当前选择自选权益人的证券代码
+                selfRightsHolderFilters: { companyCode: '', companyName: '' }, // 自选权益人查询条件
+                selfRightsHolderData: [],                  // 自选权益人当前页数据
+                selfRightsHolderLoading: false,            // 自选权益人列表加载状态
+                pendingSelfRightsHolder: null,             // 弹窗待确认自选权益人
+                pendingSelfRightsHolderCode: '',           // 弹窗待确认自选权益人编码
+                selfRightsHolderPagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 自选权益人分页
                 selectedCreditReports: [],               // 已确认信评报告
                 selectedMaterialReports: [],             // 已确认其他附件报告
                 selectedInternalReports: [],             // 弹窗内部报告选择
@@ -1039,13 +1039,13 @@
         },
         methods: {
 
-            // 在池数量类型 code → 中文（后端只返 code）
             // 候选组合跨页勾选键：凭证代码 + 标的代码
             candidateRowKey(row) {
                 if (!row) return ''
                 return (row.crmwScode || '') + '|' + (row.securityCode || '')
             },
 
+            // 在池数量类型 code → 中文（后端只返 code）
             poolCountTypeLabel(typeCode) {
                 const map = {
                     company: '主体',
@@ -1402,6 +1402,7 @@
                 return typeNameMap[String(typeCode)] || ''
             },
 
+            // 判断当前标的证券是否为 ABS
             isAbsBond(row) {
                 if (!row) return false
                 const flag = String(row.absFlag === undefined || row.absFlag === null ? '' : row.absFlag).toLowerCase()
@@ -1430,17 +1431,20 @@
                 return yes ? 'success' : 'info'
             },
 
+            // 获取当前行最终生效的担保人或权益人主体内评分
             effectiveRelatedSubjectRating(row) {
                 if (this.isAbsBond(row) && row.selectedSelfRightsHolder) return row.selectedSelfRightsHolder.innerRating || ''
                 const selected = (row.guarantorOptions || []).find(option => option.code === row.selectedRelatedSubjectCode)
                 return selected ? (selected.rating || '') : ''
             },
 
+            // 同步当前行关系主体选择到跨页已选记录
             handleRelatedSubjectChange(row) {
                 const key = this.candidateRowKey(row)
                 if (this.selectedSecurityMap[key]) this.$set(this.selectedSecurityMap, key, row)
             },
 
+            // 打开当前标的证券的自选权益人弹窗
             async openSelfRightsHolderDialog(row) {
                 this.selfRightsHolderTargetCode = this.candidateRowKey(row)
                 this.pendingSelfRightsHolder = row.selectedSelfRightsHolder || null
@@ -1450,6 +1454,7 @@
                 await this.loadSelfRightsHolderPage()
             },
 
+            // 分页查询自选权益人候选列表
             async loadSelfRightsHolderPage() {
                 this.selfRightsHolderLoading = true
                 try {
@@ -1464,13 +1469,20 @@
                 } finally { this.selfRightsHolderLoading = false }
             },
 
+            // 按查询条件搜索自选权益人
             searchSelfRightsHolders() { this.selfRightsHolderPagination.pageIndex = 1; this.loadSelfRightsHolderPage() },
+            // 重置自选权益人查询条件
             resetSelfRightsHolderSearch() { this.selfRightsHolderFilters = { companyCode: '', companyName: '' }; this.selfRightsHolderPagination.pageIndex = 1; this.loadSelfRightsHolderPage() },
+            // 切换自选权益人列表页码
             handleSelfRightsHolderPageChange(page) { this.selfRightsHolderPagination.pageIndex = page; this.loadSelfRightsHolderPage() },
+            // 切换自选权益人列表每页数量
             handleSelfRightsHolderSizeChange(size) { this.selfRightsHolderPagination.pageSize = size; this.selfRightsHolderPagination.pageIndex = 1; this.loadSelfRightsHolderPage() },
+            // 计算自选权益人跨页连续序号
             selfRightsHolderIndex(index) { return (this.selfRightsHolderPagination.pageIndex - 1) * this.selfRightsHolderPagination.pageSize + index + 1 },
+            // 暂存自选权益人单选结果
             handleSelfRightsHolderCurrentChange(row) { this.pendingSelfRightsHolder = row; this.pendingSelfRightsHolderCode = row ? row.companyCode : '' },
 
+            // 确认当前标的证券的自选权益人
             confirmSelfRightsHolder() {
                 const target = this.securityTableData.find(row => this.candidateRowKey(row) === this.selfRightsHolderTargetCode)
                     || this.selectedSecurityMap[this.selfRightsHolderTargetCode]
@@ -1481,6 +1493,7 @@
                 this.selfRightsHolderDialogVisible = false
             },
 
+            // 清空当前标的证券的自选权益人
             clearSelfRightsHolder(row) {
                 this.$set(row, 'selectedSelfRightsHolder', null)
                 this.$set(row, 'selectedSelfSelectedRightsHolderCode', '')
