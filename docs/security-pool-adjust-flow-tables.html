@@ -719,6 +719,7 @@
                         <li>固定排除退市：<code>si.security_status != 'D'</code>（上市状态 <code>SecurityStatus</code>：<code>L</code>上市中 / <code>N</code>待上市 / <code>D</code>退市 / <code>U</code>未知；仅排除 <code>D</code>，<code>U</code> 可查；勿留 <code>NULL</code>，否则三值逻辑滤行）。</li>
                         <li>与禁投池「旗下债券数量」主数据统计同口径；对比时证券池侧按<strong>发行人名称</strong>模糊筛，禁投侧按<strong>主体代码 issuer_code</strong>精确关联。</li>
                         <li>主列表在操作列前由前端展示是否类字段（后端 <code>SELECT si.*</code> 已带回原始标志，不做中文映射）：是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」，对齐 <code>isPrivateBond</code>）、是否ABS（<code>absFlag=1</code> 或证券类型 <code>abs</code>；<code>abs_all</code> 不算）、是否次级（<code>cjFlag=1</code>）。展示「是/否」Tag；详情页证券基本信息不增加这些字段。</li>
+                        <li>证券基本信息的「剩余期限(天)」保留天数作为原始输入值，旁侧以深蓝主数值展示 <code>date_exists ÷ 365</code> 的四位小数「折算年限」；该展示规则与禁投池、CRMW 调库的同类字段一致。</li>
                     </ul>
                 </article>
             </div>
@@ -823,7 +824,7 @@
             </div>
 
             <h3 class="filter-heading">3. 后端主流程（按执行顺序）</h3>
-            <div class="callout">页面通过 <code>queryRelatedRatingSubjectList</code> 查询当前证券在 <code>ais_inv_ods.wind_cbondissuer</code> 中的四类关系主体：<code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115202000=债务主体</code>、<code>115201000=原始权益人</code>；与公共担保人查询一致，不按 <code>used</code> 过滤，仅返回有最新内评的候选。四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条，用户可改选。非 ABS 页面将其作为“担保人”候选，ABS 页面将其作为“权益人”候选。ABS 还可通过 <code>querySelfSelectedRightsHolderPage</code> 从 <code>ais_inv_analysis.t_inv_company</code> 分页查询自选权益人，默认每页 20 条，可切换 10/20/30/50 条，分页包含总数、页码和跳转，并显示跨页连续序号；单选列位于序号列左侧，编码/名称支持模糊查询。ABS 的“担保人主体内评分”优先显示自选权益人内评；没有自选时显示当前权益人内评，切换或清除选择后即时刷新。选择变化会清空原调入选择并重新查询可调入池。校验和提交阶段后端重新查询主体，防止伪造编码、名称或内评。</div>
+            <div class="callout">页面通过 <code>queryRelatedRatingSubjectList</code> 查询当前证券在 <code>ais_inv_ods.wind_cbondissuer</code> 中的四类关系主体：<code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115202000=债务主体</code>、<code>115201000=原始权益人</code>；与公共担保人查询一致，不按 <code>used</code> 过滤，主体内评左关联，无内评主体仍可作为候选且评分为空。四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条，用户可改选。非 ABS 页面将其作为“担保人”候选，ABS 页面将其作为“权益人”候选。ABS 还可通过 <code>querySelfSelectedRightsHolderPage</code> 从 <code>ais_inv_analysis.t_inv_company</code> 以 <code>wind_code</code> 分页查询自选权益人，名称优先取 <code>full_name</code>、为空时取 <code>short_names</code>，默认每页 20 条，可切换 10/20/30/50 条，分页包含总数、页码和跳转，并显示跨页连续序号；单选列位于序号列左侧，编码/名称支持模糊查询。ABS 的“担保人主体内评分”优先显示自选权益人内评；没有自选时显示当前权益人内评，切换或清除选择后即时刷新。选择变化会清空原调入选择并重新查询可调入池。校验和提交阶段后端重新查询主体，防止伪造编码、名称或内评。</div>
             <div class="callout">方法：<code>queryAdjustPoolList</code>。任一步滤空则返回空列表。</div>
             <div class="logic-card" style="margin-top: 12px;">
                 <ol>
