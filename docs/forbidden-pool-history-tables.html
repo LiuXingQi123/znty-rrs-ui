@@ -372,8 +372,8 @@
         <p class="sub">从页面操作到数据库读写的主要路径。</p>
         <div class="flow">
             <div class="step"><b>1. 权限范围</b><span>按 currentUserId 解析 viewable 可查看池。</span></div>
-            <div class="step"><b>2. 输入条件</b><span>主体、证券、日期、调整人、方向及状态。</span></div>
-            <div class="step"><b>3. 限定范围</b><span>目标池 pool_type ∈ 四类风险池。</span></div>
+            <div class="step"><b>2. 输入条件</b><span>主体、证券、对象类型、日期、调整人、方向及状态。</span></div>
+            <div class="step"><b>3. 限定范围</b><span>目标池 pool_type=forbidden（债券禁止库）。</span></div>
             <div class="step"><b>4. 分页排序</b><span>submit_time / adjust_batch_no / id 倒序。</span></div>
             <div class="step"><b>5. 路径回填</b><span>Service 将叶子池名替换为完整路径。</span></div>
         </div>
@@ -384,7 +384,8 @@
             <article class="card"><h3>查询主线</h3>
                 <ul>
                     <li>以 <code>ip_adjust_log</code> 为主表，过滤 <code>is_deleted=0</code>。</li>
-                    <li>内连接投资池：<code>pool_type IN ('forbidden','observe','blacklist','restricted')</code>。<strong>不</strong>要求 <code>p.is_deleted=0</code>（投资池已删仍可保留历史行）。</li>
+                    <li>内连接投资池：<code>pool_type='forbidden'</code>（债券禁止库）。<strong>不</strong>要求 <code>p.is_deleted=0</code>（投资池已删仍可保留历史行）。</li>
+                    <li>对象类型可选全部、主体、债券：主体按 <code>security_type='company'</code>，债券按字典 <code>category_type='bond'</code>。</li>
                     <li>注入 <code>viewablePoolIds</code>（VIEWABLE）：普通用户空集合无数据；管理员 null 不过滤池 ID。</li>
                     <li>左连字典、证券主数据、Wind 主体表（company 行取发行人名）。</li>
                     <li>排序与证券/主体/CRMW 历史统一：<code>submit_time DESC, adjust_batch_no DESC, id DESC</code>。</li>
@@ -422,7 +423,7 @@
                 </tr>
                 <tr>
                     <td><span class="name">ip_investment_pool</span></td>
-                    <td>限定四类风险池、提供池名和路径</td>
+                    <td>限定债券禁止库、提供池名和路径</td>
                     <td><span class='tag r'>查询</span></td>
                     <td>范围过滤与路径回填</td>
                 </tr>
@@ -451,7 +452,7 @@
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
             <li>页面只读。点名称/代码按 <code>categoryType</code> 分流主体/证券详情；<code>resolveAdjustLogId(row, true)</code>（可回退行 <code>id</code>）与 <code>adjustBatchNo</code>。</li>
-            <li>以目标池四类 <code>pool_type</code> 过滤：主体级手工、联动/互斥、以及旗下债券<strong>自动同步</strong>日志都可能出现（债同步看本页；主体流水另见「主体池调整历史」）。</li>
+            <li>以目标池 <code>pool_type='forbidden'</code>（债券禁止库）过滤：主体级手工、联动/互斥、以及旗下债券<strong>自动同步</strong>日志都可能出现（债同步看本页；主体流水另见「主体池调整历史」）。</li>
             <li>默认全 audit_status；VIEWABLE 与管理员 null 语义同禁投查询。</li>
             <li>同批多行分条展示；靠 <code>submit_time</code> + 批次号排序聚拢，不合并为一行。</li>
             <li>审核状态展示原始 code，中文由前端字典映射。</li>

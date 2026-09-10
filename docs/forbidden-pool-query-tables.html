@@ -371,19 +371,20 @@
         <p class="sub">从页面操作到数据库读写的主要路径。</p>
         <div class="flow">
             <div class="step"><b>1. 权限范围</b><span>按 currentUserId 解析 viewable 可查看池 ID 集合。</span></div>
-            <div class="step"><b>2. 加载类型</b><span>查询风险池中实际出现的证券类型选项。</span></div>
-            <div class="step"><b>3. 组合筛选</b><span>按代码、类型、入池时间、调整人、发行人等分页。</span></div>
-            <div class="step"><b>4. 限定范围</b><span>pool_type ∈ forbidden/observe/blacklist/restricted 且已生效。</span></div>
+            <div class="step"><b>2. 加载类型</b><span>查询债券禁止库中实际出现的证券类型选项。</span></div>
+            <div class="step"><b>3. 组合筛选</b><span>按代码、对象类型、证券类型、入池时间、调整人、发行人等分页。</span></div>
+            <div class="step"><b>4. 限定范围</b><span>pool_type=forbidden（债券禁止库）且已生效。</span></div>
             <div class="step"><b>5. 路径回填</b><span>Service 将目标池名替换为完整层级路径。</span></div>
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>禁投池分页查询</h2>
-        <p class="sub">主数据来自已生效池状态；范围=四类风险池 ∩ 用户可查看池。</p><span class="api">POST /api/v1/forbiddenPoolQuery/queryForbiddenPoolPage · querySecurityTypeList</span>
+        <p class="sub">主数据来自已生效池状态；范围=债券禁止库 ∩ 用户可查看池。</p><span class="api">POST /api/v1/forbiddenPoolQuery/queryForbiddenPoolPage · querySecurityTypeList</span>
         <div class="logic">
             <article class="card"><h3>查询主线</h3>
                 <ul>
                     <li><code>ip_pool_status</code> 内连接未删除的 <code>ip_investment_pool</code>（<code>p.is_deleted=0</code>）。</li>
-                    <li>固定 <code>pool_type IN ('forbidden','observe','blacklist','restricted')</code>，且 <code>audit_status='20'</code>、<code>is_deleted=0</code>。</li>
+                    <li>固定 <code>pool_type='forbidden'</code>（债券禁止库），且 <code>audit_status='20'</code>、<code>is_deleted=0</code>。</li>
+                    <li>对象类型可选全部、主体、债券：主体按 <code>security_type='company'</code>，债券按字典 <code>category_type='bond'</code>。</li>
                     <li>Service 注入 <code>viewablePoolIds</code>（PermissionType.VIEWABLE）：普通用户空集合 → 无数据；<strong>管理员返回 null 时不按池 ID 过滤（全可见）</strong>。</li>
                     <li>左连 <code>rrs_securityinfo</code> 与字典；主体行再连 <code>wind_cbondissuer</code> 取发行人名称。</li>
                     <li>排序：<code>entry_time DESC, id DESC</code>。</li>
@@ -420,7 +421,7 @@
                 </tr>
                 <tr>
                     <td><span class="name">ip_investment_pool</span></td>
-                    <td>限定四类风险池并提供池路径</td>
+                    <td>限定债券禁止库并提供池路径</td>
                     <td><span class='tag r'>查询</span></td>
                     <td>pool_type 过滤、名称与路径回填</td>
                 </tr>
@@ -455,7 +456,7 @@
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
             <li>当前 SQL <strong>固定</strong> <code>audit_status='20'</code> 且 <code>is_deleted=0</code>，只展示已生效在池状态（对比：禁投历史默认全状态）。</li>
-            <li>范围是四类 <code>pool_type</code>（forbidden/observe/blacklist/restricted），按类型+VIEWABLE 裁剪，<strong>不是</strong>写死 15/16/17/23（调整页手工目标池才写死四 ID）。</li>
+            <li>范围固定为 <code>pool_type='forbidden'</code>（债券禁止库），再按 VIEWABLE 裁剪。</li>
             <li>VIEWABLE：普通用户空集合无数据；管理员 null 不过滤池 ID。</li>
             <li>可同时出现主体级与证券级（含主体同步自动入池的债券）记录。</li>
             <li>页面只读，无收藏（与证券池查询不同）。</li>
