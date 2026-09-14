@@ -426,7 +426,7 @@ new Vue({
                         { level: 'P1', module: '主体内评分档规则', current: '信用债根池固定 parent_id=1，且默认只使用内部排序 1—5 的五级池。', evidence: 'CreditBondGradeRuleMapper.xml；CreditBondGradeRuleService', suggestion: '按稳定根池编码和等级配置查询，不依赖演示数据主键。', status: '待整改' },
                         { level: 'P1', module: '投资池初始化', current: '信用债、境外债、转债和 CRMW 根池名称、代码及一至五级结构由 Service 固定生成（专户等其余类型由用户自建）。', evidence: 'InvestmentPoolService', suggestion: '明确这些内容属于初始化模板还是业务配置；迁移时至少验证代码唯一性。', status: '待确认' },
                         { level: 'P1', module: '流程选择', current: '白名单、升级、降级和特殊调入流程使用固定 flowKey；流程 Key 被修改后运行时将无法匹配。', evidence: 'Security/Batch/Crmw/Forbidden Adjust Service', suggestion: '保留稳定不可变 flowKey，或将业务场景与流程关系配置化。', status: '待整改' },
-                        { level: 'P2', module: '三条调库链路', current: '批次号已提升到毫秒；证券使用 BOND、主体使用 COMP、CRMW使用 CRMW、自动调整使用 AUTO。', evidence: 'Security/Batch/Forbidden/Crmw/Auto Adjust Service', suggestion: '当前按内部低并发口径接受同毫秒理论碰撞概率。', status: '已修复' },
+                        { level: 'P2', module: '三条调库链路', current: '批次号已提升到毫秒；证券使用 BOND、主体使用 COMP、CRMW 使用 CRMW。自动调整按实际主对象、目标池和方向分批，AUTO 仅为历史前缀。', evidence: 'Security/Batch/Forbidden/Crmw/Auto Adjust Service', suggestion: '当前按一次任务统一毫秒时间片并用方向序号区分组，历史 AUTO 数据不迁移。', status: '已修复' },
                         { level: 'P2', module: '流程定义审计', current: '创建人、修改人、发布人及节点连线配置事件均记录页面当前登录用户，不再固定为管理员1。', evidence: 'FlowReq；DesignerReq；FlowService；flow_definition.html', suggestion: '正式接入认证后由服务端上下文覆盖请求操作人。', status: '已修复' },
                         { level: 'P2', module: 'CRMW组合键', current: '调库业务键已统一为 crmwScode + securityCode，不再读写或校验 crmwMktcode。', evidence: 'CrmwPoolAdjustReq；CrmwPoolAdjustService；CrmwPoolAdjustMapper.xml；CRMW三个前端页面', suggestion: '保留数据库物理字段兼容历史数据，调库链路不要重新引入市场码过滤。', status: '已修复' },
                         { level: 'P2', module: '评级变化', current: '评级顺序在 RatingComparator 中固定；未知评级或跨评级体系比较时按“未下降”处理。', evidence: 'RatingComparator.java', suggestion: '统一评级字典；无法比较时明确阻断或返回待确认。', status: '待确认' },
@@ -476,7 +476,7 @@ new Vue({
                 },
             ],
             checks: [
-                { scene: '批次号并发', expected: '连续提交能产生毫秒级批次号，不同业务使用 BOND、COMP、CRMW、AUTO 前缀；接受同前缀同毫秒的极小碰撞概率。' },
+                { scene: '批次号分组', expected: '连续提交能产生毫秒级批次号；证券、主体、CRMW 分别使用 BOND、COMP、CRMW，同一任务内不同主对象、目标池或方向必须分批。' },
                 { scene: '派生项跨池组待处理（pending）', expected: '手工项在信用债组、联动项在专户组时，两个池组都被活动批次占用。' },
                 { scene: '市场代码一致性', expected: '投资池配置、证券主数据和调库请求均使用 MarketCode；北交所(BSE)可从 wind_code_bj 匹配。' },
                 { scene: '冻结时间缺失', expected: '证券/批量/CRMW/主体四链路在全部生效时间缺失时统一阻断，不允许绕过冻结期。' },
