@@ -97,7 +97,6 @@ window.RrsAuth = {
         } catch (e) {}
     },
 }
-
 // 工作台页签：列表进详情时新开 Tab，同业务键复用；脱离工作台时返回 false 由页面自行跳转
 window.RrsWorkbench = {
     // 取得带开 Tab 能力的父窗口
@@ -206,14 +205,4 @@ Vue.prototype.downloadBase64File = function(base64, fileName, contentType) {
     } finally {
         URL.revokeObjectURL(url)
     }
-}
-
-// 下载 classpath 模板（Base64）
-Vue.prototype.downloadTemplate = async function(templateCode) {
-    const data = await this.apiPost('/api/v1/commonFile/downloadTemplate', { templateCode: templateCode })
-    if (!data || !data.contentBase64) {
-        throw new Error('模板内容为空')
-    }
-    this.downloadBase64File(data.contentBase64, data.fileName || (templateCode + '.xlsx'), data.contentType)
-    return data
 }
