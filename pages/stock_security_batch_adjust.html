@@ -248,7 +248,7 @@
                 <div class="candidate-toolbar">
                     <span class="candidate-title"><i class="el-icon-tickets"></i>可选证券</span>
                     <div class="candidate-filters">
-                        <el-select v-model="securitySearchForm.sourcePoolIds" multiple collapse-tags clearable filterable
+                        <el-select v-if="isInbound" v-model="securitySearchForm.sourcePoolIds" multiple collapse-tags clearable filterable
                                    size="small" placeholder="来源池（必选）" style="width:260px;">
                             <el-option v-for="item in sourcePoolOptions" :key="item.id"
                                        :label="sourcePoolLabel(item)" :value="item.id"></el-option>
@@ -1075,7 +1075,7 @@
                 if (item.poolCode && codeMap[item.poolCode]) return codeMap[item.poolCode]
                 return item.poolFullName || item.poolName || item.poolCode || ''
             },
-            // 来源池默认全选（进入工作台 / 重置时）
+            // 调入时来源池默认全选
             applyDefaultSourcePoolSelection() {
                 this.securitySearchForm.sourcePoolIds = (this.sourcePoolOptions || [])
                     .map(item => item.id)
@@ -1104,10 +1104,9 @@
                         includePoolTypes: ['bond_product'],
                     })
                     this.poolTreeData = this.buildPoolTree(poolTreeList || [])
-                    // 加载来源池白名单下拉，默认全选
+                    // 加载调入来源池白名单下拉
                     const sourcePools = await this.apiPost('/api/v1/stockSecurityBatchAdjust/querySourcePoolList', {})
                     this.sourcePoolOptions = sourcePools || []
-                    this.applyDefaultSourcePoolSelection()
                     // 分页加载债券产品库叶子池
                     await this.loadPoolPage()
                 } finally {
@@ -1271,8 +1270,7 @@
             resetWorkbench() {
                 this.adjustStep = 1
                 this.securitySearchForm = { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [], bondYesFlags: [] }
-                // 来源池默认全选
-                this.applyDefaultSourcePoolSelection()
+                if (this.isInbound) this.applyDefaultSourcePoolSelection()
                 this.securityPagination = { pageIndex: 1, pageSize: 10, total: 0 }
                 this.securityTableData = []
                 this.selectedSecurityMap = {}
@@ -1288,10 +1286,10 @@
                 this.adjustReviewList = []
             },
 
-            // 加载候选证券分页（须先选来源池）
+            // 加载候选证券分页（调入须选来源池，调出不按来源池筛选）
             async loadSecurityList() {
                 if (!this.currentPool.id) return
-                if (!this.securitySearchForm.sourcePoolIds || this.securitySearchForm.sourcePoolIds.length === 0) {
+                if (this.isInbound && (!this.securitySearchForm.sourcePoolIds || this.securitySearchForm.sourcePoolIds.length === 0)) {
                     this.securityTableData = []
                     this.securityPagination.total = 0
                     this.$message.warning('请至少选择一个来源池')
@@ -1303,7 +1301,7 @@
                         currentUserId: this.currentUserId,
                         poolId: this.currentPool.id,
                         direction: this.direction,
-                        sourcePoolIds: this.securitySearchForm.sourcePoolIds,
+                        ...(this.isInbound ? { sourcePoolIds: this.securitySearchForm.sourcePoolIds } : {}),
                         issuer: this.securitySearchForm.issuer || null,
                         securityCode: this.securitySearchForm.securityCode || null,
                         securityShortName: this.securitySearchForm.securityShortName || null,
@@ -1367,8 +1365,7 @@
             // 重置证券查询条件
             handleSecurityReset() {
                 this.securitySearchForm = { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [], bondYesFlags: [] }
-                // 重置后仍默认全选来源池，并重新查询
-                this.applyDefaultSourcePoolSelection()
+                if (this.isInbound) this.applyDefaultSourcePoolSelection()
                 this.securityPagination.pageIndex = 1
                 this.loadSecurityList()
             },
