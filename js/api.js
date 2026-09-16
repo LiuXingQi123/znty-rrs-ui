@@ -149,24 +149,6 @@ window.RrsWorkbench = {
     },
 }
 
-// 格式化剩余期限：date_exists 天按 365 天/年、30 天/月展示，空/非数字返回空串
-window.RrsFormat = {
-    formatRemainTerm(days) {
-        if (days === null || days === undefined || days === '') return ''
-        const value = Number(days)
-        if (!isFinite(value)) return ''
-        const remainDays = Math.max(0, Math.floor(value))
-        const years = Math.floor(remainDays / 365)
-        const months = Math.floor((remainDays % 365) / 30)
-        const restDays = (remainDays % 365) % 30
-        return [
-            years ? years + '年' : '',
-            months ? months + '个月' : '',
-            restDays ? restDays + '天' : '',
-        ].join('') || '0天'
-    },
-}
-
 axios.defaults.baseURL = 'http://localhost:18090'
 
 Vue.prototype.apiPost = async function(path, body, config) {
