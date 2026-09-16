@@ -366,6 +366,67 @@
                 </div>
             </div>
 
+            <!-- 发行主体财务数据 -->
+            <div class="section-card issuer-financial-card">
+                <div class="section-header" @click="toggleSection('financial')" style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">发行主体最近三年及一期财务数据</div>
+                    <span class="financial-mode-hint" :class="{ 'is-readonly': adjustStep === 2 }">
+                        {{ adjustStep === 1 ? '可编辑' : '只读' }}
+                    </span>
+                    <i :class="sectionExpanded.financial ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="section-collapse-icon"></i>
+                </div>
+                <div v-show="sectionExpanded.financial" class="issuer-financial-body">
+                    <div v-if="adjustStep === 1" class="financial-toolbar">
+                        <el-radio-group v-model="financialBondType" size="small">
+                            <el-radio-button label="city">城投债</el-radio-button>
+                            <el-radio-button label="industrial">产业债</el-radio-button>
+                        </el-radio-group>
+                        <div class="financial-period-control">
+                            <el-select v-if="financialBondType === 'city'" v-model="cityFinancialReportDate" size="small"
+                                       :loading="financialReportLoading" :disabled="financialReportLoading"
+                                       @change="handleFinancialReportDateChange('city', $event)">
+                                <el-option-group v-for="group in financialReportTypeGroups"
+                                                 :key="'city-' + group.year" :label="group.label">
+                                    <el-option v-for="option in group.options" :key="'city-' + option.value"
+                                               :label="option.fullLabel" :value="option.value">
+                                        <span>{{ option.label }}</span>
+                                    </el-option>
+                                </el-option-group>
+                            </el-select>
+                            <el-select v-else v-model="industrialFinancialReportDate" size="small"
+                                       :loading="financialReportLoading" :disabled="financialReportLoading"
+                                       @change="handleFinancialReportDateChange('industrial', $event)">
+                                <el-option-group v-for="group in financialReportTypeGroups"
+                                                 :key="'industrial-' + group.year" :label="group.label">
+                                    <el-option v-for="option in group.options" :key="'industrial-' + option.value"
+                                               :label="option.fullLabel" :value="option.value">
+                                        <span>{{ option.label }}</span>
+                                    </el-option>
+                                </el-option-group>
+                            </el-select>
+                        </div>
+                    </div>
+                    <el-table :data="currentFinancialIndicatorRows" border size="small" class="issuer-financial-table">
+                        <el-table-column prop="label" label="财务指标" min-width="220"></el-table-column>
+                        <el-table-column v-for="(column, index) in financialColumns" :key="String(column.reportDate) + '-' + index"
+                                         :label="financialColumnLabel(column)" min-width="150" align="right" header-align="center">
+                            <template slot-scope="{ row }">
+                                <el-input v-if="adjustStep === 1 && index === 3" type="number" size="small" step="any"
+                                          class="financial-value-input"
+                                          :disabled="financialReportLoading"
+                                          :value="financialDisplayValue(row, column, index)"
+                                          @input="updateFinancialValue(row, column, index, $event)"></el-input>
+                                <span v-else class="financial-number">{{ formatFinancialValue(row, column, index) }}</span>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                    <div v-if="issuerFinancialList.length === 0" class="financial-empty-hint">
+                        {{ adjustStep === 1 ? '当前发行主体暂无源数据，可手工补充' : '当前发行主体暂无财务数据' }}
+                    </div>
+                </div>
+            </div>
+
             <!-- 当前所在池 -->
             <div class="section-card">
                 <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
@@ -1245,6 +1306,39 @@
                 selectedAdjustLogId: null,    // 从调库记录入口进入时携带的调库记录ID
                 selectedAdjustBatchNo: null,  // 从调库记录入口进入时携带的调库批次号
                 bondDetail: {},               // 证券基本信息（详情页）
+                issuerFinancialList: [],      // 发行主体最近三个有数据年份各自最新的财务指标
+                financialEditData: { city: {}, industrial: {} }, // 城投债、产业债独立维护的第四列财务编辑值
+                financialBondType: 'city',   // 财务指标分类：city=城投债 / industrial=产业债
+                cityFinancialReportDate: '', // 城投债可编辑报告日期
+                industrialFinancialReportDate: '', // 产业债可编辑报告日期
+                confirmedFinancialBondType: '', // 进入步骤2时锁定的财务指标分类
+                confirmedFinancialReportDate: '', // 进入步骤2时锁定的可编辑报告日期
+                financialReportLoading: false, // 第四列报告期动态查询状态
+                financialQuerySeq: 0, // 第四列报告期查询序号，防止旧请求覆盖
+                cityFinancialIndicatorRows: [ // 城投债财务指标及图片要求顺序
+                    { field: 'totAssets', label: '总资产(亿元)', amount: true },
+                    { field: 'shareholderEquity', label: '所有者权益(亿元)', amount: true },
+                    { field: 'debtAssetsRatio', label: '资产负债率(%)' },
+                    { field: 'totRev', label: '营业收入(亿元)', amount: true },
+                    { field: 'netProfit', label: '净利润(亿元)', amount: true },
+                    { field: 'netCashOper', label: '经营性净现金流(亿元)', amount: true },
+                    { field: 'netCashInv', label: '投资性净现金流(亿元)', amount: true },
+                    { field: 'grp', label: '地区生产总值(亿元)', amount: true },
+                    { field: 'generalBudgetRev', label: '一般预算收入(亿元)', amount: true },
+                    { field: 'generalBudgetExp', label: '一般预算支出(亿元)', amount: true }
+                ],
+                industrialFinancialIndicatorRows: [ // 产业债财务指标及图片要求顺序
+                    { field: 'totAssets', label: '总资产(亿元)', amount: true },
+                    { field: 'shareholderEquity', label: '所有者权益(亿元)', amount: true },
+                    { field: 'roe', label: '净资产收益率(%)' },
+                    { field: 'totRev', label: '营业收入(亿元)', amount: true },
+                    { field: 'ebitIntCov', label: 'EBITDA利息保护倍数' },
+                    { field: 'debtAssetsRatio', label: '资产负债比率(%)' },
+                    { field: 'ebitda', label: 'EBITDA(亿元)', amount: true },
+                    { field: 'netCashOper', label: '经营性净现金流(亿元)', amount: true },
+                    { field: 'netProfit', label: '净利润(亿元)', amount: true },
+                    { field: 'ebitdaToDebt', label: '总债务/EBITDA' }
+                ],
                 relatedRatingSubjectMap: {},  // 当前证券四类关系主体的编码、名称、类型和最新内评
                 selectedSelfRightsHolder: null, // ABS 当前已选的自选权益人
                 pendingSelfRightsHolder: null,  // 自选权益人弹窗中待确认的主体
@@ -1286,6 +1380,7 @@
                 flowStepList: [],        // 当前流程步骤列表
                 sectionExpanded: {      // 详情页各区块折叠状态
                     bondInfo: true,
+                    financial: true,
                     adjustLog: true,
                     flowStatus: true,
                     currentPools: true,
@@ -1399,6 +1494,67 @@
                 }
                 const selected = this.relatedRatingSubjectMap[this.bondDetail.selectedRightsHolderCode];
                 return selected ? selected.rating : '';
+            },
+            // 前三列为最近三个有数据年份各自最新报告，第四列为当前可编辑报告期
+            financialColumns() {
+                const readonlyColumns = (this.issuerFinancialList || []).slice().sort((left, right) => {
+                    return Number(left.reportDate || 0) - Number(right.reportDate || 0);
+                });
+                const selectedReportDate = Number(this.displayFinancialReportDate || 0);
+                const latestYear = readonlyColumns.length > 0
+                    ? Number(String(readonlyColumns[readonlyColumns.length - 1].reportDate).substring(0, 4))
+                    : moment().year();
+                if (readonlyColumns.length < 3) {
+                    const firstYear = readonlyColumns.length > 0
+                        ? Number(String(readonlyColumns[0].reportDate).substring(0, 4)) : latestYear + 1;
+                    const placeholders = [];
+                    for (let offset = 3 - readonlyColumns.length; offset >= 1; offset--) {
+                        placeholders.push({ reportDate: Number(String(firstYear - offset) + '1231') });
+                    }
+                    readonlyColumns.unshift(...placeholders);
+                }
+                return readonlyColumns.slice(-3).concat([{ reportDate: selectedReportDate }]);
+            },
+            // 当前展示的财务分类：步骤2使用进入确认页时锁定的口径
+            displayFinancialBondType() {
+                return this.adjustStep === 2 && this.confirmedFinancialBondType
+                    ? this.confirmedFinancialBondType : this.financialBondType;
+            },
+            // 当前展示的可编辑报告日期：步骤2使用进入确认页时锁定的口径
+            displayFinancialReportDate() {
+                if (this.adjustStep === 2 && this.confirmedFinancialReportDate) {
+                    return this.confirmedFinancialReportDate;
+                }
+                return this.displayFinancialBondType === 'city'
+                    ? this.cityFinancialReportDate : this.industrialFinancialReportDate;
+            },
+            // 固定展示当前年及前两年，并按年份分组提供四个标准报告期
+            financialReportTypeGroups() {
+                const currentYear = moment().year();
+                const reportTypes = [
+                    { suffix: '1231', label: '年报' },
+                    { suffix: '0930', label: '三季报' },
+                    { suffix: '0630', label: '半年报' },
+                    { suffix: '0331', label: '一季报' }
+                ];
+                const groups = [];
+                for (let year = currentYear; year >= currentYear - 2; year--) {
+                    groups.push({
+                        year,
+                        label: String(year) + '年',
+                        options: reportTypes.map(type => ({
+                            value: String(year) + type.suffix,
+                            label: type.label,
+                            fullLabel: String(year) + type.label
+                        }))
+                    });
+                }
+                return groups;
+            },
+            // 当前城投债或产业债指标行
+            currentFinancialIndicatorRows() {
+                return this.displayFinancialBondType === 'city'
+                    ? this.cityFinancialIndicatorRows : this.industrialFinancialIndicatorRows;
             },
             // 当前选中的流程候选项
             selectedFlowOption() {
@@ -1790,7 +1946,10 @@
                         detailReq.adjustLogId = this.selectedAdjustLogId;
                     }
                     const detail = await this.apiPost('/api/v1/securityPoolAdjust/querySecurityDetail', detailReq);
-                    const relatedRatingSubjectMap = await this.queryRelatedRatingSubjectMap(securityCode);
+                    const [relatedRatingSubjectMap, issuerFinancialList] = await Promise.all([
+                        this.queryRelatedRatingSubjectMap(securityCode),
+                        this.apiPost('/api/v1/securityPoolAdjust/queryIssuerFinancialList', { securityCode: securityCode })
+                    ]);
                     const relatedSubjectOptions = Object.keys(relatedRatingSubjectMap)
                         .map(code => relatedRatingSubjectMap[code])
                         .sort((left, right) => left.sortOrder - right.sortOrder);
@@ -1817,6 +1976,16 @@
                         this.apiPost('/api/v1/securityPoolAdjust/queryAdjustLogList',  { securityCode: securityCode, adjustBatchNo: this.selectedAdjustBatchNo })
                     ]);
                     this.bondDetail = detail || {};
+                    this.issuerFinancialList = issuerFinancialList || [];
+                    // 城投债、产业债分别保留报告期选择，首次进入时均定位到数据库最新记录
+                    const latestFinancialReportDate = this.resolveLatestFinancialReportDate(this.issuerFinancialList);
+                    this.cityFinancialReportDate = latestFinancialReportDate;
+                    this.industrialFinancialReportDate = latestFinancialReportDate;
+                    this.financialBondType = 'city';
+                    this.confirmedFinancialBondType = '';
+                    this.confirmedFinancialReportDate = '';
+                    // 两类债券从同一份数据库亿元数据初始化，后续分别编辑、互不覆盖
+                    this.initializeFinancialEditData(this.issuerFinancialList);
                     this.relatedRatingSubjectMap = relatedRatingSubjectMap;
                     this.selectedSelfRightsHolder = null;
                     // 担保人/权益人按后端确定的顺序默认选中首条
@@ -1872,6 +2041,119 @@
                     await this.applyLastCreditReportToPools(securityCode, [...inPoolsFiltered, ...outPoolsFiltered]);
                 } catch (e) {}
                 this.detailLoading = false;
+            },
+            // 解析当前主体最新财务数据对应的报告日期
+            resolveLatestFinancialReportDate(list) {
+                const latestReportDate = (list || []).reduce((latest, item) => {
+                    const reportDate = Number(item.reportDate || 0);
+                    return reportDate > latest ? reportDate : latest;
+                }, 0);
+                return latestReportDate > 0 ? String(latestReportDate) : String(moment().year()) + '1231';
+            },
+            // 将数据库亿元数据格式化为页面编辑值，并为城投债、产业债建立独立副本
+            initializeFinancialEditData(list) {
+                const indicatorMap = {};
+                [...this.cityFinancialIndicatorRows, ...this.industrialFinancialIndicatorRows].forEach(row => {
+                    indicatorMap[row.field] = row;
+                });
+                const sourceMap = {};
+                (list || []).forEach(item => {
+                    if (item.reportDate == null) return;
+                    const record = { reportDate: String(item.reportDate) };
+                    Object.keys(indicatorMap).forEach(field => {
+                        const sourceValue = item[field];
+                        if (sourceValue === null || sourceValue === undefined || sourceValue === '') {
+                            record[field] = '';
+                            return;
+                        }
+                        record[field] = sourceValue;
+                    });
+                    sourceMap[String(item.reportDate)] = record;
+                });
+                this.financialEditData = {
+                    city: JSON.parse(JSON.stringify(sourceMap)),
+                    industrial: JSON.parse(JSON.stringify(sourceMap))
+                };
+            },
+            // 下拉切换报告期时从数据库动态查询；不存在则初始化空记录供新增
+            async handleFinancialReportDateChange(bondType, reportDate) {
+                const requestSeq = ++this.financialQuerySeq;
+                this.financialReportLoading = true;
+                try {
+                    const record = await this.apiPost(
+                        '/api/v1/securityPoolAdjust/queryIssuerFinancialByReportDate',
+                        { securityCode: this.bondDetail.windCode, reportDate: Number(reportDate) }
+                    );
+                    if (requestSeq !== this.financialQuerySeq) return;
+                    const sourceList = record ? [record] : [{ reportDate: Number(reportDate) }];
+                    const currentTypeData = this.financialEditData[bondType] || {};
+                    this.initializeFinancialRecord(currentTypeData, sourceList[0]);
+                    this.$set(this.financialEditData, bondType, currentTypeData);
+                } catch (e) {
+                    this.$message.error(e.message || '财务数据查询失败');
+                } finally {
+                    if (requestSeq === this.financialQuerySeq) {
+                        this.financialReportLoading = false;
+                    }
+                }
+            },
+
+            // 将单条数据库记录写入指定分类的编辑缓存
+            initializeFinancialRecord(typeData, item) {
+                const reportDate = String(item.reportDate || '');
+                const record = { reportDate };
+                const indicatorFields = {};
+                [...this.cityFinancialIndicatorRows, ...this.industrialFinancialIndicatorRows].forEach(row => {
+                    indicatorFields[row.field] = true;
+                });
+                Object.keys(indicatorFields).forEach(field => {
+                    const sourceValue = item[field];
+                    if (sourceValue === null || sourceValue === undefined || sourceValue === '') {
+                        record[field] = '';
+                        return;
+                    }
+                    record[field] = sourceValue;
+                });
+                this.$set(typeData, reportDate, record);
+            },
+
+            // 获取财务单元格显示值：前三列直接读库，第四列读取当前分类编辑缓存
+            financialDisplayValue(row, column, index) {
+                if (index < 3) {
+                    const value = column[row.field];
+                    return value === null || value === undefined ? '' : value;
+                }
+                const typeData = this.financialEditData[this.displayFinancialBondType] || {};
+                const record = typeData[String(this.displayFinancialReportDate)] || {};
+                return record[row.field] === null || record[row.field] === undefined ? '' : record[row.field];
+            },
+
+            // 更新第四列当前分类下的财务值，城投债和产业债互不覆盖
+            updateFinancialValue(row, column, index, value) {
+                if (index !== 3) return;
+                const typeData = this.financialEditData[this.displayFinancialBondType];
+                const reportDate = String(this.displayFinancialReportDate);
+                if (!typeData[reportDate]) this.$set(typeData, reportDate, { reportDate });
+                this.$set(typeData[reportDate], row.field, value);
+            },
+
+            // 只读状态直接展示数据库或编辑缓存中的原始数值
+            formatFinancialValue(row, column, index) {
+                const currentValue = this.financialDisplayValue(row, column, index);
+                return currentValue === null || currentValue === undefined ? '' : currentValue;
+            },
+
+            // 每列均直接标注年份和报告类型
+            financialColumnLabel(column) {
+                const reportDate = String(column.reportDate || '');
+                if (reportDate.length !== 8) return '';
+                return reportDate.substring(0, 4) + '（' + this.financialReportTypeLabel(reportDate) + '）';
+            },
+
+            // 将标准报告日期后缀转换为报告类型
+            financialReportTypeLabel(reportDate) {
+                const labels = { '0331': '一季报', '0630': '半年报', '0930': '三季报', '1231': '年报' };
+                return labels[String(reportDate || '').slice(-4)] || '';
             },
             // 按当前担保人或最终权益人重新查询可调入池；仅最新请求可以更新页面
             async refreshAdjustInPools() {
@@ -2567,6 +2849,10 @@
 
             // 进入步骤2（调用后端校验接口）
             async goToStep2() {
+                if (this.financialReportLoading) {
+                    this.$message.warning('财务数据正在加载，请稍后');
+                    return;
+                }
                 this.syncSelectedPoolsFromTables();
                 this.adjustReviewList = [];
                 this.pendingAdjustReviewList = [];
@@ -2667,6 +2953,9 @@
                     const recommended = this.selectableFlowOptions.find(option => option.recommended) || this.selectableFlowOptions[0];
                     this.selectedFlowKey = recommended ? recommended.optionKey : '';
                     this.flowDialogVisible = false;
+                    this.confirmedFinancialBondType = this.financialBondType;
+                    this.confirmedFinancialReportDate = this.financialBondType === 'city'
+                        ? this.cityFinancialReportDate : this.industrialFinancialReportDate;
                     this.adjustStep = 2;
                 } catch (e) {
                     this.$message.error(e.message || '操作失败');
@@ -2682,6 +2971,8 @@
             // 返回步骤1
             goToStep1() {
                 this.adjustStep = 1;
+                this.confirmedFinancialBondType = '';
+                this.confirmedFinancialReportDate = '';
                 this.flowDialogVisible = false;
             },
 
@@ -2761,6 +3052,7 @@
                     adjustReason: this.adjustReason,
                     adjustAdvice: this.adjustAdvice,
                     securityInfo,
+                    issuerFinancial: this.buildIssuerFinancialSubmitData(),
                     adjusterId: this.currentLoginUserId,
                     adjusterName: this.currentLoginUserName,
                     items: validItems.map(r => ({
@@ -2792,6 +3084,22 @@
                 } finally {
                     this.submitLoading = false;
                 }
+            },
+
+            // 组装第四列当前分类的财务数据，金额已经是亿元，无需换算
+            buildIssuerFinancialSubmitData() {
+                const reportDate = String(this.confirmedFinancialReportDate || this.displayFinancialReportDate || '');
+                const typeData = this.financialEditData[this.displayFinancialBondType] || {};
+                const record = typeData[reportDate] || {};
+                const result = { reportDate: Number(reportDate) };
+                const indicatorFields = {};
+                [...this.cityFinancialIndicatorRows, ...this.industrialFinancialIndicatorRows].forEach(row => {
+                    indicatorFields[row.field] = true;
+                });
+                Object.keys(indicatorFields).forEach(field => {
+                    result[field] = this.toNullableNumber(record[field]);
+                });
+                return result;
             },
 
             // 收集当前提交文件并返回 multipart 文件数组下标
