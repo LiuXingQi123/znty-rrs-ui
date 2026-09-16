@@ -305,6 +305,43 @@
                 </div>
             </div>
 
+            <!-- 发行主体财务数据（只读） -->
+            <div class="section-card issuer-financial-card" v-loading="issuerFinancialLoading">
+                <div class="section-header" @click="issuerFinancialExpanded = !issuerFinancialExpanded"
+                     style="cursor:pointer;user-select:none;">
+                    <div class="section-dot"></div>
+                    <div class="section-title">发行主体最近三年及一期财务数据</div>
+                    <span class="financial-mode-hint">只读</span>
+                    <i :class="issuerFinancialExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"
+                       class="financial-collapse-icon"></i>
+                </div>
+                <div v-show="issuerFinancialExpanded" class="issuer-financial-body">
+                    <div class="financial-toolbar">
+                        <el-radio-group v-model="issuerFinancialBondType" size="small">
+                            <el-radio-button label="city">城投债</el-radio-button>
+                            <el-radio-button label="industrial">产业债</el-radio-button>
+                        </el-radio-group>
+                    </div>
+                    <el-table :data="currentIssuerFinancialIndicatorRows" border size="small"
+                              class="issuer-financial-table">
+                        <el-table-column prop="label" label="财务指标" min-width="220"></el-table-column>
+                        <el-table-column v-for="(column, index) in issuerFinancialColumns"
+                                         :key="String(column.reportDate) + '-' + index"
+                                         :label="issuerFinancialColumnLabel(column)"
+                                         min-width="150" align="right" header-align="center">
+                            <template slot-scope="{ row }">
+                                <span class="financial-number">{{ issuerFinancialValue(column, row.field) }}</span>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                    <div v-if="issuerFinancialLoadError" class="financial-empty-hint is-error">
+                        {{ issuerFinancialLoadError }}
+                    </div>
+                    <div v-else-if="issuerFinancialList.length === 0 && !issuerFinancialLoading"
+                         class="financial-empty-hint">当前发行主体暂无财务数据</div>
+                </div>
+            </div>
+
             <!-- CRMW基本信息 -->
             <div class="section-card section-crmw-info">
                 <div class="section-header" @click="toggleSection('crmwInfo')" style="cursor:pointer;user-select:none;">
@@ -1319,7 +1356,128 @@
 </div>
 
 <script>
+    /**
+     * 发行主体财务数据只读展示逻辑。
+     * 独立维护最近三年及最新一期四列表格、城投债/产业债指标切换，
+     * 并通过证券代码查询数据，便于当前页面单独迁移。
+     */
+    const issuerFinancialReadonlyMixin = {
+        data() {
+            return {
+                issuerFinancialExpanded: true, // 财务数据区展开状态
+                issuerFinancialLoading: false, // 财务数据查询加载状态
+                issuerFinancialRequestSeq: 0, // 财务数据查询请求序号，避免旧请求覆盖新结果
+                issuerFinancialBondType: 'city', // 当前指标分类：city=城投债 / industrial=产业债
+                issuerFinancialList: [], // 发行主体最近三个有数据年份各自最新的财务指标
+                issuerFinancialLoadError: '', // 财务数据查询失败提示
+                cityIssuerFinancialIndicatorRows: [ // 城投债财务指标及展示顺序
+                    { field: 'totAssets', label: '总资产(亿元)' },
+                    { field: 'shareholderEquity', label: '所有者权益(亿元)' },
+                    { field: 'debtAssetsRatio', label: '资产负债率(%)' },
+                    { field: 'totRev', label: '营业收入(亿元)' },
+                    { field: 'netProfit', label: '净利润(亿元)' },
+                    { field: 'netCashOper', label: '经营性净现金流(亿元)' },
+                    { field: 'netCashInv', label: '投资性净现金流(亿元)' },
+                    { field: 'grp', label: '地区生产总值(亿元)' },
+                    { field: 'generalBudgetRev', label: '一般预算收入(亿元)' },
+                    { field: 'generalBudgetExp', label: '一般预算支出(亿元)' }
+                ],
+                industrialIssuerFinancialIndicatorRows: [ // 产业债财务指标及展示顺序
+                    { field: 'totAssets', label: '总资产(亿元)' },
+                    { field: 'shareholderEquity', label: '所有者权益(亿元)' },
+                    { field: 'roe', label: '净资产收益率(%)' },
+                    { field: 'totRev', label: '营业收入(亿元)' },
+                    { field: 'ebitIntCov', label: 'EBITDA利息保护倍数' },
+                    { field: 'debtAssetsRatio', label: '资产负债比率(%)' },
+                    { field: 'ebitda', label: 'EBITDA(亿元)' },
+                    { field: 'netCashOper', label: '经营性净现金流(亿元)' },
+                    { field: 'netProfit', label: '净利润(亿元)' },
+                    { field: 'ebitdaToDebt', label: '总债务/EBITDA' }
+                ]
+            };
+        },
+        computed: {
+            // 当前证券编码，用于查询发行主体财务数据
+            issuerFinancialSecurityCode() {
+                return (this.bondDetail && this.bondDetail.windCode) || '';
+            },
+            // 按城投债或产业债分类返回对应指标行
+            currentIssuerFinancialIndicatorRows() {
+                return this.issuerFinancialBondType === 'city'
+                    ? this.cityIssuerFinancialIndicatorRows : this.industrialIssuerFinancialIndicatorRows;
+            },
+            // 生成最近三个有数据年份及最新一期的四列表头数据
+            issuerFinancialColumns() {
+                const records = (this.issuerFinancialList || []).slice().sort((left, right) => {
+                    return Number(left.reportDate || 0) - Number(right.reportDate || 0);
+                });
+                const latestRecord = records.length > 0
+                    ? Object.assign({}, records[records.length - 1]) : { reportDate: null };
+                const latestYear = records.length > 0
+                    ? Number(String(records[records.length - 1].reportDate).substring(0, 4))
+                    : moment().year();
+                if (records.length < 3) {
+                    const firstYear = records.length > 0
+                        ? Number(String(records[0].reportDate).substring(0, 4)) : latestYear + 1;
+                    const placeholders = [];
+                    for (let offset = 3 - records.length; offset >= 1; offset--) {
+                        placeholders.push({ reportDate: Number(String(firstYear - offset) + '1231') });
+                    }
+                    records.unshift(...placeholders);
+                }
+                return records.slice(-3).concat([latestRecord]);
+            }
+        },
+        watch: {
+            // 证券编码变化后重新加载财务数据
+            issuerFinancialSecurityCode: {
+                immediate: true,
+                handler() {
+                    this.loadIssuerFinancialData();
+                }
+            }
+        },
+        methods: {
+            // 按证券编码加载发行主体财务数据，忽略过期请求结果
+            async loadIssuerFinancialData() {
+                const securityCode = String(this.issuerFinancialSecurityCode || '').trim();
+                const requestSeq = ++this.issuerFinancialRequestSeq;
+                this.issuerFinancialList = [];
+                this.issuerFinancialLoadError = '';
+                if (!securityCode) return;
+                this.issuerFinancialLoading = true;
+                try {
+                    const records = await this.apiPost(
+                        '/api/v1/securityPoolAdjust/queryIssuerFinancialList',
+                        { securityCode }
+                    );
+                    if (requestSeq !== this.issuerFinancialRequestSeq) return;
+                    this.issuerFinancialList = Array.isArray(records) ? records : [];
+                } catch (error) {
+                    if (requestSeq !== this.issuerFinancialRequestSeq) return;
+                    this.issuerFinancialLoadError = error.message || '财务数据查询失败';
+                } finally {
+                    if (requestSeq === this.issuerFinancialRequestSeq) this.issuerFinancialLoading = false;
+                }
+            },
+            // 读取财务指标原始值，空值保持空白展示
+            issuerFinancialValue(record, field) {
+                const value = record ? record[field] : null;
+                return value === null || value === undefined ? '' : value;
+            },
+            // 将报告日期转换为“年份（报告类型）”列表头
+            issuerFinancialColumnLabel(record) {
+                const reportDate = String(record && record.reportDate ? record.reportDate : '');
+                if (reportDate.length !== 8) return '';
+                const labels = { '0331': '一季报', '0630': '半年报', '0930': '三季报', '1231': '年报' };
+                const reportType = labels[reportDate.slice(-4)] || '';
+                return reportDate.substring(0, 4) + (reportType ? '（' + reportType + '）' : '');
+            }
+        }
+    };
+
     new Vue({
+        mixins: [issuerFinancialReadonlyMixin],
         el: '#crmw_pool_adjust_detail',
         data() {
             return {
