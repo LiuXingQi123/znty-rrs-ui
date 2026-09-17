@@ -408,13 +408,13 @@
                 </div>
             </div>
 
-            <!-- 发行主体财务数据（只读） -->
+            <!-- 发行主体财务数据 -->
             <div class="section-card issuer-financial-card" v-loading="issuerFinancialLoading">
                 <div class="section-header" @click="issuerFinancialExpanded = !issuerFinancialExpanded"
                      style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">发行主体最近三年及一期财务数据</div>
-                    <span class="financial-mode-hint">只读</span>
+                    <span class="financial-mode-hint">{{ isCurrentFinancialReportExisting ? '可编辑' : '暂不可编辑' }}</span>
                     <i :class="issuerFinancialExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"
                        class="financial-collapse-icon"></i>
                 </div>
@@ -424,24 +424,32 @@
                             <el-radio-button label="city">城投债</el-radio-button>
                             <el-radio-button label="industrial">产业债</el-radio-button>
                         </el-radio-group>
+                        <div class="financial-period-control">
+                            <el-select v-if="issuerFinancialBondType === 'city'" v-model="cityFinancialReportDate" size="small" :loading="financialReportLoading" @change="handleFinancialReportDateChange('city', $event)">
+                                <el-option-group v-for="group in financialReportTypeGroups" :key="'city-' + group.year" :label="group.label"><el-option v-for="option in group.options" :key="option.value" :label="option.fullLabel" :value="option.value"></el-option></el-option-group>
+                            </el-select>
+                            <el-select v-else v-model="industrialFinancialReportDate" size="small" :loading="financialReportLoading" @change="handleFinancialReportDateChange('industrial', $event)">
+                                <el-option-group v-for="group in financialReportTypeGroups" :key="'industrial-' + group.year" :label="group.label"><el-option v-for="option in group.options" :key="option.value" :label="option.fullLabel" :value="option.value"></el-option></el-option-group>
+                            </el-select>
+                        </div>
                     </div>
                     <el-table :data="currentIssuerFinancialIndicatorRows" border size="small"
                               class="issuer-financial-table">
                         <el-table-column prop="label" label="财务指标" min-width="220"></el-table-column>
-                        <el-table-column v-for="(column, index) in issuerFinancialColumns"
+                        <el-table-column v-for="(column, index) in financialColumns"
                                          :key="String(column.reportDate) + '-' + index"
                                          :label="issuerFinancialColumnLabel(column)"
                                          min-width="150" align="right" header-align="center">
                             <template slot-scope="{ row }">
-                                <span class="financial-number">{{ issuerFinancialValue(column, row.field) }}</span>
+                                <el-input v-if="index === 3" type="number" size="small" step="any" class="financial-value-input" :disabled="financialReportLoading || !isCurrentFinancialReportExisting" :value="financialDisplayValue(row, column, index)" @input="updateFinancialValue(row, column, index, $event)"></el-input>
+                                <span v-else class="financial-number">{{ issuerFinancialValue(column, row.field) }}</span>
                             </template>
                         </el-table-column>
                     </el-table>
                     <div v-if="issuerFinancialLoadError" class="financial-empty-hint is-error">
                         {{ issuerFinancialLoadError }}
                     </div>
-                    <div v-else-if="issuerFinancialList.length === 0 && !issuerFinancialLoading"
-                         class="financial-empty-hint">当前发行主体暂无财务数据</div>
+                    <div v-else-if="!isCurrentFinancialReportExisting" class="financial-empty-hint">当前报告期暂无源数据，暂不支持新增或编辑</div>
                 </div>
             </div>
 
@@ -1393,8 +1401,52 @@
         }
     };
 
+    /**
+     * 发行主体财务数据编辑逻辑。
+     * 仅用于调库发起页：支持城投债/产业债切换、报告期查询和第四列编辑；
+     * 当前报告期无源数据时不新增，详情和审核页继续使用只读逻辑。
+     */
+    const issuerFinancialEditableMixin = {
+        data() {
+            return {
+                issuerFinancialExpanded: true, // 财务数据区默认展开
+                issuerFinancialLoading: false, // 财务数据主查询加载状态
+                cityFinancialReportDate: '', // 城投债当前编辑报告期
+                industrialFinancialReportDate: '', // 产业债当前编辑报告期
+                financialEditData: { city: {}, industrial: {} }, // 两类债券独立编辑缓存
+                financialReportExistence: { city: {}, industrial: {} }, // 各报告期是否存在源数据
+                financialReportLoading: false, // 报告期切换查询加载状态
+                financialQuerySeq: 0 // 报告期查询序号，避免旧响应覆盖
+            };
+        },
+        computed: {
+            // 当前债券分类正在编辑的报告期
+            displayFinancialReportDate() { return this.issuerFinancialBondType === 'city' ? this.cityFinancialReportDate : this.industrialFinancialReportDate; },
+            // 当前报告期是否存在，可据此决定是否允许编辑
+            isCurrentFinancialReportExisting() { return (this.financialReportExistence[this.issuerFinancialBondType] || {})[String(this.displayFinancialReportDate)] === true; },
+            // 最近三个只读报告期与当前编辑报告期组成四列
+            financialColumns() { const records = (this.issuerFinancialList || []).slice().sort((a, b) => Number(a.reportDate || 0) - Number(b.reportDate || 0)); const date = Number(this.displayFinancialReportDate || 0); const year = records.length ? Number(String(records[records.length - 1].reportDate).substring(0, 4)) : moment().year(); while (records.length < 3) records.unshift({ reportDate: Number(String((records[0] ? Number(String(records[0].reportDate).substring(0, 4)) : year + 1) - (3 - records.length)) + '1231') }); return records.slice(-3).concat([{ reportDate: date }]); },
+            // 当前年及前两年的四类标准报告期下拉选项
+            financialReportTypeGroups() { const types = [{ suffix: '1231', label: '年报' }, { suffix: '0930', label: '三季报' }, { suffix: '0630', label: '半年报' }, { suffix: '0331', label: '一季报' }]; return [0, 1, 2].map(offset => { const year = moment().year() - offset; return { year, label: year + '年', options: types.map(type => ({ value: year + type.suffix, label: type.label, fullLabel: year + type.label })) }; }); }
+        },
+        watch: {
+            // 主查询完成后初始化报告期、编辑缓存和数据存在标志
+            issuerFinancialList(list) { const source = {}; (list || []).forEach(item => { if (item.reportDate != null) source[String(item.reportDate)] = Object.assign({}, item); }); const latest = Object.keys(source).sort().pop() || (moment().year() + '1231'); this.cityFinancialReportDate = latest; this.industrialFinancialReportDate = latest; this.financialEditData = { city: JSON.parse(JSON.stringify(source)), industrial: JSON.parse(JSON.stringify(source)) }; const exists = {}; Object.keys(source).forEach(key => { exists[key] = true; }); this.financialReportExistence = { city: Object.assign({}, exists), industrial: Object.assign({}, exists) }; }
+        },
+        methods: {
+            // 切换报告期后查询该报告期是否存在可更新的财务数据
+            async handleFinancialReportDateChange(type, reportDate) { const seq = ++this.financialQuerySeq; this.financialReportLoading = true; try { const record = await this.apiPost('/api/v1/securityPoolAdjust/queryIssuerFinancialByReportDate', { securityCode: this.issuerFinancialSecurityCode, reportDate: Number(reportDate) }); if (seq !== this.financialQuerySeq) return; const data = this.financialEditData[type] || {}; this.$set(data, String(reportDate), record || { reportDate: Number(reportDate) }); this.$set(this.financialEditData, type, data); const exists = this.financialReportExistence[type] || {}; this.$set(exists, String(reportDate), !!record); this.$set(this.financialReportExistence, type, exists); } catch (error) { this.$message.error(error.message || '财务数据查询失败'); } finally { if (seq === this.financialQuerySeq) this.financialReportLoading = false; } },
+            // 读取前三列原始值或第四列编辑缓存值
+            financialDisplayValue(row, column, index) { if (index < 3) return this.issuerFinancialValue(column, row.field); const record = (this.financialEditData[this.issuerFinancialBondType] || {})[String(this.displayFinancialReportDate)] || {}; return record[row.field] == null ? '' : record[row.field]; },
+            // 更新第四列当前报告期的指标值
+            updateFinancialValue(row, column, index, value) { if (index !== 3) return; const data = this.financialEditData[this.issuerFinancialBondType] || {}; const date = String(this.displayFinancialReportDate); if (!data[date]) this.$set(data, date, { reportDate: Number(date) }); this.$set(data[date], row.field, value); this.$set(this.financialEditData, this.issuerFinancialBondType, data); },
+            // 组装当前报告期的完整财务数据供提交接口使用
+            buildIssuerFinancialSubmitData() { const date = String(this.displayFinancialReportDate || ''); const record = (this.financialEditData[this.issuerFinancialBondType] || {})[date] || {}; const result = { reportDate: Number(date) }; [...this.cityIssuerFinancialIndicatorRows, ...this.industrialIssuerFinancialIndicatorRows].forEach(row => { const value = record[row.field]; result[row.field] = value === '' || value == null ? null : Number(value); }); return result; }
+        }
+    };
+
     new Vue({
-        mixins: [issuerFinancialReadonlyMixin],
+        mixins: [issuerFinancialReadonlyMixin, issuerFinancialEditableMixin],
         el: '#crmw_pool_adjust',
         data() {
             return {
@@ -2745,6 +2797,7 @@
                     fullName: this.bondDetail.fullName,
                     shortName: this.bondDetail.shortName,
                     windCode: this.bondDetail.windCode,
+                    issuerCode: this.bondDetail.issuerCode,
                     issuer: this.bondDetail.issuer,
                     windCodeNib: this.bondDetail.windCodeNib,
                     windCodeSh: this.bondDetail.windCodeSh,
@@ -2785,6 +2838,7 @@
                     adjustReason: this.adjustReason,
                     adjustAdvice: this.adjustAdvice,
                     securityInfo,
+                    issuerFinancial: this.buildIssuerFinancialSubmitData(),
                     adjusterId: this.currentLoginUserId,
                     adjusterName: this.currentLoginUserName,
                     items: validItems.map(r => ({
