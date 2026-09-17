@@ -374,7 +374,7 @@
                     <div class="section-dot"></div>
                     <div class="section-title">发行主体最近三年及一期财务数据</div>
                     <span class="financial-mode-hint" :class="{ 'is-readonly': adjustStep === 2 }">
-                        {{ adjustStep === 1 ? '可编辑' : '只读' }}
+                        {{ adjustStep === 1 ? (isCurrentFinancialReportExisting ? '可编辑' : '暂不可编辑') : '只读' }}
                     </span>
                     <i :class="sectionExpanded.financial ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="section-collapse-icon"></i>
                 </div>
@@ -416,15 +416,15 @@
                             <template slot-scope="{ row }">
                                 <el-input v-if="adjustStep === 1 && index === 3" type="number" size="small" step="any"
                                           class="financial-value-input"
-                                          :disabled="financialReportLoading"
+                                          :disabled="financialReportLoading || !isCurrentFinancialReportExisting"
                                           :value="financialDisplayValue(row, column, index)"
                                           @input="updateFinancialValue(row, column, index, $event)"></el-input>
                                 <span v-else class="financial-number">{{ formatFinancialValue(row, column, index) }}</span>
                             </template>
                         </el-table-column>
                     </el-table>
-                    <div v-if="issuerFinancialList.length === 0" class="financial-empty-hint">
-                        {{ adjustStep === 1 ? '当前发行主体暂无源数据，可手工补充' : '当前发行主体暂无财务数据' }}
+                    <div v-if="!isCurrentFinancialReportExisting" class="financial-empty-hint">
+                        当前报告期暂无源数据，暂不支持新增或编辑
                     </div>
                 </div>
             </div>
@@ -1310,6 +1310,7 @@
                 bondDetail: {},               // 证券基本信息（详情页）
                 issuerFinancialList: [],      // 发行主体最近三个有数据年份各自最新的财务指标
                 financialEditData: { city: {}, industrial: {} }, // 城投债、产业债独立维护的第四列财务编辑值
+                financialReportExistence: { city: {}, industrial: {} }, // 各分类报告期是否存在源数据
                 financialBondType: 'city',   // 财务指标分类：city=城投债 / industrial=产业债
                 cityFinancialReportDate: '', // 城投债可编辑报告日期
                 industrialFinancialReportDate: '', // 产业债可编辑报告日期
@@ -1529,6 +1530,11 @@
                 }
                 return this.displayFinancialBondType === 'city'
                     ? this.cityFinancialReportDate : this.industrialFinancialReportDate;
+            },
+            // 当前展示报告期是否存在于源数据中；不存在时不允许新增或编辑
+            isCurrentFinancialReportExisting() {
+                const typeExistence = this.financialReportExistence[this.displayFinancialBondType] || {};
+                return typeExistence[String(this.displayFinancialReportDate)] === true;
             },
             // 固定展示当前年及前两年，并按年份分组提供四个标准报告期
             financialReportTypeGroups() {
@@ -2076,8 +2082,16 @@
                     city: JSON.parse(JSON.stringify(sourceMap)),
                     industrial: JSON.parse(JSON.stringify(sourceMap))
                 };
+                const existenceMap = {};
+                Object.keys(sourceMap).forEach(reportDate => {
+                    existenceMap[reportDate] = true;
+                });
+                this.financialReportExistence = {
+                    city: Object.assign({}, existenceMap),
+                    industrial: Object.assign({}, existenceMap)
+                };
             },
-            // 下拉切换报告期时从数据库动态查询；不存在则初始化空记录供新增
+            // 下拉切换报告期时从数据库动态查询；不存在则保留空白且不允许新增
             async handleFinancialReportDateChange(bondType, reportDate) {
                 const requestSeq = ++this.financialQuerySeq;
                 this.financialReportLoading = true;
@@ -2091,6 +2105,9 @@
                     const currentTypeData = this.financialEditData[bondType] || {};
                     this.initializeFinancialRecord(currentTypeData, sourceList[0]);
                     this.$set(this.financialEditData, bondType, currentTypeData);
+                    const typeExistence = this.financialReportExistence[bondType] || {};
+                    this.$set(typeExistence, String(reportDate), !!record);
+                    this.$set(this.financialReportExistence, bondType, typeExistence);
                 } catch (e) {
                     this.$message.error(e.message || '财务数据查询失败');
                 } finally {

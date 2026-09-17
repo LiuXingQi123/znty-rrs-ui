@@ -728,13 +728,13 @@
                     <ul>
                         <li>详情页在“证券基本信息”下调用 <code>POST /api/v1/securityPoolAdjust/queryIssuerFinancialList</code>，通过 <code>rrs_securityinfo.issuer_code</code> 关联 <code>ais_inv_ods.wind_companyfinancial.COMPANYCODE</code>。</li>
                         <li>主查询按主体和年份分组，取数据库中最近 3 个有数据年份，每年只展示 <code>REPORTDATE</code> 最大的一条；年份无需连续。前三列列头同时显示年份和报告类型，且始终只读。</li>
-                        <li>第四列默认展示数据库已有数据中报告日期最新的一条。步骤一可切换城投债/产业债，两类分别保留报告日期和编辑值；下拉固定展示当前自然年及前 2 年，按年份分组，每组包含年报、三季报、半年报、一季报。改变后调用 <code>queryIssuerFinancialByReportDate</code> 动态查询，不存在时显示空白供新增。</li>
+                        <li>第四列默认展示数据库已有数据中报告日期最新的一条。步骤一可切换城投债/产业债，两类分别保留报告日期和编辑值；下拉固定展示当前自然年及前 2 年，按年份分组，每组包含年报、三季报、半年报、一季报。改变后调用 <code>queryIssuerFinancialByReportDate</code> 动态查询；不存在时显示空白并禁用编辑，暂不新增记录。</li>
                         <li>城投债顺序：总资产、所有者权益、资产负债率、营业收入、净利润、经营性净现金流、投资性净现金流、地区生产总值、一般预算收入、一般预算支出。</li>
                         <li>产业债顺序：总资产、所有者权益、净资产收益率、营业收入、EBITDA利息保护倍数、资产负债比率、EBITDA、经营性净现金流、净利润、总债务/EBITDA。</li>
                         <li>数据库绝对金额字段直接以亿元存储；前端不做单位换算或小数位补齐，金额、比例和倍数直接展示数据库返回值，编辑值按用户输入原样展示，空值保持空白。</li>
                         <li><code>wind_companyfinancial.PROVINCE</code>、<code>CITY</code> 分别保存主体所在省份和城市；同一主体各报告期保持一致，当前财务指标区域暂不展示。</li>
                         <li>进入步骤二时锁定当前债券分类和报告日期，隐藏切换控件，四个列头均直接显示“年份 + 报告类型”，整块只读；返回上一步后恢复第四列编辑。</li>
-                        <li>最终提交携带第四列完整财务记录，在调库提交事务中按 <code>COMPANYCODE + REPORTDATE</code> 新增或更新 <code>wind_companyfinancial</code>；前三列不回写。</li>
+                        <li>最终提交携带第四列完整财务记录，在调库提交事务中仅按提交内容中的 <code>issuerCode（COMPANYCODE）+ REPORTDATE</code> 直接更新已有的 <code>wind_companyfinancial</code>，不关联 <code>rrs_securityinfo</code>；无对应记录时不新增，前三列不回写。原新增或更新 SQL 仍保留，待后续需求恢复时复用。</li>
                         <li>证券池详情页、审批页，以及 CRMW 发起/详情/审批页和禁投池 ABS 债详情页，均在证券基本信息下方独立实现同格式的只读财务区；这些页面可切换城投债/产业债展示口径，但不提供报告期选择和数值编辑。</li>
                     </ul>
                 </article>
@@ -745,7 +745,7 @@
                 <div class="sequence-item"><strong>3. 查询证券</strong><span>证券主表关联证券类型字典并执行模糊过滤。</span></div>
                 <div class="sequence-item"><strong>4. 点击“调库”</strong><span>以 windCode 进入详情视图并并发加载业务数据。</span></div>
             </div>
-            <div class="data-strip"><code>rrs_securityinfo：读</code><code>dict_security_type：读</code><code>ais_inv_ods.wind_companyfinancial：查询 + 提交时新增/更新</code></div>
+            <div class="data-strip"><code>rrs_securityinfo：读</code><code>dict_security_type：读</code><code>ais_inv_ods.wind_companyfinancial：查询 + 提交时仅更新已有数据</code></div>
         </section>
 
         <section id="pool-status" class="section">
