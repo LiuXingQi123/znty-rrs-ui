@@ -864,7 +864,7 @@
                     <li>证券类型是<strong>可转债 / 可交换债 / 可分离转债 / CRMW</strong>：整棵信用债树不显示（结束）。</li>
                     <li><strong>重点观察名单</strong>（券或主体在 <code>restricted</code>）：非 ABS 强担保债（有担保且担保人内评 1 档）可豁免；ABS 权益人内评不属于强担保，不豁免。未在信用债 1～5 级则整棵信用债树不显示；已在 1～4 级只留五级；已在五级不可上调。</li>
                     <li>取<strong>查矩阵用的内评档</strong>：非 ABS 非担保债只用发债主体内评；非 ABS 担保债取发债主体与所选担保人内评较优值；ABS 直接用自选权益人（优先）或普通权益人内评，不与债务主体或担保人孰高。ABS 最终权益人无内评时提示“未配置权益人内评分档”，不以债务主体兜底。</li>
-                    <li>匹配期限档：普通债用 <code>date_exists</code>（天÷365）；<strong>含权债</strong>回售按 <code>date_inright_exists</code>/<code>date_repurchase_exists</code>（年）、赎回按 <code>date_exists</code>（天÷365），两者都有取更短；<code>date_call_exists</code> 仅展示/落库，不参与匹配。期限为空默认最长档（期限>5 / <code>GT_5</code>）。无可用期限档、年数落不进任何档、或矩阵未配置允许池：后面信用债 1～5 级全部不显示（档位规则也算不出起始档）。</li>
+                    <li>匹配期限档：普通债及<strong>含权债</strong>赎回侧解析 <code>date_exists_str</code>（兼容“月/个月”“天/日”；年原值保留、月÷12、日÷365），不再用 <code>date_exists</code> 总天数÷365；含权债回售侧按 <code>date_inright_exists</code>/<code>date_repurchase_exists</code>（年），两侧都有取更短；<code>date_call_exists</code> 仅展示/落库，不参与匹配。期限文本无法解析时默认最长档（期限>5 / <code>GT_5</code>）。无可用期限档、年数落不进任何档、或矩阵未配置允许池：后面信用债 1～5 级全部不显示（档位规则也算不出起始档）。</li>
                     <li>用第 6 步内评档 × 第 7 步期限档查矩阵，得到允许的信用债级别，并算出标准最好档。</li>
                     <li>按券类型决定准入方式（先命中先走）。口径：<strong>只能调入一级库</strong>=仅一级；<strong>下调一级</strong>=按内评×期限矩阵最好档再降一档且只留那一档；<strong>至少下调一级</strong>=从该降一档开到五级（x～5）。
                         <ul>
@@ -981,7 +981,7 @@
                         <li>调入 → 目标池非信用债大库：默认调入（inFlow）。</li>
                         <li>调入 → 已在信用债大库：同父级按 <code>innerSort</code> 上调 / 下调流程。</li>
                         <li>调入 → 不在信用债大库：同时评估白名单 / 简易 / 默认调入，推荐优先级 白名单 > 简易 > 默认。</li>
-                        <li>白名单条件顺序：剩余期限≤3年 → 非永续/私募/ABS → 债券类 → 主体在白名单池（<code>WHITELIST_POOL_IDS</code> 当前为空，本条件固定不成立）→ 非担保债。</li>
+                        <li>白名单条件顺序：解析 <code>date_exists_str</code> 后剩余期限≤3年（无法解析时不命中）→ 非永续/私募/ABS → 债券类 → 主体在白名单池（<code>WHITELIST_POOL_IDS</code> 当前为空，本条件固定不成立）→ 非担保债。</li>
                         <li>简易条件顺序：目标池为一/二/三级信用债库 → 剩余期限可解析（date_exists）→ 不超过同主体在池最大期限 → 180 天内一般流程入过目标池 → 主体/展望未下调或下调时担保人未下调（已注释）。</li>
                     </ul>
                 </article>
