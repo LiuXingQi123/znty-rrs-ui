@@ -126,6 +126,7 @@
 
                 <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
                 <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <el-button size="small" icon="el-icon-download" :loading="exporting" @click="handleExport">导出</el-button>
 
                 <div class="total-badge">
                     <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录
@@ -304,6 +305,7 @@ new Vue({
             // 表格与分页
             tableData: [],             // 当前页表格数据
             loading: false,            // 表格加载状态
+            exporting: false,          // 导出处理中状态
             pagination: {             // 分页参数
                 pageIndex: 1,          // 当前页码
                 pageSize: 20,          // 每页条数
@@ -483,31 +485,53 @@ new Vue({
         },
 
         // 加载列表
+        // 组装与列表一致的筛选参数（导出时不带分页）
+        buildQueryParams() {
+            return {
+                poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
+                securityCode: this.searchForm.securityCode || null,
+                securityShortName: this.searchForm.securityShortName || null,
+                securityType: this.searchForm.securityType || null,
+                adjustTimeStart: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[0] : null,
+                adjustTimeEnd: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[1] : null,
+                adjusterName: this.searchForm.adjusterName || null,
+                issuer: this.searchForm.issuer || null,
+                bondYesFlags: this.searchForm.bondYesFlags.length > 0 ? this.searchForm.bondYesFlags : null,
+                adjustMode: this.searchForm.adjustMode || null,
+                auditStatus: this.searchForm.auditStatus || null,
+                myBonds: this.searchForm.myBonds || null,
+                currentUserId: this.searchForm.currentUserId,
+            };
+        },
+
+        // 分页加载证券池调整历史列表
         async loadList() {
             this.loading = true;
             try {
-                const params = {
-                    poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
-                    securityCode: this.searchForm.securityCode || null,
-                    securityShortName: this.searchForm.securityShortName || null,
-                    securityType: this.searchForm.securityType || null,
-                    adjustTimeStart: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[0] : null,
-                    adjustTimeEnd: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[1] : null,
-                    adjusterName: this.searchForm.adjusterName || null,
-                    issuer: this.searchForm.issuer || null,
-                    bondYesFlags: this.searchForm.bondYesFlags.length > 0 ? this.searchForm.bondYesFlags : null,
-                    adjustMode: this.searchForm.adjustMode || null,
-                    auditStatus: this.searchForm.auditStatus || null,
-                    myBonds: this.searchForm.myBonds || null,
-                    currentUserId: this.searchForm.currentUserId,
+                // 复用筛选参数并附带分页
+                const params = Object.assign({}, this.buildQueryParams(), {
                     pageIndex: this.pagination.pageIndex,
                     pageSize: this.pagination.pageSize,
-                };
+                });
                 const data = await this.apiPost('/api/v1/securityPoolAdjustHistory/querySecurityPoolAdjustHistoryPage', params);
                 this.tableData = data.records || [];
                 this.pagination.total = data.total || 0;
             } catch (e) {}
             this.loading = false;
+        },
+
+        // 按当前筛选条件导出全部命中记录
+        async handleExport() {
+            this.exporting = true;
+            try {
+                // 导出接口不传分页，按当前筛选全量下载
+                const file = await this.apiPost('/api/v1/securityPoolAdjustHistory/exportSecurityPoolAdjustHistoryExcel', this.buildQueryParams());
+                // 触发浏览器下载
+                this.downloadBase64File(file.contentBase64, file.fileName, file.contentType);
+                this.$message.success('导出成功');
+            } finally {
+                this.exporting = false;
+            }
         },
 
         // 触发查询：重置到第一页后重新加载列表

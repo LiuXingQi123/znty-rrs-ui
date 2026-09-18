@@ -90,6 +90,7 @@
 
                 <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
                 <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <el-button size="small" icon="el-icon-download" :loading="exporting" @click="handleExport">导出</el-button>
 
                 <!-- 总数徽章：展示当前查询命中的总记录条数 -->
                 <div class="total-badge">
@@ -201,6 +202,7 @@ new Vue({
             // 表格
             tableData: [],              // 当前页禁投池证券数据列表
             loading: false,             // 表格加载状态
+            exporting: false,           // 导出处理中状态
             pagination: {             // 分页参数
                 pageIndex: 1,           // 当前页码
                 pageSize: 20,           // 每页显示条数
@@ -224,26 +226,34 @@ new Vue({
         },
 
         // 组装分页查询参数并调用接口，将结果填入 tableData 与 pagination.total
+        // 组装与列表一致的筛选参数（导出时不带分页）
+        buildQueryParams() {
+            return {
+                currentUserId: window.RrsAuth.getCurrentUser().userId,
+                securityCode: this.searchForm.securityCode || null,
+                securityShortName: this.searchForm.securityShortName || null,
+                securityType: this.searchForm.securityType || null,
+                categoryType: this.searchForm.categoryType || null,
+                securityStatus: this.searchForm.securityStatus || null,
+                // 入池日期范围起止，无选择时传 null
+                entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
+                    ? this.searchForm.entryTimeRange[0] : null,
+                entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1]
+                    ? this.searchForm.entryTimeRange[1] : null,
+                adjusterName: this.searchForm.adjusterName || null,
+                issuer: this.searchForm.issuer || null,
+            };
+        },
+
+        // 分页加载禁投池证券列表
         async loadList() {
             this.loading = true;
             try {
-                const params = {
-                    currentUserId: window.RrsAuth.getCurrentUser().userId,
-                    securityCode: this.searchForm.securityCode || null,
-                    securityShortName: this.searchForm.securityShortName || null,
-                    securityType: this.searchForm.securityType || null,
-                    categoryType: this.searchForm.categoryType || null,
-                    securityStatus: this.searchForm.securityStatus || null,
-                    // 入池日期范围起止，无选择时传 null
-                    entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
-                        ? this.searchForm.entryTimeRange[0] : null,
-                    entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1]
-                        ? this.searchForm.entryTimeRange[1] : null,
-                    adjusterName: this.searchForm.adjusterName || null,
-                    issuer: this.searchForm.issuer || null,
+                // 复用筛选参数并附带分页
+                const params = Object.assign({}, this.buildQueryParams(), {
                     pageIndex: this.pagination.pageIndex,
                     pageSize: this.pagination.pageSize,
-                };
+                });
                 const data = await this.apiPost('/api/v1/forbiddenPoolQuery/queryForbiddenPoolPage', params);
                 this.tableData = data.records || [];
                 this.pagination.total = data.total || 0;
@@ -255,6 +265,20 @@ new Vue({
         getBondStatus(row) {
             if (!row.maturityDate) return '';
             return moment(row.maturityDate).isBefore(moment(), 'day') ? '到期' : '存续';
+        },
+
+        // 按当前筛选条件导出全部命中记录
+        async handleExport() {
+            this.exporting = true;
+            try {
+                // 导出接口不传分页，按当前筛选全量下载
+                const file = await this.apiPost('/api/v1/forbiddenPoolQuery/exportForbiddenPoolExcel', this.buildQueryParams());
+                // 触发浏览器下载
+                this.downloadBase64File(file.contentBase64, file.fileName, file.contentType);
+                this.$message.success('导出成功');
+            } finally {
+                this.exporting = false;
+            }
         },
 
         // 点击查询按钮：重置页码为第 1 页并重新加载列表
