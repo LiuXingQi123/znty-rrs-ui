@@ -2016,3 +2016,232 @@ body.security-pool-adjust-page {
     border: 1px solid #E0E5F0;
     white-space: nowrap;
 }
+
+#security_pool_adjust .print-only-caption,
+#security_pool_adjust .print-doc-header {
+    display: none;
+}
+
+/*
+* 浏览器打印 / 另存为 PDF
+* 仅保留证券基本信息、发行主体财务数据、当前所在池。
+*
+* 踩坑记录：
+* 1. 根容器 height:100vh + overflow:hidden、.page 用 flex，打印时必须改成 block + height:auto，否则只出首屏。
+* 2. 折叠块是 v-show / v-if，打印 CSS 压不掉内联 display:none；导出前须 JS 展开。所在池明细是 v-if，展开后要等 DOM/el-table 布局再 print。
+* 3. el-table 按屏幕把 col/table 写成像素宽（财务表约 220+150*4），A4 竖版会裁成「两列半」。必须 width:100% + table-layout:fixed，并清掉 col 的 min-width。
+* 4. .pool-expand-table / .pool-sub-block 屏幕态 overflow:hidden，不改 visible 列会被裁；主体所在池 max-height=280 也要取消。
+* 5. 给 el-table 的 tr 加 break-inside:avoid 会把财务表末行挤到「当前所在池」后面；三块用 page-break-before，表行不要 avoid。
+* 6. .el-table__fixed* 固定列克隆和 gutter 列打印会重影、占宽，需隐藏。
+* 7. placeholder「请输入」、日期/下拉图标、字数统计、折叠箭头、财务工具条、所在池展开按钮不要进 PDF。
+* 8. 工作台 iframe 里 common.css 会藏 .topbar，导出按钮只能放底部操作栏；须在 iframe 内 window.print()，外壳 Ctrl+P 会打出整个工作台。
+* 9. Chrome 另存 PDF 用顶层 document.title。页面在 iframe 里只改自身 title 会得到「证券池调整 - RRS 工作台.pdf」；须同步改 parent.document.title，afterprint 再还原。
+*/
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 12mm;
+    }
+
+    html,
+    body.security-pool-adjust-page {
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: #FFFFFF !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body.security-pool-adjust-page .el-dialog__wrapper,
+    body.security-pool-adjust-page .v-modal,
+    body.security-pool-adjust-page .el-loading-mask,
+    body.security-pool-adjust-page .el-picker-panel,
+    body.security-pool-adjust-page .el-select-dropdown,
+    body.security-pool-adjust-page .el-popper {
+        display: none !important;
+    }
+
+    #security_pool_adjust {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: #FFFFFF !important;
+        color: #242933 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    #security_pool_adjust .page {
+        display: none !important;
+    }
+    #security_pool_adjust .page.active {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        flex: none !important;
+        animation: none !important;
+        transform: none !important;
+    }
+
+    #security_pool_adjust .topbar,
+    #security_pool_adjust .submit-area,
+    #security_pool_adjust .action-footer,
+    #security_pool_adjust .section-card:not(.print-section),
+    #security_pool_adjust .financial-toolbar,
+    #security_pool_adjust .financial-mode-hint,
+    #security_pool_adjust .section-header > i,
+    #security_pool_adjust .pool-toggle-btn,
+    #security_pool_adjust .pool-overflow-hint,
+    #security_pool_adjust .rights-holder-picker .el-button {
+        display: none !important;
+    }
+
+    #security_pool_adjust .detail-body {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+    }
+
+    #security_pool_adjust .print-section {
+        break-inside: auto;
+        margin-bottom: 12px !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        animation: none !important;
+    }
+    #security_pool_adjust .print-section + .print-section {
+        break-before: page;
+        page-break-before: always;
+    }
+    #security_pool_adjust .print-section .section-header {
+        break-after: avoid;
+        min-height: 36px;
+        padding: 8px 12px;
+    }
+    #security_pool_adjust .print-doc-header {
+        display: block;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #E5E5E5;
+    }
+    #security_pool_adjust .print-doc-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #242933;
+        line-height: 22px;
+    }
+    #security_pool_adjust .print-doc-sub {
+        margin-top: 4px;
+        font-size: 12px;
+        color: #707783;
+        line-height: 18px;
+    }
+    #security_pool_adjust .print-only-caption {
+        display: inline-block;
+        margin-left: 8px;
+        font-size: 12px;
+        color: #707783;
+        font-weight: 400;
+    }
+
+    #security_pool_adjust .el-input__inner,
+    #security_pool_adjust .el-textarea__inner {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        height: auto !important;
+        line-height: 1.5 !important;
+        color: #3F485A !important;
+        -webkit-appearance: none;
+    }
+    #security_pool_adjust .el-input__inner::placeholder,
+    #security_pool_adjust .el-textarea__inner::placeholder {
+        color: transparent !important;
+        opacity: 0 !important;
+    }
+    #security_pool_adjust input[type='number']::-webkit-inner-spin-button,
+    #security_pool_adjust input[type='number']::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    #security_pool_adjust .el-input__prefix,
+    #security_pool_adjust .el-input__suffix,
+    #security_pool_adjust .el-input__icon,
+    #security_pool_adjust .el-input__count {
+        display: none !important;
+    }
+
+    #security_pool_adjust .issuer-financial-body,
+    #security_pool_adjust .pool-sub-block,
+    #security_pool_adjust .pool-expand-table,
+    #security_pool_adjust .print-section .el-table,
+    #security_pool_adjust .print-section .el-table__header-wrapper,
+    #security_pool_adjust .print-section .el-table__body-wrapper {
+        position: static !important;
+        max-height: none !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    #security_pool_adjust .issuer-financial-body {
+        padding: 8px 0 0 !important;
+    }
+    #security_pool_adjust .print-section .el-table::before,
+    #security_pool_adjust .print-section .el-table::after,
+    #security_pool_adjust .print-section .el-table__fixed,
+    #security_pool_adjust .print-section .el-table__fixed-right,
+    #security_pool_adjust .print-section .el-table__fixed-left,
+    #security_pool_adjust .print-section .el-table th.gutter,
+    #security_pool_adjust .print-section .el-table col[name='gutter'] {
+        display: none !important;
+    }
+
+    #security_pool_adjust .print-section .el-table,
+    #security_pool_adjust .print-section .el-table table {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: fixed !important;
+    }
+    #security_pool_adjust .print-section .el-table col {
+        width: auto !important;
+        min-width: 0 !important;
+    }
+    #security_pool_adjust .print-section .el-table th.el-table__cell,
+    #security_pool_adjust .print-section .el-table td.el-table__cell {
+        width: auto !important;
+        min-width: 0 !important;
+        padding: 4px 4px !important;
+    }
+    #security_pool_adjust .print-section .el-table .cell {
+        width: auto !important;
+        max-width: none !important;
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        line-height: 1.35 !important;
+    }
+    #security_pool_adjust .issuer-financial-table th:first-child,
+    #security_pool_adjust .issuer-financial-table td:first-child {
+        width: 28% !important;
+    }
+    #security_pool_adjust .issuer-financial-table .financial-value-input,
+    #security_pool_adjust .issuer-financial-table .financial-value-input .el-input__inner {
+        width: 100% !important;
+        min-width: 0 !important;
+        text-align: right !important;
+    }
+    #security_pool_adjust .pool-expand-table th:first-child,
+    #security_pool_adjust .pool-expand-table td:first-child {
+        width: 44px !important;
+    }
+
+    #security_pool_adjust .el-descriptions tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}

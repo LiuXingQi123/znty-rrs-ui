@@ -204,8 +204,13 @@
 
         <div class="detail-body" v-loading="detailLoading">
 
+            <div class="print-doc-header">
+                <div class="print-doc-title">证券池调库</div>
+                <div class="print-doc-sub">{{ [bondDetail.windCode, bondDetail.shortName || bondDetail.fullName].filter(Boolean).join(' ') }}</div>
+            </div>
+
             <!-- 证券基本信息 -->
-            <div class="section-card">
+            <div class="section-card print-section">
                 <div class="section-header" @click="toggleSection('bondInfo')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">证券基本信息</div>
@@ -369,10 +374,11 @@
             </div>
 
             <!-- 发行主体财务数据 -->
-            <div class="section-card issuer-financial-card">
+            <div class="section-card issuer-financial-card print-section">
                 <div class="section-header" @click="toggleSection('financial')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">发行主体最近三年及一期财务数据</div>
+                    <span class="print-only-caption">{{ financialBondType === 'industrial' ? '产业债' : '城投债' }}</span>
                     <span class="financial-mode-hint" :class="{ 'is-readonly': adjustStep === 2 }">
                         {{ adjustStep === 1 ? (isCurrentFinancialReportExisting ? '可编辑' : '暂不可编辑') : '只读' }}
                     </span>
@@ -430,7 +436,7 @@
             </div>
 
             <!-- 当前所在池 -->
-            <div class="section-card">
+            <div class="section-card print-section">
                 <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">当前所在池</div>
@@ -748,6 +754,7 @@
 
                         <!-- 提交区 -->
                         <div class="submit-area">
+                            <el-button size="small" icon="el-icon-printer" :disabled="detailLoading" @click="handleExportPdf">导出 PDF</el-button>
                             <el-button size="small" @click="backToList" icon="el-icon-close">取消</el-button>
                             <el-button type="primary" size="small" icon="el-icon-arrow-right"
                                        :disabled="selectedInPools.length === 0 && selectedOutPools.length === 0"
@@ -901,6 +908,7 @@
 
                 <!-- 步骤2操作按钮 -->
                 <div class="action-footer">
+                    <el-button size="small" icon="el-icon-printer" :disabled="detailLoading" @click="handleExportPdf">导出 PDF</el-button>
                     <el-button size="small" icon="el-icon-arrow-left" @click="backToList">返回列表</el-button>
                     <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
                     <el-button type="primary" size="small" icon="el-icon-check"
@@ -1620,6 +1628,7 @@
         beforeDestroy() {
             window.removeEventListener('resize', this.handleWindowResize);
             window.clearTimeout(this.resizeLayoutTimer);
+            this.unbindPrintRestore();
         },
         methods: {
 
@@ -2493,6 +2502,85 @@
                     this.$message.error(e.message || '操作失败');
                 }
             },
+            // 导出 PDF：先展开三块及所在池明细（v-if 表须渲染完），再调浏览器打印
+            handleExportPdf() {
+                if (this.detailLoading) {
+                    this.$message.warning('详情加载中，请稍后');
+                    return;
+                }
+                const snapshot = {
+                    bondInfo: this.sectionExpanded.bondInfo,
+                    financial: this.sectionExpanded.financial,
+                    currentPools: this.sectionExpanded.currentPools,
+                    securityPoolExpanded: this.securityPoolExpanded,
+                    issuerPoolExpanded: this.issuerPoolExpanded,
+                    documentTitle: document.title,
+                    parentDocumentTitle: null,
+                };
+                this.$set(this.sectionExpanded, 'bondInfo', true);
+                this.$set(this.sectionExpanded, 'financial', true);
+                this.$set(this.sectionExpanded, 'currentPools', true);
+                this.securityPoolExpanded = true;
+                this.issuerPoolExpanded = true;
+                // Chrome 另存 PDF 用顶层 document.title；页面在 iframe 里必须改工作台标题
+                const fileTitle = this.buildExportPdfFileTitle();
+                document.title = fileTitle;
+                snapshot.parentDocumentTitle = this.setParentDocumentTitle(fileTitle);
+                this.bindPrintRestore(snapshot);
+                // 所在池表是 v-if，展开后要等 DOM 和 el-table 布局完成再 print
+                this.$nextTick(() => {
+                    this.$nextTick(() => {
+                        window.setTimeout(() => {
+                            window.print();
+                        }, 50);
+                    });
+                });
+            },
+
+            // 打印结束或取消后还原折叠状态与页标题
+            bindPrintRestore(snapshot) {
+                this.unbindPrintRestore();
+                this.printRestoreHandler = () => {
+                    this.$set(this.sectionExpanded, 'bondInfo', snapshot.bondInfo);
+                    this.$set(this.sectionExpanded, 'financial', snapshot.financial);
+                    this.$set(this.sectionExpanded, 'currentPools', snapshot.currentPools);
+                    this.securityPoolExpanded = snapshot.securityPoolExpanded;
+                    this.issuerPoolExpanded = snapshot.issuerPoolExpanded;
+                    document.title = snapshot.documentTitle;
+                    this.setParentDocumentTitle(snapshot.parentDocumentTitle);
+                    this.unbindPrintRestore();
+                };
+                window.addEventListener('afterprint', this.printRestoreHandler);
+            },
+
+            // 组装另存 PDF 的默认文件名（不含非法路径字符）
+            buildExportPdfFileTitle() {
+                const parts = ['证券池调库', this.bondDetail.windCode, this.bondDetail.shortName || this.bondDetail.fullName];
+                return parts.filter(Boolean).join('_').replace(/[\\/:*?"<>|]/g, '');
+            },
+
+            // 同步工作台顶层标题；跨域或非 iframe 时忽略
+            setParentDocumentTitle(title) {
+                if (!title || window.parent === window) {
+                    return null;
+                }
+                try {
+                    const previous = window.parent.document.title;
+                    window.parent.document.title = title;
+                    return previous;
+                } catch (e) {
+                    return null;
+                }
+            },
+
+            // 移除打印还原监听，避免重复恢复
+            unbindPrintRestore() {
+                if (this.printRestoreHandler) {
+                    window.removeEventListener('afterprint', this.printRestoreHandler);
+                    this.printRestoreHandler = null;
+                }
+            },
+
             // 折叠/展开区块
             toggleSection(key) {
                 this.$set(this.sectionExpanded, key, !this.sectionExpanded[key]);
