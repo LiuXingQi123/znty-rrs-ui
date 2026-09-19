@@ -66,7 +66,7 @@
                         <i slot="prefix" class="el-input__icon el-icon-document"></i>
                     </el-input>
 
-                    <el-input v-model.trim="searchForm.initiatorName" placeholder="发起人" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                    <el-input v-if="activeTab !== 'initiated'" v-model.trim="searchForm.initiatorName" placeholder="发起人" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
                         <i slot="prefix" class="el-input__icon el-icon-user"></i>
                     </el-input>
 
@@ -94,7 +94,7 @@
             </div>
         </div>
 
-        <!-- 事宜列表：待处理 / 已完成 / 分级规则提醒 -->
+        <!-- 事宜列表：待处理 / 已完成 / 我发起的 / 分级规则提醒 -->
         <div class="table-card">
             <el-tabs v-model="activeTab" @tab-click="handleTabClick">
                 <el-tab-pane name="pending">
@@ -102,6 +102,9 @@
                 </el-tab-pane>
                 <el-tab-pane name="completed">
                     <span slot="label">已完成 ({{ completedCount }})</span>
+                </el-tab-pane>
+                <el-tab-pane name="initiated">
+                    <span slot="label">我发起的 ({{ initiatedCount }})</span>
                 </el-tab-pane>
                 <el-tab-pane name="gradeRuleAlert">
                     <span slot="label">分级规则提醒 ({{ alertOpenCount }})</span>
@@ -145,7 +148,7 @@
                 <el-table-column label="操作" width="100" fixed="right" align="center">
                     <template slot-scope="{ row }">
                         <el-button v-if="activeTab === 'pending'" class="matter-action" type="primary" size="mini" icon="el-icon-edit-outline" @click="openMatterPage(row)">处理</el-button>
-                        <el-button v-else-if="activeTab === 'completed'" class="matter-view-action" size="mini" icon="el-icon-view" @click="openMatterPage(row)">查看</el-button>
+                        <el-button v-else-if="activeTab === 'completed' || activeTab === 'initiated'" class="matter-view-action" size="mini" icon="el-icon-view" @click="openMatterPage(row)">查看</el-button>
                     </template>
                 </el-table-column>
             </el-table>
@@ -239,7 +242,7 @@ new Vue({
                 { value: '99', label: '发起人已撤回' },
             ],
             flowOptions: [],              // 流程名称下拉选项
-            activeTab: 'pending',         // 当前事宜页签：pending=待处理 / completed=已完成 / gradeRuleAlert=分级规则提醒
+            activeTab: 'pending',         // 当前事宜页签：pending=待处理 / completed=已完成 / initiated=我发起的 / gradeRuleAlert=分级规则提醒
             tableData: [],                // 当前页审批事宜数据
             loading: false,               // 审批表格加载状态
             pagination: {             // 审批分页参数
@@ -255,6 +258,7 @@ new Vue({
             alertLoading: false,          // 提醒表格加载状态
             pendingCount: 0,              // 待处理 Tab 角标（取该 Tab 列表查询 total）
             completedCount: 0,            // 已完成 Tab 角标（取该 Tab 列表查询 total）
+            initiatedCount: 0,            // 我发起的 Tab 角标（取该 Tab 列表查询 total）
             alertOpenCount: 0,            // 分级规则提醒 Tab 角标（取该 Tab 列表查询 total）
             alertPagination: {            // 提醒分页
                 pageIndex: 1,             // 当前页码
@@ -273,18 +277,23 @@ new Vue({
             if (this.isAlertTab) {
                 return '共 ' + this.alertPagination.total + ' 条分级规则提醒';
             }
-            return '共 ' + this.pagination.total + ' 条' + (this.activeTab === 'pending' ? '待处理' : '已完成') + '事宜';
+            const tabLabelMap = {
+                pending: '待处理',
+                completed: '已完成',
+                initiated: '我发起的',
+            };
+            return '共 ' + this.pagination.total + ' 条' + (tabLabelMap[this.activeTab] || '') + '事宜';
         },
     },
     mounted() {
         const tab = new URLSearchParams(window.location.search).get('tab');
-        if (tab === 'gradeRuleAlert') {
-            this.activeTab = 'gradeRuleAlert';
+        if (tab === 'gradeRuleAlert' || tab === 'initiated') {
+            this.activeTab = tab;
         }
         this.loadFlowOptions();
-        // 进入页时三个 Tab 各查一遍（当前 Tab 填列表，其余只取 total 填角标）
+        // 进入页时各事宜 Tab 各查一遍（当前 Tab 填列表，其余只取 total 填角标）
         this.loadAllTabsOnEnter();
-        // 从审核/详情页签返回时由工作台回调，重新预载三个 Tab 角标并刷新当前列表
+        // 从审核/详情页签返回时由工作台回调，重新预载各 Tab 角标并刷新当前列表
         window.RrsPageOnShow = () => {
             this.loadAllTabsOnEnter();
         };
@@ -383,12 +392,14 @@ new Vue({
         reloadCurrentTab() {
             if (this.isAlertTab) {
                 this.loadAlertList();
+            } else if (this.activeTab === 'initiated') {
+                this.loadInitiatedList();
             } else {
                 this.loadList();
             }
         },
 
-        // 进入页面：三个 Tab 并行各查一次；当前 Tab 加载列表，其余只取 total
+        // 进入页面：各事宜 Tab 并行各查一次；当前 Tab 加载列表，其余只取 total
         async loadAllTabsOnEnter() {
             const tasks = [];
             if (this.activeTab === 'pending') {
@@ -401,6 +412,11 @@ new Vue({
             } else {
                 tasks.push(this.queryMatterTabTotal('completed'));
             }
+            if (this.activeTab === 'initiated') {
+                tasks.push(this.loadInitiatedList());
+            } else {
+                tasks.push(this.queryInitiatedTabTotal());
+            }
             if (this.isAlertTab) {
                 tasks.push(this.loadAlertList());
             } else {
@@ -409,7 +425,7 @@ new Vue({
             await Promise.all(tasks);
         },
 
-        // 仅查询事宜 Tab 的 total（进入页预载角标用）
+        // 仅查询待处理 / 已完成 Tab 的 total（进入页预载角标用）
         async queryMatterTabTotal(stepStatus) {
             try {
                 const data = await this.apiPost('/api/v1/myMatters/queryMyMattersPage', {
@@ -429,15 +445,36 @@ new Vue({
                 const total = data && data.total != null ? Number(data.total) : 0;
                 if (stepStatus === 'pending') {
                     this.pendingCount = total;
-                } else {
+                } else if (stepStatus === 'completed') {
                     this.completedCount = total;
                 }
             } catch (e) {
                 if (stepStatus === 'pending') {
                     this.pendingCount = 0;
-                } else {
+                } else if (stepStatus === 'completed') {
                     this.completedCount = 0;
                 }
+            }
+        },
+
+        // 仅查询「我发起的」Tab 的 total（独立接口）
+        async queryInitiatedTabTotal() {
+            try {
+                const data = await this.apiPost('/api/v1/myMatters/queryMyInitiatedMattersPage', {
+                    flowIds: this.searchForm.flowIds.length > 0 ? this.searchForm.flowIds : null,
+                    securityCode: this.searchForm.securityCode || null,
+                    securityShortName: this.searchForm.securityShortName || null,
+                    startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
+                    startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
+                    processDescription: this.searchForm.processDescription || null,
+                    auditStatus: this.searchForm.auditStatus || null,
+                    currentUserId: this.currentUserId,
+                    pageIndex: 1,
+                    pageSize: 1,
+                });
+                this.initiatedCount = data && data.total != null ? Number(data.total) : 0;
+            } catch (e) {
+                this.initiatedCount = 0;
             }
         },
 
@@ -456,7 +493,7 @@ new Vue({
             }
         },
 
-        // 加载我的事宜列表
+        // 加载待处理 / 已完成列表
         async loadList() {
             this.loading = true;
             try {
@@ -483,6 +520,32 @@ new Vue({
                 } else if (this.activeTab === 'completed') {
                     this.completedCount = this.pagination.total;
                 }
+            } catch (e) {}
+            this.loading = false;
+            // 数据渲染后同步列表固定列布局
+            this.refreshTableLayout('mattersTableRef');
+        },
+
+        // 加载「我发起的」列表（独立接口）
+        async loadInitiatedList() {
+            this.loading = true;
+            try {
+                const params = {
+                    flowIds: this.searchForm.flowIds.length > 0 ? this.searchForm.flowIds : null,
+                    securityCode: this.searchForm.securityCode || null,
+                    securityShortName: this.searchForm.securityShortName || null,
+                    startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
+                    startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
+                    processDescription: this.searchForm.processDescription || null,
+                    auditStatus: this.searchForm.auditStatus || null,
+                    currentUserId: this.currentUserId,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                };
+                const data = await this.apiPost('/api/v1/myMatters/queryMyInitiatedMattersPage', params);
+                this.tableData = data.records || [];
+                this.pagination.total = data.total != null ? Number(data.total) : 0;
+                this.initiatedCount = this.pagination.total;
             } catch (e) {}
             this.loading = false;
             // 数据渲染后同步列表固定列布局
@@ -541,6 +604,9 @@ new Vue({
             if (this.isAlertTab) {
                 this.alertPagination.pageIndex = 1;
                 this.loadAlertList();
+            } else if (this.activeTab === 'initiated') {
+                this.pagination.pageIndex = 1;
+                this.loadInitiatedList();
             } else {
                 this.pagination.pageIndex = 1;
                 this.loadList();
@@ -552,6 +618,9 @@ new Vue({
             if (this.isAlertTab) {
                 this.alertPagination.pageIndex = 1;
                 this.loadAlertList();
+            } else if (this.activeTab === 'initiated') {
+                this.pagination.pageIndex = 1;
+                this.loadInitiatedList();
             } else {
                 this.pagination.pageIndex = 1;
                 this.loadList();
@@ -580,20 +649,32 @@ new Vue({
             };
             this.pagination.pageIndex = 1;
             this.loadFlowOptions();
-            this.loadList();
+            if (this.activeTab === 'initiated') {
+                this.loadInitiatedList();
+            } else {
+                this.loadList();
+            }
         },
 
         // 翻页
         handlePageChange(page) {
             this.pagination.pageIndex = page;
-            this.loadList();
+            if (this.activeTab === 'initiated') {
+                this.loadInitiatedList();
+            } else {
+                this.loadList();
+            }
         },
 
         // 切换每页条数
         handleSizeChange(size) {
             this.pagination.pageSize = size;
             this.pagination.pageIndex = 1;
-            this.loadList();
+            if (this.activeTab === 'initiated') {
+                this.loadInitiatedList();
+            } else {
+                this.loadList();
+            }
         },
 
         // 提醒列表翻页
@@ -658,6 +739,7 @@ new Vue({
             const params = new URLSearchParams();
             const isForbiddenCompanyAdjust = row.businessScene === 'forbiddenCompanyAdjust';
             const isCrmwAdjust = row.businessScene === 'crmwAdjust';
+            // 仅待处理进审核页；已完成 / 我发起的均只读详情
             const isPending = this.activeTab === 'pending';
             const code = row.securityCode || '';
             const name = row.securityShortName || code;

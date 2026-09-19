@@ -372,27 +372,27 @@
         <p class="sub">从页面操作到数据库读写的主要路径。</p>
         <div class="flow">
             <div class="step"><b>1. 加载流程选项</b><span>只返回当前用户事项中实际出现的有效流程。</span></div>
-            <div class="step"><b>2. 事项查询与角标预载</b><span>进入页面时并行查询待处理、已完成和分级规则提醒三个 Tab：当前 Tab 加载列表，其余 Tab 以每页 1 条仅取总数；后续查询或切换 Tab 只刷新当前 Tab 及其角标。</span></div>
-            <div class="step"><b>3. 选择代表步骤</b><span>待办取本人最新待处理（<code>pending</code>）步骤；其他取每申请最新步骤。</span></div>
+            <div class="step"><b>2. 事项查询与角标预载</b><span>进入页面时并行查询待处理、已完成、我发起的和分级规则提醒四个 Tab：当前 Tab 加载列表，其余 Tab 以每页 1 条仅取总数；后续查询或切换 Tab 只刷新当前 Tab 及其角标。</span></div>
+            <div class="step"><b>3. 选择代表步骤</b><span>待办取本人最新待处理（<code>pending</code>）步骤；已完成/我发起的取每申请最新步骤。</span></div>
             <div class="step"><b>4. 识别场景</b><span>根据池类型和主体类型判断跳转页面。</span></div>
             <div class="step"><b>5. 进入处理/查看</b><span>工作台新开审核/详情页签；提醒页签去调库同样新开。返回关闭该页签。</span></div>
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>事项分页与可见范围</h2>
-        <p class="sub">普通用户只能看到曾由自己处理或待处理的事项，管理员可穿透查看。</p><span class="api">POST /api/v1/myMatters/queryMyMattersPage</span>
+        <p class="sub">待处理/已完成走 queryMyMattersPage；我发起的走独立接口 queryMyInitiatedMattersPage。</p><span class="api">POST /api/v1/myMatters/queryMyMattersPage · queryMyInitiatedMattersPage</span>
         <div class="logic">
-            <article class="card"><h3>待办代表步骤</h3>
+            <article class="card"><h3>待办 / 已办（共用接口）</h3>
                 <ul>
-                    <li>stepStatus=pending 时按 adjust_log_id 分组取最大待处理（<code>pending</code>）步骤ID。</li>
-                    <li>普通用户同时要求 handler_id=currentUserId；未传用户时强制无结果。</li>
-                    <li>管理员 ID 为 1 或闭区间 10000–10100 时，不加处理人限制。</li>
+                    <li>stepStatus=pending：按 adjust_log_id 分组取最大待处理步骤；普通用户限 handler_id。</li>
+                    <li>stepStatus=completed：取最新步骤，且同批次不存在 pending；普通用户要求本人参与过。</li>
+                    <li>管理员 ID 为 1 或 10000–10100 时，待办/已办不加处理人限制。</li>
                 </ul>
             </article>
-            <article class="card"><h3>已办与筛选</h3>
+            <article class="card"><h3>我发起的（独立接口）</h3>
                 <ul>
-                    <li>非待办取每条申请的最新步骤。</li>
-                    <li>普通用户还要求该申请至少存在一条本人处理步骤。</li>
-                    <li>支持流程、证券、开始日期、描述、审核状态、发起人；已完成（<code>completed</code>）要求同批次不存在待处理（<code>pending</code>）。</li>
+                    <li>接口：<code>POST /api/v1/myMatters/queryMyInitiatedMattersPage</code>。</li>
+                    <li>按 <code>al.adjuster_id = currentUserId</code> 过滤（管理员也只看自己发起的），取每条申请最新步骤。</li>
+                    <li>含流程中与已结束；页面隐藏「发起人」筛选项；不传 stepStatus。</li>
                 </ul>
             </article>
         </div>
@@ -411,8 +411,8 @@
                     <li><code>pool_type='crmw'</code> → <code>crmwAdjust</code>（CRMW 审核/详情）。</li>
                     <li><code>category_type=company</code> 且（<code>pool_type</code> 为 forbidden/observe/blacklist/restricted，或目标池 15/16/17/23）→ <code>forbiddenCompanyAdjust</code>（主体禁投审核/详情）。</li>
                     <li><strong>其余一律</strong> <code>securityAdjust</code>（证券池审核/详情）。含禁投池 ABS 债调整：ABS 的 <code>category_type≠company</code>，即使目标池 15/16/17/23 也<strong>不</strong>进主体禁投审核页。</li>
-                    <li>待办进 approve（<code>entryMode=process</code>），已办进 detail（<code>view</code>）。</li>
-                    <li>第三页签 <code>gradeRuleAlert</code> 单独查 <code>ip_grade_rule_alert</code>，列与操作与审批表不同。</li>
+                    <li>待办进 approve（<code>entryMode=process</code>）；已完成 / 我发起的进 detail（<code>view</code>）。</li>
+                    <li>页签顺序：待处理 → 已完成 → 我发起的 → 分级规则提醒；提醒页签单独查 <code>ip_grade_rule_alert</code>。</li>
                 </ul>
             </article>
         </div>
