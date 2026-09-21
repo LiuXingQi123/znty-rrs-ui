@@ -330,3 +330,410 @@ body > div[id] {
 .el-tabs--border-card > .el-tabs__header .el-tabs__item.is-active {
     color: #2743A4 !important;
 }
+
+/*
+* 业务页打印导出 PDF（配合 js/print_export.js）
+* js/print_export.js 会同时给 html/body 添加 is-print-export；破坏性打印重排仅在该状态下生效。
+* 证券池调库发起页仍使用页面内独立打印样式，不走本开关。
+* 要导出的卡片加 print-section。
+*
+* 踩坑记录：
+* 1. 根容器 height:100vh + overflow:hidden、.page 用 flex，打印须改成 block + height:auto，否则只出首屏。
+* 2. 折叠块混用 v-show/v-if：v-if 节点不存在，CSS 无法补回；公共 CSS 也无法可靠推断 v-show 节点原本的 display。须在 prepare 中展开，等待双 nextTick 和短延时后打印，再由 afterprint 还原。
+* 3. el-table 按屏幕写死像素宽，A4 竖版会裁成「两列半」。须 width:100% + table-layout:fixed，并清掉 col 的 min-width。
+* 4. .pool-expand-table / .pool-sub-block 屏幕态 overflow:hidden，不改 visible 会裁列；主体表 max-height=280 也要取消。不得清掉 issuer-financial-body、pool-sub-block 等内层内容容器原有的左右 padding；detail-body 外层 padding 可单独归零。
+* 5. 不要给 el-table 数据行强制 break-inside:avoid，否则财务表末行可能被挤到下一模块后面；分页只作用于直接相邻的 print-section，el-descriptions 行仍可避免跨页断开。
+* 6. .el-table__fixed* 和 gutter 列打印会重影、占宽，需隐藏。
+* 7. placeholder、日期/下拉图标、数字输入微调箭头、字数统计、折叠箭头、财务工具条、所在池展开按钮，以及调库记录内的选择/上传/删除控件不要进 PDF；已保存的报告和附件名称保留。
+* 8. iframe 里 common.css 会隐藏 .topbar，导出入口须放在实际可见操作区；当前调库页面采用底部操作栏。须在 iframe 内 window.print()，外壳 Ctrl+P 会打出工作台。
+* 9. Chrome 另存 PDF 用顶层 document.title。只改 iframe title 会得到「证券池调整 - RRS 工作台.pdf」，须同步改 parent.document.title。
+* 10. 无 print-section 的页面若直接用「隐藏非 print-section」会打成空白，所以隐藏规则必须挂 body.is-print-export。
+* 11. @page 无法按 body class 限定，A4/12mm 会作为引入 common.css 的页面的打印默认。
+* 12. 主体「当前所在池」里有两套合并态：companyPoolExpanded 和 companyBondPoolExpanded（旗下债券所在池）。只展开前者时 PDF 仍是 chip 合并态。导出前须把 print-section 内所有 v-if 明细表开关都打开。
+* 13. 所在池明细「查看债券」是弹窗入口，打印里无意义。Element 表头是否追加 gutter 取决于数据量，按 last-child/nth-last-child 隐藏会错列；须用打印状态 + v-if 直接不渲染整个操作列。
+* 14. CRMW 审核/详情在 max-width:768px 下给 .bond-info-descriptions 设了 min-width:900px。打印页宽约 700px 会命中该媒体查询，三列表被裁成两列半。打印须取消 min-width，并让 el-descriptions 按页宽 table-layout:fixed。
+* 15. 审核/详情组合页把调库记录、原因和建议标为打印区块，原因区是否进入 PDF 仍服从 showReasonSection；三个独立发起页的原因区未标记 print-section，不进入 PDF。
+* 16. 调库记录「审核状态」是 fixed="right"。Element 对主表单元格用 td.is-hidden > * { visibility:hidden }，只改单元格本身不够，子元素也要 visible。
+* 17. 审批流程列的流程类型标签（如「默认调入」）打印时隐藏，只保留流程名称。
+* 18. 基本信息里的 input 去边框是为了像纯文本；原因和建议是 textarea 区块，须单独加回边框，并关掉右下角 resize 手柄。
+* 19. 调库记录列多，table-layout:fixed 后「调整类型」「审核状态」容易挤压。两列须同时通过 class-name / label-class-name 赋语义类，表头和标签竖排，并由单元格负责水平、垂直居中；不能依赖 last-child。
+* 20. 公共打印字号对齐证券池调整：区块标题 16px、表格/正文 13px、描述标签 12px；区块头保留 8px 上下 padding，避免标题区域被压扁。
+* 21. Element 空表格会把 iframe 屏幕态计算出的像素宽度写进 .el-table__empty-block；打印时须重置为当前表格宽度，否则 Chrome 会因横向溢出缩小整页。
+* 22. 「原因和建议」两列若使用 1fr，Grid 子项的自动最小宽度可能把右侧撑出容器；须改用 minmax(0, 1fr)，并给 Grid 子项和 textarea 设置 min-width:0。
+* 23. 打印会隐藏 loading 遮罩；导出入口除详情主请求外，还须校验独立的财务请求状态，否则可能得到版式正常但财务数据尚未返回的 PDF。
+*/
+.print-doc-header,
+.print-only-caption {
+    display: none;
+}
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 12mm;
+    }
+
+    html.is-print-export,
+    html.is-print-export body {
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: #FFFFFF !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        transform: none !important;
+        zoom: 1 !important;
+    }
+    body.is-print-export .el-dialog__wrapper,
+    body.is-print-export .v-modal,
+    body.is-print-export .el-loading-mask,
+    body.is-print-export .el-picker-panel,
+    body.is-print-export .el-select-dropdown,
+    body.is-print-export .el-popper {
+        display: none !important;
+    }
+    body.is-print-export > div[id] {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: #FFFFFF !important;
+        color: #242933 !important;
+        transform: none !important;
+        zoom: 1 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    body.is-print-export .page {
+        display: none !important;
+    }
+    body.is-print-export .page.active {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        flex: none !important;
+        animation: none !important;
+        transform: none !important;
+    }
+    body.is-print-export .topbar,
+    body.is-print-export .submit-area,
+    body.is-print-export .action-footer,
+    body.is-print-export .detail-bottom-actions,
+    body.is-print-export .section-card:not(.print-section),
+    body.is-print-export .financial-toolbar,
+    body.is-print-export .financial-mode-hint,
+    body.is-print-export .section-header > i,
+    body.is-print-export .pool-toggle-btn,
+    body.is-print-export .pool-overflow-hint,
+    body.is-print-export .pool-expand-table .el-button,
+    body.is-print-export .rights-holder-picker .el-button,
+    body.is-print-export .section-adjust-log .upload-btn,
+    body.is-print-export .section-adjust-log .el-upload,
+    body.is-print-export .section-adjust-log .upload-file-tag > .el-icon-close,
+    body.is-print-export .section-adjust-log .report-tag > .el-icon-close {
+        display: none !important;
+    }
+    body.is-print-export .detail-body {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+    }
+    body.is-print-export .print-section {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        break-inside: auto;
+        margin-bottom: 12px !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        animation: none !important;
+        transform: none !important;
+    }
+    body.is-print-export .print-section + .print-section {
+        break-before: page;
+        page-break-before: always;
+    }
+    body.is-print-export .print-section .section-header {
+        break-after: avoid;
+        min-height: 36px;
+        padding: 8px 12px;
+    }
+    html.is-print-export .print-section .section-title {
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        line-height: 24px !important;
+        color: #242933 !important;
+    }
+    html.is-print-export .print-section .pool-sub-label {
+        font-size: 13px !important;
+        font-weight: 700 !important;
+    }
+    html.is-print-export .print-section,
+    html.is-print-export .print-section .el-table,
+    html.is-print-export .print-section .el-table--small,
+    html.is-print-export .print-section .el-table th.el-table__cell,
+    html.is-print-export .print-section .el-table td.el-table__cell,
+    html.is-print-export .print-section .el-table .cell,
+    html.is-print-export .print-section .el-input__inner,
+    html.is-print-export .print-section .el-textarea__inner,
+    html.is-print-export .print-section .el-descriptions,
+    html.is-print-export .print-section .el-descriptions__content,
+    html.is-print-export .print-section .el-descriptions-item__content {
+        font-size: 13px !important;
+        line-height: 22px !important;
+    }
+    html.is-print-export .print-section .el-descriptions__label,
+    html.is-print-export .print-section .el-descriptions-item__label {
+        font-size: 12px !important;
+        font-weight: 600 !important;
+    }
+    body.is-print-export .print-doc-header {
+        display: block;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #E5E5E5;
+    }
+    body.is-print-export .print-doc-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #242933;
+        line-height: 22px;
+    }
+    body.is-print-export .print-doc-sub {
+        margin-top: 4px;
+        font-size: 12px;
+        color: #707783;
+        line-height: 18px;
+    }
+    body.is-print-export .print-only-caption {
+        display: inline-block;
+        margin-left: 8px;
+        font-size: 12px;
+        color: #707783;
+        font-weight: 400;
+    }
+    body.is-print-export .el-input__inner,
+    body.is-print-export .el-textarea__inner {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        height: auto !important;
+        line-height: 22px !important;
+        color: #3F485A !important;
+        -webkit-appearance: none;
+    }
+    body.is-print-export .el-input__inner::placeholder,
+    body.is-print-export .el-textarea__inner::placeholder {
+        color: transparent !important;
+        opacity: 0 !important;
+    }
+    body.is-print-export .el-input__prefix,
+    body.is-print-export .el-input__suffix,
+    body.is-print-export .el-input__icon,
+    body.is-print-export .el-input__count {
+        display: none !important;
+    }
+    body.is-print-export input[type='number']::-webkit-inner-spin-button,
+    body.is-print-export input[type='number']::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    body.is-print-export .issuer-financial-body,
+    body.is-print-export .pool-sub-block,
+    body.is-print-export .pool-expand-table,
+    body.is-print-export .print-section .el-table,
+    body.is-print-export .print-section .el-table__header-wrapper,
+    body.is-print-export .print-section .el-table__body-wrapper {
+        position: static !important;
+        max-height: none !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    body.is-print-export .print-section .el-table::before,
+    body.is-print-export .print-section .el-table::after,
+    body.is-print-export .print-section .el-table__fixed,
+    body.is-print-export .print-section .el-table__fixed-right,
+    body.is-print-export .print-section .el-table__fixed-left,
+    body.is-print-export .print-section .el-table__fixed-right-patch,
+    body.is-print-export .print-section .el-table th.gutter,
+    body.is-print-export .print-section .el-table col[name='gutter'] {
+        display: none !important;
+    }
+    /* 固定列在主表里是 is-hidden，藏掉克隆后必须把主表单元格及子元素重新显示，否则审核状态等右固定列会消失 */
+    body.is-print-export .print-section .el-table .el-table__cell.is-hidden,
+    body.is-print-export .print-section .el-table th.is-hidden > *,
+    body.is-print-export .print-section .el-table td.is-hidden > * {
+        visibility: visible !important;
+    }
+    body.is-print-export .section-adjust-log .flow-type-tag {
+        display: none !important;
+    }
+    body.is-print-export .print-section .el-table,
+    body.is-print-export .print-section .el-table table {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: fixed !important;
+    }
+    body.is-print-export .print-section .el-table col {
+        width: auto !important;
+        min-width: 0 !important;
+    }
+    body.is-print-export .print-section .el-table__empty-block {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+    body.is-print-export .print-section .el-table th.el-table__cell,
+    body.is-print-export .print-section .el-table td.el-table__cell {
+        width: auto !important;
+        min-width: 0 !important;
+        padding: 4px 4px !important;
+    }
+    body.is-print-export .print-section .el-table .cell {
+        width: auto !important;
+        max-width: none !important;
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        line-height: 1.35 !important;
+    }
+    body.is-print-export .print-section .el-tag--mini {
+        font-size: 12px !important;
+        height: 22px;
+        line-height: 20px;
+        padding: 0 8px;
+    }
+    body.is-print-export .section-adjust-log .el-table th.el-table__cell.print-vertical-column,
+    body.is-print-export .section-adjust-log .el-table td.el-table__cell.print-vertical-column {
+        width: 36px !important;
+        min-width: 36px !important;
+        max-width: 36px !important;
+        padding: 4px 2px !important;
+        overflow: visible !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+    }
+    body.is-print-export .section-adjust-log th.print-vertical-column > .cell {
+        display: inline-block;
+        width: auto !important;
+        padding: 0 !important;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        white-space: nowrap !important;
+        line-height: 1.25 !important;
+        word-break: keep-all !important;
+    }
+    body.is-print-export .section-adjust-log td.print-vertical-column > .cell {
+        padding: 0 !important;
+        text-align: center !important;
+    }
+    body.is-print-export .section-adjust-log td.print-vertical-column > .cell > .el-tag {
+        display: inline-block;
+        width: auto !important;
+        height: auto !important;
+        padding: 6px 3px !important;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        white-space: nowrap !important;
+        line-height: 1.25 !important;
+        word-break: keep-all !important;
+    }
+    body.is-print-export .issuer-financial-table th:first-child,
+    body.is-print-export .issuer-financial-table td:first-child {
+        width: 28% !important;
+    }
+    body.is-print-export .financial-value-input,
+    body.is-print-export .financial-value-input .el-input__inner {
+        width: 100% !important;
+        min-width: 0 !important;
+        text-align: right !important;
+    }
+    body.is-print-export .pool-expand-table th:first-child,
+    body.is-print-export .pool-expand-table td:first-child {
+        width: 44px !important;
+    }
+    body.is-print-export .el-descriptions tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    body.is-print-export .print-section .el-descriptions,
+    body.is-print-export .print-section .el-descriptions__body,
+    body.is-print-export .print-section .el-descriptions__table,
+    body.is-print-export .print-section .bond-info-descriptions {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+        table-layout: fixed !important;
+        font-size: 13px !important;
+    }
+    body.is-print-export .print-section .el-descriptions-item__label,
+    body.is-print-export .print-section .el-descriptions__label {
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow: visible !important;
+        width: auto !important;
+        min-width: 0 !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+    }
+    body.is-print-export .print-section .el-descriptions-item__content,
+    body.is-print-export .print-section .el-descriptions__content {
+        width: auto !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+    }
+    body.is-print-export .print-section .el-descriptions .el-input,
+    body.is-print-export .print-section .el-descriptions .el-textarea,
+    body.is-print-export .print-section .el-descriptions .el-date-editor,
+    body.is-print-export .print-section .el-descriptions .detail-date-picker {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    body.is-print-export .print-section .el-descriptions .el-input__inner,
+    body.is-print-export .print-section .el-descriptions .el-textarea__inner {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        word-break: break-word !important;
+    }
+    body.is-print-export .section-reason-advice .el-textarea__inner {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        border: 1px solid #E5E5E5 !important;
+        background: #FFFFFF !important;
+        padding: 8px 10px !important;
+        min-height: 72px !important;
+        line-height: 1.5 !important;
+        resize: none !important;
+        box-shadow: none !important;
+    }
+    body.is-print-export .section-reason-advice .reason-advice-body {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 20px 22px !important;
+    }
+    body.is-print-export .section-reason-advice .reason-advice-grid {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    }
+    body.is-print-export .section-reason-advice .reason-advice-grid > *,
+    body.is-print-export .section-reason-advice .el-textarea {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+    body.is-print-export .section-reason-advice .el-textarea__inner::-webkit-resizer {
+        display: none !important;
+    }
+}

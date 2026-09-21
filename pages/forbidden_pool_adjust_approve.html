@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
     <script src="../js/api.js"></script>
+    <script src="../js/print_export.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <link rel="stylesheet" href="../css/forbidden_pool_adjust_approve.css">
     <link rel="stylesheet" href="../css/common.css">
@@ -163,8 +164,13 @@
 
         <div class="detail-body" v-loading="detailLoading">
 
+            <div class="print-doc-header">
+                <div class="print-doc-title">{{ printDocumentTitle }}</div>
+                <div class="print-doc-sub">{{ [companyDetail.companyCode, companyDetail.companyShortName || companyDetail.companyFullName].filter(Boolean).join(' ') }}</div>
+            </div>
+
             <!-- 主体基本信息 -->
-            <div class="section-card section-company-info">
+            <div class="section-card section-company-info print-section">
                 <div class="section-header" @click="toggleSection('bondInfo')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">主体基本信息</div>
@@ -217,7 +223,7 @@
             </div>
 
             <!-- 当前所在池 -->
-            <div class="section-card section-current-pools">
+            <div class="section-card section-current-pools print-section">
                 <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">当前所在池</div>
@@ -309,7 +315,7 @@
                                 <el-table-column prop="entryDate" label="最早入池日期" min-width="130" align="center">
                                     <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
                                 </el-table-column>
-                                <el-table-column label="操作" width="90" align="center">
+                                <el-table-column v-if="!isPrintExporting" label="操作" width="90" align="center">
                                     <template slot-scope="{ row }">
                                         <el-button type="text" size="mini" @click="openCompanyBondDialog(row)">查看债券</el-button>
                                     </template>
@@ -322,7 +328,7 @@
             </div>
 
             <!-- 调库记录 -->
-            <div class="section-card section-adjust-log">
+            <div class="section-card section-adjust-log print-section">
                 <div class="section-header" @click="toggleSection('adjustLog')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">调库记录</div>
@@ -344,7 +350,8 @@
                         <el-table-column prop="poolPath" label="投资池名称" min-width="180">
                             <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.poolPath }}</span></template>
                         </el-table-column>
-                        <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center">
+                        <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center"
+                                         class-name="print-vertical-column" label-class-name="print-vertical-column">
                     <template slot-scope="{ row }">
                         <el-tag v-if="row.adjustType" size="mini" :type="adjustTypeTagType(row.adjustType)">{{ row.adjustType }}</el-tag>
                     </template>
@@ -363,7 +370,7 @@
                         <el-table-column prop="flowName" label="审批流程" min-width="175" show-overflow-tooltip>
                             <template slot-scope="{ row }">
                                 <span v-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
-                                    <el-tag v-if="row.flowType" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
+                                    <el-tag v-if="row.flowType" class="flow-type-tag" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
                                     <span>{{ row.flowName }}</span>
                                 </span>
                                 <span v-else></span>
@@ -443,7 +450,8 @@
                                 </div>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="auditStatus" label="审核状态" width="160" fixed="right" align="center">
+                        <el-table-column prop="auditStatus" label="审核状态" width="160" fixed="right" align="center"
+                                         class-name="print-vertical-column" label-class-name="print-vertical-column">
                             <template slot-scope="{ row }">
                                 <el-tag v-if="row.auditStatus" size="mini" :type="auditStatusType(row.auditStatus)">{{ auditStatusLabel(row.auditStatus) }}</el-tag>
                             </template>
@@ -453,14 +461,14 @@
             </div>
 
             <!-- 原因和建议 -->
-            <div class="section-card section-reason-advice" v-show="showReasonSection" style="animation-delay:.06s;">
+            <div class="section-card section-reason-advice print-section" v-show="showReasonSection" style="animation-delay:.06s;">
                 <div class="section-header" @click="toggleSection('reasonAdvice')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">原因和建议</div>
                     <i :class="sectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
-                <div v-show="sectionExpanded.reasonAdvice" style="padding:20px 22px;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div v-show="sectionExpanded.reasonAdvice" class="reason-advice-body" style="padding:20px 22px;">
+                    <div class="reason-advice-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                         <div>
                             <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div>
                             <el-input type="textarea" :rows="4" v-model="adjustReason" :disabled="isReasonReadonly"
@@ -476,6 +484,7 @@
 
                 <!-- 步骤2操作按钮 -->
                 <div class="action-footer" v-if="showReasonActionButtons">
+                    <el-button size="small" icon="el-icon-printer" :disabled="detailLoading" @click="handleExportPdf">导出 PDF</el-button>
                     <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
                     <el-button type="primary" size="small" icon="el-icon-check"
                                :disabled="validCount === 0 || submitLoading"
@@ -576,6 +585,7 @@
                     <div v-else style="color:var(--c-text-3);font-size:13px;padding:4px 0;">暂无需要当前用户处理的流程步骤</div>
                 </div>
                 <div class="action-footer">
+                    <el-button size="small" icon="el-icon-printer" :disabled="detailLoading" @click="handleExportPdf">导出 PDF</el-button>
                     <el-button size="small" icon="el-icon-arrow-left"
                                @click="backToList">
                         返回
@@ -799,6 +809,7 @@
 
                         <!-- 提交区 -->
                         <div class="submit-area">
+                            <el-button size="small" icon="el-icon-printer" :disabled="detailLoading" @click="handleExportPdf">导出 PDF</el-button>
                             <el-button size="small" @click="backToList" icon="el-icon-close">取消</el-button>
                             <el-button type="primary" size="small" icon="el-icon-arrow-right"
                                        :disabled="selectedInPools.length === 0 && selectedOutPools.length === 0"
@@ -849,7 +860,7 @@
                         <el-table-column prop="flowName" label="审批流程" min-width="175" show-overflow-tooltip>
                             <template slot-scope="{ row }">
                                 <span v-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
-                                    <el-tag v-if="row.flowType" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
+                                    <el-tag v-if="row.flowType" class="flow-type-tag" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
                                     <span>{{ row.flowName }}</span>
                                 </span>
                                 <span v-else></span>
@@ -1303,6 +1314,7 @@
                 entryMode: 'process',         // 入口模式：process=我的事宜处理 / next=下一步校验确认
                 companyDetail: {},            // 主体基本信息（详情页）
                 detailLoading: false,         // 详情页加载状态
+                isPrintExporting: false,      // 导出 PDF 时移除无意义的操作列
                 companyCurrentPools: [],     // 当前证券所在的投资池列表
                 companyBondCurrentPools: [],       // 当前证券主体所在的投资池列表
                 companyPoolExpanded: false,  // 证券所在池展开/折叠状态
@@ -1404,6 +1416,10 @@
             // 根据入口模式显示页面用途
             pageTitle() {
                 return this.entryMode === 'next' ? '禁投池调整' : '审核审批';
+            },
+            // PDF 标题随下一步确认/审批处理入口切换
+            printDocumentTitle() {
+                return this.entryMode === 'next' ? '禁投池调整' : '禁投池调整审核';
             },
             // 当前是否为我的事宜处理入口
             isProcessMode() {
@@ -1575,6 +1591,7 @@
         beforeDestroy() {
             window.removeEventListener('resize', this.handleWindowResize);
             window.clearTimeout(this.resizeLayoutTimer);
+            window.RrsPrintExport.unbind();
         },
         methods: {
 
@@ -1940,6 +1957,50 @@
                     this.$set(this.deletedAttachmentIds, logKey, ids);
                 }
             },
+            // 导出 PDF：主体基本信息、当前所在池、调库记录、原因和建议
+            handleExportPdf() {
+                if (this.detailLoading) {
+                    this.$message.warning('详情加载中，请稍后');
+                    return;
+                }
+                window.RrsPrintExport.print({
+                    // 组成浏览器“另存为 PDF”的默认文件名
+                    fileTitle: [this.printDocumentTitle, this.companyDetail.companyCode, this.companyDetail.companyShortName || this.companyDetail.companyFullName],
+                    // 传入 Vue nextTick，确保展开后的 DOM 完成渲染
+                    nextTick: (fn) => this.$nextTick(fn),
+                    // 打印前展开导出区块，并返回原状态快照
+                    prepare: () => {
+                        const snapshot = {
+                            bondInfo: this.sectionExpanded.bondInfo,
+                            currentPools: this.sectionExpanded.currentPools,
+                            adjustLog: this.sectionExpanded.adjustLog,
+                            reasonAdvice: this.sectionExpanded.reasonAdvice,
+                            companyPoolExpanded: this.companyPoolExpanded,
+                            companyBondPoolExpanded: this.companyBondPoolExpanded,
+                            isPrintExporting: this.isPrintExporting,
+                        };
+                        this.isPrintExporting = true;
+                        this.$set(this.sectionExpanded, 'bondInfo', true);
+                        this.$set(this.sectionExpanded, 'currentPools', true);
+                        this.$set(this.sectionExpanded, 'adjustLog', true);
+                        this.$set(this.sectionExpanded, 'reasonAdvice', true);
+                        this.companyPoolExpanded = true;
+                        this.companyBondPoolExpanded = true;
+                        return snapshot;
+                    },
+                    // 打印结束或取消后，按快照恢复页面状态
+                    restore: (snapshot) => {
+                        this.$set(this.sectionExpanded, 'bondInfo', snapshot.bondInfo);
+                        this.$set(this.sectionExpanded, 'currentPools', snapshot.currentPools);
+                        this.$set(this.sectionExpanded, 'adjustLog', snapshot.adjustLog);
+                        this.$set(this.sectionExpanded, 'reasonAdvice', snapshot.reasonAdvice);
+                        this.companyPoolExpanded = snapshot.companyPoolExpanded;
+                        this.companyBondPoolExpanded = snapshot.companyBondPoolExpanded;
+                        this.isPrintExporting = snapshot.isPrintExporting;
+                    },
+                });
+            },
+
             // 折叠/展开区块
             toggleSection(key) {
                 this.$set(this.sectionExpanded, key, !this.sectionExpanded[key]);

@@ -2028,14 +2028,15 @@ body.security-pool-adjust-page {
 *
 * 踩坑记录：
 * 1. 根容器 height:100vh + overflow:hidden、.page 用 flex，打印时必须改成 block + height:auto，否则只出首屏。
-* 2. 折叠块是 v-show / v-if，打印 CSS 压不掉内联 display:none；导出前须 JS 展开。所在池明细是 v-if，展开后要等 DOM/el-table 布局再 print。
+* 2. 折叠块混用 v-show / v-if：v-if 节点不存在，CSS 无法补回；导出前须由 JS 展开。所在池明细展开后还要等待双 nextTick 和短延时，让 DOM / el-table 完成布局再 print。
 * 3. el-table 按屏幕把 col/table 写成像素宽（财务表约 220+150*4），A4 竖版会裁成「两列半」。必须 width:100% + table-layout:fixed，并清掉 col 的 min-width。
-* 4. .pool-expand-table / .pool-sub-block 屏幕态 overflow:hidden，不改 visible 列会被裁；主体所在池 max-height=280 也要取消。
-* 5. 给 el-table 的 tr 加 break-inside:avoid 会把财务表末行挤到「当前所在池」后面；三块用 page-break-before，表行不要 avoid。
+* 4. .pool-expand-table / .pool-sub-block 屏幕态 overflow:hidden，不改 visible 列会被裁；主体所在池 max-height=280 也要取消，但须保留内层容器原有的左右 padding。
+* 5. 给 el-table 的 tr 加 break-inside:avoid 会把财务表末行挤到「当前所在池」后面；三块用 page-break-before，el-table 数据行不要强制 avoid。
 * 6. .el-table__fixed* 固定列克隆和 gutter 列打印会重影、占宽，需隐藏。
-* 7. placeholder「请输入」、日期/下拉图标、字数统计、折叠箭头、财务工具条、所在池展开按钮不要进 PDF。
-* 8. 工作台 iframe 里 common.css 会藏 .topbar，导出按钮只能放底部操作栏；须在 iframe 内 window.print()，外壳 Ctrl+P 会打出整个工作台。
+* 7. placeholder「请输入」、日期/下拉图标、数字输入微调箭头、字数统计、折叠箭头、财务工具条、所在池展开按钮不要进 PDF。
+* 8. 工作台 iframe 里 common.css 会藏 .topbar，导出入口须放在实际可见操作区；本页采用底部操作栏。须在 iframe 内 window.print()，外壳 Ctrl+P 会打出整个工作台。
 * 9. Chrome 另存 PDF 用顶层 document.title。页面在 iframe 里只改自身 title 会得到「证券池调整 - RRS 工作台.pdf」；须同步改 parent.document.title，afterprint 再还原。
+* 10. 打印会隐藏 loading 遮罩；导出按钮和方法须同时校验详情请求与 financialReportLoading，避免财务数据尚未返回时导出空表。
 */
 @media print {
     @page {

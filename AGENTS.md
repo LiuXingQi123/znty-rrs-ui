@@ -46,7 +46,7 @@
 
 - `axios.defaults.baseURL = 'http://localhost:18090'` 在 `js/api.js` 中设置一次；业务页直接 `this.apiPost('/api/v1/xxx', body)` 即可，**禁止**再设 `Vue.prototype.apiBase` 或在业务页里重复写 `axios.defaults.baseURL`。
 - `Vue.prototype.apiPost(path, body, config)` 第 3 个 `config` 透传给 `axios`；传 `{ responseType: 'blob' }` 走文件下载分支，直接返回原始 `resp`、跳过 `success` 解析。
-- 业务页 `<head>` 引入顺序固定：Element UI CSS → Vue → Element UI → axios → **`js/api.js`**（根目录 `js/api.js`，`pages/` 下用 `../js/api.js`）→ 按需 moment → 页面 CSS → `css/common.css`。`api.js` 必须在 axios 之后、页面脚本之前，否则 `apiPost` 未挂载。
+- 业务页 `<head>` 引入顺序固定：Element UI CSS → Vue → Element UI → axios → **`js/api.js`**（根目录 `js/api.js`，`pages/` 下用 `../js/api.js`）→ 按需 **`js/print_export.js`**（导出 PDF 的页面）→ 按需 moment → 页面 CSS → `css/common.css`。`api.js` 必须在 axios 之后、页面脚本之前，否则 `apiPost` 未挂载。
 
 ### `css/common.css` 的 iframe 适配职责
 

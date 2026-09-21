@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
     <script src="../js/api.js"></script>
+    <script src="../js/print_export.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <link rel="stylesheet" href="../css/forbidden_pool_adjust.css">
     <link rel="stylesheet" href="../css/common.css">
@@ -269,8 +270,13 @@
 
         <div class="detail-body" v-loading="detailLoading">
 
+            <div class="print-doc-header">
+                <div class="print-doc-title">禁投池调整</div>
+                <div class="print-doc-sub">{{ [companyDetail.companyCode, companyDetail.companyFullName].filter(Boolean).join(' ') }}</div>
+            </div>
+
             <!-- 主体基本信息 -->
-            <div class="section-card">
+            <div class="section-card print-section">
                 <div class="section-header" @click="toggleSection('bondInfo')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">主体基本信息</div>
@@ -315,7 +321,7 @@
             </div>
 
             <!-- 当前所在池 -->
-            <div class="section-card">
+            <div class="section-card print-section">
                 <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">当前所在池</div>
@@ -407,7 +413,7 @@
                                 <el-table-column prop="entryDate" label="最早入池日期" min-width="130" align="center">
                                     <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.entryDate }}</span></template>
                                 </el-table-column>
-                                <el-table-column label="操作" width="90" align="center">
+                                <el-table-column v-if="!isPrintExporting" label="操作" width="90" align="center">
                                     <template slot-scope="{ row }">
                                         <el-button type="text" size="mini" @click="openCompanyBondDialog(row)">查看债券</el-button>
                                     </template>
@@ -624,6 +630,7 @@
 
                         <!-- 提交区 -->
                         <div class="submit-area">
+                            <el-button size="small" icon="el-icon-printer" :disabled="detailLoading" @click="handleExportPdf">导出 PDF</el-button>
                             <el-button size="small" @click="backToList" icon="el-icon-close">取消</el-button>
                             <el-button type="primary" size="small" icon="el-icon-arrow-right"
                                        :disabled="selectedInPools.length === 0 && selectedOutPools.length === 0"
@@ -773,6 +780,7 @@
 
                 <!-- 步骤2操作按钮 -->
                 <div class="action-footer">
+                    <el-button size="small" icon="el-icon-printer" :disabled="detailLoading" @click="handleExportPdf">导出 PDF</el-button>
                     <el-button size="small" icon="el-icon-arrow-left" @click="backToList">返回列表</el-button>
                     <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
                     <el-button type="primary" size="small" icon="el-icon-check"
@@ -815,8 +823,12 @@
         </div>
 
         <div class="detail-body" v-loading="absDetailLoading">
+            <div class="print-doc-header">
+                <div class="print-doc-title">禁投池 ABS 调库</div>
+                <div class="print-doc-sub">{{ [absBondDetail.windCode, absBondDetail.shortName || absBondDetail.fullName].filter(Boolean).join(' ') }}</div>
+            </div>
             <!-- 证券基本信息（与证券池调库对齐：步骤1可编辑，步骤2只读） -->
-            <div class="section-card">
+            <div class="section-card print-section">
                 <div class="section-header" @click="toggleAbsSection('bondInfo')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">证券基本信息</div>
@@ -956,11 +968,12 @@
             </div>
 
             <!-- 发行主体财务数据 -->
-            <div class="section-card issuer-financial-card" v-loading="issuerFinancialLoading">
+            <div class="section-card issuer-financial-card print-section" v-loading="issuerFinancialLoading">
                 <div class="section-header" @click="issuerFinancialExpanded = !issuerFinancialExpanded"
                      style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">发行主体最近三年及一期财务数据</div>
+                    <span class="print-only-caption">{{ issuerFinancialBondType === 'industrial' ? '产业债' : '城投债' }}</span>
                     <span class="financial-mode-hint">{{ isCurrentFinancialReportExisting ? '可编辑' : '暂不可编辑' }}</span>
                     <i :class="issuerFinancialExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"
                        class="financial-collapse-icon"></i>
@@ -1001,7 +1014,7 @@
             </div>
 
             <!-- 当前所在池 -->
-            <div class="section-card">
+            <div class="section-card print-section">
                 <div class="section-header" @click="toggleAbsSection('currentPools')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">当前所在池</div>
@@ -1290,6 +1303,7 @@
                             </div>
                         </div>
                         <div class="submit-area">
+                            <el-button size="small" icon="el-icon-printer" :disabled="absDetailLoading || issuerFinancialLoading" @click="handleAbsExportPdf">导出 PDF</el-button>
                             <el-button size="small" @click="absBackToList" icon="el-icon-close">取消</el-button>
                             <el-button type="primary" size="small" icon="el-icon-arrow-right"
                                        :disabled="absSelectedInPools.length === 0 && absSelectedOutPools.length === 0"
@@ -1436,6 +1450,7 @@
                     </div>
                 </div>
                 <div class="action-footer">
+                    <el-button size="small" icon="el-icon-printer" :disabled="absDetailLoading || issuerFinancialLoading" @click="handleAbsExportPdf">导出 PDF</el-button>
                     <el-button size="small" icon="el-icon-arrow-left" @click="absBackToList">返回列表</el-button>
                     <el-button size="small" icon="el-icon-arrow-left" @click="absGoToStep1">上一步</el-button>
                     <el-button type="primary" size="small" icon="el-icon-check"
@@ -2091,6 +2106,7 @@
                 companyBondList: [],          // 指定投资池中的旗下债券列表
                 companyDetail: {},            // 主体基本信息（详情页）
                 detailLoading: false,         // 详情页加载状态
+                isPrintExporting: false,      // 导出 PDF 时移除无意义的操作列
                 companyCurrentPools: [],      // 当前主体所在的投资池列表
                 companyBondCurrentPools: [],  // 当前主体旗下债券所在池汇总
                 companyPoolExpanded: false,   // 主体所在池展开/折叠状态
@@ -2294,6 +2310,7 @@
         beforeDestroy() {
             window.removeEventListener('resize', this.handleWindowResize);
             window.clearTimeout(this.resizeLayoutTimer);
+            window.RrsPrintExport.unbind();
         },
         methods: {
 
@@ -2857,6 +2874,44 @@
                     this.$message.error(e.message || '操作失败');
                 }
             },
+            // 导出 PDF：主体基本信息、当前所在池
+            handleExportPdf() {
+                if (this.detailLoading) {
+                    this.$message.warning('详情加载中，请稍后');
+                    return;
+                }
+                window.RrsPrintExport.print({
+                    // 组成浏览器“另存为 PDF”的默认文件名
+                    fileTitle: ['禁投池调整', this.companyDetail.companyCode, this.companyDetail.companyFullName],
+                    // 传入 Vue nextTick，确保展开后的 DOM 完成渲染
+                    nextTick: (fn) => this.$nextTick(fn),
+                    // 打印前展开导出区块，并返回原状态快照
+                    prepare: () => {
+                        const snapshot = {
+                            bondInfo: this.sectionExpanded.bondInfo,
+                            currentPools: this.sectionExpanded.currentPools,
+                            companyPoolExpanded: this.companyPoolExpanded,
+                            companyBondPoolExpanded: this.companyBondPoolExpanded,
+                            isPrintExporting: this.isPrintExporting,
+                        };
+                        this.isPrintExporting = true;
+                        this.$set(this.sectionExpanded, 'bondInfo', true);
+                        this.$set(this.sectionExpanded, 'currentPools', true);
+                        this.companyPoolExpanded = true;
+                        this.companyBondPoolExpanded = true;
+                        return snapshot;
+                    },
+                    // 打印结束或取消后，按快照恢复页面状态
+                    restore: (snapshot) => {
+                        this.$set(this.sectionExpanded, 'bondInfo', snapshot.bondInfo);
+                        this.$set(this.sectionExpanded, 'currentPools', snapshot.currentPools);
+                        this.companyPoolExpanded = snapshot.companyPoolExpanded;
+                        this.companyBondPoolExpanded = snapshot.companyBondPoolExpanded;
+                        this.isPrintExporting = snapshot.isPrintExporting;
+                    },
+                });
+            },
+
             // 折叠/展开区块
             toggleSection(key) {
                 this.$set(this.sectionExpanded, key, !this.sectionExpanded[key]);
@@ -4018,6 +4073,44 @@
                     })]);
                 });
             },
+            // 导出 PDF：ABS 证券基本信息、财务数据、当前所在池
+            handleAbsExportPdf() {
+                if (this.absDetailLoading || this.issuerFinancialLoading) {
+                    this.$message.warning('详情或财务数据加载中，请稍后');
+                    return;
+                }
+                window.RrsPrintExport.print({
+                    // 组成浏览器“另存为 PDF”的默认文件名
+                    fileTitle: ['禁投池ABS调库', this.absBondDetail.windCode, this.absBondDetail.shortName || this.absBondDetail.fullName],
+                    // 传入 Vue nextTick，确保展开后的 DOM 完成渲染
+                    nextTick: (fn) => this.$nextTick(fn),
+                    // 打印前展开导出区块，并返回原状态快照
+                    prepare: () => {
+                        const snapshot = {
+                            bondInfo: this.absSectionExpanded.bondInfo,
+                            currentPools: this.absSectionExpanded.currentPools,
+                            issuerFinancialExpanded: this.issuerFinancialExpanded,
+                            absSecurityPoolExpanded: this.absSecurityPoolExpanded,
+                            absIssuerPoolExpanded: this.absIssuerPoolExpanded,
+                        };
+                        this.$set(this.absSectionExpanded, 'bondInfo', true);
+                        this.$set(this.absSectionExpanded, 'currentPools', true);
+                        this.issuerFinancialExpanded = true;
+                        this.absSecurityPoolExpanded = true;
+                        this.absIssuerPoolExpanded = true;
+                        return snapshot;
+                    },
+                    // 打印结束或取消后，按快照恢复页面状态
+                    restore: (snapshot) => {
+                        this.$set(this.absSectionExpanded, 'bondInfo', snapshot.bondInfo);
+                        this.$set(this.absSectionExpanded, 'currentPools', snapshot.currentPools);
+                        this.issuerFinancialExpanded = snapshot.issuerFinancialExpanded;
+                        this.absSecurityPoolExpanded = snapshot.absSecurityPoolExpanded;
+                        this.absIssuerPoolExpanded = snapshot.absIssuerPoolExpanded;
+                    },
+                });
+            },
+
             // 折叠/展开 ABS 详情区块
             toggleAbsSection(key) {
                 this.$set(this.absSectionExpanded, key, !this.absSectionExpanded[key]);

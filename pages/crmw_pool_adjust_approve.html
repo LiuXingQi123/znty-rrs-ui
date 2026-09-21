@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
     <script src="../js/api.js"></script>
+    <script src="../js/print_export.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <link rel="stylesheet" href="../css/crmw_pool_adjust_approve.css">
     <link rel="stylesheet" href="../css/common.css">
@@ -163,8 +164,13 @@
 
         <div class="detail-body" v-loading="detailLoading">
 
+            <div class="print-doc-header">
+                <div class="print-doc-title">{{ printDocumentTitle }}</div>
+                <div class="print-doc-sub">{{ [crmwDetail.windCode || bondDetail.windCode, crmwDetail.shortName || bondDetail.shortName || bondDetail.fullName].filter(Boolean).join(' ') }}</div>
+            </div>
+
             <!-- 证券基本信息 -->
-            <div class="section-card section-bond-info">
+            <div class="section-card section-bond-info print-section">
                 <div class="section-header" @click="toggleSection('bondInfo')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">证券基本信息</div>
@@ -292,11 +298,12 @@
             </div>
 
             <!-- 发行主体财务数据（只读） -->
-            <div class="section-card issuer-financial-card" v-loading="issuerFinancialLoading">
+            <div class="section-card issuer-financial-card print-section" v-loading="issuerFinancialLoading">
                 <div class="section-header" @click="issuerFinancialExpanded = !issuerFinancialExpanded"
                      style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">发行主体最近三年及一期财务数据</div>
+                    <span class="print-only-caption">{{ issuerFinancialBondType === 'industrial' ? '产业债' : '城投债' }}</span>
                     <span class="financial-mode-hint">只读</span>
                     <i :class="issuerFinancialExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"
                        class="financial-collapse-icon"></i>
@@ -329,7 +336,7 @@
             </div>
 
             <!-- CRMW基本信息 -->
-            <div class="section-card section-crmw-info">
+            <div class="section-card section-crmw-info print-section">
                 <div class="section-header" @click="toggleSection('crmwInfo')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">CRMW基本信息</div>
@@ -357,7 +364,7 @@
             </div>
 
             <!-- 当前所在池 -->
-            <div class="section-card section-current-pools">
+            <div class="section-card section-current-pools print-section">
                 <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">当前所在池</div>
@@ -456,7 +463,7 @@
             </div>
 
             <!-- 调库记录 -->
-            <div class="section-card section-adjust-log">
+            <div class="section-card section-adjust-log print-section">
                 <div class="section-header" @click="toggleSection('adjustLog')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">调库记录</div>
@@ -475,7 +482,8 @@
                         <el-table-column prop="poolPath" label="投资池名称" min-width="180">
                             <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.poolPath }}</span></template>
                         </el-table-column>
-                        <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center">
+                        <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center"
+                                         class-name="print-vertical-column" label-class-name="print-vertical-column">
                     <template slot-scope="{ row }">
                         <el-tag v-if="row.adjustType" size="mini" :type="adjustTypeTagType(row.adjustType)">{{ row.adjustType }}</el-tag>
                     </template>
@@ -494,7 +502,7 @@
                         <el-table-column prop="flowName" label="审批流程" min-width="175" show-overflow-tooltip>
                             <template slot-scope="{ row }">
                                 <span v-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
-                                    <el-tag v-if="row.flowType" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
+                                    <el-tag v-if="row.flowType" class="flow-type-tag" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
                                     <span>{{ row.flowName }}</span>
                                 </span>
                                 <span v-else></span>
@@ -574,7 +582,8 @@
                                 </div>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="auditStatus" label="审核状态" width="160" fixed="right" align="center">
+                        <el-table-column prop="auditStatus" label="审核状态" width="160" fixed="right" align="center"
+                                         class-name="print-vertical-column" label-class-name="print-vertical-column">
                             <template slot-scope="{ row }">
                                 <el-tag v-if="row.auditStatus" size="mini" :type="auditStatusType(row.auditStatus)">{{ auditStatusLabel(row.auditStatus) }}</el-tag>
                             </template>
@@ -584,14 +593,14 @@
             </div>
 
             <!-- 原因和建议 -->
-            <div class="section-card section-reason-advice" v-show="showReasonSection" style="animation-delay:.06s;">
+            <div class="section-card section-reason-advice print-section" v-show="showReasonSection" style="animation-delay:.06s;">
                 <div class="section-header" @click="toggleSection('reasonAdvice')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">原因和建议</div>
                     <i :class="sectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
-                <div v-show="sectionExpanded.reasonAdvice" style="padding:20px 22px;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div v-show="sectionExpanded.reasonAdvice" class="reason-advice-body" style="padding:20px 22px;">
+                    <div class="reason-advice-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                         <div>
                             <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div>
                             <el-input type="textarea" :rows="4" v-model="adjustReason" :disabled="isReasonReadonly"
@@ -607,6 +616,7 @@
 
                 <!-- 步骤2操作按钮 -->
                 <div class="action-footer" v-if="showReasonActionButtons">
+                    <el-button size="small" icon="el-icon-printer" :disabled="detailLoading || issuerFinancialLoading" @click="handleExportPdf">导出 PDF</el-button>
                     <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
                     <el-button type="primary" size="small" icon="el-icon-check"
                                :disabled="validCount === 0 || submitLoading"
@@ -706,6 +716,7 @@
                     <div v-else style="color:var(--c-text-3);font-size:13px;padding:4px 0;">暂无需要当前用户处理的流程步骤</div>
                 </div>
                 <div class="action-footer">
+                    <el-button size="small" icon="el-icon-printer" :disabled="detailLoading || issuerFinancialLoading" @click="handleExportPdf">导出 PDF</el-button>
                     <el-button size="small" icon="el-icon-arrow-left"
                                @click="backToList">
                         返回
@@ -928,6 +939,7 @@
 
                         <!-- 提交区 -->
                         <div class="submit-area">
+                            <el-button size="small" icon="el-icon-printer" :disabled="detailLoading || issuerFinancialLoading" @click="handleExportPdf">导出 PDF</el-button>
                             <el-button size="small" @click="backToList" icon="el-icon-close">取消</el-button>
                             <el-button type="primary" size="small" icon="el-icon-arrow-right"
                                        :disabled="selectedInPools.length === 0 && selectedOutPools.length === 0"
@@ -970,7 +982,7 @@
                         <el-table-column prop="flowName" label="审批流程" min-width="175" show-overflow-tooltip>
                             <template slot-scope="{ row }">
                                 <span v-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
-                                    <el-tag v-if="row.flowType" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
+                                    <el-tag v-if="row.flowType" class="flow-type-tag" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
                                     <span>{{ row.flowName }}</span>
                                 </span>
                                 <span v-else></span>
@@ -1624,6 +1636,10 @@
             pageTitle() {
                 return this.entryMode === 'next' ? 'CRMW池调整' : 'CRMW调库审核';
             },
+            // PDF 标题随下一步确认/审批处理入口切换
+            printDocumentTitle() {
+                return this.entryMode === 'next' ? 'CRMW池调整' : 'CRMW池调库审核';
+            },
             // 当前是否为我的事宜处理入口
             isProcessMode() {
                 return this.entryMode !== 'next';
@@ -1794,6 +1810,7 @@
         beforeDestroy() {
             window.removeEventListener('resize', this.handleWindowResize);
             window.clearTimeout(this.resizeLayoutTimer);
+            window.RrsPrintExport.unbind();
         },
         methods: {
 
@@ -2176,6 +2193,53 @@
                     this.$set(this.deletedAttachmentIds, logKey, ids);
                 }
             },
+            // 导出 PDF：证券/CRMW 基本信息、财务数据、当前所在池、调库记录、原因和建议
+            handleExportPdf() {
+                if (this.detailLoading || this.issuerFinancialLoading) {
+                    this.$message.warning('详情或财务数据加载中，请稍后');
+                    return;
+                }
+                window.RrsPrintExport.print({
+                    // 组成浏览器“另存为 PDF”的默认文件名
+                    fileTitle: [this.printDocumentTitle, this.crmwDetail.windCode || this.bondDetail.windCode, this.crmwDetail.shortName || this.bondDetail.shortName || this.bondDetail.fullName],
+                    // 传入 Vue nextTick，确保展开后的 DOM 完成渲染
+                    nextTick: (fn) => this.$nextTick(fn),
+                    // 打印前展开导出区块，并返回原状态快照
+                    prepare: () => {
+                        const snapshot = {
+                            bondInfo: this.sectionExpanded.bondInfo,
+                            crmwInfo: this.sectionExpanded.crmwInfo,
+                            currentPools: this.sectionExpanded.currentPools,
+                            adjustLog: this.sectionExpanded.adjustLog,
+                            reasonAdvice: this.sectionExpanded.reasonAdvice,
+                            issuerFinancialExpanded: this.issuerFinancialExpanded,
+                            securityPoolExpanded: this.securityPoolExpanded,
+                            issuerPoolExpanded: this.issuerPoolExpanded,
+                        };
+                        this.$set(this.sectionExpanded, 'bondInfo', true);
+                        this.$set(this.sectionExpanded, 'crmwInfo', true);
+                        this.$set(this.sectionExpanded, 'currentPools', true);
+                        this.$set(this.sectionExpanded, 'adjustLog', true);
+                        this.$set(this.sectionExpanded, 'reasonAdvice', true);
+                        this.issuerFinancialExpanded = true;
+                        this.securityPoolExpanded = true;
+                        this.issuerPoolExpanded = true;
+                        return snapshot;
+                    },
+                    // 打印结束或取消后，按快照恢复页面状态
+                    restore: (snapshot) => {
+                        this.$set(this.sectionExpanded, 'bondInfo', snapshot.bondInfo);
+                        this.$set(this.sectionExpanded, 'crmwInfo', snapshot.crmwInfo);
+                        this.$set(this.sectionExpanded, 'currentPools', snapshot.currentPools);
+                        this.$set(this.sectionExpanded, 'adjustLog', snapshot.adjustLog);
+                        this.$set(this.sectionExpanded, 'reasonAdvice', snapshot.reasonAdvice);
+                        this.issuerFinancialExpanded = snapshot.issuerFinancialExpanded;
+                        this.securityPoolExpanded = snapshot.securityPoolExpanded;
+                        this.issuerPoolExpanded = snapshot.issuerPoolExpanded;
+                    },
+                });
+            },
+
             // 折叠/展开区块
             toggleSection(key) {
                 this.$set(this.sectionExpanded, key, !this.sectionExpanded[key]);
