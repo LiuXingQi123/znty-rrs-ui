@@ -7,7 +7,7 @@
 | JS 文件 | 用途 |
 | --- | --- |
 | `js/api.js` | 登录用户、统一请求、工作台开/关页签 |
-| `js/print_export.js` | 业务页打印导出 PDF（审核/详情/CRMW/禁投 ABS；证券池调库发起页仍用页面内实现） |
+| `js/print_export.js` | 业务页浏览器打印导出 PDF 公共逻辑（证券池、CRMW、禁投池的发起、审核与详情页面） |
 | `js/resource_loader.js` | 页面 CDN 资源写入 |
 
 ## HTML 页面

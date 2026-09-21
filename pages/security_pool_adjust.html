@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
     <script src="../js/api.js"></script>
+    <script src="../js/print_export.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <link rel="stylesheet" href="../css/security_pool_adjust.css">
     <link rel="stylesheet" href="../css/common.css">
@@ -1628,7 +1629,7 @@
         beforeDestroy() {
             window.removeEventListener('resize', this.handleWindowResize);
             window.clearTimeout(this.resizeLayoutTimer);
-            this.unbindPrintRestore();
+            window.RrsPrintExport.unbind();
         },
         methods: {
 
@@ -2502,83 +2503,42 @@
                     this.$message.error(e.message || '操作失败');
                 }
             },
-            // 导出 PDF：先展开三块及所在池明细（v-if 表须渲染完），再调浏览器打印
+            // 导出 PDF：证券基本信息、财务数据、当前所在池
             handleExportPdf() {
                 if (this.detailLoading || this.financialReportLoading) {
                     this.$message.warning('详情或财务数据加载中，请稍后');
                     return;
                 }
-                const snapshot = {
-                    bondInfo: this.sectionExpanded.bondInfo,
-                    financial: this.sectionExpanded.financial,
-                    currentPools: this.sectionExpanded.currentPools,
-                    securityPoolExpanded: this.securityPoolExpanded,
-                    issuerPoolExpanded: this.issuerPoolExpanded,
-                    documentTitle: document.title,
-                    parentDocumentTitle: null,
-                };
-                this.$set(this.sectionExpanded, 'bondInfo', true);
-                this.$set(this.sectionExpanded, 'financial', true);
-                this.$set(this.sectionExpanded, 'currentPools', true);
-                this.securityPoolExpanded = true;
-                this.issuerPoolExpanded = true;
-                // Chrome 另存 PDF 用顶层 document.title；页面在 iframe 里必须改工作台标题
-                const fileTitle = this.buildExportPdfFileTitle();
-                document.title = fileTitle;
-                snapshot.parentDocumentTitle = this.setParentDocumentTitle(fileTitle);
-                this.bindPrintRestore(snapshot);
-                // 所在池表是 v-if，展开后要等 DOM 和 el-table 布局完成再 print
-                this.$nextTick(() => {
-                    this.$nextTick(() => {
-                        window.setTimeout(() => {
-                            window.print();
-                        }, 50);
-                    });
+                window.RrsPrintExport.print({
+                    // 组成浏览器“另存为 PDF”的默认文件名
+                    fileTitle: ['证券池调库', this.bondDetail.windCode, this.bondDetail.shortName || this.bondDetail.fullName],
+                    // 传入 Vue nextTick，确保展开后的 DOM 完成渲染
+                    nextTick: (fn) => this.$nextTick(fn),
+                    // 打印前展开导出区块，并返回原状态快照
+                    prepare: () => {
+                        const snapshot = {
+                            bondInfo: this.sectionExpanded.bondInfo,
+                            financial: this.sectionExpanded.financial,
+                            currentPools: this.sectionExpanded.currentPools,
+                            securityPoolExpanded: this.securityPoolExpanded,
+                            issuerPoolExpanded: this.issuerPoolExpanded,
+                        };
+                        this.$set(this.sectionExpanded, 'bondInfo', true);
+                        this.$set(this.sectionExpanded, 'financial', true);
+                        this.$set(this.sectionExpanded, 'currentPools', true);
+                        this.securityPoolExpanded = true;
+                        this.issuerPoolExpanded = true;
+                        return snapshot;
+                    },
+                    // 打印结束或取消后，按快照恢复页面状态
+                    restore: (snapshot) => {
+                        this.$set(this.sectionExpanded, 'bondInfo', snapshot.bondInfo);
+                        this.$set(this.sectionExpanded, 'financial', snapshot.financial);
+                        this.$set(this.sectionExpanded, 'currentPools', snapshot.currentPools);
+                        this.securityPoolExpanded = snapshot.securityPoolExpanded;
+                        this.issuerPoolExpanded = snapshot.issuerPoolExpanded;
+                    },
                 });
-            },
-
-            // 打印结束或取消后还原折叠状态与页标题
-            bindPrintRestore(snapshot) {
-                this.unbindPrintRestore();
-                this.printRestoreHandler = () => {
-                    this.$set(this.sectionExpanded, 'bondInfo', snapshot.bondInfo);
-                    this.$set(this.sectionExpanded, 'financial', snapshot.financial);
-                    this.$set(this.sectionExpanded, 'currentPools', snapshot.currentPools);
-                    this.securityPoolExpanded = snapshot.securityPoolExpanded;
-                    this.issuerPoolExpanded = snapshot.issuerPoolExpanded;
-                    document.title = snapshot.documentTitle;
-                    this.setParentDocumentTitle(snapshot.parentDocumentTitle);
-                    this.unbindPrintRestore();
-                };
-                window.addEventListener('afterprint', this.printRestoreHandler);
-            },
-
-            // 组装另存 PDF 的默认文件名（不含非法路径字符）
-            buildExportPdfFileTitle() {
-                const parts = ['证券池调库', this.bondDetail.windCode, this.bondDetail.shortName || this.bondDetail.fullName];
-                return parts.filter(Boolean).join('_').replace(/[\\/:*?"<>|]/g, '');
-            },
-
-            // 同步工作台顶层标题；跨域或非 iframe 时忽略
-            setParentDocumentTitle(title) {
-                if (!title || window.parent === window) {
-                    return null;
-                }
-                try {
-                    const previous = window.parent.document.title;
-                    window.parent.document.title = title;
-                    return previous;
-                } catch (e) {
-                    return null;
-                }
-            },
-
-            // 移除打印还原监听，避免重复恢复
-            unbindPrintRestore() {
-                if (this.printRestoreHandler) {
-                    window.removeEventListener('afterprint', this.printRestoreHandler);
-                    this.printRestoreHandler = null;
-                }
             },
 
             // 折叠/展开区块

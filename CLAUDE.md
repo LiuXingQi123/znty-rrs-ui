@@ -48,9 +48,9 @@
 - `Vue.prototype.apiPost(path, body, config)` 第 3 个 `config` 透传给 `axios`；传 `{ responseType: 'blob' }` 走文件下载分支，直接返回原始 `resp`、跳过 `success` 解析。
 - 业务页 `<head>` 引入顺序固定：Element UI CSS → Vue → Element UI → axios → **`js/api.js`**（根目录 `js/api.js`，`pages/` 下用 `../js/api.js`）→ 按需 **`js/print_export.js`**（导出 PDF 的页面）→ 按需 moment → 页面 CSS → `css/common.css`。`api.js` 必须在 axios 之后、页面脚本之前，否则 `apiPost` 未挂载。
 
-### `css/common.css` 的 iframe 适配职责
+### `css/common.css` 的 iframe 与打印公共样式职责
 
-- `common.css` **不是**通用基础样式，而是为「业务页嵌入工作台 iframe」做的统一适配：隐藏各页自带的 `.topbar / .search-label / .total-badge`（这些在 iframe 内会重复占位）、把调库详情页 `.pool-adjust-workflow-page` 的底部操作区固定到 iframe 视口底部。
+- `common.css` **不是**全站通用重置样式：它负责「业务页嵌入工作台 iframe」的统一适配，隐藏各页自带的 `.topbar / .search-label / .total-badge`（这些在 iframe 内会重复占位）、把调库详情页 `.pool-adjust-workflow-page` 的底部操作区固定到 iframe 视口底部；同时承载与 `js/print_export.js` 配合的跨业务页面 PDF 打印样式，破坏性打印重排仅在 `html/body.is-print-export` 状态下生效。
 - 业务页 `<body class="xxx-page">` + 根 `<div id="xxx">` 的命名是 `common.css` 选择器的基础；调库类详情页沿用 `pool-adjust-workflow-page` 这个 class 才能拿到固定底栏。新增页面沿用既有命名，不要新造命名空间。
 - 改 `common.css` 会影响所有 iframe 内业务页，调整前先全站搜索受影响的选择器。
 
@@ -251,7 +251,7 @@ el → data() → computed → watch → created / mounted → methods
 <head>
   <meta charset="UTF-8" />
   <title>页面标题</title>
-  <!-- 引入顺序：Element UI CSS → Vue → Element UI → axios → api.js → 按需 moment → 页面 CSS → common.css -->
+  <!-- 引入顺序：Element UI CSS → Vue → Element UI → axios → api.js → 按需 print_export.js → 按需 moment → 页面 CSS → common.css -->
   <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css" />
   <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
   <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
