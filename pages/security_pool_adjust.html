@@ -1937,9 +1937,10 @@
                     return inPoolsData.some(c => c.parentId === p.id && !currentSecurityPoolIds.has(c.id));
                 });
                 this.adjustInTree = this.buildPoolTree(inPoolsFiltered);
-                this.adjustInDefaultExpandedRowKeys = [];
-                // 可调入库默认全部收起
-                this.applyDefaultPoolCollapse('inTableRef', this.adjustInTree);
+                this.adjustInDefaultExpandedRowKeys = this.adjustInTree
+                    .filter(row => row.poolCode === 'credit_bond_root' || row.poolName === '信用债大库(new)')
+                    .map(row => row.id);
+                this.applyDefaultInPoolExpansion('inTableRef', this.adjustInTree);
                 this.selectedInPools = [];
                 this.$nextTick(() => {
                     if (this.$refs.inTableRef) this.$refs.inTableRef.clearSelection();
@@ -2294,6 +2295,22 @@
                     collapseRows(tree);
                 });
             },
+            // 树表格渲染完成后，仅展开信用债大库(new)
+            applyDefaultInPoolExpansion(tableRef, tree) {
+                this.$nextTick(() => {
+                    const table = this.$refs[tableRef];
+                    if (!table) return;
+                    const applyExpansion = rows => {
+                        (rows || []).forEach(row => {
+                            if (!row.children || row.children.length === 0) return;
+                            const expanded = row.poolCode === 'credit_bond_root' || row.poolName === '信用债大库(new)';
+                            table.toggleRowExpansion(row, expanded);
+                            applyExpansion(row.children);
+                        });
+                    };
+                    applyExpansion(tree);
+                });
+            },
             // 由扁平的投资池列表组装树结构
             buildPoolTree(list) {
                 if (!list || list.length === 0) return [];
@@ -2614,37 +2631,19 @@
                 return map[code] || code || '';
             },
 
-            // 加载当前活跃调库记录的流程步骤
+            // 加载当前调库记录的流程步骤（单次请求）
             async loadFlowSteps(adjustLogList) {
                 this.flowStepList = [];
                 if (!adjustLogList || adjustLogList.length === 0) return;
                 const selectedLog = this.selectedAdjustLogId ? adjustLogList.find(l => String(l.id) === String(this.selectedAdjustLogId)) : null;
-                const candidateLogs = this.uniqueAdjustLogsByFlow(selectedLog ? [selectedLog] : adjustLogList);
-                let fallback = null;
-                for (const log of candidateLogs) {
-                    if (!log || !log.id) continue;
-                    try {
-                        const steps = await this.apiPost('/api/v1/securityPoolAdjust/queryAdjustStepList', { adjustLogId: log.id, adjustBatchNo: log.adjustBatchNo }) || [];
-                        if (!fallback) fallback = steps;
-                        if (steps.some(step => step.stepStatus === 'pending')) {
-                            this.flowStepList = steps;
-                            return;
-                        }
-                    } catch (e) {}
-                }
-                this.flowStepList = fallback || [];
-            },
-
-            // 按流程查询维度去重，同批次流程步骤只查询一次
-            uniqueAdjustLogsByFlow(logList) {
-                const seenMap = {};
-                return (logList || []).filter(log => {
-                    if (!log || !log.id) return false;
-                    const key = log.adjustBatchNo ? 'batch:' + log.adjustBatchNo : 'log:' + log.id;
-                    if (seenMap[key]) return false;
-                    seenMap[key] = true;
-                    return true;
-                });
+                const log = selectedLog || adjustLogList.find(item => item && item.id);
+                if (!log) return;
+                try {
+                    this.flowStepList = await this.apiPost('/api/v1/securityPoolAdjust/queryAdjustStepList', {
+                        adjustLogId: log.id,
+                        adjustBatchNo: log.adjustBatchNo
+                    }) || [];
+                } catch (e) {}
             },
 
             // 当前流程状态表格行合并：前三列按各自业务含义分别合并
