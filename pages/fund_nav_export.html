@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金净值导出</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <link rel="stylesheet" href="../css/fund_nav_export.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="fund-nav-export-page">
+<div id="fund_nav_export">
+    <div class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon"><i class="el-icon-data-line"></i></div>
+            <h2>基金净值导出</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta"><span>{{ today }}</span></div>
+    </div>
+
+    <div class="list-body">
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+                <el-input
+                    v-model.trim="searchForm.fundName"
+                    placeholder="证券名称"
+                    clearable
+                    size="small"
+                    style="width:200px;"
+                    @keyup.enter.native="handleSearch">
+                </el-input>
+                <el-input
+                    v-model.trim="searchForm.fundCode"
+                    placeholder="证券代码"
+                    clearable
+                    size="small"
+                    style="width:160px;"
+                    @keyup.enter.native="handleSearch">
+                </el-input>
+                <el-select
+                    v-model="searchForm.marketCodes"
+                    multiple
+                    collapse-tags
+                    clearable
+                    size="small"
+                    placeholder="市场（多选）"
+                    style="width:240px;">
+                    <el-option v-for="market in marketOptions" :key="market.value" :label="market.label" :value="market.value"></el-option>
+                </el-select>
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <el-button size="small" icon="el-icon-download" :disabled="selectedFunds.length === 0 || exporting" @click="openExportDialog">导出净值</el-button>
+                <div class="total-badge"><i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录，已选 {{ selectedFunds.length }} 只</div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <el-table
+                ref="fundNavTable"
+                :data="tableData"
+                v-loading="loading"
+                row-key="id"
+                stripe
+                border
+                size="small"
+                style="width:100%;"
+                @selection-change="handleSelectionChange">
+                <el-table-column type="selection" width="48" reserve-selection align="center"></el-table-column>
+                <el-table-column prop="fundName" label="证券名称" min-width="260" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="fundCode" label="证券代码" min-width="170"></el-table-column>
+                <el-table-column prop="marketCode" label="市场" min-width="180">
+                    <template slot-scope="{ row }">{{ marketLabel(row.marketCode) }}</template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+                <el-pagination
+                    :total="pagination.total"
+                    :current-page="pagination.pageIndex"
+                    :page-size="pagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    small
+                    @current-change="handlePageChange"
+                    @size-change="handleSizeChange">
+                </el-pagination>
+            </div>
+        </div>
+    </div>
+
+    <el-dialog
+        title="选择净值日期范围"
+        :visible.sync="exportDialogVisible"
+        width="480px"
+        :append-to-body="false"
+        :close-on-click-modal="false">
+        <el-form label-width="100px" size="small">
+            <el-form-item label="净值日期" required>
+                <el-date-picker
+                    v-model="navDateRange"
+                    type="daterange"
+                    popper-class="fund-nav-date-range-picker"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    value-format="yyyy-MM-dd"
+                    size="small"
+                    style="width:100%;">
+                </el-date-picker>
+            </el-form-item>
+            <div class="export-tip">将导出已勾选的 {{ selectedFunds.length }} 只基金；每只基金单独生成一个工作表。</div>
+        </el-form>
+        <span slot="footer">
+            <el-button size="small" @click="exportDialogVisible = false">取消</el-button>
+            <el-button type="primary" size="small" :loading="exporting" @click="handleExport">导出</el-button>
+        </span>
+    </el-dialog>
+</div>
+
+<script>
+new Vue({
+    el: '#fund_nav_export',
+    data() {
+        return {
+            today: moment ? moment().format('YYYY年MM月DD日') : '', // 顶栏日期
+            searchForm: {
+                fundName: '', // 证券名称关键词
+                fundCode: '', // 证券代码关键词
+                marketCodes: [], // 市场多选值
+            },
+            marketOptions: [ // 市场编码与展示名称
+                { value: 'SSE', label: '上海证券交易所' },
+                { value: 'SZSE', label: '深圳证券交易所' },
+                { value: 'CIBM', label: '银行间市场' },
+                { value: 'BSE', label: '北京证券交易所' },
+                { value: 'COMPANY', label: '主体' },
+                { value: 'OTC', label: '场外市场' },
+                { value: 'HKEX', label: '香港交易所' },
+                { value: 'QDII', label: '其他QDII市场' },
+                { value: 'JWCW', label: 'JWCW市场' },
+                { value: 'UNKNOWN', label: '未知' },
+                { value: 'OTHER', label: '其他' },
+            ],
+            tableData: [], // 当前页基金信息
+            selectedFunds: [], // 跨页保留的已选基金
+            loading: false, // 列表加载状态
+            exporting: false, // 净值导出状态
+            exportDialogVisible: false, // 日期范围弹窗状态
+            navDateRange: null, // 净值日期范围
+            pagination: {
+                pageIndex: 1, // 当前页码
+                pageSize: 20, // 每页条数
+                total: 0, // 总记录数
+            },
+        };
+    },
+    mounted() {
+        this.loadList();
+    },
+    methods: {
+        // 读取基金市场编码的中文名称。
+        marketLabel(code) {
+            const market = this.marketOptions.find(function(option) {
+                return option.value === code;
+            });
+            return market ? market.label : (code || '');
+        },
+
+        // 记住跨页勾选的基金。
+        handleSelectionChange(selection) {
+            this.selectedFunds = selection || [];
+        },
+
+        // 查询基金基础信息分页列表。
+        async loadList() {
+            this.loading = true;
+            try {
+                const data = await this.apiPost('/api/v1/fundNavExport/queryFundNavFundPage', {
+                    fundName: this.searchForm.fundName,
+                    fundCode: this.searchForm.fundCode,
+                    marketCodes: this.searchForm.marketCodes,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                });
+                this.tableData = data.records || [];
+                this.pagination.total = data.total || 0;
+            } catch (e) {
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // 清除选择并按当前条件重新查询。
+        handleSearch() {
+            this.pagination.pageIndex = 1;
+            this.clearSelection();
+            this.loadList();
+        },
+
+        // 重置筛选条件和已选基金。
+        handleReset() {
+            this.searchForm = { fundName: '', fundCode: '', marketCodes: [] };
+            this.pagination.pageIndex = 1;
+            this.clearSelection();
+            this.loadList();
+        },
+
+        // 清空表格选择状态。
+        clearSelection() {
+            this.selectedFunds = [];
+            if (this.$refs.fundNavTable) {
+                this.$refs.fundNavTable.clearSelection();
+            }
+        },
+
+        // 打开净值日期范围选择弹窗。
+        openExportDialog() {
+            if (this.selectedFunds.length === 0) {
+                this.$message.warning('请先勾选需要导出净值的基金');
+                return;
+            }
+            this.navDateRange = null;
+            this.exportDialogVisible = true;
+        },
+
+        // 导出已勾选基金的日期范围内净值。
+        async handleExport() {
+            if (!this.navDateRange || this.navDateRange.length !== 2) {
+                this.$message.warning('请选择净值日期范围');
+                return;
+            }
+            this.exporting = true;
+            try {
+                const file = await this.apiPost('/api/v1/fundNavExport/exportFundNavExcel', {
+                    fundCodes: this.selectedFunds.map(function(fund) { return fund.fundCode; }),
+                    navDateStart: this.navDateRange[0],
+                    navDateEnd: this.navDateRange[1],
+                });
+                this.downloadBase64File(file.contentBase64, file.fileName, file.contentType);
+                this.exportDialogVisible = false;
+                this.$message.success('基金净值导出成功');
+            } catch (e) {
+            } finally {
+                this.exporting = false;
+            }
+        },
+
+        // 切换页码并保留已勾选项。
+        handlePageChange(page) {
+            this.pagination.pageIndex = page;
+            this.loadList();
+        },
+
+        // 切换每页条数并保留已勾选项。
+        handleSizeChange(size) {
+            this.pagination.pageSize = size;
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+    },
+});
+</script>
+</body>
+</html>

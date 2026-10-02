@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金池调整</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/print_export.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <link rel="stylesheet" href="../css/fund_pool_adjust.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="fund-pool-adjust-page">
+<div id="fund_pool_adjust">
+    <div class="page" :class="{ active: currentPage === 'list' }">
+        <header class="topbar">
+            <div class="brand-icon"><i class="el-icon-pie-chart"></i></div>
+            <h2>基金池调整</h2>
+            <span class="topbar-sub">证券投资管理系统</span>
+            <span class="topbar-badge"><i class="el-icon-s-finance"></i> 基金研究</span>
+        </header>
+        <main class="page-body list-body">
+            <section class="search-panel">
+                <span class="search-label"><i class="el-icon-search"></i> 筛选</span>
+                <el-input v-model.trim="searchForm.fundCode" placeholder="基金代码" clearable size="small"></el-input>
+                <el-input v-model.trim="searchForm.fundShortName" placeholder="基金简称" clearable size="small"></el-input>
+                <el-select v-model="searchForm.securityType" placeholder="基金产品类型" clearable size="small">
+                    <el-option v-for="item in fundTypeOptions" :key="item.securityType"
+                               :label="item.securityTypeName" :value="item.securityType"></el-option>
+                </el-select>
+                <el-input v-model.trim="searchForm.fundAdministrator" placeholder="基金管理人" clearable size="small"></el-input>
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <span class="total-badge">共 {{ pagination.total }} 条</span>
+            </section>
+            <section class="table-card">
+                <el-table :data="fundList" v-loading="listLoading" border stripe size="small">
+                    <el-table-column label="序号" width="64" align="center">
+                        <template slot-scope="scope">{{ (pagination.pageIndex - 1) * pagination.pageSize + scope.$index + 1 }}</template>
+                    </el-table-column>
+                    <el-table-column prop="fundCode" label="基金代码" min-width="130">
+                        <template slot-scope="scope"><button class="text-link" @click="openAdjust(scope.row)">{{ scope.row.fundCode }}</button></template>
+                    </el-table-column>
+                    <el-table-column prop="fundShortName" label="基金简称" min-width="130" show-overflow-tooltip>
+                        <template slot-scope="scope"><button class="text-link" @click="openAdjust(scope.row)">{{ scope.row.fundShortName || '' }}</button></template>
+                    </el-table-column>
+                    <el-table-column prop="fundName" label="基金全称" min-width="240" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="securityTypeName" label="基金产品类型" min-width="130" align="center" show-overflow-tooltip>
+                        <template slot-scope="{ row }">
+                            <el-tag v-if="row.securityTypeName" size="mini" :type="fundTypeTagType(row.securityType)">{{ row.securityTypeName }}</el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="latestNav" label="最新净值" min-width="100" align="right"></el-table-column>
+                    <el-table-column prop="establishmentDate" label="成立日期" min-width="110" align="center"></el-table-column>
+                    <el-table-column prop="fundManagerNames" label="基金经理" min-width="150" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="fundAdministrator" label="基金管理人" min-width="190" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="latestScale" label="最新规模(亿元)" min-width="130" align="right"></el-table-column>
+                    <el-table-column prop="dataDate" label="数据日期" min-width="110" align="center"></el-table-column>
+                    <el-table-column label="调库操作" width="96" fixed="right" align="center">
+                        <template slot-scope="scope"><el-button type="primary" size="mini" @click="openAdjust(scope.row)">调库</el-button></template>
+                    </el-table-column>
+                </el-table>
+                <div class="pagination-wrap">
+                    <el-pagination :total="pagination.total" :current-page="pagination.pageIndex"
+                                   :page-size="pagination.pageSize" :page-sizes="[10,20,50,100]"
+                                   layout="total, sizes, prev, pager, next, jumper"
+                                   @current-change="changePage" @size-change="changeSize"></el-pagination>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="page pool-adjust-workflow-page" :class="{ active: currentPage === 'detail' }">
+        <header class="topbar">
+            <el-button class="back-btn" @click="backToList" size="mini" type="text">
+                <i class="el-icon-arrow-left"></i>返回列表
+            </el-button>
+            <div class="divider"></div>
+            <div class="detail-heading">
+                <span class="detail-heading-title">调库操作</span>
+                <span v-if="fundDetail.fundCode" class="detail-code">{{ fundDetail.fundCode }}</span>
+                <span v-if="fundDetail.fundShortName || fundDetail.fundName" class="detail-name">
+                    {{ fundDetail.fundShortName || fundDetail.fundName }}
+                </span>
+            </div>
+        </header>
+        <main id="fund-adjust-print" class="page-body detail-body" v-loading="detailLoading">
+            <div class="print-doc-header">
+                <div class="print-doc-title">基金池调整</div>
+                <div class="print-doc-sub">{{ [fundDetail.fundCode, fundDetail.fundShortName || fundDetail.fundName].filter(Boolean).join(' ') }}</div>
+            </div>
+
+            <!-- 基金基础信息 -->
+            <section class="section-card print-section">
+                <div class="section-header" @click="toggleSection('fundInfo')">
+                    <div class="section-dot"></div>
+                    <div class="section-title">基金基础信息</div>
+                    <span class="fund-info-meta">
+                        <span class="fund-info-meta-item">
+                            <span class="fund-info-meta-label">调整人</span>
+                            <span class="fund-info-meta-value">{{ currentUser.userName || '' }}</span>
+                        </span>
+                        <span class="fund-info-meta-item">
+                            <span class="fund-info-meta-label">更新时间</span>
+                            <span class="fund-info-meta-value fund-info-meta-time">{{ fundDetail.updtTime || '' }}</span>
+                        </span>
+                    </span>
+                    <i :class="sectionExpanded.fundInfo ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="section-collapse-icon"></i>
+                </div>
+                <div v-show="sectionExpanded.fundInfo">
+                    <el-descriptions :column="3" border size="small" class="fund-info-descriptions">
+                        <el-descriptions-item label="基金简称"><el-input :value="fundDetail.fundShortName || ''" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="基金代码"><el-input :value="fundDetail.fundCode || ''" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="基金产品类型"><el-input :value="fundDetail.securityTypeName || ''" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="最新净值(元)">
+                            <span v-if="fundDetail.latestNav !== null && fundDetail.latestNav !== undefined && fundDetail.latestNav !== ''" class="fund-nav-emphasis">{{ emptyNumber(fundDetail.latestNav) }}</span>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="成立日期"><el-input :value="fundDetail.establishmentDate || ''" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="基金经理"><el-input :value="fundDetail.fundManagerNames || ''" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="基金管理人"><el-input :value="fundDetail.fundAdministrator || ''" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="基金托管人"><el-input :value="fundDetail.fundCustodian || ''" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="累计净值"><el-input :value="emptyNumber(fundDetail.accumulatedNav)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="投资风格"><el-input :value="fundDetail.investmentStyle || ''" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="交易价格(元)"><el-input :value="emptyNumber(fundDetail.tradePrice)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="发行规模(亿元)"><el-input :value="emptyNumber(fundDetail.issueScale)" size="small" disabled></el-input></el-descriptions-item>
+                    </el-descriptions>
+                </div>
+            </section>
+
+            <!-- 当前所在池 -->
+            <section class="section-card print-section">
+                <div class="section-header" @click="toggleSection('currentPools')">
+                    <div class="section-dot"></div>
+                    <div class="section-title">当前所在池</div>
+                    <i :class="sectionExpanded.currentPools ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="section-collapse-icon"></i>
+                </div>
+                <div v-show="sectionExpanded.currentPools" class="current-pools-body">
+                    <div class="pool-sub-block block-fund">
+                        <div class="pool-inline-row" :class="{ 'is-expanded': currentPoolExpanded }">
+                            <div class="pool-inline-label">
+                                <span class="pool-sub-label">当前基金所在池</span>
+                                <span class="pool-sub-count type-fund">{{ fundCurrentPools.length }}</span>
+                            </div>
+                            <div class="pool-inline-content">
+                                <template v-if="!currentPoolExpanded">
+                                    <span v-if="fundCurrentPools.length === 0" class="pool-empty-text">暂无</span>
+                                    <span v-for="pool in fundCurrentPools" :key="pool.targetPoolId" class="pool-name-chip">{{ pool.poolName }}</span>
+                                    <span v-if="fundCurrentPools.length > 0" class="pool-overflow-hint">···</span>
+                                </template>
+                            </div>
+                            <el-button class="pool-toggle-btn" @click.stop="currentPoolExpanded = !currentPoolExpanded" size="mini" type="text">
+                                <i :class="currentPoolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                                {{ currentPoolExpanded ? '收起' : '展开' }}
+                            </el-button>
+                        </div>
+                        <div v-if="currentPoolExpanded" class="pool-expand-table">
+                            <el-table :data="fundCurrentPools" size="small" stripe border :empty-text="'暂无'">
+                                <el-table-column label="序号" width="50" align="center"><template slot-scope="scope">{{ scope.$index + 1 }}</template></el-table-column>
+                                <el-table-column prop="poolName" label="投资池名称" min-width="200"><template slot-scope="scope"><span class="pool-table-name">{{ scope.row.poolName }}</span></template></el-table-column>
+                                <el-table-column prop="poolType" label="池类型" min-width="110"><template slot-scope="scope"><el-tag v-if="scope.row.poolType" size="mini" type="info">{{ poolTypeLabel(scope.row.poolType) }}</el-tag></template></el-table-column>
+                                <el-table-column prop="entryTime" label="入池日期" min-width="160" align="center"><template slot-scope="scope"><span class="pool-entry-time">{{ scope.row.entryTime || '' }}</span></template></el-table-column>
+                            </el-table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 调库操作：仅第一步显示 -->
+            <section v-show="adjustStep === 1" class="section-card section-adjust-op">
+                <div class="section-header" @click="toggleSection('adjustOp')">
+                    <div class="section-dot"></div>
+                    <div class="section-title">调库操作</div>
+                    <i :class="sectionExpanded.adjustOp ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="section-collapse-icon"></i>
+                </div>
+                <div v-show="sectionExpanded.adjustOp" class="section-body">
+                    <div class="adjust-dual-panels">
+                        <div class="adjust-panel panel-in">
+                            <div class="sub-heading">
+                                <span class="status-dot green"></span>
+                                <span>可调入库</span>
+                                <span class="count-chip count-chip-in">已选 {{ selectedInPools.length }}</span>
+                            </div>
+                        <el-table ref="inTableRef" :data="adjustInTree" row-key="id" border size="small"
+                                  stripe :tree-props="{ children: 'children' }"
+                                  :empty-text="'暂无可调入的投资池'"
+                                  @select="handleInPoolSelect"
+                                  @select-all="handleInPoolSelectAll">
+                            <el-table-column type="selection" width="40" :selectable="poolRowSelectable"></el-table-column>
+                            <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                            <el-table-column prop="maxCapacity" label="上限数量" width="75" align="center">
+                                <template slot-scope="scope"><span v-if="poolRowSelectable(scope.row)" class="pool-number">{{ scope.row.maxCapacity == null ? '' : scope.row.maxCapacity }}</span></template>
+                            </el-table-column>
+                            <el-table-column prop="currentCount" label="现有数量" width="75" align="center">
+                                <template slot-scope="scope"><span v-if="poolRowSelectable(scope.row)" class="pool-number">{{ scope.row.currentCount == null ? '' : scope.row.currentCount }}</span></template>
+                            </el-table-column>
+                            <el-table-column label="相关报告" min-width="180">
+                                <template slot-scope="scope">
+                                    <div v-if="poolRowSelectable(scope.row)" class="upload-cell">
+                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                            <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog('in', scope.row.id, 'credit')">选择报告</el-button>
+                                            <el-upload action="#" :auto-upload="false" :accept="'.xls,.xlsx,.docx,.doc,.pdf,.json'"
+                                                       :on-change="(file, fileList) => handleAttachmentChange('in', scope.row.id, file, fileList)"
+                                                       multiple :show-file-list="false">
+                                                <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                            </el-upload>
+                                        </div>
+                                        <div v-if="getCreditReportSelections('in', scope.row.id).length" class="upload-file-list">
+                                            <div v-for="(report, index) in getCreditReportSelections('in', scope.row.id)" :key="'in-report-' + report.source + '-' + report.id + '-' + index" class="report-tag" :class="report.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                <span :title="report.title">{{ report.title }}</span>
+                                                <span class="report-source-badge">{{ report.source === 'internal' ? '内' : '外' }}</span>
+                                                <i class="el-icon-close" @click="removeCreditReportSelection('in', scope.row.id, index)"></i>
+                                            </div>
+                                        </div>
+                                        <div v-if="getAttachmentFiles('in', scope.row.id).length" class="upload-file-list">
+                                            <div v-for="(file, index) in getAttachmentFiles('in', scope.row.id)" :key="file.uid || index" class="upload-file-tag" @click="downloadLocalFile(file)">
+                                                <span class="file-name" :title="file.name">{{ file.name }}</span>
+                                                <span class="manual-source-badge" title="手工上传">手</span>
+                                                <i class="el-icon-close" @click.stop="removeAttachmentFile('in', scope.row.id, index)"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="其他材料" min-width="180">
+                                <template slot-scope="scope">
+                                    <div v-if="poolRowSelectable(scope.row)" class="upload-cell">
+                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                            <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog('in', scope.row.id, 'material')">选择报告</el-button>
+                                            <el-upload action="#" :auto-upload="false" :accept="'.xls,.xlsx,.docx,.doc,.pdf,.json'"
+                                                       :on-change="(file, fileList) => handleMaterialChange('in', scope.row.id, file, fileList)"
+                                                       multiple :show-file-list="false">
+                                                <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                            </el-upload>
+                                        </div>
+                                        <div v-if="getOtherMaterialSelections('in', scope.row.id).length" class="upload-file-list">
+                                            <div v-for="(report, index) in getOtherMaterialSelections('in', scope.row.id)" :key="'in-material-' + report.source + '-' + report.id + '-' + index" class="report-tag" :class="report.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                <span :title="report.title">{{ report.title }}</span>
+                                                <span class="report-source-badge">{{ report.source === 'internal' ? '内' : '外' }}</span>
+                                                <i class="el-icon-close" @click="removeOtherMaterialSelection('in', scope.row.id, index)"></i>
+                                            </div>
+                                        </div>
+                                        <div v-if="getMaterialFiles('in', scope.row.id).length" class="upload-file-list">
+                                            <div v-for="(file, index) in getMaterialFiles('in', scope.row.id)" :key="file.uid || index" class="upload-file-tag" @click="downloadLocalFile(file)">
+                                                <span class="file-name" :title="file.name">{{ file.name }}</span>
+                                                <span class="manual-source-badge" title="手工上传">手</span>
+                                                <i class="el-icon-close" @click.stop="removeMaterialFile('in', scope.row.id, index)"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </div>
+                        <div class="adjust-panel panel-out">
+                            <div class="sub-heading">
+                                <span class="status-dot red"></span>
+                                <span>可调出库</span>
+                                <span class="count-chip count-chip-out">已选 {{ selectedOutPools.length }}</span>
+                            </div>
+                        <el-table ref="outTableRef" :data="adjustOutTree" row-key="id" border size="small"
+                                  stripe :tree-props="{ children: 'children' }"
+                                  :empty-text="'暂无可调出的投资池'"
+                                  @select="handleOutPoolSelect"
+                                  @select-all="handleOutPoolSelectAll">
+                            <el-table-column type="selection" width="40" :selectable="poolRowSelectable"></el-table-column>
+                            <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                            <el-table-column prop="maxCapacity" label="上限数量" width="75" align="center">
+                                <template slot-scope="scope"><span v-if="poolRowSelectable(scope.row)" class="pool-number">{{ scope.row.maxCapacity == null ? '' : scope.row.maxCapacity }}</span></template>
+                            </el-table-column>
+                            <el-table-column prop="currentCount" label="现有数量" width="75" align="center">
+                                <template slot-scope="scope"><span v-if="poolRowSelectable(scope.row)" class="pool-number">{{ scope.row.currentCount == null ? '' : scope.row.currentCount }}</span></template>
+                            </el-table-column>
+                            <el-table-column label="相关报告" min-width="180">
+                                <template slot-scope="scope">
+                                    <div v-if="poolRowSelectable(scope.row)" class="upload-cell">
+                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                            <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog('out', scope.row.id, 'credit')">选择报告</el-button>
+                                            <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                       :on-change="(file, fileList) => handleAttachmentChange('out', scope.row.id, file, fileList)"
+                                                       multiple :show-file-list="false">
+                                                <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                            </el-upload>
+                                        </div>
+                                        <div v-if="getCreditReportSelections('out', scope.row.id).length" class="upload-file-list">
+                                            <div v-for="(report, index) in getCreditReportSelections('out', scope.row.id)" :key="'out-report-' + report.source + '-' + report.id + '-' + index" class="report-tag" :class="report.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                <span :title="report.title">{{ report.title }}</span>
+                                                <span class="report-source-badge">{{ report.source === 'internal' ? '内' : '外' }}</span>
+                                                <i class="el-icon-close" @click="removeCreditReportSelection('out', scope.row.id, index)"></i>
+                                            </div>
+                                        </div>
+                                        <div v-if="getAttachmentFiles('out', scope.row.id).length" class="upload-file-list">
+                                            <div v-for="(file, index) in getAttachmentFiles('out', scope.row.id)" :key="file.uid || index" class="upload-file-tag" @click="downloadLocalFile(file)">
+                                                <span class="file-name" :title="file.name">{{ file.name }}</span>
+                                                <span class="manual-source-badge" title="手工上传">手</span>
+                                                <i class="el-icon-close" @click.stop="removeAttachmentFile('out', scope.row.id, index)"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="其他材料" min-width="180">
+                                <template slot-scope="scope">
+                                    <div v-if="poolRowSelectable(scope.row)" class="upload-cell">
+                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                            <el-button type="text" size="mini" icon="el-icon-document" class="upload-btn" @click="openReportDialog('out', scope.row.id, 'material')">选择报告</el-button>
+                                            <el-upload action="#" :auto-upload="false" :accept="'.docx,.doc,.pdf'"
+                                                       :on-change="(file, fileList) => handleMaterialChange('out', scope.row.id, file, fileList)"
+                                                       multiple :show-file-list="false">
+                                                <el-button type="text" size="mini" icon="el-icon-upload2" class="upload-btn">上传附件</el-button>
+                                            </el-upload>
+                                        </div>
+                                        <div v-if="getOtherMaterialSelections('out', scope.row.id).length" class="upload-file-list">
+                                            <div v-for="(report, index) in getOtherMaterialSelections('out', scope.row.id)" :key="'out-material-' + report.source + '-' + report.id + '-' + index" class="report-tag" :class="report.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                                <span :title="report.title">{{ report.title }}</span>
+                                                <span class="report-source-badge">{{ report.source === 'internal' ? '内' : '外' }}</span>
+                                                <i class="el-icon-close" @click="removeOtherMaterialSelection('out', scope.row.id, index)"></i>
+                                            </div>
+                                        </div>
+                                        <div v-if="getMaterialFiles('out', scope.row.id).length" class="upload-file-list">
+                                            <div v-for="(file, index) in getMaterialFiles('out', scope.row.id)" :key="file.uid || index" class="upload-file-tag" @click="downloadLocalFile(file)">
+                                                <span class="file-name" :title="file.name">{{ file.name }}</span>
+                                                <span class="manual-source-badge" title="手工上传">手</span>
+                                                <i class="el-icon-close" @click.stop="removeMaterialFile('out', scope.row.id, index)"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </div>
+                </div>
+                    <div class="submit-area">
+                        <el-button size="small" icon="el-icon-printer" @click="exportPdf">导出 PDF</el-button>
+                        <el-button size="small" icon="el-icon-close" @click="backToList">取消</el-button>
+                        <el-button type="primary" size="small" icon="el-icon-arrow-right"
+                                   :disabled="selectedInPools.length === 0 && selectedOutPools.length === 0"
+                                   :loading="adjustCheckLoading" @click="goToStep2">
+                            下一步
+                            <span v-if="selectedInPools.length + selectedOutPools.length > 0" class="button-count">{{ selectedInPools.length + selectedOutPools.length }}</span>
+                        </el-button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 调库校验结果：仅第二步显示 -->
+            <section v-show="adjustStep === 2" class="section-card print-section">
+                <div class="section-header" @click="toggleSection('adjustReview')">
+                    <div class="section-dot"></div>
+                    <div class="section-title">调库校验结果</div>
+                    <span class="count-chip">共 {{ adjustReviewList.length }} 条</span>
+                    <i :class="sectionExpanded.adjustReview ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="section-collapse-icon"></i>
+                </div>
+                <div v-show="sectionExpanded.adjustReview" class="section-body section-table-body">
+                <el-table :data="adjustReviewList" border stripe size="small" :empty-text="'暂无数据'"
+                          :row-class-name="getAdjustReviewRowClass">
+                    <el-table-column label="序号" width="50" align="center"><template slot-scope="scope">{{ scope.$index + 1 }}</template></el-table-column>
+                    <el-table-column prop="fundCode" label="基金代码" min-width="130"><template slot-scope="scope">{{ scope.row.fundCode || fundDetail.fundCode }}</template></el-table-column>
+                    <el-table-column prop="poolName" label="投资池名称" min-width="180"></el-table-column>
+                    <el-table-column prop="itemTag" label="调整类型" min-width="100" align="center">
+                        <template slot-scope="scope"><el-tag size="mini" :type="itemTagType(scope.row.itemTag)">{{ adjustTypeLabel(scope.row.itemTag) }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column prop="adjustMode" label="调整方向" min-width="90" align="center">
+                        <template slot-scope="scope"><el-tag class="adjust-direction-tag" size="mini" :type="scope.row.adjustMode === '调入' ? 'success' : 'danger'">{{ scope.row.adjustMode }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column label="审批流程" min-width="190">
+                        <template slot-scope="scope">
+                            <el-select v-if="scope.row.canAdjust && scope.row.itemTag === 'manual'"
+                                       v-model="scope.row.selectedFlowKey" size="small" placeholder="请选择流程"
+                                       popper-class="fund-flow-select-dropdown" @change="handleRowFlowChange(scope.row)">
+                                <el-option v-for="option in scope.row.flowOptions" :key="option.optionKey"
+                                           :label="option.flowName" :value="option.optionKey" :disabled="!option.selectable">
+                                    <span class="batch-flow-option-name">{{ option.flowName }}</span>
+                                    <span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">{{ flowTypeLabel(option.flowType) }}</span>
+                                </el-option>
+                            </el-select>
+                            <span v-else-if="scope.row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
+                                <el-tag v-if="scope.row.flowType" size="mini" :type="flowTypeTagType(scope.row.flowType)">{{ flowTypeLabel(scope.row.flowType) }}</el-tag>
+                                <span>{{ scope.row.flowName }}</span>
+                            </span>
+                            <span v-else></span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="信评报告" min-width="180">
+                        <template slot-scope="{ row }">
+                            <div class="upload-cell">
+                                <div v-if="row.creditReports && row.creditReports.length" class="upload-file-list">
+                                    <div v-for="(report, index) in row.creditReports" :key="'review_credit_' + index"
+                                         class="report-tag" :class="report.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                        <span :title="report.title">{{ report.title }}</span>
+                                        <span class="report-source-badge">{{ report.source === 'internal' ? '内' : '外' }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="row.attachmentFiles && row.attachmentFiles.length" class="upload-file-list">
+                                    <div v-for="(file, index) in row.attachmentFiles" :key="'review_attachment_' + index"
+                                         class="upload-file-tag" @click="downloadLocalFile(file)">
+                                        <span class="file-name" :title="file.name">{{ file.name }}</span>
+                                        <span class="manual-source-badge" title="手工上传">手</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="其他材料" min-width="180">
+                        <template slot-scope="{ row }">
+                            <div class="upload-cell">
+                                <div v-if="row.otherMaterials && row.otherMaterials.length" class="upload-file-list">
+                                    <div v-for="(report, index) in row.otherMaterials" :key="'review_material_' + index"
+                                         class="report-tag" :class="report.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
+                                        <span :title="report.title">{{ report.title }}</span>
+                                        <span class="report-source-badge">{{ report.source === 'internal' ? '内' : '外' }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="row.materialFiles && row.materialFiles.length" class="upload-file-list">
+                                    <div v-for="(file, index) in row.materialFiles" :key="'review_material_file_' + index"
+                                         class="upload-file-tag" @click="downloadLocalFile(file)">
+                                        <span class="file-name" :title="file.name">{{ file.name }}</span>
+                                        <span class="manual-source-badge" title="手工上传">手</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="调整说明" min-width="260">
+                        <template slot-scope="scope">
+                            <div v-if="!scope.row.canAdjust && scope.row.failReasons && scope.row.failReasons.length" class="fail-reason-block">
+                                <div class="fail-reason-title">未通过（共 {{ scope.row.failReasons.length }} 项）</div>
+                                <ol class="fail-reason-list"><li v-for="(reason, index) in scope.row.failReasons" :key="index">{{ reason }}</li></ol>
+                            </div>
+                            <span v-else class="fail-reason-pass">{{ adjustResultNote(scope.row) }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="校验结果" width="150" fixed="right" align="center">
+                        <template slot-scope="scope">
+                            <span class="check-status">
+                                <span class="status-dot" :class="{ green: scope.row.canAdjust && !(scope.row.warnings || []).length, yellow: scope.row.canAdjust && (scope.row.warnings || []).length, red: !scope.row.canAdjust }"></span>
+                                <span :class="checkStatusClass(scope.row)">{{ checkStatusLabel(scope.row) }}</span>
+                            </span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+                </div>
+            </section>
+
+            <!-- 基金调库信息：仅第二步显示 -->
+            <section v-show="adjustStep === 2" class="section-card fund-adjust-info print-section">
+                <div class="section-header" @click="toggleSection('fundAdjustInfo')">
+                    <div class="section-dot"></div>
+                    <div class="section-title">基金调库信息</div>
+                    <i :class="sectionExpanded.fundAdjustInfo ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="section-collapse-icon"></i>
+                </div>
+                <el-form v-show="sectionExpanded.fundAdjustInfo" ref="submitForm" :model="submitForm" :rules="submitRules" label-width="0" size="small" class="fund-adjust-info-form">
+                    <el-descriptions :column="3" border size="small" class="fund-info-descriptions fund-adjust-descriptions">
+                        <el-descriptions-item>
+                            <template slot="label"><span class="required-star">*</span>基金评分</template>
+                            <el-form-item prop="fundScore" class="fund-adjust-field">
+                                <el-input v-model.trim="submitForm.fundScore" placeholder="请输入数字"></el-input>
+                            </el-form-item>
+                        </el-descriptions-item>
+                        <el-descriptions-item>
+                            <template slot="label"><span class="required-star">*</span>基金投资类型</template>
+                            <el-form-item prop="fundInvestmentType" class="fund-adjust-field">
+                                <el-select v-model="submitForm.fundInvestmentType" placeholder="请选择" style="width:100%;">
+                                    <el-option v-for="item in investmentTypeOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                                </el-select>
+                            </el-form-item>
+                        </el-descriptions-item>
+                        <el-descriptions-item>
+                            <template slot="label"><span class="required-star">*</span>风管领导审批</template>
+                            <el-form-item prop="needRiskLeaderApproval" class="fund-adjust-field">
+                                <el-radio-group v-model="submitForm.needRiskLeaderApproval" size="small">
+                                    <el-radio :label="1">是</el-radio>
+                                    <el-radio :label="0">否</el-radio>
+                                </el-radio-group>
+                            </el-form-item>
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </el-form>
+            </section>
+
+            <!-- 原因和建议：与证券池调整一致，均为非必填 -->
+            <section v-show="adjustStep === 2" class="section-card section-reason-advice fund-reason-advice">
+                <div class="section-header" @click="toggleSection('reasonAdvice')">
+                    <div class="section-dot"></div>
+                    <div class="section-title">原因和建议</div>
+                    <i :class="sectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="section-collapse-icon"></i>
+                </div>
+                <div v-show="sectionExpanded.reasonAdvice" class="reason-advice-body">
+                    <div class="reason-advice-grid">
+                        <div>
+                            <div class="reason-advice-label">调整原因</div>
+                            <el-input v-model.trim="submitForm.adjustReason" type="textarea" :rows="4" placeholder="请输入调整原因" maxlength="500" show-word-limit></el-input>
+                        </div>
+                        <div>
+                            <div class="reason-advice-label">调整建议</div>
+                            <el-input v-model.trim="submitForm.adjustAdvice" type="textarea" :rows="4" placeholder="请输入调整建议" maxlength="500" show-word-limit></el-input>
+                        </div>
+                    </div>
+                </div>
+                <div class="action-footer">
+                    <el-button size="small" icon="el-icon-printer" @click="exportPdf">导出 PDF</el-button>
+                    <el-button size="small" icon="el-icon-arrow-left" @click="backToList">返回列表</el-button>
+                    <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
+                    <el-button type="primary" size="small" icon="el-icon-check"
+                               :disabled="validItemCount === 0 || submitLoading" :loading="submitLoading" @click="handleSubmit">
+                        提交
+                        <span v-if="validItemCount > 0" class="button-count">{{ validItemCount }}</span>
+                    </el-button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 调库流程选择弹窗 -->
+    <el-dialog :visible.sync="flowDialogVisible" width="760px"
+               custom-class="flow-dialog" :close-on-click-modal="false" :show-close="false">
+        <span slot="title" class="flow-dialog-title">
+            <span class="flow-dialog-title-text">选择调库流程</span>
+            <span v-if="validManualAdjustReviewList.length > 0" class="flow-dialog-submit-hint">本次共 {{ validManualAdjustReviewList.length }} 项将选择流程并提交</span>
+        </span>
+        <div class="flow-option-list">
+            <div v-for="(row, rowIndex) in validManualAdjustReviewList"
+                 :key="row.targetPoolId + '_' + row.adjustMode"
+                 class="flow-option-card flow-row-card"
+                 :class="getFlowRowColorClass(rowIndex)">
+                <div class="flow-option-head">
+                    <span class="flow-option-name flow-pool-name">{{ row.poolName }}</span>
+                    <el-tag size="mini" :type="row.adjustMode === '调入' ? 'success' : 'danger'">{{ row.adjustMode }}</el-tag>
+                </div>
+                <el-radio-group v-model="row.selectedFlowKey" style="width:100%;margin-top:10px;" @change="handleRowFlowChange(row)">
+                    <el-radio v-for="option in row.flowOptions" :key="option.optionKey"
+                              :label="option.optionKey" :disabled="!option.selectable"
+                              class="flow-option-card flow-choice-card"
+                              :class="{ 'is-selected': row.selectedFlowKey === option.optionKey, 'is-disabled': !option.selectable }">
+                        <div class="flow-option-head">
+                            <span class="flow-option-name">{{ option.flowName }}</span>
+                            <el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag>
+                            <el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag>
+                            <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
+                        </div>
+                        <div class="flow-option-reasons">
+                            <div v-for="(reason, index) in option.matchReasons"
+                                 :key="'match_' + option.optionKey + '_' + index"
+                                 class="flow-option-reason ok">{{ reason }}</div>
+                            <div v-for="(reason, index) in option.unmatchReasons"
+                                 :key="'unmatch_' + option.optionKey + '_' + index"
+                                 class="flow-option-reason warn">{{ reason }}</div>
+                        </div>
+                    </el-radio>
+                </el-radio-group>
+            </div>
+            <div v-if="validManualAdjustReviewList.length === 0" style="color:var(--c-text-3);font-size:13px;">
+                暂无可选择流程的手工调库项
+            </div>
+        </div>
+        <span slot="footer">
+            <el-button size="small" :disabled="submitLoading" @click="flowDialogVisible = false">取消</el-button>
+            <el-button type="primary" size="small"
+                       :disabled="!allValidRowsHaveFlow || submitLoading"
+                       :loading="submitLoading" @click="confirmFlowSelection">确认</el-button>
+        </span>
+    </el-dialog>
+
+    <!-- 基金报告选择弹窗 -->
+    <el-dialog :title="reportDialogTitle" :visible.sync="reportDialogVisible" width="960px"
+               custom-class="report-dialog" top="6vh" @closed="handleReportDialogClosed">
+        <div class="report-stats-bar">
+            <div class="report-stats-info">
+                <i class="el-icon-collection-tag"></i>
+                <span>正在为 <strong>{{ reportDialogColumn === 'material' ? '其他材料' : '基金报告' }}</strong> 选择参考材料，可在内部 / 外部报告之间切换</span>
+            </div>
+            <div class="report-stats-count">已选 <strong>{{ totalSelectedReports }}</strong> 条</div>
+        </div>
+
+        <el-tabs v-model="reportActiveTab" @tab-click="handleReportTabClick">
+            <el-tab-pane name="internal">
+                <span slot="label">
+                    内部报告<span v-if="selectedInternalReports.length" class="tab-count-badge">{{ selectedInternalReports.length }}</span>
+                </span>
+                <div class="report-quick-row">
+                    <span class="report-quick-label">类型</span>
+                    <span class="report-quick-chip" :class="{ active: !internalReportFilters.reportType }"
+                          @click="setInternalReportTypeFilter('')">全部</span>
+                    <span v-for="type in internalReportTypeOptions" :key="type" class="report-quick-chip"
+                          :class="{ active: internalReportFilters.reportType === type }"
+                          @click="setInternalReportTypeFilter(type)">{{ reportTypeLabel(type) }}</span>
+                </div>
+                <div class="report-filter-bar">
+                    <el-input v-model.trim="internalReportFilters.title" placeholder="标题关键字" clearable size="small"
+                              style="width:200px;" prefix-icon="el-icon-search"
+                              @keyup.enter.native="queryInternalReports"></el-input>
+                    <el-input v-model.trim="internalReportFilters.securityCode" placeholder="证券编码" clearable size="small"
+                              style="width:180px;" prefix-icon="el-icon-document"
+                              @keyup.enter.native="queryInternalReports"></el-input>
+                    <el-date-picker v-model="internalReportFilters.writeDateRange" type="daterange"
+                                    popper-class="fund-date-range-picker" range-separator="~"
+                                    start-placeholder="开始日期" end-placeholder="结束日期"
+                                    size="small" style="width:240px;" value-format="yyyy-MM-dd"></el-date-picker>
+                    <el-button type="primary" size="small" icon="el-icon-search" @click="queryInternalReports">查询</el-button>
+                    <el-button size="small" icon="el-icon-refresh" @click="resetInternalReportFilters">重置</el-button>
+                </div>
+                <el-table ref="internalReportTableRef" :data="internalReportPageData" size="small" stripe border
+                          v-loading="internalReportLoading" style="width:100%;" :empty-text="'未找到匹配的报告'"
+                          @selection-change="handleInternalReportSelectionChange">
+                    <el-table-column type="selection" width="42"></el-table-column>
+                    <el-table-column label="序号" width="50" align="center">
+                        <template slot-scope="{ $index }">{{ (internalReportPagination.pageIndex - 1) * internalReportPagination.pageSize + $index + 1 }}</template>
+                    </el-table-column>
+                    <el-table-column prop="title" label="报告标题" min-width="220" show-overflow-tooltip>
+                        <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.title }}</span></template>
+                    </el-table-column>
+                    <el-table-column prop="reportType" label="报告类型" min-width="120">
+                        <template slot-scope="{ row }"><el-tag v-if="row.reportType" size="mini" :type="reportTypeTagType(row.reportType)">{{ reportTypeLabel(row.reportType) }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column prop="securityCode" label="证券编码" min-width="120">
+                        <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-primary);">{{ row.securityCode }}</span></template>
+                    </el-table-column>
+                    <el-table-column prop="companyCode" label="主体编码" min-width="120">
+                        <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text);">{{ row.companyCode }}</span></template>
+                    </el-table-column>
+                    <el-table-column prop="securityType" label="证券类型" min-width="120">
+                        <template slot-scope="{ row }"><el-tag v-if="row.securityType" size="mini" type="info">{{ reportSecurityTypeLabel(row.securityType) }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column label="附件" min-width="150">
+                        <template slot-scope="{ row }">
+                            <div class="report-attachment-list">
+                                <el-button v-for="file in row.attachments || []" :key="'internal_attachment_' + file.id"
+                                           class="report-attachment-item" :title="file.originalFileName || ''"
+                                           size="mini" type="text" @click.stop="downloadAttachment(file)">
+                                    <i class="el-icon-paperclip"></i>
+                                    <span class="report-attachment-name">{{ file.originalFileName }}</span>
+                                </el-button>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="作者 / 创建时间" min-width="140">
+                        <template slot-scope="{ row }">
+                            <div style="display:flex;flex-direction:column;line-height:1.4;">
+                                <span style="font-size:12px;color:var(--c-text);">{{ row.author }}</span>
+                                <span style="font-family:'Courier New',monospace;font-size:11px;color:var(--c-text-3);">{{ row.writeDate }}</span>
+                            </div>
+                        </template>
+                    </el-table-column>
+                </el-table>
+                <div class="report-pagination">
+                    <el-pagination :total="internalReportPagination.total"
+                                   :current-page="internalReportPagination.pageIndex"
+                                   :page-size="internalReportPagination.pageSize"
+                                   :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" small
+                                   @current-change="(page) => { internalReportPagination.pageIndex = page; queryInternalReports(); }"
+                                   @size-change="(size) => { internalReportPagination.pageSize = size; internalReportPagination.pageIndex = 1; queryInternalReports(); }"></el-pagination>
+                </div>
+            </el-tab-pane>
+
+            <el-tab-pane name="external">
+                <span slot="label">
+                    外部报告<span v-if="selectedExternalReports.length" class="tab-count-badge">{{ selectedExternalReports.length }}</span>
+                </span>
+                <div class="report-quick-row">
+                    <span class="report-quick-label">类型</span>
+                    <span class="report-quick-chip" :class="{ active: !externalReportFilters.reportType }"
+                          @click="setExternalReportTypeFilter('')">全部</span>
+                    <span v-for="type in externalReportTypeOptions" :key="type" class="report-quick-chip"
+                          :class="{ active: externalReportFilters.reportType === type }"
+                          @click="setExternalReportTypeFilter(type)">{{ reportTypeLabel(type) }}</span>
+                </div>
+                <div class="report-filter-bar">
+                    <el-input v-model.trim="externalReportFilters.title" placeholder="标题关键字" clearable size="small"
+                              style="width:200px;" prefix-icon="el-icon-search"
+                              @keyup.enter.native="queryExternalReports"></el-input>
+                    <el-input v-model.trim="externalReportFilters.securityCode" placeholder="证券编码" clearable size="small"
+                              style="width:180px;" prefix-icon="el-icon-document"
+                              @keyup.enter.native="queryExternalReports"></el-input>
+                    <el-date-picker v-model="externalReportFilters.writeDateRange" type="daterange"
+                                    popper-class="fund-date-range-picker" range-separator="~"
+                                    start-placeholder="开始日期" end-placeholder="结束日期"
+                                    size="small" style="width:240px;" value-format="yyyy-MM-dd"></el-date-picker>
+                    <el-button type="primary" size="small" icon="el-icon-search" @click="queryExternalReports">查询</el-button>
+                    <el-button size="small" icon="el-icon-refresh" @click="resetExternalReportFilters">重置</el-button>
+                </div>
+                <el-table ref="externalReportTableRef" :data="externalReportPageData" size="small" stripe border
+                          v-loading="externalReportLoading" style="width:100%;" :empty-text="'未找到匹配的报告'"
+                          @selection-change="handleExternalReportSelectionChange">
+                    <el-table-column type="selection" width="42"></el-table-column>
+                    <el-table-column label="序号" width="50" align="center">
+                        <template slot-scope="{ $index }">{{ (externalReportPagination.pageIndex - 1) * externalReportPagination.pageSize + $index + 1 }}</template>
+                    </el-table-column>
+                    <el-table-column prop="title" label="报告标题" min-width="220" show-overflow-tooltip>
+                        <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.title }}</span></template>
+                    </el-table-column>
+                    <el-table-column prop="sourceOrgName" label="来源机构" min-width="120" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="reportType" label="报告类型" min-width="120">
+                        <template slot-scope="{ row }"><el-tag v-if="row.reportType" size="mini" :type="reportTypeTagType(row.reportType)">{{ reportTypeLabel(row.reportType) }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column prop="securityCode" label="证券编码" min-width="120">
+                        <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-primary);">{{ row.securityCode }}</span></template>
+                    </el-table-column>
+                    <el-table-column prop="companyCode" label="主体编码" min-width="120">
+                        <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text);">{{ row.companyCode }}</span></template>
+                    </el-table-column>
+                    <el-table-column prop="securityType" label="证券类型" min-width="120">
+                        <template slot-scope="{ row }"><el-tag v-if="row.securityType" size="mini" type="info">{{ reportSecurityTypeLabel(row.securityType) }}</el-tag></template>
+                    </el-table-column>
+                    <el-table-column label="附件" min-width="150">
+                        <template slot-scope="{ row }">
+                            <div class="report-attachment-list">
+                                <el-button v-for="file in row.attachments || []" :key="'external_attachment_' + file.id"
+                                           class="report-attachment-item" :title="file.originalFileName || ''"
+                                           size="mini" type="text" @click.stop="downloadAttachment(file)">
+                                    <i class="el-icon-paperclip"></i>
+                                    <span class="report-attachment-name">{{ file.originalFileName }}</span>
+                                </el-button>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="作者 / 创建时间" min-width="140">
+                        <template slot-scope="{ row }">
+                            <div style="display:flex;flex-direction:column;line-height:1.4;">
+                                <span style="font-size:12px;color:var(--c-text);">{{ row.author }}</span>
+                                <span style="font-family:'Courier New',monospace;font-size:11px;color:var(--c-text-3);">{{ row.writeDate }}</span>
+                            </div>
+                        </template>
+                    </el-table-column>
+                </el-table>
+                <div class="report-pagination">
+                    <el-pagination :total="externalReportPagination.total"
+                                   :current-page="externalReportPagination.pageIndex"
+                                   :page-size="externalReportPagination.pageSize"
+                                   :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" small
+                                   @current-change="(page) => { externalReportPagination.pageIndex = page; queryExternalReports(); }"
+                                   @size-change="(size) => { externalReportPagination.pageSize = size; externalReportPagination.pageIndex = 1; queryExternalReports(); }"></el-pagination>
+                </div>
+            </el-tab-pane>
+        </el-tabs>
+
+        <div class="report-selected-summary">
+            <div class="report-selected-summary-row">
+                <span class="report-selected-label">
+                    内部报告
+                    <span class="report-selected-count" :class="{ 'is-empty': !selectedInternalReports.length }">{{ selectedInternalReports.length }}</span>
+                </span>
+                <template v-if="selectedInternalReports.length">
+                    <span v-for="report in selectedInternalReports" :key="'selected_internal_' + report.id" class="selected-tag selected-tag-internal">
+                        <span :title="report.title">{{ report.title }}</span>
+                        <i class="el-icon-close" @click="removeInternalSelection(report.id)"></i>
+                    </span>
+                    <el-button type="text" class="selected-clear-btn" icon="el-icon-delete" @click="clearInternalSelection">清空</el-button>
+                </template>
+                <span v-else class="report-selected-empty">未选择</span>
+            </div>
+            <div class="report-selected-summary-row">
+                <span class="report-selected-label">
+                    外部报告
+                    <span class="report-selected-count" :class="{ 'is-empty': !selectedExternalReports.length }">{{ selectedExternalReports.length }}</span>
+                </span>
+                <template v-if="selectedExternalReports.length">
+                    <span v-for="report in selectedExternalReports" :key="'selected_external_' + report.id" class="selected-tag selected-tag-external">
+                        <span :title="report.title">{{ report.title }}</span>
+                        <i class="el-icon-close" @click="removeExternalSelection(report.id)"></i>
+                    </span>
+                    <el-button type="text" class="selected-clear-btn" icon="el-icon-delete" @click="clearExternalSelection">清空</el-button>
+                </template>
+                <span v-else class="report-selected-empty">未选择</span>
+            </div>
+        </div>
+        <span slot="footer">
+            <el-button size="small" @click="reportDialogVisible = false">取消</el-button>
+            <el-button type="primary" size="small" icon="el-icon-check"
+                       :disabled="totalSelectedReports === 0" @click="handleConfirmReportDialog">
+                确认选择
+                <span v-if="totalSelectedReports > 0"
+                      style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">{{ totalSelectedReports }}</span>
+            </el-button>
+        </span>
+    </el-dialog>
+</div>
+
+<script>
+new Vue({
+    el: '#fund_pool_adjust',
+    data() {
+        const numberValidator = (rule, value, callback) => {
+            if (value === '' || value == null) return callback(new Error('请输入基金评分'))
+            if (!Number.isFinite(Number(value))) return callback(new Error('基金评分必须为合法数字'))
+            callback()
+        }
+        const user = window.RrsAuth.getCurrentUser()
+        return {
+            currentPage: 'list',          // 当前显示页：list=列表页 / detail=调库详情页
+            currentUser: user,            // 当前登录用户
+            listLoading: false,           // 基金列表加载状态
+            detailLoading: false,         // 基金调库详情加载状态
+            adjustCheckLoading: false,    // 下一步校验接口加载状态
+            adjustCheckSeq: 0,            // 校验请求序号，避免旧响应覆盖新结果
+            submitLoading: false,         // 调库提交防重复点击状态
+            adjustStep: 1,                // 调库步骤：1=选择池 / 2=校验确认
+            searchForm: { fundCode: '', fundShortName: '', securityType: '', fundAdministrator: '' }, // 列表查询条件
+            pagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 基金列表分页
+            fundList: [],                 // 基金列表数据
+            fundTypeOptions: [],          // 基金产品类型选项
+            fundDetail: {},               // 当前基金只读详情
+            fundCurrentPools: [],         // 当前基金所在池
+            currentPoolExpanded: false,   // 当前所在池明细展开状态
+            adjustInTree: [],             // 可调入池树形数据
+            adjustOutTree: [],            // 可调出池树形数据
+            selectedInPools: [],          // 第一步已选择的调入池
+            selectedOutPools: [],         // 第一步已选择的调出池
+            adjustReviewList: [],         // 第二步调库校验结果
+            sectionExpanded: {            // 详情区块展开状态
+                fundInfo: true,
+                currentPools: true,
+                adjustOp: true,
+                adjustReview: true,
+                fundAdjustInfo: true,
+                reasonAdvice: true
+            },
+            submitForm: { fundScore: '', fundInvestmentType: '', needRiskLeaderApproval: '', adjustReason: '', adjustAdvice: '' }, // 提交页基金信息、原因和建议
+            submitRules: {
+                fundScore: [{ validator: numberValidator, trigger: 'blur' }],
+                fundInvestmentType: [{ required: true, message: '请选择基金投资类型', trigger: 'change' }],
+                needRiskLeaderApproval: [{ required: true, message: '请选择风管领导审批', trigger: 'change' }]
+            },
+            investmentTypeOptions: [
+                { value: 'stock', label: '股票型' },
+                { value: 'equity_hybrid', label: '偏股混合型' },
+                { value: 'money_market', label: '货币型' },
+                { value: 'bond_hybrid', label: '偏债混合型' },
+                { value: 'other', label: '其余类型' }
+            ],
+            flowDialogVisible: false,      // 调库流程选择弹窗显示状态
+            reportDialogVisible: false,    // 报告选择弹窗显示状态
+            reportDialogDirection: '',     // 当前报告所属方向：in / out
+            reportDialogPoolId: null,      // 当前报告所属池 ID
+            reportDialogColumn: '',        // 当前报告目标列：credit / material
+            reportActiveTab: 'internal',   // 报告弹窗当前 Tab
+            internalReportData: [],        // 内部报告当前页数据
+            internalReportFilters: { title: '', securityCode: '', reportType: '', writeDateRange: null }, // 内部报告查询条件
+            internalReportPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 内部报告分页
+            internalReportLoading: false,  // 内部报告加载状态
+            selectedInternalReports: [],   // 弹窗会话内已选内部报告
+            externalReportData: [],        // 外部报告当前页数据
+            externalReportFilters: { title: '', securityCode: '', reportType: '', writeDateRange: null }, // 外部报告查询条件
+            externalReportPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 外部报告分页
+            externalReportLoading: false,  // 外部报告加载状态
+            selectedExternalReports: [],   // 弹窗会话内已选外部报告
+            restoringReportSelection: false, // 恢复报告勾选状态标志
+            reportTypeDict: {
+                bond_in_report: '债券入库报告',
+                bond_out_report: '债券出库报告',
+                fund_in_report: '基金入库报告',
+                fund_out_report: '基金出库报告',
+                stock_in_report: '股票入库报告',
+                stock_out_report: '股票出库报告',
+                other_report: '其他报告'
+            },
+            reportSecurityTypeDict: { bond: '债券', fund: '基金', stock: '股票', company: '主体', other: '其他' }, // 报告证券类型字典
+            creditReportSelections: {},    // 各方向、目标池已选基金报告
+            otherMaterialSelections: {},   // 各方向、目标池已选其他材料
+            attachmentFiles: {},           // 各方向、目标池基金报告上传文件
+            materialFiles: {}              // 各方向、目标池其他材料上传文件
+        }
+    },
+    computed: {
+        validAdjustReviewList() {
+            return this.adjustReviewList.filter(item => item.canAdjust)
+        },
+        validManualAdjustReviewList() {
+            return this.adjustReviewList.filter(item => item.canAdjust && item.itemTag === 'manual')
+        },
+        allValidRowsHaveFlow() {
+            return this.validManualAdjustReviewList.length > 0
+                && this.validManualAdjustReviewList.every(row => !!this.selectedRowFlowOption(row))
+        },
+        validItemCount() {
+            return this.validAdjustReviewList.length
+        },
+        internalReportPageData() {
+            return this.internalReportData
+        },
+        externalReportPageData() {
+            return this.externalReportData
+        },
+        reportTypeOptions() {
+            return Object.keys(this.reportTypeDict)
+        },
+        internalReportTypeOptions() {
+            return this.reportTypeOptions
+        },
+        externalReportTypeOptions() {
+            return this.reportTypeOptions
+        },
+        totalSelectedReports() {
+            return this.selectedInternalReports.length + this.selectedExternalReports.length
+        },
+        reportDialogTitle() {
+            return this.reportDialogColumn === 'material' ? '选择其他材料' : '选择基金报告'
+        }
+    },
+    created() {
+        this.loadFundTypes()
+        this.loadFundList()
+    },
+    methods: {
+        // 将可空数值转换为只读区域所需的空白展示。
+        emptyNumber(value) { return value == null ? '' : value },
+        // 按基金池查询页面的编码映射基金类型标签颜色。
+        fundTypeTagType(code) {
+            const map = {
+                closed_fund: 'danger',
+                open_fund: 'info',
+                qdii_fund: 'primary',
+                lof_fund: 'warning',
+                etf_fund: 'success',
+            };
+            return map[code] || 'info';
+        },
+        // 查询有效基金产品类型选项。
+        async loadFundTypes() {
+            try { this.fundTypeOptions = await this.apiPost('/api/v1/fundPoolAdjust/queryFundTypeList', {}) || [] } catch (e) { this.fundTypeOptions = [] }
+        },
+        // 按当前查询条件加载基金分页列表。
+        async loadFundList() {
+            this.listLoading = true
+            try {
+                const data = await this.apiPost('/api/v1/fundPoolAdjust/queryFundPage', Object.assign({}, this.searchForm, this.pagination))
+                this.fundList = data.records || []
+                this.pagination.total = data.total || 0
+            } catch (e) { this.fundList = []; this.pagination.total = 0 }
+            this.listLoading = false
+        },
+        // 从第一页执行基金查询。
+        handleSearch() { this.pagination.pageIndex = 1; this.loadFundList() },
+        // 清空基金查询条件并重新查询。
+        handleReset() { this.searchForm = { fundCode: '', fundShortName: '', securityType: '', fundAdministrator: '' }; this.handleSearch() },
+        // 切换基金列表页码。
+        changePage(page) { this.pagination.pageIndex = page; this.loadFundList() },
+        // 切换基金列表每页条数。
+        changeSize(size) { this.pagination.pageSize = size; this.pagination.pageIndex = 1; this.loadFundList() },
+        // 进入基金池调整详情并加载基金、当前池和可调整池。
+        async openAdjust(row) {
+            this.currentPage = 'detail'
+            this.detailLoading = true
+            this.adjustStep = 1
+            this.adjustReviewList = []
+            this.selectedInPools = []
+            this.selectedOutPools = []
+            this.currentPoolExpanded = false
+            this.flowDialogVisible = false
+            this.creditReportSelections = {}
+            this.otherMaterialSelections = {}
+            this.attachmentFiles = {}
+            this.materialFiles = {}
+            this.submitForm = { fundScore: '', fundInvestmentType: '', needRiskLeaderApproval: '', adjustReason: '', adjustAdvice: '' }
+            try {
+                const req = { fundCode: row.fundCode }
+                const poolReq = { fundCode: row.fundCode, currentUserId: this.currentUser.userId }
+                const values = await Promise.all([
+                    this.apiPost('/api/v1/fundPoolAdjust/queryFundDetail', req),
+                    this.apiPost('/api/v1/fundPoolAdjust/queryFundPoolStatus', req),
+                    this.apiPost('/api/v1/fundPoolAdjust/queryAdjustPoolList', Object.assign({ adjustDirection: 'in' }, poolReq)),
+                    this.apiPost('/api/v1/fundPoolAdjust/queryAdjustPoolList', Object.assign({ adjustDirection: 'out' }, poolReq))
+                ])
+                this.fundDetail = values[0] || {}
+                this.fundCurrentPools = values[1] || []
+                const currentIds = new Set(this.fundCurrentPools.map(item => item.targetPoolId))
+                const inList = (values[2] || []).filter(item => !currentIds.has(item.id))
+                const outList = (values[3] || []).filter(item => currentIds.has(item.id) || (values[3] || []).some(child => child.parentId === item.id && currentIds.has(child.id)))
+                this.adjustInTree = this.buildPoolTree(inList)
+                this.adjustOutTree = this.buildPoolTree(outList)
+            } catch (e) {
+                this.fundDetail = row || {}
+                this.fundCurrentPools = []
+                this.adjustInTree = []
+                this.adjustOutTree = []
+            }
+            this.detailLoading = false
+        },
+        // 返回基金列表并刷新查询结果。
+        backToList() {
+            this.currentPage = 'list'
+            this.adjustStep = 1
+            this.adjustReviewList = []
+            this.flowDialogVisible = false
+            this.reportDialogVisible = false
+            this.loadFundList()
+        },
+        // 切换详情区块的展开状态。
+        toggleSection(section) {
+            this.sectionExpanded[section] = !this.sectionExpanded[section]
+        },
+        // 将投资池平铺数据转换成树形结构。
+        buildPoolTree(list) {
+            const map = {}
+            ;(list || []).forEach(item => { map[item.id] = Object.assign({}, item, { children: [] }) })
+            const roots = []
+            Object.keys(map).forEach(key => {
+                const item = map[key]
+                if (item.parentId != null && map[item.parentId]) map[item.parentId].children.push(item)
+                else roots.push(item)
+            })
+            const trim = rows => rows.map(row => {
+                if (row.children.length) row.children = trim(row.children)
+                else delete row.children
+                return row
+            })
+            return trim(roots)
+        },
+        // 仅允许选择投资池叶子节点。
+        poolRowSelectable(row) { return !row.children || row.children.length === 0 },
+        // 清理重复项并只保留投资池叶子节点。
+        normalizeSelectedPools(selection) {
+            const map = {}
+            ;(selection || []).forEach(row => {
+                if (row && this.poolRowSelectable(row)) map[row.id] = row
+            })
+            return Object.keys(map).map(id => map[id])
+        },
+        // 展开树形投资池并返回全部叶子节点。
+        flattenPoolTree(tree) {
+            const result = []
+            const walk = nodes => {
+                ;(nodes || []).forEach(node => {
+                    if (node.children && node.children.length) walk(node.children)
+                    else result.push(node)
+                })
+            }
+            walk(tree)
+            return result
+        },
+        // 处理调入池单项勾选，并自动取消互斥池选择。
+        handleInPoolSelect(selection, row) {
+            const isNowSelected = (selection || []).some(item => item.id === row.id)
+            if (isNowSelected) {
+                const mutexIds = row.inMutexPoolIds || []
+                const conflictIn = this.selectedInPools.filter(item => mutexIds.includes(item.id))
+                const conflictOut = this.selectedOutPools.filter(item => mutexIds.includes(item.id))
+                conflictIn.forEach(item => this.$refs.inTableRef.toggleRowSelection(item, false))
+                conflictOut.forEach(item => this.$refs.outTableRef.toggleRowSelection(item, false))
+                this.selectedInPools = this.selectedInPools.filter(item => !mutexIds.includes(item.id))
+                this.selectedOutPools = this.selectedOutPools.filter(item => !mutexIds.includes(item.id))
+                if (conflictIn.length || conflictOut.length) {
+                    const names = conflictIn.concat(conflictOut).map(item => item.poolName).join('、')
+                    this.$message.warning('「' + names + '」与「' + row.poolName + '」互斥，已自动取消「' + names + '」改选「' + row.poolName + '」')
+                }
+            }
+            this.selectedInPools = isNowSelected
+                ? this.normalizeSelectedPools(this.selectedInPools.concat(row))
+                : this.selectedInPools.filter(item => item.id !== row.id)
+        },
+        // 处理调入池表头全选或取消全选。
+        handleInPoolSelectAll() {
+            const rows = this.flattenPoolTree(this.adjustInTree)
+            const selectedCount = rows.filter(row => this.selectedInPools.some(item => item.id === row.id)).length
+            const selectAll = selectedCount < rows.length
+            rows.forEach(row => {
+                if (this.$refs.inTableRef) this.$refs.inTableRef.toggleRowSelection(row, selectAll)
+                const selected = this.selectedInPools.some(item => item.id === row.id)
+                if (selectAll !== selected) this.handleInPoolSelect(selectAll ? [row] : [], row)
+            })
+        },
+        // 处理调出池单项勾选，并自动取消互斥池选择。
+        handleOutPoolSelect(selection, row) {
+            const isNowSelected = (selection || []).some(item => item.id === row.id)
+            if (isNowSelected) {
+                const mutexIds = row.outMutexPoolIds || []
+                const conflictOut = this.selectedOutPools.filter(item => mutexIds.includes(item.id))
+                const conflictIn = this.selectedInPools.filter(item => mutexIds.includes(item.id))
+                conflictOut.forEach(item => this.$refs.outTableRef.toggleRowSelection(item, false))
+                conflictIn.forEach(item => this.$refs.inTableRef.toggleRowSelection(item, false))
+                this.selectedOutPools = this.selectedOutPools.filter(item => !mutexIds.includes(item.id))
+                this.selectedInPools = this.selectedInPools.filter(item => !mutexIds.includes(item.id))
+                if (conflictOut.length || conflictIn.length) {
+                    const names = conflictOut.concat(conflictIn).map(item => item.poolName).join('、')
+                    this.$message.warning('「' + names + '」与「' + row.poolName + '」互斥，已自动取消「' + names + '」改选「' + row.poolName + '」')
+                }
+            }
+            this.selectedOutPools = isNowSelected
+                ? this.normalizeSelectedPools(this.selectedOutPools.concat(row))
+                : this.selectedOutPools.filter(item => item.id !== row.id)
+        },
+        // 处理调出池表头全选或取消全选。
+        handleOutPoolSelectAll() {
+            const rows = this.flattenPoolTree(this.adjustOutTree)
+            const selectedCount = rows.filter(row => this.selectedOutPools.some(item => item.id === row.id)).length
+            const selectAll = selectedCount < rows.length
+            rows.forEach(row => {
+                if (this.$refs.outTableRef) this.$refs.outTableRef.toggleRowSelection(row, selectAll)
+                const selected = this.selectedOutPools.some(item => item.id === row.id)
+                if (selectAll !== selected) this.handleOutPoolSelect(selectAll ? [row] : [], row)
+            })
+        },
+        // 格式化投资池容量展示文本。
+        capacityText(row) { return (row.currentCount == null ? 0 : row.currentCount) + ' / ' + (row.maxCapacity == null ? '不限' : row.maxCapacity) },
+        // 生成方向与目标池对应的材料选择键。
+        materialKey(direction, poolId) { return direction + '-' + poolId },
+        // 获取指定池的基金报告选择。
+        getCreditReportSelections(direction, poolId) {
+            const key = this.materialKey(direction, poolId)
+            return this.creditReportSelections[key] || []
+        },
+        // 获取指定池的其他材料选择。
+        getOtherMaterialSelections(direction, poolId) {
+            return this.otherMaterialSelections[this.materialKey(direction, poolId)] || []
+        },
+        // 获取指定池的基金报告上传文件。
+        getAttachmentFiles(direction, poolId) {
+            return this.attachmentFiles[this.materialKey(direction, poolId)] || []
+        },
+        // 获取指定池的其他材料上传文件。
+        getMaterialFiles(direction, poolId) {
+            return this.materialFiles[this.materialKey(direction, poolId)] || []
+        },
+        // 保存基金报告本地上传文件。
+        handleAttachmentChange(direction, poolId, file, fileList) {
+            const key = this.materialKey(direction, poolId)
+            const current = this.getAttachmentFiles(direction, poolId)
+            if (!file.raw || current.some(item => item.name === file.name)) return
+            this.$set(this.attachmentFiles, key, [...current, file])
+        },
+        // 保存其他材料本地上传文件。
+        handleMaterialChange(direction, poolId, file, fileList) {
+            const key = this.materialKey(direction, poolId)
+            const current = this.getMaterialFiles(direction, poolId)
+            if (!file.raw || current.some(item => item.name === file.name)) return
+            this.$set(this.materialFiles, key, [...current, file])
+        },
+        // 删除指定池的基金报告本地文件。
+        removeAttachmentFile(direction, poolId, index) {
+            const key = this.materialKey(direction, poolId)
+            const files = this.getAttachmentFiles(direction, poolId).slice()
+            files.splice(index, 1)
+            this.$set(this.attachmentFiles, key, files)
+        },
+        // 删除指定池的其他材料本地文件。
+        removeMaterialFile(direction, poolId, index) {
+            const key = this.materialKey(direction, poolId)
+            const files = this.getMaterialFiles(direction, poolId).slice()
+            files.splice(index, 1)
+            this.$set(this.materialFiles, key, files)
+        },
+        // 删除指定池的基金报告选择。
+        removeCreditReportSelection(direction, poolId, index) {
+            const key = this.materialKey(direction, poolId)
+            const reports = this.getCreditReportSelections(direction, poolId).slice()
+            reports.splice(index, 1)
+            this.$set(this.creditReportSelections, key, reports)
+        },
+        // 删除指定池的其他材料选择。
+        removeOtherMaterialSelection(direction, poolId, index) {
+            const key = this.materialKey(direction, poolId)
+            const reports = this.getOtherMaterialSelections(direction, poolId).slice()
+            reports.splice(index, 1)
+            this.$set(this.otherMaterialSelections, key, reports)
+        },
+        // 下载当前页面手工选择的本地附件。
+        downloadLocalFile(file) {
+            if (!file || !file.raw) return
+            const url = URL.createObjectURL(file.raw)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = file.name || file.raw.name || '附件'
+            link.click()
+            URL.revokeObjectURL(url)
+        },
+        // 打开基金报告或其他材料选择弹窗。
+        openReportDialog(direction, poolId, column) {
+            this.reportDialogDirection = direction
+            this.reportDialogPoolId = poolId
+            this.reportDialogColumn = column
+            this.reportActiveTab = 'internal'
+            const existing = column === 'credit'
+                ? this.getCreditReportSelections(direction, poolId)
+                : this.getOtherMaterialSelections(direction, poolId)
+            this.selectedInternalReports = existing.filter(report => report.source === 'internal')
+            this.selectedExternalReports = existing.filter(report => report.source === 'external')
+            this.resetInternalReportFiltersSilent()
+            this.resetExternalReportFiltersSilent()
+            const fundCode = this.fundDetail.fundCode || ''
+            this.internalReportFilters.securityCode = fundCode
+            this.externalReportFilters.securityCode = fundCode
+            this.internalReportPagination.pageIndex = 1
+            this.externalReportPagination.pageIndex = 1
+            this.reportDialogVisible = true
+            this.queryInternalReports()
+            this.queryExternalReports()
+        },
+        // 清理报告选择弹窗会话状态。
+        handleReportDialogClosed() {
+            this.reportDialogDirection = ''
+            this.reportDialogPoolId = null
+            this.reportDialogColumn = ''
+            this.reportActiveTab = 'internal'
+            this.selectedInternalReports = []
+            this.selectedExternalReports = []
+            this.restoringReportSelection = false
+            this.resetInternalReportFiltersSilent()
+            this.resetExternalReportFiltersSilent()
+        },
+        // 查询内部或外部报告分页数据。
+        async queryReportListPage(source) {
+            const internal = source === 'internal'
+            const filters = internal ? this.internalReportFilters : this.externalReportFilters
+            const pagination = internal ? this.internalReportPagination : this.externalReportPagination
+            if (internal) this.internalReportLoading = true
+            else this.externalReportLoading = true
+            this.restoringReportSelection = true
+            try {
+                const range = filters.writeDateRange || []
+                const path = internal ? '/api/v1/reports/queryInReportPage' : '/api/v1/reports/queryOutReportPage'
+                const data = await this.apiPost(path, {
+                    pageIndex: pagination.pageIndex,
+                    pageSize: pagination.pageSize,
+                    reportTitle: filters.title,
+                    securityCode: filters.securityCode,
+                    reportType: filters.reportType,
+                    crteTimeStart: range.length === 2 ? range[0] : '',
+                    crteTimeEnd: range.length === 2 ? range[1] : ''
+                })
+                const records = ((data && data.records) || []).map(item => this.normalizeReportRecord(item, source))
+                pagination.total = (data && data.total) || 0
+                if (internal) this.internalReportData = records
+                else this.externalReportData = records
+                this.$nextTick(() => {
+                    if (internal) this.restoreInternalReportSelection()
+                    else this.restoreExternalReportSelection()
+                })
+            } catch (e) {
+                pagination.total = 0
+                if (internal) this.internalReportData = []
+                else this.externalReportData = []
+                this.restoringReportSelection = false
+            } finally {
+                if (internal) this.internalReportLoading = false
+                else this.externalReportLoading = false
+            }
+        },
+        // 转换报告接口字段为弹窗展示字段。
+        normalizeReportRecord(item, source) {
+            const crteTime = item.crteTime || ''
+            return Object.assign({}, item, {
+                title: item.reportTitle || '',
+                author: item.authorName || '',
+                writeDate: crteTime ? crteTime.substring(0, 10) : '',
+                source: source
+            })
+        },
+        // 查询内部报告。
+        queryInternalReports() { return this.queryReportListPage('internal') },
+        // 查询外部报告。
+        queryExternalReports() { return this.queryReportListPage('external') },
+        // 合并内部报告当前页勾选与其他页已选项。
+        handleInternalReportSelectionChange(rows) {
+            if (this.restoringReportSelection) return
+            const visibleIds = this.internalReportPageData.map(report => report.id)
+            const map = {}
+            this.selectedInternalReports.forEach(report => {
+                if (!visibleIds.includes(report.id)) map[report.id] = report
+            })
+            ;(rows || []).forEach(report => {
+                map[report.id] = { id: report.id, title: report.title, reportType: report.reportType, source: 'internal', attachments: report.attachments || [] }
+            })
+            this.selectedInternalReports = Object.keys(map).map(key => map[key])
+        },
+        // 合并外部报告当前页勾选与其他页已选项。
+        handleExternalReportSelectionChange(rows) {
+            if (this.restoringReportSelection) return
+            const visibleIds = this.externalReportPageData.map(report => report.id)
+            const map = {}
+            this.selectedExternalReports.forEach(report => {
+                if (!visibleIds.includes(report.id)) map[report.id] = report
+            })
+            ;(rows || []).forEach(report => {
+                map[report.id] = { id: report.id, title: report.title, reportType: report.reportType, source: 'external', attachments: report.attachments || [] }
+            })
+            this.selectedExternalReports = Object.keys(map).map(key => map[key])
+        },
+        // 恢复内部报告当前页勾选状态。
+        restoreInternalReportSelection() {
+            const table = this.$refs.internalReportTableRef
+            if (!table) { this.restoringReportSelection = false; return }
+            this.restoringReportSelection = true
+            table.clearSelection()
+            this.internalReportPageData.forEach(row => table.toggleRowSelection(row, this.selectedInternalReports.some(report => report.id === row.id)))
+            this.$nextTick(() => { this.restoringReportSelection = false })
+        },
+        // 恢复外部报告当前页勾选状态。
+        restoreExternalReportSelection() {
+            const table = this.$refs.externalReportTableRef
+            if (!table) { this.restoringReportSelection = false; return }
+            this.restoringReportSelection = true
+            table.clearSelection()
+            this.externalReportPageData.forEach(row => table.toggleRowSelection(row, this.selectedExternalReports.some(report => report.id === row.id)))
+            this.$nextTick(() => { this.restoringReportSelection = false })
+        },
+        // 切换报告来源 Tab 后恢复当前页勾选状态。
+        handleReportTabClick() {
+            this.$nextTick(() => {
+                if (this.reportActiveTab === 'internal') this.restoreInternalReportSelection()
+                else this.restoreExternalReportSelection()
+            })
+        },
+        // 重置并查询内部报告。
+        resetInternalReportFilters() {
+            this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+            this.internalReportPagination.pageIndex = 1
+            this.queryInternalReports()
+        },
+        // 静默重置内部报告查询条件。
+        resetInternalReportFiltersSilent() {
+            this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+        },
+        // 重置并查询外部报告。
+        resetExternalReportFilters() {
+            this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+            this.externalReportPagination.pageIndex = 1
+            this.queryExternalReports()
+        },
+        // 静默重置外部报告查询条件。
+        resetExternalReportFiltersSilent() {
+            this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+        },
+        // 设置内部报告类型快捷筛选。
+        setInternalReportTypeFilter(type) {
+            this.internalReportFilters.reportType = type
+            this.internalReportPagination.pageIndex = 1
+            this.queryInternalReports()
+        },
+        // 设置外部报告类型快捷筛选。
+        setExternalReportTypeFilter(type) {
+            this.externalReportFilters.reportType = type
+            this.externalReportPagination.pageIndex = 1
+            this.queryExternalReports()
+        },
+        // 从已选清单移除内部报告。
+        removeInternalSelection(id) {
+            this.selectedInternalReports = this.selectedInternalReports.filter(report => report.id !== id)
+            this.$nextTick(() => this.restoreInternalReportSelection())
+        },
+        // 从已选清单移除外部报告。
+        removeExternalSelection(id) {
+            this.selectedExternalReports = this.selectedExternalReports.filter(report => report.id !== id)
+            this.$nextTick(() => this.restoreExternalReportSelection())
+        },
+        // 清空内部报告选择。
+        clearInternalSelection() {
+            this.selectedInternalReports = []
+            this.$nextTick(() => this.restoreInternalReportSelection())
+        },
+        // 清空外部报告选择。
+        clearExternalSelection() {
+            this.selectedExternalReports = []
+            this.$nextTick(() => this.restoreExternalReportSelection())
+        },
+        // 返回报告类型名称。
+        reportTypeLabel(code) { return this.reportTypeDict[code] || code || '' },
+        // 返回报告证券类型名称。
+        reportSecurityTypeLabel(code) { return this.reportSecurityTypeDict[code] || code || '' },
+        // 返回报告类型样式分组。
+        getReportTypeClass(type) {
+            const map = {
+                bond_in_report: 'type-rating', bond_out_report: 'type-risk',
+                fund_in_report: 'type-research', fund_out_report: 'type-risk',
+                stock_in_report: 'type-rating', stock_out_report: 'type-risk', other_report: 'type-default'
+            }
+            return map[type] || 'type-default'
+        },
+        // 返回报告类型标签样式。
+        reportTypeTagType(type) {
+            const value = this.getReportTypeClass(type)
+            if (value === 'type-rating') return 'success'
+            if (value === 'type-risk') return 'danger'
+            if (value === 'type-research') return 'warning'
+            return 'info'
+        },
+        // 确认本次基金报告或其他材料选择。
+        handleConfirmReportDialog() {
+            const reports = this.selectedInternalReports.concat(this.selectedExternalReports)
+            const key = this.materialKey(this.reportDialogDirection, this.reportDialogPoolId)
+            if (this.reportDialogColumn === 'credit') this.$set(this.creditReportSelections, key, reports.slice())
+            else this.$set(this.otherMaterialSelections, key, reports.slice())
+            this.reportDialogVisible = false
+        },
+        // 下载报告库附件。
+        async downloadAttachment(file) {
+            try {
+                const base64 = await this.apiPost('/api/v1/attachments/downloadAttachment', { id: file.id })
+                this.downloadBase64File(base64, file.originalFileName, file.contentType)
+            } catch (e) {
+                this.$message.error(e.message || '操作失败')
+            }
+        },
+        // 进入步骤2并调用后端执行基金调库校验。
+        async goToStep2() {
+            this.selectedInPools = this.normalizeSelectedPools(this.selectedInPools)
+            this.selectedOutPools = this.normalizeSelectedPools(this.selectedOutPools)
+            const items = this.selectedInPools.map(pool => ({ targetPoolId: pool.id, targetPoolName: pool.poolName, poolType: pool.poolType, adjustMode: '调入' }))
+                .concat(this.selectedOutPools.map(pool => ({ targetPoolId: pool.id, targetPoolName: pool.poolName, poolType: pool.poolType, adjustMode: '调出' })))
+            if (!items.length) {
+                this.$message.warning('请至少选择一个调入或调出投资池')
+                return
+            }
+            this.adjustReviewList = []
+            this.flowDialogVisible = false
+            this.adjustCheckLoading = true
+            const currentSeq = ++this.adjustCheckSeq
+            try {
+                const data = await this.apiPost('/api/v1/fundPoolAdjust/checkAdjust', { fundCode: this.fundDetail.fundCode, items: items })
+                if (currentSeq !== this.adjustCheckSeq) return
+                const reviewList = (data.items || []).map((item, rowIndex) => {
+                    const flowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex)
+                    const flow = flowOptions.find(option => option.recommended && option.selectable)
+                        || flowOptions.find(option => option.selectable)
+                        || {}
+                    const direction = item.adjustMode === '调入' ? 'in' : 'out'
+                    const manual = item.itemTag === 'manual'
+                    return Object.assign({}, item, {
+                        flowOptions: flowOptions,
+                        selectedFlowKey: flow.optionKey || '',
+                        flowId: flow.flowId,
+                        flowKey: flow.flowKey,
+                        flowType: flow.flowType,
+                        flowName: flow.flowName,
+                        creditReports: manual ? this.getCreditReportSelections(direction, item.targetPoolId).slice() : [],
+                        otherMaterials: manual ? this.getOtherMaterialSelections(direction, item.targetPoolId).slice() : [],
+                        attachmentFiles: manual ? this.getAttachmentFiles(direction, item.targetPoolId).slice() : [],
+                        materialFiles: manual ? this.getMaterialFiles(direction, item.targetPoolId).slice() : []
+                    })
+                })
+                this.adjustReviewList = this.applyAdjustGroupColors(reviewList)
+                this.adjustStep = 2
+            } catch (e) {
+                this.adjustReviewList = []
+                this.$message.error(e.message || '操作失败')
+            } finally {
+                if (currentSeq === this.adjustCheckSeq) this.adjustCheckLoading = false
+            }
+        },
+        // 返回步骤1并保留已选择的投资池和材料。
+        goToStep1() {
+            this.adjustStep = 1
+            this.flowDialogVisible = false
+        },
+        // 按调库分组为校验结果附加稳定颜色序号。
+        applyAdjustGroupColors(rows) {
+            const groupIndexes = {}
+            let nextIndex = 0
+            return (rows || []).map(row => {
+                const key = row.adjustGroupKey || (row.targetPoolId + '_' + row.adjustMode)
+                if (groupIndexes[key] == null) groupIndexes[key] = nextIndex++
+                return Object.assign({}, row, { groupColorIndex: groupIndexes[key] })
+            })
+        },
+        // 返回校验结果表格的同组行样式。
+        getAdjustReviewRowClass({ row }) {
+            const index = row && row.groupColorIndex != null ? row.groupColorIndex : 0
+            return 'adjust-group-color-' + (index % 5)
+        },
+        // 格式化单条基金调库项的流程候选。
+        formatRowFlowOptions(options, rowIndex) {
+            return (options || []).map((option, index) => ({
+                optionKey: (option.flowKey || option.flowType || 'flow') + '_' + rowIndex + '_' + index,
+                flowType: option.flowType,
+                flowName: option.flowName,
+                flowId: option.flowId,
+                flowKey: option.flowKey,
+                matched: !!option.matched,
+                selectable: option.selectable !== false,
+                recommended: !!option.recommended,
+                matchReasons: option.matchReasons || [],
+                unmatchReasons: option.unmatchReasons || []
+            }))
+        },
+        // 返回调库项当前选择的流程。
+        selectedRowFlowOption(row) {
+            if (!row || !row.selectedFlowKey) return null
+            return (row.flowOptions || []).find(option => option.optionKey === row.selectedFlowKey) || null
+        },
+        // 流程变化时同步基金提交字段。
+        handleRowFlowChange(row) {
+            const flow = this.selectedRowFlowOption(row)
+            row.flowId = flow ? flow.flowId : null
+            row.flowKey = flow ? flow.flowKey : ''
+            row.flowType = flow ? flow.flowType : ''
+            row.flowName = flow ? flow.flowName : ''
+        },
+        // 返回流程类型展示名称。
+        flowTypeLabel(type) {
+            const map = {
+                whitelistInbound: '白名单', simpleInbound: '简易', normalInbound: '默认调入',
+                specialInbound: '特殊审批', upgradeInbound: '上调', downgradeInbound: '下调',
+                normalOutbound: '调出'
+            }
+            return map[type] || '标准'
+        },
+        // 返回流程类型标签样式。
+        flowTypeTagType(type) {
+            if (type === 'whitelistInbound' || type === 'simpleInbound') return 'success'
+            if (type === 'specialInbound' || type === 'downgradeInbound') return 'warning'
+            if (type === 'normalOutbound') return 'danger'
+            return 'info'
+        },
+        // 返回流程下拉的类型样式类。
+        flowTypeClass(type) {
+            const map = {
+                whitelistInbound: 'whitelist', simpleInbound: 'simple', normalInbound: 'normal',
+                specialInbound: 'special', upgradeInbound: 'upgrade', downgradeInbound: 'downgrade',
+                normalOutbound: 'outbound'
+            }
+            return map[type] || 'standard'
+        },
+        // 返回流程候选标签样式。
+        getFlowOptionTagType(option) {
+            if (!option) return 'info'
+            if (option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound') return 'success'
+            if (option.flowType === 'specialInbound' || option.flowType === 'downgradeInbound') return 'warning'
+            return 'info'
+        },
+        // 返回流程选择卡片的分组颜色类。
+        getFlowRowColorClass(index) { return 'flow-row-color-' + (index % 5) },
+        // 返回调库明细来源标签名称。
+        itemTagLabel(tag) { return { manual: '手工', linkage: '联动', mutex: '互斥' }[tag] || tag || '' },
+        // 返回调库明细调整类型名称。
+        adjustTypeLabel(tag) { return this.itemTagLabel(tag) ? this.itemTagLabel(tag) + '调整' : '' },
+        // 返回调库明细来源标签样式。
+        itemTagType(tag) { return tag === 'mutex' ? 'danger' : (tag === 'linkage' ? 'warning' : 'info') },
+        // 返回调库明细默认一般流程名称。
+        flowName(row) { return row.flowName || (row.flowOptions && row.flowOptions.length ? row.flowOptions[0].flowName : '') },
+        // 返回投资池类型中文名称。
+        poolTypeLabel(poolType) {
+            const map = {
+                credit_bond: '信用债', offshore_bond: '境外债', convertible_bond: '转债',
+                bond_product: '债券产品', special_account: '专户', stock: '股票',
+                stock_product: '股票产品', fund: '基金', forbidden: '禁止库',
+                observe: '观察池', blacklist: '黑名单', restricted: '限制名单',
+                whitelist: '白名单', crmw: 'CRMW库', other: '其他'
+            }
+            return map[poolType] || poolType || ''
+        },
+        // 构建调库校验结果的调整说明。
+        adjustResultNote(row) {
+            const warnings = row.warnings || []
+            const label = this.adjustTypeLabel(row.itemTag) + (row.adjustMode || '')
+            return warnings.length ? label + '（警告：' + warnings.join('；') + '）' : label
+        },
+        // 返回校验结果状态文案。
+        checkStatusLabel(row) {
+            if (!row.canAdjust) return '不可调整'
+            return (row.warnings || []).length ? '可调整(警告)' : '可调整'
+        },
+        // 返回校验结果状态颜色类名。
+        checkStatusClass(row) {
+            if (!row.canAdjust) return 'check-status-text is-danger'
+            return (row.warnings || []).length ? 'check-status-text is-warning' : 'check-status-text is-success'
+        },
+        // 收集系统报告所关联的源附件 ID。
+        collectSourceAttachmentIds(reports) {
+            const ids = []
+            ;(reports || []).forEach(report => (report.attachments || []).forEach(file => { if (file.id != null && ids.indexOf(file.id) < 0) ids.push(file.id) }))
+            return ids
+        },
+        // 组装提交参数、本地附件及其原始文件名。
+        buildSubmitPayloadAndFiles() {
+            const files = []
+            const originalNames = []
+            const items = this.validAdjustReviewList.map(item => {
+                const reportFileIndexes = []
+                const materialFileIndexes = []
+                ;(item.attachmentFiles || []).forEach(file => { reportFileIndexes.push(files.length); files.push(file.raw); originalNames.push(file.name) })
+                ;(item.materialFiles || []).forEach(file => { materialFileIndexes.push(files.length); files.push(file.raw); originalNames.push(file.name) })
+                return {
+                    targetPoolId: item.targetPoolId, targetPoolName: item.poolName, poolType: item.poolType,
+                    adjustMode: item.adjustMode, itemTag: item.itemTag, adjustGroupKey: item.adjustGroupKey,
+                    flowId: item.flowId, flowKey: item.flowKey, flowType: item.flowType,
+                    adjustmentNote: this.adjustResultNote(item),
+                    reportFileIndexes: reportFileIndexes, materialFileIndexes: materialFileIndexes,
+                    reportSourceAttachmentIds: this.collectSourceAttachmentIds(item.creditReports),
+                    materialSourceAttachmentIds: this.collectSourceAttachmentIds(item.otherMaterials)
+                }
+            })
+            return {
+                payload: {
+                    fundCode: this.fundDetail.fundCode, fundScore: Number(this.submitForm.fundScore),
+                    fundInvestmentType: this.submitForm.fundInvestmentType,
+                    needRiskLeaderApproval: this.submitForm.needRiskLeaderApproval,
+                    adjustType: '手工调整', adjustReason: this.submitForm.adjustReason,
+                    adjustAdvice: this.submitForm.adjustAdvice, adjusterId: this.currentUser.userId,
+                    adjusterName: this.currentUser.userName, items: items
+                }, files: files, originalNames: originalNames
+            }
+        },
+        // 校验提交页输入并打开调库流程选择弹窗。
+        handleSubmit() {
+            if (this.submitLoading) return
+            if (this.validItemCount === 0) {
+                this.$message.warning('没有可提交的调库申请，请检查校验结果')
+                return
+            }
+            this.$refs.submitForm.validate(valid => {
+                if (!valid) return
+                if (!this.allValidRowsHaveFlow) {
+                    this.$message.warning('请为所有可提交调库项选择审批流程')
+                    return
+                }
+                this.flowDialogVisible = true
+            })
+        },
+        // 确认调库流程选择并正式提交申请。
+        async confirmFlowSelection() {
+            if (this.submitLoading) return
+            if (!this.allValidRowsHaveFlow) {
+                this.$message.warning('请为所有可提交调库项选择审批流程')
+                return
+            }
+            this.flowDialogVisible = false
+            await this.submitAdjustLog()
+        },
+        // 执行基金池调整申请提交。
+        async submitAdjustLog() {
+            if (this.submitLoading) return
+            this.submitLoading = true
+            try {
+                const data = this.buildSubmitPayloadAndFiles()
+                if (data.files.length) {
+                    const formData = new FormData()
+                    formData.append('request', new Blob([JSON.stringify(data.payload)], { type: 'application/json' }))
+                    data.files.forEach(file => formData.append('files', file))
+                    formData.append('originalFileNameListJson', JSON.stringify(data.originalNames))
+                    await this.apiPost('/api/v1/fundPoolAdjust/addAdjustLogWithFiles', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+                } else {
+                    await this.apiPost('/api/v1/fundPoolAdjust/addAdjustLog', data.payload)
+                }
+                this.$message.success('基金池调整申请已提交，等待审批')
+                this.backToList()
+            } catch (e) {
+                this.$message.error(e.message || '操作失败')
+            } finally {
+                this.submitLoading = false
+            }
+        },
+        // 导出当前基金池调整页面为 PDF。
+        exportPdf() {
+            window.RrsPrintExport.print({
+                fileTitle: ['基金池调整', this.fundDetail.fundCode],
+                nextTick: callback => this.$nextTick(callback),
+                prepare: () => ({ currentPage: this.currentPage }),
+                restore: () => {}
+            })
+        }
+    }
+})
+</script>
+</body>
+</html>

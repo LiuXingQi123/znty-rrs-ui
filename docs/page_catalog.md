@@ -29,6 +29,12 @@
 | `crmw_pool_adjust_history.html` | CRMW池调整历史查询 | `css/crmw_pool_adjust_history.css`、`css/common.css` |
 | `crmw_pool_query.html` | CRMW池查询 | `css/crmw_pool_query.css`、`css/common.css` |
 | `flow_definition.html` | 流程定义 - 工作流平台 | `css/flow_definition.css`、`css/common.css` |
+| `fund_pool_adjust.html` | 基金池调整申请 | `css/fund_pool_adjust.css`、`css/common.css` |
+| `fund_pool_adjust_approve.html` | 基金池调库审核 | `css/fund_pool_adjust_approve.css`、`css/common.css` |
+| `fund_pool_adjust_detail.html` | 基金池调库详情 | `css/fund_pool_adjust_detail.css`、`css/common.css` |
+| `fund_pool_adjust_history.html` | 基金池调整历史查询 | `css/fund_pool_adjust_history.css`、`css/common.css` |
+| `fund_pool_query.html` | 基金池查询 | `css/fund_pool_query.css`、`css/common.css` |
+| `fund_nav_export.html` | 基金净值导出 | `css/fund_nav_export.css`、`css/common.css` |
 | `forbidden_pool_adjust.html` | 禁投池调整 | `css/forbidden_pool_adjust.css`、`css/common.css` |
 | `forbidden_pool_adjust_approve.html` | 禁投池调整审核 | `css/forbidden_pool_adjust_approve.css`、`css/common.css` |
 | `forbidden_pool_adjust_detail.html` | 禁投池调整详情 | `css/forbidden_pool_adjust_detail.css`、`css/common.css` |
@@ -123,6 +129,12 @@
 | `css/crmw_pool_adjust_history.css` | CRMW池调整历史查询页面样式 | `crmw_pool_adjust_history.html` |
 | `css/crmw_pool_query.css` | CRMW池查询页面样式 | `crmw_pool_query.html` |
 | `css/flow_definition.css` | 流程定义页面样式 | `flow_definition.html` |
+| `css/fund_pool_adjust.css` | 基金池调整申请页面样式 | `fund_pool_adjust.html` |
+| `css/fund_pool_adjust_approve.css` | 基金池调库审核页面样式 | `fund_pool_adjust_approve.html` |
+| `css/fund_pool_adjust_detail.css` | 基金池调库详情页面样式 | `fund_pool_adjust_detail.html` |
+| `css/fund_pool_adjust_history.css` | 基金池调整历史查询页面样式 | `fund_pool_adjust_history.html` |
+| `css/fund_pool_query.css` | 基金池查询页面样式 | `fund_pool_query.html` |
+| `css/fund_nav_export.css` | 基金净值导出页面样式 | `fund_nav_export.html` |
 | `css/forbidden_pool_adjust.css` | 禁投池调整页面样式 | `forbidden_pool_adjust.html` |
 | `css/forbidden_pool_adjust_approve.css` | 禁投池调整审核页面样式 | `forbidden_pool_adjust_approve.html` |
 | `css/forbidden_pool_adjust_detail.css` | 禁投池调整详情页面样式 | `forbidden_pool_adjust_detail.html` |
@@ -190,6 +202,11 @@
 | `docs/investment-pool-tables.html` | 投资池维护文档 | HTML 内联样式 |
 | `docs/pool-open-day-tables.html` | 投资池开放日维护文档 | HTML 内联样式 |
 | `docs/flow-definition-tables.html` | 流程定义文档 | HTML 内联样式 |
+| `docs/fund-pool-adjust-tables.html` | 基金池调整申请文档 | HTML 内联样式 |
+| `docs/fund-pool-adjust-approve-tables.html` | 基金池调库审核与详情文档 | HTML 内联样式 |
+| `docs/fund-pool-adjust-history-tables.html` | 基金池调整历史文档 | HTML 内联样式 |
+| `docs/fund-pool-query-tables.html` | 基金池查询文档 | HTML 内联样式 |
+| `docs/fund-nav-export-tables.html` | 基金净值导出文档 | HTML 内联样式 |
 | `docs/rule-manager-tables.html` | 规则管理中心文档 | HTML 内联样式 |
 | `docs/credit-bond-grade-rule-tables.html` | 主体内评分档规则文档 | HTML 内联样式 |
 | `docs/scheduled-task-tables.html` | 定时任务管理文档 | HTML 内联样式 |

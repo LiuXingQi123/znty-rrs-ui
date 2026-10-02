@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金池调整｜表与业务逻辑</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #f4f6fa; color: #172033; font: 14px/1.7 "Microsoft YaHei", Arial, sans-serif; }
+        header { padding: 28px 7%; color: #fff; background: linear-gradient(135deg, #243b8f, #315bc7); }
+        header h1 { margin: 0 0 6px; font-size: 28px; }
+        header p { margin: 0; opacity: .82; }
+        main { max-width: 1180px; margin: 22px auto; padding: 0 18px 40px; }
+        section { margin-bottom: 16px; padding: 20px 22px; background: #fff; border: 1px solid #e4e9f2; border-radius: 9px; }
+        h2 { margin: 0 0 13px; color: #2743a4; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 9px 11px; border: 1px solid #e4e9f2; text-align: left; vertical-align: top; }
+        th { background: #f7f9fd; }
+        code { padding: 1px 5px; border-radius: 4px; color: #243b8f; background: #eef2ff; }
+        .note { padding: 12px 14px; border-left: 4px solid #2743a4; background: #f5f7ff; }
+        ul { margin: 8px 0; }
+    </style>
+</head>
+<body>
+<header><h1>基金池调整申请</h1><p>基金研究 · 独立申请链路 · 本期不含审核与落池</p></header>
+<main>
+    <section>
+        <h2>功能边界</h2>
+        <p>页面按照“基金列表 → 基金详情与选池 → 校验确认 → 选择调库流程 → 提交申请”运行。第一步展示基金基础信息、当前所在池和调库操作（可调入库 / 可调出库）；点击下一步完成校验后进入第二步，保留基金基础信息和当前所在池，隐藏调库操作，展示调库校验结果、原因和建议。基金页面、样式、Controller、Service、Mapper、XML 和业务对象均为独立文件，不调用证券池调整业务模块。</p>
+        <div class="note">提交后写入 <code>ip_adjust_log_fund</code> 与 <code>ip_adjust_step_fund</code>，状态为 <code>00</code>。本期不更新 <code>ip_pool_status_fund</code>，也不接入基金审批、详情和我的事宜；调整历史由独立的基金池调整历史页面查询。</div>
+    </section>
+    <section>
+        <h2>数据表</h2>
+        <table><thead><tr><th>表</th><th>用途</th></tr></thead><tbody>
+            <tr><td><code>rrs_fundinfo</code></td><td>基金主数据与只读基础信息，不建立调库快照。</td></tr>
+            <tr><td><code>ip_adjust_log_fund</code></td><td>基金手工、联动和互斥调库日志；批次号使用 FUND 前缀。</td></tr>
+            <tr><td><code>ip_adjust_step_fund</code></td><td>基金一般流程的开始、发起和待审批节点。</td></tr>
+            <tr><td><code>ip_pool_status_fund</code></td><td>基金当前池状态；本期只读，不由申请接口写入。</td></tr>
+            <tr><td><code>sys_attachment</code></td><td>基金报告和其他材料，关联表名为 <code>ip_adjust_log_fund</code>。</td></tr>
+        </tbody></table>
+    </section>
+    <section>
+        <h2>页面字段</h2>
+        <ul>
+            <li>列表：基金代码、简称、全称、产品类型、最新净值、成立日期、基金经理、基金管理人、最新规模、数据日期；基金代码和基金简称均可使用相同链接样式进入对应基金的调库申请步骤。</li>
+            <li>只读详情：基金简称、代码、产品类型、最新净值、成立日期、基金经理、基金管理人、基金托管人、累计净值、投资风格、交易价格、发行规模；标题处展示当前调整人和记录更新时间。</li>
+            <li>最新净值以品牌色重点展示；可调入、可调出投资池树默认折叠。</li>
+            <li>确认页：基金评分必填数字；基金投资类型必填五选一；风管领导审批必填，使用 <code>el-radio-group</code> 单选“是 / 否”。</li>
+            <li>确认页以与基金基础信息一致的三列边框描述表格展示基金调库信息，字段为必填；调整原因、调整建议均为非必填；导出 PDF 不包含基金调库信息和原因建议区块。</li>
+            <li>投资池名称展示全路径，例如“信用债大库(new)/一级库”；一般流程候选显示使用目标池默认流程的原因说明。</li>
+            <li>不展示债券近三年财务数据、发行主体、担保人、权益人或主体所在池。</li>
+        </ul>
+    </section>
+    <section>
+        <h2>接口与流程</h2>
+        <table><thead><tr><th>接口</th><th>说明</th></tr></thead><tbody>
+            <tr><td><code>queryFundPage</code> / <code>queryFundTypeList</code></td><td>基金列表及产品类型。</td></tr>
+            <tr><td><code>queryFundDetail</code> / <code>queryFundPoolStatus</code></td><td>基金只读详情与基金当前池。</td></tr>
+            <tr><td><code>queryAdjustPoolList</code></td><td>按用户权限、fund 品种及 SSE/SZSE/OTC/HKEX 市场过滤投资池。</td></tr>
+            <tr><td><code>checkAdjust</code></td><td>校验通用基金规则，展开联动、互斥项，每条手工项只返回一个一般流程。</td></tr>
+            <tr><td><code>addAdjustLog</code> / <code>addAdjustLogWithFiles</code></td><td>提交 JSON 或 multipart 申请，后端重读基金主数据。</td></tr>
+        </tbody></table>
+    </section>
+    <section>
+        <h2>校验与附件</h2>
+        <p>执行权限、启停/锁池、基金品种和市场、在池状态、容量、在途、重复提交、池关系、冻结期、开放日和报告限制。不执行债券到期、主体评级矩阵、担保人、禁投主体、财务数据或基金评分范围规则。</p>
+        <p>附件分类：<code>fund_report_hand/in/out</code>、<code>fund_material_hand/in/out</code>。可调入库和可调出库均在每个目标池行内提供“相关报告 / 其他材料”的“选择报告”和“上传附件”入口。基金报告选择弹窗与证券池调整保持同构：内部/外部报告独立查询，支持报告类型快捷筛选、标题、证券编码、日期范围、分页、附件下载、跨页勾选恢复和已选清单，并按目标池分别维护。</p>
+        <p>提交按钮先校验基金评分和基金投资类型，再弹出“选择调库流程”。流程弹窗按通过校验的手工调库项逐项展示目标池全路径、方向、一般流程候选及默认流程命中原因；确认流程后才调用提交接口。调整原因和调整建议可留空。</p>
+    </section>
+</main>
+</body>
+</html>

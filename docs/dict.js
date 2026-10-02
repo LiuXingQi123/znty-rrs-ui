@@ -497,10 +497,20 @@ const DICT_EXCHANGE = {
     'BSE':     '北京证券交易所',
     'COMPANY': '主体',
     'OTC':     '场外市场',
+    'HKEX':    '香港交易所',
     'QDII':    '其他QDII市场',
     'JWCW':    'JWCW市场',
     'UNKNOWN': '未知',
     'OTHER':   '其他',
+};
+
+// ── 31.1 基金投资类型（fund_investment_type）─────────────
+const DICT_FUND_INVESTMENT_TYPE = {
+    'stock':         '股票型',
+    'equity_hybrid': '偏股混合型',
+    'money_market':  '货币型',
+    'bond_hybrid':   '偏债混合型',
+    'other':         '其余类型',
 };
 
 
