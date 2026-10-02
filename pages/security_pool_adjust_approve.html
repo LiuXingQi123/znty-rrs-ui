@@ -1397,7 +1397,7 @@
                 issuerFinancialLoading: false, // 财务数据查询加载状态
                 issuerFinancialRequestSeq: 0, // 财务数据查询请求序号，避免旧请求覆盖新结果
                 issuerFinancialBondType: 'city', // 当前指标分类：city=城投债 / industrial=产业债
-                issuerFinancialList: [], // 发行主体最近三个有数据年份各自最新的财务指标
+                issuerFinancialList: [], // 发行主体默认四期财务指标（含空白报告期）
                 issuerFinancialLoadError: '', // 财务数据查询失败提示
                 cityIssuerFinancialIndicatorRows: [ // 城投债财务指标及展示顺序
                     { field: 'totAssets', label: '总资产(亿元)' },
@@ -1435,26 +1435,9 @@
                 return this.issuerFinancialBondType === 'city'
                     ? this.cityIssuerFinancialIndicatorRows : this.industrialIssuerFinancialIndicatorRows;
             },
-            // 生成最近三个有数据年份及最新一期的四列表头数据
+            // 直接展示后端按默认规则返回的四期，缺失期保持空白
             issuerFinancialColumns() {
-                const records = (this.issuerFinancialList || []).slice().sort((left, right) => {
-                    return Number(left.reportDate || 0) - Number(right.reportDate || 0);
-                });
-                const latestRecord = records.length > 0
-                    ? Object.assign({}, records[records.length - 1]) : { reportDate: null };
-                const latestYear = records.length > 0
-                    ? Number(String(records[records.length - 1].reportDate).substring(0, 4))
-                    : moment().year();
-                if (records.length < 3) {
-                    const firstYear = records.length > 0
-                        ? Number(String(records[0].reportDate).substring(0, 4)) : latestYear + 1;
-                    const placeholders = [];
-                    for (let offset = 3 - records.length; offset >= 1; offset--) {
-                        placeholders.push({ reportDate: Number(String(firstYear - offset) + '1231') });
-                    }
-                    records.unshift(...placeholders);
-                }
-                return records.slice(-3).concat([latestRecord]);
+                return this.issuerFinancialList;
             }
         },
         watch: {
