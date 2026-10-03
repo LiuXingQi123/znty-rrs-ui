@@ -675,26 +675,19 @@
                 <div class="section-header" @click="toggleSection('auditApproval')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">审核审批</div>
+                    <el-tag v-if="currentPendingStep" size="mini" type="info">
+                        当前步骤：{{ currentPendingStep.nodeLabel || '' }}
+                    </el-tag>
                     <i :class="sectionExpanded.auditApproval ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
                 <div v-show="sectionExpanded.auditApproval" style="padding:20px 22px;">
-                    <div v-if="currentPendingStep" style="display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start;">
-                        <div>
-                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:8px;">{{ auditResultTitle }}</div>
-                            <el-radio-group v-model="auditAction" size="small">
-                                <el-radio-button label="approve">{{ approveActionLabel }}</el-radio-button>
-                                <el-radio-button label="reject">{{ rejectActionLabel }}</el-radio-button>
-                            </el-radio-group>
-                            <div style="margin-top:10px;font-size:12px;color:var(--c-text-3);">
-                                当前步骤：{{ currentPendingStep.nodeLabel || '' }}
-                            </div>
-                        </div>
+                    <div v-if="currentPendingStep">
                         <div>
                             <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">处理意见</div>
                             <el-input type="textarea" :rows="4" v-model="auditComment"
                                       size="small" placeholder="请输入处理意见" maxlength="500" show-word-limit></el-input>
                             <!-- 评级联动改判池：仅信用债大库调入审批通过时可选 -->
-                            <div v-if="auditAction === 'approve' && canRedirectPool" style="margin-top:10px;">
+                            <div v-if="canRedirectPool" style="margin-top:10px;">
                                 <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">改判目标池（评级联动，可选）</div>
                                 <el-select v-model="redirectPoolId" size="small" clearable placeholder="不选则按原目标池落地" style="width:100%;">
                                     <el-option v-for="p in redirectPoolOptions" :key="p.id" :label="p.poolName" :value="p.id"></el-option>
@@ -710,11 +703,17 @@
                                @click="backToList">
                         返回
                     </el-button>
+                    <el-button type="danger" plain size="small" icon="el-icon-close"
+                               :disabled="!currentPendingStep || auditSubmitLoading"
+                               :loading="auditSubmitLoading && auditAction === 'reject'"
+                               @click="submitAdjustAudit('reject')">
+                        {{ rejectActionLabel }}
+                    </el-button>
                     <el-button type="primary" size="small" icon="el-icon-check"
                                :disabled="!currentPendingStep || auditSubmitLoading"
-                               :loading="auditSubmitLoading"
-                               @click="submitAdjustAudit">
-                        {{ auditSubmitButtonText }}
+                               :loading="auditSubmitLoading && auditAction === 'approve'"
+                               @click="submitAdjustAudit('approve')">
+                        {{ approveActionLabel }}
                     </el-button>
                 </div>
             </div>
@@ -1533,7 +1532,7 @@
                 selectedFlowKey: '',      // 当前选中的流程 Key
                 adjustReason: '',       // 调整原因（步骤2）
                 adjustAdvice: '',       // 调整建议（步骤2）
-                auditAction: 'approve',  // 审批动作：approve=通过 / reject=驳回
+                auditAction: 'approve',  // 当前按钮操作：approve=通过/提交，reject=驳回/终止流程
                 auditComment: '',        // 审批处理意见
                 auditSubmitLoading: false, // 审批提交防重复点击状态
                 redirectPoolId: null,    // 评级联动改判目标池 ID（可选）
@@ -1694,10 +1693,6 @@
                 const nodeLabel = currentStep.nodeLabel || '';
                 return activeLog.auditStatus === '11' || nodeLabel.indexOf('修改') >= 0;
             },
-            // 审核结果区域标题
-            auditResultTitle() {
-                return this.isModifyAuditStage ? '处理结果' : '审核结果';
-            },
             // 正向处理动作展示文案
             approveActionLabel() {
                 return this.isModifyAuditStage ? '提交' : '通过';
@@ -1705,13 +1700,6 @@
             // 负向处理动作展示文案
             rejectActionLabel() {
                 return this.isModifyAuditStage ? '终止流程' : '驳回';
-            },
-            // 审批提交按钮文案
-            auditSubmitButtonText() {
-                if (!this.isModifyAuditStage) {
-                    return '提交';
-                }
-                return this.auditAction === 'reject' ? '终止流程' : '提交';
             },
             // 可提交调库项列表
             validAdjustReviewList() {
@@ -2603,33 +2591,45 @@
                 }
             },
 
-            // 提交当前流程步骤审批意见
-            async submitAdjustAudit() {
+            // 按点击的操作按钮提交当前流程步骤审批意见
+            async submitAdjustAudit(processAction) {
                 if (this.auditSubmitLoading) return;
+                if (processAction !== 'approve' && processAction !== 'reject') {
+                    this.$message.warning('处理操作无效，请刷新页面重试');
+                    return;
+                }
                 if (!this.currentPendingStep) {
                     this.$message.warning('暂无需要当前用户处理的流程步骤');
                     return;
                 }
-                if (this.auditAction === 'reject' && !this.auditComment.trim()) {
+                if (processAction === 'reject' && !this.auditComment.trim()) {
                     this.$message.warning(this.isModifyAuditStage ? '终止流程时处理意见不能为空' : '驳回时处理意见不能为空');
                     return;
                 }
+                this.auditAction = processAction;
                 this.auditSubmitLoading = true;
                 try {
+                    if (processAction === 'reject') {
+                        await this.$confirm(this.isModifyAuditStage ? '确认终止当前流程？' : '确认驳回当前申请？', this.rejectActionLabel, {
+                            confirmButtonText: this.rejectActionLabel,
+                            cancelButtonText: '取消',
+                            type: 'warning'
+                        });
+                    }
                     const step = this.currentPendingStep;
                     const activeLog = this.activeAdjustLog || {};
                     const payload = {
                         adjustLogId: activeLog.id || step.adjustLogId || this.selectedAdjustLogId,
                         adjustBatchNo: activeLog.adjustBatchNo || step.adjustBatchNo || this.selectedAdjustBatchNo,
                         stepId: step.id,
-                        processAction: this.auditAction,
+                        processAction,
                         processComment: this.auditComment,
                         handlerId: this.currentLoginUserId,
                         handlerName: this.currentLoginUserName,
-                        redirectPoolId: this.canRedirectPool ? (this.redirectPoolId || undefined) : undefined
+                        redirectPoolId: processAction === 'approve' && this.canRedirectPool ? (this.redirectPoolId || undefined) : undefined
                     };
                     let result = null;
-                    if (this.canEditReasonAdvice && this.auditAction === 'approve') {
+                    if (this.canEditReasonAdvice && processAction === 'approve') {
                         payload.adjustReason = this.adjustReason;
                         payload.adjustAdvice = this.adjustAdvice;
                     }
@@ -2641,7 +2641,6 @@
                         result = await this.apiPost('/api/v1/securityPoolAdjustFlow/submitAdjustAudit', payload);
                     }
                     this.$message.success((result && result.message) || '审批处理成功');
-                    this.auditAction = 'approve';
                     this.auditComment = '';
                     this.redirectPoolId = null;
                     const securityCode = this.bondDetail.windCode || this.getUrlParam('securityCode') || this.getUrlParam('windCode');
@@ -2649,9 +2648,13 @@
                         await this.loadDetailData(securityCode);
                     }
                 } catch (e) {
-                    this.$message.error(e.message || '操作失败');
+                    if (e !== 'cancel' && e !== 'close') {
+                        this.$message.error(e.message || '操作失败');
+                    }
+                } finally {
+                    this.auditSubmitLoading = false;
+                    this.auditAction = 'approve';
                 }
-                this.auditSubmitLoading = false;
             },
 
             // 处理动作映射
