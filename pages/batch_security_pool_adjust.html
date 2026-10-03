@@ -305,10 +305,10 @@
                     <el-table-column label="担保人/权益人*" min-width="190">
                         <template slot-scope="{ row }">
                             <el-select v-if="row.guarantorOptions && row.guarantorOptions.length > 0"
-                                       v-model="row.selectedRelatedSubjectCode" size="small"
+                                       v-model="row.selectedRelatedCompanyCode" size="small"
                                        :placeholder="isAbsBond(row) ? '请选择权益人' : '请选择担保人'" style="width:100%;"
                                        popper-class="guarantor-select-dropdown" clearable
-                                       @change="handleRelatedSubjectChange(row)">
+                                       @change="handleRelatedCompanyChange(row)">
                                 <el-option v-for="opt in row.guarantorOptions" :key="opt.optionKey"
                                            :label="opt.label" :value="opt.code">
                                     <span class="guarantor-option">
@@ -338,7 +338,7 @@
                     </el-table-column>
                     <el-table-column label="担保人主体内评分" min-width="140">
                         <template slot-scope="{ row }">
-                            <el-tag v-if="effectiveRelatedSubjectRating(row)" size="mini">{{ effectiveRelatedSubjectRating(row) }}</el-tag>
+                            <el-tag v-if="effectiveRelatedCompanyRating(row)" size="mini">{{ effectiveRelatedCompanyRating(row) }}</el-tag>
                             <span v-else style="color:var(--c-text-3);"></span>
                         </template>
                     </el-table-column>
@@ -494,41 +494,60 @@
     <el-dialog title="选择自选权益人" :visible.sync="selfRightsHolderDialogVisible" width="820px"
                custom-class="self-rights-holder-dialog" top="8vh" :close-on-click-modal="false">
         <div class="self-rights-holder-search">
-            <el-input v-model.trim="selfRightsHolderFilters.companyCode" size="small" clearable
-                      placeholder="主体编码" @keyup.enter.native="searchSelfRightsHolders"></el-input>
-            <el-input v-model.trim="selfRightsHolderFilters.companyName" size="small" clearable
-                      placeholder="主体名称" @keyup.enter.native="searchSelfRightsHolders"></el-input>
-            <el-button type="primary" size="small" icon="el-icon-search" @click="searchSelfRightsHolders">查询</el-button>
-            <el-button size="small" icon="el-icon-refresh" @click="resetSelfRightsHolderSearch">重置</el-button>
+            <div class="self-rights-holder-field">
+                <label for="batch_security_pool_adjust_self_company_code">主体编码</label>
+                <el-input id="batch_security_pool_adjust_self_company_code" v-model.trim="selfRightsHolderFilters.companyCode" size="small" clearable
+                          placeholder="请输入主体编码" @keyup.enter.native="searchSelfRightsHolders"></el-input>
+            </div>
+            <div class="self-rights-holder-field">
+                <label for="batch_security_pool_adjust_self_company_name">主体名称</label>
+                <el-input id="batch_security_pool_adjust_self_company_name" v-model.trim="selfRightsHolderFilters.companyName" size="small" clearable
+                          placeholder="请输入主体名称" @keyup.enter.native="searchSelfRightsHolders"></el-input>
+            </div>
+            <div class="self-rights-holder-actions">
+                <el-button type="primary" size="small" icon="el-icon-search" @click="searchSelfRightsHolders">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="resetSelfRightsHolderSearch">重置</el-button>
+            </div>
         </div>
-        <el-table v-loading="selfRightsHolderLoading" :data="selfRightsHolderData" border stripe
-                  height="420" highlight-current-row @row-click="handleSelfRightsHolderCurrentChange">
-            <el-table-column width="55" align="center">
-                <template slot-scope="scope">
-                    <el-radio v-model="pendingSelfRightsHolderCode" :label="scope.row.companyCode"
-                              @change="handleSelfRightsHolderCurrentChange(scope.row)"><span></span></el-radio>
+        <el-table class="self-rights-holder-table" v-loading="selfRightsHolderLoading"
+                  :data="selfRightsHolderData" border stripe size="small" height="min(400px, 42vh)"
+                  :row-class-name="selfRightsHolderRowClassName" @row-click="handleSelfRightsHolderCurrentChange">
+            <el-table-column label="选择" width="56" align="center">
+                <template slot-scope="{ row }">
+                    <el-radio v-model="pendingSelfRightsHolderCode" :label="row.companyCode"
+                              :aria-label="'选择' + row.companyName" @change="handleSelfRightsHolderCurrentChange(row)"><span></span></el-radio>
                 </template>
             </el-table-column>
-            <el-table-column type="index" label="序号" width="70" align="center"
-                             :index="selfRightsHolderIndex"></el-table-column>
-            <el-table-column prop="companyCode" label="主体编码" width="180"></el-table-column>
-            <el-table-column prop="companyName" label="主体名称" min-width="300" show-overflow-tooltip></el-table-column>
-            <el-table-column prop="innerRating" label="最新内评" width="110" align="center"></el-table-column>
+            <el-table-column type="index" label="序号" width="60" align="center" :index="selfRightsHolderIndex"></el-table-column>
+            <el-table-column prop="companyCode" label="主体编码" min-width="120" show-overflow-tooltip></el-table-column>
+            <el-table-column prop="companyName" label="主体名称" min-width="260" show-overflow-tooltip></el-table-column>
+            <el-table-column label="最新内评" min-width="84" align="center" label-class-name="self-rights-holder-rating-header">
+                <template slot-scope="{ row }"><el-tag v-if="row.innerRating" size="mini">{{ row.innerRating }}</el-tag></template>
+            </el-table-column>
         </el-table>
         <div class="self-rights-holder-pagination">
             <el-pagination background layout="total, sizes, prev, pager, next, jumper"
-                           :current-page="selfRightsHolderPagination.pageIndex"
-                           :page-size="selfRightsHolderPagination.pageSize"
-                           :page-sizes="[10, 20, 30, 50]"
-                           :total="selfRightsHolderPagination.total"
-                           @size-change="handleSelfRightsHolderSizeChange"
-                           @current-change="handleSelfRightsHolderPageChange"></el-pagination>
+                           :current-page="selfRightsHolderPagination.pageIndex" :page-size="selfRightsHolderPagination.pageSize"
+                           :page-sizes="[10, 20, 30, 50]" :total="selfRightsHolderPagination.total"
+                           @size-change="handleSelfRightsHolderSizeChange" @current-change="handleSelfRightsHolderPageChange"></el-pagination>
         </div>
-        <span slot="footer">
-            <el-button size="small" @click="selfRightsHolderDialogVisible = false">取消</el-button>
-            <el-button type="primary" size="small" :disabled="!pendingSelfRightsHolderCode"
-                       @click="confirmSelfRightsHolder">确认选择</el-button>
-        </span>
+        <div slot="footer" class="self-rights-holder-footer">
+            <div class="self-rights-holder-selection">
+                <template v-if="pendingSelfRightsHolder">
+                    <span class="self-rights-holder-selection-label">已选主体</span>
+                    <div class="self-rights-holder-selection-detail">
+                        <span class="self-rights-holder-selection-name" :title="pendingSelfRightsHolder.companyName">{{ pendingSelfRightsHolder.companyName }}</span>
+                        <span class="self-rights-holder-selection-code">{{ pendingSelfRightsHolder.companyCode }}</span>
+                    </div>
+                </template>
+                <span v-else>尚未选择权益人</span>
+            </div>
+            <div class="self-rights-holder-actions">
+                <el-button size="small" @click="selfRightsHolderDialogVisible = false">取消</el-button>
+                <el-button type="primary" size="small"
+                           :disabled="!pendingSelfRightsHolderCode" @click="confirmSelfRightsHolder">确认选择</el-button>
+            </div>
+        </div>
     </el-dialog>
 
     <!-- 选择调库流程确认弹窗（与证券池调库保持一致） -->
@@ -1314,8 +1333,8 @@
                         const opts = guarantorOptionsBySecurityCode[r.securityCode] || []
                         const saved = this.selectedSecurityMap[r.securityCode]
                         r.guarantorOptions = opts
-                        r.selectedRelatedSubjectCode = saved
-                            ? (saved.selectedRelatedSubjectCode || '') : (opts.length > 0 ? opts[0].code : '')
+                        r.selectedRelatedCompanyCode = saved
+                            ? (saved.selectedRelatedCompanyCode || '') : (opts.length > 0 ? opts[0].code : '')
                         r.selectedSelfRightsHolder = saved ? (saved.selectedSelfRightsHolder || null) : null
                         r.selectedSelfSelectedRightsHolderCode = saved
                             ? (saved.selectedSelfSelectedRightsHolderCode || '') : ''
@@ -1458,17 +1477,17 @@
             },
 
             // 当前行最终展示内评：ABS 自选优先，否则普通权益人；非 ABS 为担保人
-            effectiveRelatedSubjectRating(row) {
+            effectiveRelatedCompanyRating(row) {
                 if (!row) return ''
                 if (this.isAbsBond(row) && row.selectedSelfRightsHolder) {
                     return row.selectedSelfRightsHolder.innerRating || ''
                 }
-                const selected = (row.guarantorOptions || []).find(option => option.code === row.selectedRelatedSubjectCode)
+                const selected = (row.guarantorOptions || []).find(option => option.code === row.selectedRelatedCompanyCode)
                 return selected ? (selected.rating || '') : ''
             },
 
             // 同步当前行评级主体选择到跨页已选记录
-            handleRelatedSubjectChange(row) {
+            handleRelatedCompanyChange(row) {
                 if (this.selectedSecurityMap[row.securityCode]) {
                     this.$set(this.selectedSecurityMap, row.securityCode, row)
                 }
@@ -1534,6 +1553,10 @@
                     * this.selfRightsHolderPagination.pageSize + index + 1
             },
 
+            // 按暂存主体高亮选中行，翻页返回后仍与单选值一致
+            selfRightsHolderRowClassName({ row }) {
+                return row.companyCode === this.pendingSelfRightsHolderCode ? 'self-rights-holder-selected' : ''
+            },
             // 暂存自选权益人单选结果
             handleSelfRightsHolderCurrentChange(row) {
                 this.pendingSelfRightsHolder = row
@@ -1570,13 +1593,13 @@
                     return
                 }
                 // 默认首条仍可逐券改选；清空后按原校验阻止进入下一步
-                const missingRelatedSubject = this.selectedSecurities.find(item => this.isAbsBond(item)
-                    ? !item.selectedRelatedSubjectCode && !item.selectedSelfSelectedRightsHolderCode
-                    : item.guarantorOptions && item.guarantorOptions.length > 0 && !item.selectedRelatedSubjectCode)
-                if (missingRelatedSubject) {
-                    const subjectName = this.isAbsBond(missingRelatedSubject) ? '权益人或自选权益人' : '担保人'
-                    this.$message.warning('请为证券「' + (missingRelatedSubject.securityShortName || missingRelatedSubject.securityCode)
-                        + '」选择' + subjectName)
+                const missingRelatedCompany = this.selectedSecurities.find(item => this.isAbsBond(item)
+                    ? !item.selectedRelatedCompanyCode && !item.selectedSelfSelectedRightsHolderCode
+                    : item.guarantorOptions && item.guarantorOptions.length > 0 && !item.selectedRelatedCompanyCode)
+                if (missingRelatedCompany) {
+                    const companyRoleName = this.isAbsBond(missingRelatedCompany) ? '权益人或自选权益人' : '担保人'
+                    this.$message.warning('请为证券「' + (missingRelatedCompany.securityShortName || missingRelatedCompany.securityCode)
+                        + '」选择' + companyRoleName)
                     return
                 }
                 this.checkLoading = true
@@ -1592,8 +1615,8 @@
                             securityCode: item.securityCode,
                             securityShortName: item.securityShortName || '',
                             securityType: item.securityType || '',
-                            guarantorCode: this.isAbsBond(item) ? '' : (item.selectedRelatedSubjectCode || ''),
-                            rightsHolderCode: this.isAbsBond(item) ? (item.selectedRelatedSubjectCode || '') : '',
+                            guarantorCode: this.isAbsBond(item) ? '' : (item.selectedRelatedCompanyCode || ''),
+                            rightsHolderCode: this.isAbsBond(item) ? (item.selectedRelatedCompanyCode || '') : '',
                             selfSelectedRightsHolderCode: this.isAbsBond(item)
                                 ? (item.selectedSelfSelectedRightsHolderCode || '') : ''
                         }))
@@ -1748,9 +1771,9 @@
                             securityCode: item.securityCode,
                             securityShortName: item.securityShortName || '',
                             securityType: item.securityType || '',
-                            guarantorCode: this.selectedRatingSubjectCodesFor(item.sourceSecurityCode || item.securityCode).guarantorCode,
-                            rightsHolderCode: this.selectedRatingSubjectCodesFor(item.sourceSecurityCode || item.securityCode).rightsHolderCode,
-                            selfSelectedRightsHolderCode: this.selectedRatingSubjectCodesFor(item.sourceSecurityCode || item.securityCode).selfSelectedRightsHolderCode,
+                            guarantorCode: this.selectedRatingCompanyCodesFor(item.sourceSecurityCode || item.securityCode).guarantorCode,
+                            rightsHolderCode: this.selectedRatingCompanyCodesFor(item.sourceSecurityCode || item.securityCode).rightsHolderCode,
+                            selfSelectedRightsHolderCode: this.selectedRatingCompanyCodesFor(item.sourceSecurityCode || item.securityCode).selfSelectedRightsHolderCode,
                             sourceSecurityCode: item.sourceSecurityCode || item.securityCode,
                             targetPoolId: item.poolId,
                             targetPoolName: item.poolName,
@@ -1780,7 +1803,7 @@
             },
 
             // 根据校验结果所属主券取回步骤1选择的评级主体编码，保证提交与校验口径一致
-            selectedRatingSubjectCodesFor(securityCode) {
+            selectedRatingCompanyCodesFor(securityCode) {
                 const selected = this.selectedSecurities.find(item => item.securityCode === securityCode)
                 if (!selected) {
                     return { guarantorCode: '', rightsHolderCode: '', selfSelectedRightsHolderCode: '' }
@@ -1788,11 +1811,11 @@
                 return this.isAbsBond(selected)
                     ? {
                         guarantorCode: '',
-                        rightsHolderCode: selected.selectedRelatedSubjectCode || '',
+                        rightsHolderCode: selected.selectedRelatedCompanyCode || '',
                         selfSelectedRightsHolderCode: selected.selectedSelfSelectedRightsHolderCode || ''
                     }
                     : {
-                        guarantorCode: selected.selectedRelatedSubjectCode || '',
+                        guarantorCode: selected.selectedRelatedCompanyCode || '',
                         rightsHolderCode: '',
                         selfSelectedRightsHolderCode: ''
                     }

@@ -28,7 +28,7 @@
         </div>
     </header>
     <!-- ── 导入主体：参数 + 上传 + 结果 ── -->
-    <div class="list-body" v-loading="loading">
+    <div class="list-body" v-loading="busy">
         <div class="top-grid">
             <!-- 步骤1：导入参数 -->
             <section class="panel-card compact-panel">
@@ -113,6 +113,7 @@
                         <i class="el-icon-upload upload-icon"></i>
                         <div class="upload-text">将<strong>{{ form.importType === 'company' ? '主体' : '证券' }}</strong> Excel 拖到此处，或 <em>点击选择</em></div>
                         <div class="upload-tip">请先选择导入类型并下载对应模板；再次选择将覆盖当前未提交批次</div>
+                        <div v-if="!isCompanyImport" class="upload-tip">上传后在导入明细中选择担保人/权益人，默认第一条；ABS 支持自选权益人</div>
                     </el-upload>
                     <div class="tpl-cols">
                         <span class="tpl-col-tag" v-for="col in templateColumns" :key="col">{{ col }}</span>
@@ -150,9 +151,9 @@
                                 <span class="stat fail">失败 <strong>{{ task.failCount || 0 }}</strong></span>
                             </div>
                             <div class="filter-actions">
-                                <el-button size="small" icon="el-icon-delete" @click="handleReset" :disabled="loading">清空</el-button>
+                                <el-button size="small" icon="el-icon-delete" @click="handleReset" :disabled="busy">清空</el-button>
                                 <el-button size="small" type="primary" plain icon="el-icon-circle-check"
-                                           :disabled="!impId || loading || task.saveRslt === '1'"
+                                           :disabled="!impId || busy || task.saveRslt === '1'"
                                            @click="handleCheck" :loading="checking">校验</el-button>
                             </div>
                         </div>
@@ -170,6 +171,45 @@
                                 <el-table-column :label="nameColumnLabel" prop="securityName" min-width="140" show-overflow-tooltip></el-table-column>
                                 <el-table-column :label="codeColumnLabel" prop="securityCode" min-width="140" show-overflow-tooltip>
                                     <template slot-scope="{ row }"><span class="security-code">{{ row.securityCode || '' }}</span></template>
+                                </el-table-column>
+                                <el-table-column v-if="!isCompanyImport" label="担保人/权益人*" min-width="190">
+                                    <template slot-scope="{ row }">
+                                        <el-select v-if="row.guarantorOptions.length || row.selectedRelatedCompanyCode" v-model="row.selectedRelatedCompanyCode"
+                                                   size="small" clearable style="width:100%;"
+                                                   :placeholder="isAbsBond(row) ? '请选择权益人' : '请选择担保人'"
+                                                   :disabled="!canEditRatingCompanies" popper-class="guarantor-select-dropdown"
+                                                   @change="handleRelatedCompanyChange(row)">
+                                            <el-option v-for="opt in row.guarantorOptions" :key="opt.optionKey"
+                                                       :label="opt.label" :value="opt.code">
+                                                <span class="guarantor-option">
+                                                    <span class="guarantor-option-name">{{ opt.name }}</span>
+                                                    <el-tag v-if="opt.typeName" size="mini" type="info" class="guarantor-type-tag">{{ opt.typeName }}</el-tag>
+                                                    <span class="guarantor-option-rating">{{ opt.rating }}</span>
+                                                </span>
+                                            </el-option>
+                                        </el-select>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column v-if="!isCompanyImport" label="自选权益人" min-width="190">
+                                    <template slot-scope="{ row }">
+                                        <div v-if="isAbsBond(row)" class="rights-holder-picker">
+                                            <el-input :value="row.selectedSelfRightsHolder ? row.selectedSelfRightsHolder.companyName : ''"
+                                                      class="self-rights-holder-input" size="small" placeholder="请选择" readonly
+                                                      :disabled="!canEditRatingCompanies" @focus="openSelfRightsHolderDialog(row)">
+                                                <span slot="suffix">
+                                                    <i v-if="row.selectedSelfRightsHolder" class="el-input__icon el-icon-circle-close"
+                                                       @mousedown.prevent @click.stop="clearSelfRightsHolder(row)"></i>
+                                                    <i v-else class="el-input__icon el-icon-search"
+                                                       @mousedown.prevent @click.stop="openSelfRightsHolderDialog(row)"></i>
+                                                </span>
+                                            </el-input>
+                                        </div>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column v-if="!isCompanyImport" label="担保人主体内评分" min-width="140">
+                                    <template slot-scope="{ row }">
+                                        <el-tag v-if="effectiveRelatedCompanyRating(row)" size="mini">{{ effectiveRelatedCompanyRating(row) }}</el-tag>
+                                    </template>
                                 </el-table-column>
                                 <el-table-column label="校验" width="78" align="center" fixed="right">
                                     <template slot-scope="{ row }">
@@ -205,12 +245,12 @@
                             </div>
                             <div class="filter-actions">
                                 <el-button size="small" type="primary" plain icon="el-icon-circle-check"
-                                           :disabled="!impId || loading || task.saveRslt === '1'"
+                                           :disabled="!impId || busy || task.saveRslt === '1'"
                                            @click="handleCheck" :loading="checking">重新校验</el-button>
                                 <el-tooltip :content="submitDisabledTip" :disabled="canSubmit" placement="top">
                                     <span>
                                         <el-button size="small" type="primary" icon="el-icon-check"
-                                                   :disabled="!canSubmit || loading" @click="openSubmitDialog" :loading="submitting">
+                                                   :disabled="!canSubmit" @click="openSubmitDialog" :loading="submitting">
                                             提交
                                             <span v-if="validCheckCount > 0" class="btn-count">{{ validCheckCount }}</span>
                                         </el-button>
@@ -234,6 +274,8 @@
                                 <el-table-column prop="securityCode" :label="codeColumnLabel" min-width="130">
                                     <template slot-scope="{ row }"><span class="security-code">{{ row.securityCode || '' }}</span></template>
                                 </el-table-column>
+                                <el-table-column v-if="!isCompanyImport" label="权益人/担保人名称" prop="ratingCompanyName" min-width="190" show-overflow-tooltip></el-table-column>
+                                <el-table-column v-if="!isCompanyImport" label="权益人/担保人代码" prop="ratingCompanyCode" min-width="170" show-overflow-tooltip></el-table-column>
                                 <el-table-column prop="targetPoolName" label="投资池名称" min-width="190" show-overflow-tooltip></el-table-column>
                                 <el-table-column prop="adjustType" label="调整类型" min-width="100" align="center">
                                     <template slot-scope="{ row }">
@@ -347,6 +389,66 @@
                        @click="confirmFlowSelection">确认</el-button>
         </span>
     </el-dialog>
+    <!-- ABS 自选权益人：与批量调整使用同一候选查询和选择方式 -->
+    <el-dialog title="选择自选权益人" :visible.sync="selfRightsHolderDialogVisible" width="820px"
+               custom-class="self-rights-holder-dialog" top="8vh" :close-on-click-modal="false"
+               :close-on-press-escape="!ratingCompanySaving" :show-close="!ratingCompanySaving">
+        <div class="self-rights-holder-search">
+            <div class="self-rights-holder-field">
+                <label for="security_pool_excel_import_self_company_code">主体编码</label>
+                <el-input id="security_pool_excel_import_self_company_code" v-model.trim="selfRightsHolderFilters.companyCode" size="small" clearable
+                          placeholder="请输入主体编码" :disabled="ratingCompanySaving" @keyup.enter.native="searchSelfRightsHolders"></el-input>
+            </div>
+            <div class="self-rights-holder-field">
+                <label for="security_pool_excel_import_self_company_name">主体名称</label>
+                <el-input id="security_pool_excel_import_self_company_name" v-model.trim="selfRightsHolderFilters.companyName" size="small" clearable
+                          placeholder="请输入主体名称" :disabled="ratingCompanySaving" @keyup.enter.native="searchSelfRightsHolders"></el-input>
+            </div>
+            <div class="self-rights-holder-actions">
+                <el-button type="primary" size="small" icon="el-icon-search" :disabled="ratingCompanySaving" @click="searchSelfRightsHolders">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" :disabled="ratingCompanySaving" @click="resetSelfRightsHolderSearch">重置</el-button>
+            </div>
+        </div>
+        <el-table class="self-rights-holder-table" v-loading="selfRightsHolderLoading || ratingCompanySaving"
+                  :data="selfRightsHolderData" border stripe size="small" height="min(400px, 42vh)"
+                  :row-class-name="selfRightsHolderRowClassName" @row-click="handleSelfRightsHolderCurrentChange">
+            <el-table-column label="选择" width="56" align="center">
+                <template slot-scope="{ row }">
+                    <el-radio v-model="pendingSelfRightsHolderCode" :label="row.companyCode" :disabled="ratingCompanySaving"
+                              :aria-label="'选择' + row.companyName" @change="handleSelfRightsHolderCurrentChange(row)"><span></span></el-radio>
+                </template>
+            </el-table-column>
+            <el-table-column type="index" label="序号" width="60" align="center" :index="selfRightsHolderIndex"></el-table-column>
+            <el-table-column prop="companyCode" label="主体编码" min-width="120" show-overflow-tooltip></el-table-column>
+            <el-table-column prop="companyName" label="主体名称" min-width="260" show-overflow-tooltip></el-table-column>
+            <el-table-column label="最新内评" min-width="84" align="center" label-class-name="self-rights-holder-rating-header">
+                <template slot-scope="{ row }"><el-tag v-if="row.innerRating" size="mini">{{ row.innerRating }}</el-tag></template>
+            </el-table-column>
+        </el-table>
+        <div class="self-rights-holder-pagination">
+            <el-pagination background layout="total, sizes, prev, pager, next, jumper"
+                           :current-page="selfRightsHolderPagination.pageIndex" :page-size="selfRightsHolderPagination.pageSize"
+                           :page-sizes="[10, 20, 30, 50]" :total="selfRightsHolderPagination.total" :disabled="ratingCompanySaving"
+                           @size-change="handleSelfRightsHolderSizeChange" @current-change="handleSelfRightsHolderPageChange"></el-pagination>
+        </div>
+        <div slot="footer" class="self-rights-holder-footer">
+            <div class="self-rights-holder-selection">
+                <template v-if="pendingSelfRightsHolder">
+                    <span class="self-rights-holder-selection-label">已选主体</span>
+                    <div class="self-rights-holder-selection-detail">
+                        <span class="self-rights-holder-selection-name" :title="pendingSelfRightsHolder.companyName">{{ pendingSelfRightsHolder.companyName }}</span>
+                        <span class="self-rights-holder-selection-code">{{ pendingSelfRightsHolder.companyCode }}</span>
+                    </div>
+                </template>
+                <span v-else>尚未选择权益人</span>
+            </div>
+            <div class="self-rights-holder-actions">
+                <el-button size="small" :disabled="ratingCompanySaving" @click="selfRightsHolderDialogVisible = false">取消</el-button>
+                <el-button type="primary" size="small" :loading="ratingCompanySaving"
+                           :disabled="!pendingSelfRightsHolderCode || selfRightsHolderLoading || ratingCompanySaving" @click="confirmSelfRightsHolder">确认选择</el-button>
+            </div>
+        </div>
+    </el-dialog>
 </div>
 <script>
 new Vue({
@@ -356,6 +458,16 @@ new Vue({
             loading: false,                 // 页面加载中
             checking: false,                // 校验中
             submitting: false,              // 提交中
+            ratingCompanySaving: false,           // 保存评级主体选择中
+            selfRightsHolderDialogVisible: false, // 自选权益人弹窗
+            selfRightsHolderTargetItemId: null, // 当前选择主体的导入明细 ID
+            selfRightsHolderLoading: false, // 候选主体加载中
+            selfRightsHolderQuerySeq: 0,    // 丢弃过期的候选查询响应
+            selfRightsHolderData: [],       // 全市场有效主体候选
+            selfRightsHolderFilters: { companyCode: '', companyName: '' }, // 主体查询条件
+            selfRightsHolderPagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 主体候选分页
+            pendingSelfRightsHolder: null,  // 弹窗暂存的主体
+            pendingSelfRightsHolderCode: '', // 弹窗暂存的主体代码
             form: {                         // 导入参数
                 importType: 'security',     // 导入类型：security / company
                 direction: 'in',            // 调整方向：in / out
@@ -411,6 +523,14 @@ new Vue({
             }
             return ['父池名称', '子池名称', '证券名称', '证券代码']
         },
+        // 上传、主体保存、校验和提交期间禁止交叉操作
+        busy() {
+            return this.loading || this.checking || this.submitting || this.ratingCompanySaving
+        },
+        // 已提交批次只展示保存的主体选择
+        canEditRatingCompanies() {
+            return !!this.impId && !this.busy && this.task.saveRslt !== '1'
+        },
         // 可调整的校验项
         validCheckItems() {
             return (this.checkItems || []).filter(item => item && item.canAdjust)
@@ -433,6 +553,7 @@ new Vue({
         // 是否允许提交
         canSubmit() {
             return !!this.impId
+                && !this.busy
                 && this.task.checkDone
                 && this.task.saveRslt !== '1'
                 && this.validCheckCount > 0
@@ -448,7 +569,7 @@ new Vue({
         // 校验结果区提示文案
         checkHint() {
             if (!this.impId) return '上传并校验后展示'
-            if (!this.task.checkDone) return '请先点击「校验」'
+            if (!this.task.checkDone) return this.task.chkDscr || '请先点击「校验」'
             if (this.form.allowLinkMutex || this.task.allowLinkMutex) {
                 return this.isCompanyImport
                     ? '主体导入：含手工 / 联动 / 互斥展开项'
@@ -458,7 +579,7 @@ new Vue({
         },
         // 已提交批次禁止再上传
         isUploadDisabled() {
-            return this.task && this.task.saveRslt === '1'
+            return this.busy || (this.task && this.task.saveRslt === '1')
         },
         // 是否管理员（仅管理员可见导入批次号）
         isAdmin() {
@@ -466,6 +587,169 @@ new Vue({
         },
     },
     methods: {
+
+        // 将后端候选和已保存选择转成与批量调整相同的行数据
+        normalizeImportItems(records) {
+            return (records || []).map(row => Object.assign({}, row, {
+                guarantorOptions: (row.relatedRatingCompanies || []).map(company => {
+                    const name = company.companyName || company.companyCode
+                    const typeName = this.guarantorTypeName(company.relationTypeCode)
+                    return {
+                        code: company.companyCode,
+                        optionKey: String(company.companyCode || '') + '_' + String(company.relationTypeCode || ''),
+                        name,
+                        typeName,
+                        label: typeName ? name + '（' + typeName + '）' : name,
+                        rating: company.innerRating || '',
+                    }
+                }),
+                selectedRelatedCompanyCode: row.relatedCompanyCode || '',
+                selectedSelfRightsHolder: row.selfSelectedRightsHolder || null,
+                selectedSelfSelectedRightsHolderCode: row.selfSelectedRightsHolderCode || '',
+            }))
+        },
+        // 四类关联主体类型在前端映射展示
+        guarantorTypeName(typeCode) {
+            const map = {
+                '115004000': '担保人',
+                '115203000': '差额支付承诺人',
+                '115202000': '债务主体',
+                '115201000': '原始权益人',
+            }
+            return map[String(typeCode)] || ''
+        },
+        // ABS 判定与批量调整保持一致
+        isAbsBond(row) {
+            if (!row) return false
+            const flag = String(row.absFlag == null ? '' : row.absFlag).toLowerCase()
+            return flag === '1' || flag === 'true' || flag === 'yes' || row.securityType === 'abs'
+        },
+        // 自选权益人优先展示内评，清除后回到关联主体内评
+        effectiveRelatedCompanyRating(row) {
+            if (this.isAbsBond(row) && row.selectedSelfRightsHolder) {
+                return row.selectedSelfRightsHolder.innerRating || ''
+            }
+            const selected = (row.guarantorOptions || []).find(option => option.code === row.selectedRelatedCompanyCode)
+            return selected ? selected.rating : ''
+        },
+        // 按导入明细 ID 保存当前行选择，并使旧校验结果失效
+        async saveRatingCompany(row, selfCode) {
+            if (!this.canEditRatingCompanies) return false
+            const relatedCode = row.selectedRelatedCompanyCode || ''
+            const selectedSelfCode = selfCode === undefined ? (row.selectedSelfSelectedRightsHolderCode || '') : selfCode
+            if (relatedCode === (row.relatedCompanyCode || '')
+                && selectedSelfCode === (row.selfSelectedRightsHolderCode || '')) return true
+            this.ratingCompanySaving = true
+            try {
+                const data = await this.apiPost('/api/v1/securityPoolExcelImport/editRatingCompany', {
+                    impId: this.impId,
+                    itemId: row.id,
+                    relatedCompanyCode: relatedCode,
+                    selfSelectedRightsHolderCode: selectedSelfCode,
+                    currentUserId: this.currentUserId,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                    keyword: this.keyword || null,
+                })
+                this.filterChkRslt = ''
+                this.flowDialogVisible = false
+                this.activeResultTab = 'import'
+                this.applyTask(data)
+                return true
+            } catch (e) {
+                // 恢复已保存的选择；请求响应丢失时从服务端获取实际状态
+                this.$set(row, 'selectedRelatedCompanyCode', row.relatedCompanyCode || '')
+                this.checkItems = []
+                this.$set(this.task, 'checkDone', false)
+                this.filterChkRslt = ''
+                await this.loadItemPage()
+                return false
+            } finally {
+                this.ratingCompanySaving = false
+            }
+        },
+        // 关联下拉变更立即保存
+        async handleRelatedCompanyChange(row) {
+            await this.saveRatingCompany(row)
+        },
+        // 打开 ABS 全市场自选权益人候选
+        async openSelfRightsHolderDialog(row) {
+            if (!this.canEditRatingCompanies || !this.isAbsBond(row)) return
+            this.selfRightsHolderTargetItemId = row.id
+            this.pendingSelfRightsHolder = row.selectedSelfRightsHolder || null
+            this.pendingSelfRightsHolderCode = this.pendingSelfRightsHolder ? this.pendingSelfRightsHolder.companyCode : ''
+            this.selfRightsHolderDialogVisible = true
+            this.selfRightsHolderPagination.pageIndex = 1
+            await this.loadSelfRightsHolderPage()
+        },
+        // 复用单券及批量调整的全市场主体接口
+        async loadSelfRightsHolderPage() {
+            if (this.ratingCompanySaving) return
+            const querySeq = ++this.selfRightsHolderQuerySeq
+            this.selfRightsHolderLoading = true
+            this.selfRightsHolderData = []
+            try {
+                const page = await this.apiPost('/api/v1/securityPoolAdjust/querySelfSelectedRightsHolderPage', {
+                    companyCode: this.selfRightsHolderFilters.companyCode || '',
+                    companyName: this.selfRightsHolderFilters.companyName || '',
+                    pageIndex: this.selfRightsHolderPagination.pageIndex,
+                    pageSize: this.selfRightsHolderPagination.pageSize,
+                })
+                if (querySeq !== this.selfRightsHolderQuerySeq) return
+                this.selfRightsHolderData = (page && page.records) || []
+                this.selfRightsHolderPagination.total = (page && page.total) || 0
+            } catch (e) { /* api 已提示 */ }
+            finally {
+                if (querySeq === this.selfRightsHolderQuerySeq) this.selfRightsHolderLoading = false
+            }
+        },
+        // 按代码或名称查询主体
+        searchSelfRightsHolders() {
+            this.selfRightsHolderPagination.pageIndex = 1
+            this.loadSelfRightsHolderPage()
+        },
+        // 重置候选查询条件
+        resetSelfRightsHolderSearch() {
+            this.selfRightsHolderFilters = { companyCode: '', companyName: '' }
+            this.searchSelfRightsHolders()
+        },
+        // 候选列表切换页码
+        handleSelfRightsHolderPageChange(pageIndex) {
+            this.selfRightsHolderPagination.pageIndex = pageIndex
+            this.loadSelfRightsHolderPage()
+        },
+        // 候选列表切换每页数量
+        handleSelfRightsHolderSizeChange(pageSize) {
+            this.selfRightsHolderPagination.pageSize = pageSize
+            this.searchSelfRightsHolders()
+        },
+        // 候选主体序号连续计数
+        selfRightsHolderIndex(index) {
+            return (this.selfRightsHolderPagination.pageIndex - 1) * this.selfRightsHolderPagination.pageSize + index + 1
+        },
+        // 按暂存主体高亮选中行，翻页返回后仍与单选值一致
+        selfRightsHolderRowClassName({ row }) {
+            return row.companyCode === this.pendingSelfRightsHolderCode ? 'self-rights-holder-selected' : ''
+        },
+        // 单选暂存，确认后才保存到导入批次
+        handleSelfRightsHolderCurrentChange(row) {
+            if (this.ratingCompanySaving) return
+            this.pendingSelfRightsHolder = row
+            this.pendingSelfRightsHolderCode = row ? row.companyCode : ''
+        },
+        // 确认自选权益人，保存成功才关闭弹窗
+        async confirmSelfRightsHolder() {
+            if (!this.pendingSelfRightsHolderCode || this.selfRightsHolderLoading) return
+            const row = this.tableData.find(item => item.id === this.selfRightsHolderTargetItemId)
+            if (!row) return
+            if (await this.saveRatingCompany(row, this.pendingSelfRightsHolderCode)) {
+                this.selfRightsHolderDialogVisible = false
+            }
+        },
+        // 清除自选权益人并恢复关联主体作为评级来源
+        async clearSelfRightsHolder(row) {
+            await this.saveRatingCompany(row, '')
+        },
 
         // 下载 classpath 模板（Base64）
         async downloadTemplate(templateCode) {
@@ -538,6 +822,8 @@ new Vue({
             this.checkItems = []
             this.activeResultTab = 'import'
             this.flowDialogVisible = false
+            this.selfRightsHolderDialogVisible = false
+            this.selfRightsHolderTargetItemId = null
             this.filterChkRslt = ''
             this.keyword = ''
             this.pagination = {
@@ -589,11 +875,13 @@ new Vue({
             if (data.bizMode) this.form.direction = data.bizMode
             if (typeof data.allowLinkMutex === 'boolean') this.form.allowLinkMutex = data.allowLinkMutex
             if (data.importType) this.form.importType = data.importType
-            const page = data.items || {}
-            this.tableData = page.records || []
-            this.pagination.total = page.total || 0
-            this.pagination.pageIndex = page.pageIndex || 1
-            this.pagination.pageSize = page.pageSize || this.pagination.pageSize
+            if (data.items) {
+                const page = data.items
+                this.tableData = this.normalizeImportItems(page.records || [])
+                this.pagination.total = page.total || 0
+                this.pagination.pageIndex = page.pageIndex || 1
+                this.pagination.pageSize = page.pageSize || this.pagination.pageSize
+            }
             this.checkItems = this.normalizeCheckItems(data.checkItems || [])
         },
         // 明细筛选变更
@@ -613,7 +901,7 @@ new Vue({
                     pageIndex: this.pagination.pageIndex,
                     pageSize: this.pagination.pageSize,
                 })
-                this.tableData = (page && page.records) || []
+                this.tableData = this.normalizeImportItems((page && page.records) || [])
                 this.pagination.total = (page && page.total) || 0
                 const task = await this.apiPost('/api/v1/securityPoolExcelImport/queryTask', { impId: this.impId })
                 if (task) {
@@ -639,7 +927,7 @@ new Vue({
         },
         // 执行校验
         async handleCheck() {
-            if (!this.impId) return
+            if (!this.impId || this.busy || this.task.saveRslt === '1') return
             this.checking = true
             try {
                 const data = await this.apiPost('/api/v1/securityPoolExcelImport/checkImport', {
@@ -673,7 +961,7 @@ new Vue({
         },
         // 确认流程并提交
         async confirmFlowSelection() {
-            if (this.submitting) return
+            if (!this.canSubmit) return
             if (!this.allValidRowsHaveFlow) {
                 this.$message.warning('请为所有可提交的手工调整项选择审批流程')
                 return
@@ -702,6 +990,7 @@ new Vue({
         },
         // 清空页面并取消未提交批次
         async handleReset() {
+            if (this.busy) return
             if (this.impId && this.task.saveRslt !== '1') {
                 try {
                     await this.apiPost('/api/v1/securityPoolExcelImport/cancelImport', { impId: this.impId })
@@ -713,6 +1002,8 @@ new Vue({
             this.checkItems = []
             this.activeResultTab = 'import'
             this.flowDialogVisible = false
+            this.selfRightsHolderDialogVisible = false
+            this.selfRightsHolderTargetItemId = null
             this.fileList = []
             this.fileName = ''
             this.filterChkRslt = ''

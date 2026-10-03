@@ -388,7 +388,7 @@
         <div class="flow">
             <div class="step"><b>1. 导入参数</b><span>选证券/主体、调入/调出；可选清空目标池、联动互斥、原因与意见。</span></div>
             <div class="step"><b>2. 下载并上传</b><span>按类型下载模板后拖入 xls/xlsx；解析父池/子池名称写入临时表。</span></div>
-            <div class="step"><b>3. 导入明细</b><span>分页查看行数据与解析结果；可按校验状态筛选后点击校验。</span></div>
+            <div class="step"><b>3. 导入明细</b><span>选择担保人/权益人，ABS 可自选权益人；查看内评后校验。</span></div>
             <div class="step"><b>4. 调库校验</b><span>证券走单券 checkAdjust，主体走 checkCompanyAdjust；展示可调整项。</span></div>
             <div class="step"><b>5. 选流程提交</b><span>弹窗与批量调库一致；确认后写申请/步骤，仅 20 落池。</span></div>
         </div>
@@ -412,7 +412,8 @@
             <article class="card">
                 <h3>模板与上传</h3>
                 <ul>
-                    <li>证券模板列：父池名称、子池名称、证券名称、证券代码。</li>
+                    <li>证券模板仅四列：父池名称、子池名称、证券名称、证券代码。担保人/权益人改为上传后在「导入明细」页面选择，不在 Excel 填写；旧六列模板中的主体名称和代码不再参与选择。</li>
+                    <li>证券模板保留 5 条完整 Demo 调入示例：24基建担保（DBB001.IB）、24地产担保（DBB002.IB）、25城投担保（DBB003.IB）、24资ABS02（108008902.IB）、25资管ABS（ABN001.IB），均调入信用债大库(new)的一级库，匹配 Demo 中默认第一条关联主体的内评 1。业务修改主体选择后，仍按实际库数据与目标池重新校验。</li>
                     <li>主体模板列：父池名称、子池名称、主体名称、主体代码。</li>
                     <li>模板下载 <code>templateCode</code>：<code>security_pool_import</code> / <code>company_pool_import</code>。</li>
                     <li>上传 multipart：<code>request</code> JSON Blob + <code>file</code> + <code>originalFileNameListJson</code>（单元素原始文件名 JSON 数组，用于兼容公司环境中文文件名），与调库附件提交方式一致；xls/xlsx，不超过 5MB。</li>
@@ -425,16 +426,20 @@
     <section class="panel" id="logic-2">
         <h2>校验与提交</h2>
         <p class="sub">先校验导入行，再复用单券 / 主体调库校验；流程策略与<strong>当前批量页不同</strong>（Excel 仍注入 batch 推荐）。</p>
-        <span class="api">POST /api/v1/securityPoolExcelImport/queryItemPage · checkImport · queryTask · submitImport · cancelImport</span>
+        <span class="api">POST /api/v1/securityPoolExcelImport/queryItemPage · editRatingCompany · checkImport · queryTask · submitImport · cancelImport</span>
         <div class="logic">
             <article class="card">
                 <h3>导入明细与调库校验</h3>
                 <ul>
                     <li>明细分页 <code>queryItemPage</code>：可按代码关键字、校验结果（待校验 / 通过 / 失败）筛选。</li>
-                    <li>证券：每行调用 <code>SecurityPoolAdjustService.checkAdjust</code>；主体：每行调用 <code>ForbiddenPoolAdjustService.checkCompanyAdjust</code>。导入页不逐券选择评级主体，证券校验与提交直接取关联评级主体接口返回的第 1 条，不按关系类型二次筛选；ABS 将该编码写入权益人字段，非 ABS 写入担保人字段；无候选主体仍按单券规则失败。</li>
+                    <li>「担保人/权益人」下拉与批量调整可选证券一致，显示关联主体名称、关系类型和最新内评，上传时默认第一条。分页与校验保留手动选择或清除，不重新覆盖为默认值。</li>
+                    <li>仅 ABS 展示「自选权益人」，按代码或名称搜索全市场有效主体，无需与当前证券关联。关联权益人和自选权益人分别保存，自选优先用于评级；清除自选后恢复关联主体内评。ABS 至少选一种；非 ABS 有关联候选时须选择，无关联候选且单券规则不要求时可留空。自选权益人弹窗采用带标签的主体编码/名称查询区；点击行或单选框选择主体，选中行高亮，最新内评以标签展示；底部显示已选主体名称和编码。确认前仅暂存选择，取消保留原值。主体编码、主体名称和内评列按弹窗可用宽度自适应分配。</li>
+                    <li>各导入行独立保存担保人/权益人和 ABS 自选权益人。同一证券导入不同池时仅上传默认值相同，修改或清除某行不影响其他行，分页和刷新后保留各行选择。修改调用 <code>editRatingCompany</code>，以 <code>impId + itemId</code> 定位当前行，并清空本批旧行级校验、调库展开结果及流程选择，须重新校验；已提交批次不可修改。修改、校验、提交与取消串行处理，禁止旧校验结果绕过重新校验提交。</li>
+                    <li>证券每行复用 <code>SecurityPoolAdjustService.checkAdjust</code>，主体每行复用 <code>ForbiddenPoolAdjustService.checkCompanyAdjust</code>。ABS 的关联选择写入 <code>rightsHolderCode</code>，自选写入 <code>selfSelectedRightsHolderCode</code>；非 ABS 写入 <code>guarantorCode</code>。主体代码和标准名称由后端复核，提交读取本批已通过校验的持久化选择并再次校验候选资格；校验结果展示最终用于评级的主体名称和代码。</li>
                     <li>勾选联动互斥时保留 linkage / mutex / related 展开项；不勾选仅手工项。</li>
                     <li>首先清空目标池：差集成员走单券调出校验；本批编码若已有在途流程则该导入行失败；非本批编码在途不纳入清空。</li>
                     <li>校验结果列调整类型：手工主项「Excel导入」，清空项「Excel清空」。</li>
+                    <li>某证券导入行手工主项校验失败时，该行的联动、互斥和关联项不单独提交，不影响其他校验通过行的提交。</li>
                     <li><strong>item_tag 生命周期：</strong>校验态清空主项 <code>itemTag=clear</code>（<code>ItemType.CLEAR</code>）；提交时因调库服务不识别 clear，清空项 <code>item_tag</code> <strong>改写为 manual</strong>，靠 <code>adjust_type=Excel清空</code> 区分渠道。</li>
                 </ul>
             </article>
@@ -444,7 +449,7 @@
                     <li>提交弹出「选择调库流程」；弹窗结构、卡片层级、间距与底部操作区完全对齐证券池调整页，候选规则仍按 Excel 导入规则处理。</li>
                     <li><strong>Excel 流程策略（当前代码）：</strong>先拷贝单券/主体 <code>flowOptions</code>，再 <code>injectBatchFlowOption</code> 把目标池 <code>batchIn</code>/<code>batchOut</code> 插到候选<strong>最前</strong>并 <code>recommended=true</code>，可能压过单券 special/简易推荐。</li>
                     <li><strong>与批量/存量对比：</strong>证券池批量、存量批量已<strong>不注入、不回填</strong> batch 流程，完全透传单券候选。Excel <strong>仍注入</strong>属有意差异（非「与批量一致」）。</li>
-                    <li>证券按主券分组 <code>addAdjustLog</code>；主体按主体分组 <code>addCompanyAdjustLog</code>；清空出库先于导入提交。</li>
+                    <li>证券按来源导入行 <code>sourceItemId</code> 分组，通过 <code>addExcelImportAdjustLogList</code> 复用单券提交步骤。同码不同池可选不同主体；本行主项及联动、互斥、关联项使用该行保存的选择和流程，并分别保存本笔证券快照。整批先检查已有在途流程，再逐行创建流程，避免同批新流程阻断其他行。主体仍按主体分组 <code>addCompanyAdjustLog</code>；清空出库先于导入提交。</li>
                     <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；目标池须 <code>excel_importable</code>；管理员 <code>userId=1</code> 放行。</li>
                     <li>导入批次号仅管理员可见；<code>impId</code> 仍用于后续校验 / 提交。</li>
                 </ul>
@@ -474,7 +479,7 @@
                 </tr>
                 <tr>
                     <td><span class="name">sys_imp_tmp_detl</span></td>
-                    <td>导入临时明细；本业务：fld001=代码，fld002=名称，fld003=父池，fld004=子池，fld009=解析池 ID</td>
+                    <td>导入临时明细；本业务：fld001=代码，fld002=名称，fld003=父池，fld004=子池，fld009=解析池 ID，fld011/012=关联担保人或权益人代码/名称，fld013/014=ABS 自选权益人代码/名称；使用既有通用槽</td>
                     <td><span class="tag w">新增</span> <span class="tag u">更新</span> <span class="tag r">查询</span></td>
                     <td>上传解析行、明细分页、校验结果回写</td>
                 </tr>
@@ -542,8 +547,8 @@
         <ul class="notes">
             <li>页面不选择目标池：父池 / 子池名称必须能解析到启用叶子池，否则该行校验失败。</li>
             <li>调整类型：Excel 手工主项 <code>Excel导入</code>，清空项 <code>Excel清空</code>；联动/互斥/关联与单笔一致。字典 <code>DICT_ADJUST_TYPE</code> 已登记。</li>
-            <li>首先清空目标池仅调入：提交顺序先清空出库，再导入；清空校验用 <code>item_tag=clear</code>，提交改写 <code>manual</code> + adjustType 区分。</li>
-            <li>证券校验复用单券 <code>checkAdjust</code>，主体校验复用 <code>checkCompanyAdjust</code>；Excel 直接传关联评级主体接口返回的第 1 条（不按类型过滤），ABS 写入权益人字段，非 ABS 写入担保人字段。流程候选：Excel <strong>仍注入</strong> batchIn/Out 推荐；批量/存量见
+            <li>首先清空目标池仅调入：清空主项及同一来源的联动、互斥和关联项一同提交出库，先清空出库，再导入；清空校验用 <code>item_tag=clear</code>，提交改写 <code>manual</code> + adjustType 区分。</li>
+            <li>证券校验复用单券 <code>checkAdjust</code>，主体校验复用 <code>checkCompanyAdjust</code>；证券 Excel 模板仅四列，页面默认首个关联主体并允许修改，ABS 支持全市场自选权益人且自选优先。改选择后须重新校验。联动、互斥与关联项展示来源主券选择；首先清空目标池自动生成的出库成员沿用原有默认主体逻辑。流程候选：Excel <strong>仍注入</strong> batchIn/Out 推荐；批量/存量见
                 <a href="batch-security-pool-adjust-tables.html">证券池批量调整</a>（已不注入）。</li>
             <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；驳回 / 撤回只改日志与步骤。</li>
             <li>导入批次号仅管理员可见；目标池须具备 <code>excel_importable</code>，管理员放行。</li>
