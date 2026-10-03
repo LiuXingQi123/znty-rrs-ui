@@ -76,7 +76,7 @@
         </div>
         <div class="section-card section-reason-advice print-section">
             <div class="section-header" @click="toggleSection('reasonAdvice')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">原因和建议</div><i :class="sectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div>
-            <div v-show="sectionExpanded.reasonAdvice" class="reason-advice-body" style="padding:20px 22px;"><div class="reason-advice-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div><div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div><el-input :value="activeLog.adjustReason || ''" type="textarea" :rows="4" size="small" disabled></el-input></div><div><div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div><el-input :value="activeLog.adjustAdvice || ''" type="textarea" :rows="4" size="small" disabled></el-input></div></div></div>
+            <div v-show="sectionExpanded.reasonAdvice" class="reason-advice-body" style="padding:20px 22px;"><div class="reason-advice-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div><div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div><el-input v-model="activeLog.adjustReason" type="textarea" :rows="4" size="small" :disabled="!canEditReasonAdvice" maxlength="500" show-word-limit></el-input></div><div><div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div><el-input v-model="activeLog.adjustAdvice" type="textarea" :rows="4" size="small" :disabled="!canEditReasonAdvice" maxlength="500" show-word-limit></el-input></div></div></div>
         </div>
         <div class="section-card section-flow-status">
             <div class="section-header" @click="toggleSection('flowStatus')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">当前流程状态</div><el-tag v-if="activeLog.flowName" size="mini" type="info">流程名称：{{ activeLog.flowName }}</el-tag><i :class="sectionExpanded.flowStatus ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div>
@@ -146,6 +146,11 @@ new Vue({
     data() { return { loading: false, submitting: false, pageError: '', fund: {}, poolStatuses: [], adjustLogs: [], flowStepList: [], attachments: [], activeLog: {}, adjustLogId: null, adjustBatchNo: '', auditAction: 'approve', auditComment: '', poolExpanded: false, sectionExpanded: { fundInfo: true, currentPools: true, adjustLog: true, reasonAdvice: true, flowStatus: true, auditApproval: true }, loginUser: window.RrsAuth.getCurrentUser(), currentLoginUserId: window.RrsAuth.getCurrentUser().userId }; },
     computed: {
         currentPendingStep() { return this.flowStepList.find(step => step.stepStatus === 'pending' && (String(step.handlerId || '') === String(this.loginUser.userId) || String(this.loginUser.userId) === '1')) || null; },
+        // 驳回待修改时，当前发起人待办允许编辑原因和建议
+        canEditReasonAdvice() {
+            const step = this.currentPendingStep;
+            return this.activeLog.auditStatus === '11' && !!step && step.approvalStrategy === 'initiator';
+        },
         printDocumentTitle() { return '基金池调库审核'; }
     },
     async created() {
@@ -283,7 +288,16 @@ new Vue({
             if (!step) return this.$message.warning('暂无需要当前用户处理的流程步骤');
             if (this.auditAction === 'reject' && !this.auditComment.trim()) return this.$message.warning('驳回时处理意见不能为空');
             this.submitting = true;
-            try { const result = await this.apiPost('/api/v1/fundPoolAdjust/submitAdjustAudit', { adjustLogId: this.adjustLogId, adjustBatchNo: this.adjustBatchNo, stepId: step.id, processAction: this.auditAction, processComment: this.auditComment, handlerId: String(this.loginUser.userId), handlerName: this.loginUser.userName }); this.$message.success(result.message || '审核处理成功'); await this.loadDetail(this.fund.fundCode); }
+            try {
+                const payload = { adjustLogId: this.adjustLogId, adjustBatchNo: this.adjustBatchNo, stepId: step.id, processAction: this.auditAction, processComment: this.auditComment, handlerId: String(this.loginUser.userId), handlerName: this.loginUser.userName };
+                if (this.canEditReasonAdvice && this.auditAction === 'approve') {
+                    payload.adjustReason = this.activeLog.adjustReason;
+                    payload.adjustAdvice = this.activeLog.adjustAdvice;
+                }
+                const result = await this.apiPost('/api/v1/fundPoolAdjust/submitAdjustAudit', payload);
+                this.$message.success(result.message || '审核处理成功');
+                await this.loadDetail(this.fund.fundCode);
+            }
             catch (e) { this.$message.error(e.message || '审核处理失败'); } finally { this.submitting = false; }
         },
         backToList() { if (window.RrsWorkbench.closeActiveTab()) return; window.history.back(); }

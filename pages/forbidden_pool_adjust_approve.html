@@ -1455,7 +1455,14 @@
             },
             // 原因和建议是否只读
             isReasonReadonly() {
-                return this.isProcessMode;
+                return this.isProcessMode && !this.canEditReasonAdvice;
+            },
+            // 驳回待修改时，当前发起人待办允许编辑原因和建议
+            canEditReasonAdvice() {
+                const log = this.activeAdjustLog || {};
+                const step = this.currentPendingStep;
+                return this.isProcessMode && log.auditStatus === '11'
+                    && !!step && step.approvalStrategy === 'initiator';
             },
             // 调库操作在审批页默认隐藏，预留后续入口扩展
             showAdjustOpSection() {
@@ -1813,10 +1820,10 @@
             },
             /**
              * 从调库记录回填调整原因、调整建议
-             * 同一次提交各 log 原因/建议一致，取列表首条即可
+             * 优先读取当前流程记录，避免其他历史批次覆盖原因和建议
              */
             fillReasonAdviceFromLogs(adjustLogList) {
-                const log = (adjustLogList || [])[0];
+                const log = this.activeAdjustLog || (adjustLogList || [])[0];
                 if (!log) return;
                 this.adjustReason = log.adjustReason || '';
                 this.adjustAdvice = log.adjustAdvice || '';
@@ -2313,6 +2320,10 @@
                         handlerName: this.currentLoginUserName
                     };
                     let result = null;
+                    if (this.canEditReasonAdvice && this.auditAction === 'approve') {
+                        payload.adjustReason = this.adjustReason;
+                        payload.adjustAdvice = this.adjustAdvice;
+                    }
                     if (this.shouldSubmitAuditAttachments()) {
                         const submitFiles = [];
                         payload.attachmentChanges = this.buildAuditAttachmentChanges(submitFiles);
