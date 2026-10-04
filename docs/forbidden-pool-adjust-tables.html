@@ -400,9 +400,10 @@
                     <li>API 前缀：<code>/api/v1/forbiddenAbsPoolAdjust</code>；附件 <code>/api/v1/attachments/*</code>，报告 <code>/api/v1/reports/*</code>。</li>
                     <li>列表/校验强制 <code>abs_flag=1</code>（仅 ABS 债）；可调池同样限定 15/16/17/23，前端按在池状态生成调入/调出树。</li>
                     <li>校验 <code>checkAdjust</code>、提交 <code>addAdjustLogWithFiles</code> 与证券池单笔同构；<strong>不</strong>做主体级 <code>syncCompanyBonds</code>（不同步同主体其它债）。</li>
+                    <li>直通或初始步骤自动结束时，落池成功后与正常审批共用 <code>ReportService.addInternalReportsOnFinish</code>：每条有手工信评附件的记录生成一份内部报告（<code>data_source=uploaded</code>），该记录下全部手工信评附件绑定为 <code>rrs_report_in + report_in</code> 库附件；其他材料和库引用附件不生成新报告。落池、报告与附件写入同事务，失败整体回滚。</li>
                     <li>单只 ABS 调入17时，发行主体须命中三个条件之一；调出17时须三个条件全部不满足。该门槛不替代原有锁池、容量、限制和互斥校验。</li>
                     <li>事宜场景：ABS 债 <code>category_type≠company</code>，待办归证券审核页（见我的事宜文档），不进主体禁投审核。</li>
-                    <li>可选预填：详情加载后调用 <code>queryLastCreditReport</code>，先查当前券，再查同主体近 6 个月审批通过调入的信评报告。同一日志内内部库、外部库优先，再选手工信评附件，其他材料不参与回填。手工信评附件 <code>credit_report_hand</code> 通过相同 <code>file_name</code> 反查内部报告的 <code>report_in</code> 库附件，返回报告库附件 ID 供再次提交。选定历史记录后，若查不到有效报告或库附件则不回填，不再尝试更早记录。报告库附件分类仍为 <code>report_in</code>，原有/新增报告由 <code>data_source</code> 区分。</li>
+                    <li>可选预填：详情加载后调用 <code>queryLastCreditReport</code>，先查当前券，再查同主体近 6 个月审批通过调入的信评报告。同一日志内按手工信评附件、内部库、外部库的顺序选择（分别赋值 3/2/1，按 <code>CASE ... END DESC</code> 排序），同类附件按 <code>id DESC</code> 取 ID 最大的一份；其他材料不参与回填。手工信评附件 <code>credit_report_hand</code> 通过相同 <code>file_name</code> 反查内部报告的 <code>report_in</code> 库附件，返回报告库附件 ID 供再次提交。选定历史记录后，若查不到有效报告或库附件则不回填，不再尝试更早记录。报告库附件分类仍为 <code>report_in</code>，原有/新增报告由 <code>data_source</code> 区分。</li>
                 </ul>
             </article>
         </div>
@@ -441,6 +442,7 @@
                     <li>提交阶段按调整对象证券代码分别复核配套互斥调出；主体与旗下不同债券的调出池互不干扰，同一调整对象同时调出互斥池仍会被拦截。</li>
                     <li>前端展示证券代码、证券简称、投资池、调整类型和方向；失败时分条展示 failReasons；同组行底色区分；提交用 <code>submitLoading</code> 防重复。</li>
                     <li>直通 / 终审：锁池 + <code>recheckBeforeFinalApproval</code>（动态子集，见下）后落池；主体通过后按规则 <code>syncCompanyBonds</code>。仅最终 <code>audit_status=20</code> 落池。</li>
+                    <li>主体调库直通、初始步骤自动结束与正常终审，均在落池成功后调用统一报告生成方法。每条有手工信评附件的记录生成一份内部报告（<code>data_source=uploaded</code>），全部手工信评附件绑定为 <code>rrs_report_in + report_in</code>；其他材料及库引用附件不生成新报告。主体报告的 <code>companyCode</code> 使用主体代码，报告、附件与落池同事务，失败整体回滚。</li>
                 </ul>
             </article>
             <article class="card"><h3>校验分层（check / 终审 recheck）</h3>
@@ -567,7 +569,7 @@
                     <td><span class="name">rrs_report_in / rrs_report_out</span></td>
                     <td>报告库来源和内部报告沉淀</td>
                     <td><span class='tag r'>查询</span> <span class='tag w'>条件新增</span></td>
-                    <td>选报告或审批通过后生成</td>
+                    <td>选报告，或正常审批/直通落池成功后生成</td>
                 </tr>
                 </tbody>
             </table>
