@@ -31,7 +31,12 @@
     </div>
 
     <!-- ── 列表页 ── -->
-    <div class="list-body">
+    <div class="list-body" v-loading="businessLoading">
+        <el-tabs v-model="businessDomain" @tab-click="handleBusinessChange">
+            <el-tab-pane v-for="domain in businessDomains" :key="domain.businessDomain" :name="domain.businessDomain" :label="businessDomainLabel(domain.businessDomain)"></el-tab-pane>
+        </el-tabs>
+        <el-empty v-if="businessReady && !businessDomain" description="暂无可用的业务入口，请联系管理员配置入口显示规则"></el-empty>
+        <template v-if="businessDomain">
         <!-- 搜索面板 -->
         <div class="search-panel">
             <div class="search-row">
@@ -42,11 +47,11 @@
                         <el-option v-for="f in flowOptions" :key="f.flowId" :label="f.flowName" :value="f.flowId"></el-option>
                     </el-select>
 
-                    <el-input v-model.trim="searchForm.securityCode" placeholder="证券编码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                    <el-input v-model.trim="searchForm.securityCode" :placeholder="objectCodeLabel" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
                         <i slot="prefix" class="el-input__icon el-icon-document"></i>
                     </el-input>
 
-                    <el-input v-model.trim="searchForm.securityShortName" placeholder="证券名称" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                    <el-input v-model.trim="searchForm.securityShortName" :placeholder="objectNameLabel" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
                         <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
                     </el-input>
 
@@ -106,7 +111,7 @@
                 <el-tab-pane name="initiated">
                     <span slot="label">我发起的 ({{ initiatedCount }})</span>
                 </el-tab-pane>
-                <el-tab-pane name="gradeRuleAlert">
+                <el-tab-pane v-if="businessDomain === 'bond'" name="gradeRuleAlert">
                     <span slot="label">分级规则提醒 ({{ alertOpenCount }})</span>
                 </el-tab-pane>
             </el-tabs>
@@ -118,8 +123,8 @@
                 </el-table-column>
                 <el-table-column prop="flowName" label="流程名称" min-width="160" show-overflow-tooltip></el-table-column>
                 <el-table-column prop="stepName" label="步骤名称" min-width="140" show-overflow-tooltip></el-table-column>
-                <el-table-column prop="securityCode" label="证券编码" min-width="130" show-overflow-tooltip></el-table-column>
-                <el-table-column prop="securityShortName" label="证券名称" min-width="150" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="objectCode" :label="objectCodeLabel" min-width="130" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="objectName" :label="objectNameLabel" min-width="150" show-overflow-tooltip></el-table-column>
                 <el-table-column label="流程描述" min-width="300" show-overflow-tooltip>
                     <template slot-scope="{ row }">
                         <span class="desc-link" @click="openMatterPage(row)">{{ row.processDescription || '' }}</span>
@@ -202,6 +207,7 @@
                 </el-pagination>
             </div>
         </div>
+        </template>
     </div>
 </div>
 
@@ -210,6 +216,20 @@ new Vue({
     el: '#my_matters',
     data() {
         return {
+            businessDomains: [], // 后端计算的可展示业务入口
+            businessDomain: '', // 当前选中的业务
+            businessLoading: false, // 业务入口加载状态
+            businessReady: false, // 业务入口初始化是否完成
+            viewRevision: 0, // 业务、筛选、页签变化时递增，忽略旧响应
+            listRequestId: 0, // 同视图并发列表查询序号
+            alertRequestId: 0, // 提醒查询序号
+            flowRequestId: 0, // 流程下拉查询序号
+            matterRoutes: { // 各场景独立页面及定位参数
+                securityAdjust: { domain: 'bond', codeParam: 'securityCode', approve: 'security_pool_adjust_approve.html', detail: 'security_pool_adjust_detail.html' },
+                forbiddenCompanyAdjust: { domain: 'bond', codeParam: 'companyCode', approve: 'forbidden_pool_adjust_approve.html', detail: 'forbidden_pool_adjust_detail.html' },
+                crmwAdjust: { domain: 'bond', codeParam: 'securityCode', approve: 'crmw_pool_adjust_approve.html', detail: 'crmw_pool_adjust_detail.html' },
+                fundAdjust: { domain: 'fund', codeParam: 'fundCode', approve: 'fund_pool_adjust_approve.html', detail: 'fund_pool_adjust_detail.html' },
+            },
             moment: moment, // 日期处理工具
             pagePaths: { // 页面跳转路径
                 securityPoolAdjustApprove: 'security_pool_adjust_approve.html', // 证券池调整审核页
@@ -268,6 +288,10 @@ new Vue({
         };
     },
     computed: {
+        // 当前业务的代码筛选与列表文案
+        objectCodeLabel() { return this.businessDomain === 'fund' ? '基金代码' : '证券编码'; },
+        // 当前业务的名称筛选与列表文案
+        objectNameLabel() { return this.businessDomain === 'fund' ? '基金名称' : '证券名称'; },
         // 是否在分级规则提醒页签
         isAlertTab() {
             return this.activeTab === 'gradeRuleAlert';
@@ -290,12 +314,13 @@ new Vue({
         if (tab === 'gradeRuleAlert' || tab === 'initiated') {
             this.activeTab = tab;
         }
-        this.loadFlowOptions();
-        // 进入页时各事宜 Tab 各查一遍（当前 Tab 填列表，其余只取 total 填角标）
-        this.loadAllTabsOnEnter();
-        // 从审核/详情页签返回时由工作台回调，重新预载各 Tab 角标并刷新当前列表
-        window.RrsPageOnShow = () => {
-            this.loadAllTabsOnEnter();
+        // 页面实例初始化时读取一次业务入口，再加载当前业务事项
+        this.loadBusinessDomains();
+        // 从审核/详情页签返回时，仅刷新当前业务的流程、列表和角标
+        window.RrsPageOnShow = async () => {
+            if (!this.businessReady || !this.businessDomain) return;
+            this.viewRevision++;
+            await Promise.all([this.loadFlowOptions(), this.loadAllTabsOnEnter()]);
         };
         this.handleWindowResize = () => {
             window.clearTimeout(this.resizeLayoutTimer);
@@ -379,13 +404,88 @@ new Vue({
             return map[String(code)] || 'info';
         },
 
+        // 业务编码展示名称
+        businessDomainLabel(code) {
+            const labels = { bond: '债券', fund: '基金', stock: '股票' };
+            return labels[code] || code;
+        },
+
+        // 当前页面实例只初始化一次业务入口，刷新 iframe 后由新实例重新查询
+        async loadBusinessDomains() {
+            if (this.businessReady || this.businessLoading) return;
+            this.businessLoading = true;
+            try {
+                const domains = await this.apiPost('/api/v1/myMatters/queryBusinessDomainList', { currentUserId: this.currentUserId });
+                this.businessDomains = domains;
+                this.businessDomain = domains.length ? domains[0].businessDomain : '';
+                this.resetBusinessView();
+                if (this.activeTab === 'gradeRuleAlert' && this.businessDomain !== 'bond') this.activeTab = 'pending';
+                if (this.businessDomain) await Promise.all([this.loadFlowOptions(), this.loadAllTabsOnEnter()]);
+            } catch (e) {
+                this.businessDomains = [];
+                this.businessDomain = '';
+                this.resetBusinessView();
+            } finally {
+                this.businessLoading = false;
+                this.businessReady = true;
+            }
+        },
+
+        // 切换业务，重置筛选、分页、角标及旧请求版本
+        async handleBusinessChange() {
+            this.resetBusinessView();
+            this.activeTab = 'pending';
+            await Promise.all([this.loadFlowOptions(), this.loadAllTabsOnEnter()]);
+        },
+
+        // 清空当前业务视图
+        resetBusinessView() {
+            this.viewRevision++;
+            this.searchForm = { flowIds: [], securityCode: '', securityShortName: '', startDateRange: null, processDescription: '', auditStatus: '', initiatorName: '' };
+            this.alertSearchForm = { securityCode: '', alertStatus: '00' };
+            this.pagination = { pageIndex: 1, pageSize: 20, total: 0 };
+            this.alertPagination = { pageIndex: 1, pageSize: 20, total: 0 };
+            this.tableData = []; this.alertTableData = []; this.flowOptions = [];
+            this.pendingCount = 0; this.completedCount = 0; this.initiatedCount = 0; this.alertOpenCount = 0;
+            this.loading = false; this.alertLoading = false;
+        },
+
+        // 生成当前请求的视图快照
+        captureView() { return { domain: this.businessDomain, revision: this.viewRevision, tab: this.activeTab }; },
+
+        // 判断响应是否仍属于当前业务与筛选版本
+        isCurrentView(view) { return view.domain === this.businessDomain && view.revision === this.viewRevision; },
+
+        // 当前业务审批查询参数；字段按摘要语义使用，各 Mapper 独立映射到领域列
+        buildMatterQuery(stepStatus, totalOnly = false) {
+            return {
+                businessDomain: this.businessDomain,
+                currentUserId: this.currentUserId,
+                flowIds: this.searchForm.flowIds.length ? this.searchForm.flowIds : null,
+                securityCode: this.searchForm.securityCode || null,
+                securityShortName: this.searchForm.securityShortName || null,
+                startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
+                startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
+                processDescription: this.searchForm.processDescription || null,
+                auditStatus: this.searchForm.auditStatus || null,
+                initiatorName: stepStatus ? this.searchForm.initiatorName || null : null,
+                stepStatus: stepStatus || null,
+                pageIndex: totalOnly ? 1 : this.pagination.pageIndex,
+                pageSize: totalOnly ? 1 : this.pagination.pageSize,
+            };
+        },
+
         // 加载流程名称下拉选项
         async loadFlowOptions() {
+            if (!this.businessDomain) return;
+            const view = this.captureView();
+            const requestId = ++this.flowRequestId;
             try {
-                this.flowOptions = await this.apiPost('/api/v1/myMatters/queryFlowOptionList', {
-                    currentUserId: this.currentUserId,
-                });
-            } catch (e) {}
+                const options = await this.apiPost('/api/v1/myMatters/queryFlowOptionList', { businessDomain: view.domain, currentUserId: this.currentUserId });
+                if (this.isCurrentView(view) && requestId === this.flowRequestId) this.flowOptions = options;
+            } catch (e) {
+                if (this.isCurrentView(view) && requestId === this.flowRequestId) this.flowOptions = [];
+            }
         },
 
         // 按当前页签加载审批或提醒
@@ -401,155 +501,91 @@ new Vue({
 
         // 进入页面：各事宜 Tab 并行各查一次；当前 Tab 加载列表，其余只取 total
         async loadAllTabsOnEnter() {
+            if (!this.businessDomain) return;
             const tasks = [];
-            if (this.activeTab === 'pending') {
-                tasks.push(this.loadList());
-            } else {
-                tasks.push(this.queryMatterTabTotal('pending'));
+            for (const tab of ['pending', 'completed', 'initiated']) {
+                if (this.activeTab === tab) tasks.push(tab === 'initiated' ? this.loadInitiatedList() : this.loadList());
+                else tasks.push(tab === 'initiated' ? this.queryInitiatedTabTotal() : this.queryMatterTabTotal(tab));
             }
-            if (this.activeTab === 'completed') {
-                tasks.push(this.loadList());
-            } else {
-                tasks.push(this.queryMatterTabTotal('completed'));
-            }
-            if (this.activeTab === 'initiated') {
-                tasks.push(this.loadInitiatedList());
-            } else {
-                tasks.push(this.queryInitiatedTabTotal());
-            }
-            if (this.isAlertTab) {
-                tasks.push(this.loadAlertList());
-            } else {
-                tasks.push(this.queryAlertTabTotal());
-            }
+            if (this.businessDomain === 'bond') tasks.push(this.isAlertTab ? this.loadAlertList() : this.queryAlertTabTotal());
             await Promise.all(tasks);
         },
 
         // 仅查询待处理 / 已完成 Tab 的 total（进入页预载角标用）
         async queryMatterTabTotal(stepStatus) {
+            const view = this.captureView();
             try {
-                const data = await this.apiPost('/api/v1/myMatters/queryMyMattersPage', {
-                    flowIds: this.searchForm.flowIds.length > 0 ? this.searchForm.flowIds : null,
-                    securityCode: this.searchForm.securityCode || null,
-                    securityShortName: this.searchForm.securityShortName || null,
-                    startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
-                    startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
-                    processDescription: this.searchForm.processDescription || null,
-                    auditStatus: this.searchForm.auditStatus || null,
-                    stepStatus: stepStatus,
-                    initiatorName: this.searchForm.initiatorName || null,
-                    currentUserId: this.currentUserId,
-                    pageIndex: 1,
-                    pageSize: 1,
-                });
-                const total = data && data.total != null ? Number(data.total) : 0;
-                if (stepStatus === 'pending') {
-                    this.pendingCount = total;
-                } else if (stepStatus === 'completed') {
-                    this.completedCount = total;
-                }
+                const data = await this.apiPost('/api/v1/myMatters/queryMyMattersPage', this.buildMatterQuery(stepStatus, true));
+                if (!this.isCurrentView(view)) return;
+                this[stepStatus === 'pending' ? 'pendingCount' : 'completedCount'] = Number(data.total || 0);
             } catch (e) {
-                if (stepStatus === 'pending') {
-                    this.pendingCount = 0;
-                } else if (stepStatus === 'completed') {
-                    this.completedCount = 0;
-                }
+                if (this.isCurrentView(view)) this[stepStatus === 'pending' ? 'pendingCount' : 'completedCount'] = 0;
             }
         },
 
         // 仅查询「我发起的」Tab 的 total（独立接口）
         async queryInitiatedTabTotal() {
+            const view = this.captureView();
             try {
-                const data = await this.apiPost('/api/v1/myMatters/queryMyInitiatedMattersPage', {
-                    flowIds: this.searchForm.flowIds.length > 0 ? this.searchForm.flowIds : null,
-                    securityCode: this.searchForm.securityCode || null,
-                    securityShortName: this.searchForm.securityShortName || null,
-                    startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
-                    startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
-                    processDescription: this.searchForm.processDescription || null,
-                    auditStatus: this.searchForm.auditStatus || null,
-                    currentUserId: this.currentUserId,
-                    pageIndex: 1,
-                    pageSize: 1,
-                });
-                this.initiatedCount = data && data.total != null ? Number(data.total) : 0;
+                const data = await this.apiPost('/api/v1/myMatters/queryMyInitiatedMattersPage', this.buildMatterQuery(null, true));
+                if (this.isCurrentView(view)) this.initiatedCount = Number(data.total || 0);
             } catch (e) {
-                this.initiatedCount = 0;
+                if (this.isCurrentView(view)) this.initiatedCount = 0;
             }
         },
 
         // 仅查询分级规则提醒 Tab 的 total（进入页预载角标用）
         async queryAlertTabTotal() {
+            if (this.businessDomain !== 'bond') return;
+            const view = this.captureView();
             try {
                 const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
-                    securityCode: this.alertSearchForm.securityCode || null,
-                    alertStatus: this.alertSearchForm.alertStatus || null,
-                    pageIndex: 1,
-                    pageSize: 1,
+                    currentUserId: this.currentUserId, securityCode: this.alertSearchForm.securityCode || null,
+                    alertStatus: this.alertSearchForm.alertStatus || null, pageIndex: 1, pageSize: 1,
                 });
-                this.alertOpenCount = data && data.total != null ? Number(data.total) : 0;
+                if (this.isCurrentView(view)) this.alertOpenCount = Number(data.total || 0);
             } catch (e) {
-                this.alertOpenCount = 0;
+                if (this.isCurrentView(view)) this.alertOpenCount = 0;
             }
         },
 
         // 加载待处理 / 已完成列表
         async loadList() {
-            this.loading = true;
-            try {
-                const params = {
-                    flowIds: this.searchForm.flowIds.length > 0 ? this.searchForm.flowIds : null,
-                    securityCode: this.searchForm.securityCode || null,
-                    securityShortName: this.searchForm.securityShortName || null,
-                    startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
-                    startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
-                    processDescription: this.searchForm.processDescription || null,
-                    auditStatus: this.searchForm.auditStatus || null,
-                    stepStatus: this.activeTab,
-                    initiatorName: this.searchForm.initiatorName || null,
-                    currentUserId: this.currentUserId,
-                    pageIndex: this.pagination.pageIndex,
-                    pageSize: this.pagination.pageSize,
-                };
-                const data = await this.apiPost('/api/v1/myMatters/queryMyMattersPage', params);
-                this.tableData = data.records || [];
-                this.pagination.total = data.total != null ? Number(data.total) : 0;
-                // Tab 角标直接用本次查询 total
-                if (this.activeTab === 'pending') {
-                    this.pendingCount = this.pagination.total;
-                } else if (this.activeTab === 'completed') {
-                    this.completedCount = this.pagination.total;
-                }
-            } catch (e) {}
-            this.loading = false;
-            // 数据渲染后同步列表固定列布局
-            this.refreshTableLayout('mattersTableRef');
+            await this.loadMatterList(this.activeTab);
         },
 
         // 加载「我发起的」列表（独立接口）
         async loadInitiatedList() {
+            await this.loadMatterList('initiated');
+        },
+
+        // 同一视图只有最后一次列表请求可以更新结果和加载状态
+        async loadMatterList(tab) {
+            if (!this.businessDomain) return;
+            const view = this.captureView();
+            const requestId = ++this.listRequestId;
             this.loading = true;
             try {
-                const params = {
-                    flowIds: this.searchForm.flowIds.length > 0 ? this.searchForm.flowIds : null,
-                    securityCode: this.searchForm.securityCode || null,
-                    securityShortName: this.searchForm.securityShortName || null,
-                    startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
-                    startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
-                    processDescription: this.searchForm.processDescription || null,
-                    auditStatus: this.searchForm.auditStatus || null,
-                    currentUserId: this.currentUserId,
-                    pageIndex: this.pagination.pageIndex,
-                    pageSize: this.pagination.pageSize,
-                };
-                const data = await this.apiPost('/api/v1/myMatters/queryMyInitiatedMattersPage', params);
+                const initiated = tab === 'initiated';
+                const path = initiated ? '/api/v1/myMatters/queryMyInitiatedMattersPage' : '/api/v1/myMatters/queryMyMattersPage';
+                const data = await this.apiPost(path, this.buildMatterQuery(initiated ? null : tab));
+                if (!this.isCurrentView(view) || requestId !== this.listRequestId || tab !== this.activeTab) return;
                 this.tableData = data.records || [];
-                this.pagination.total = data.total != null ? Number(data.total) : 0;
-                this.initiatedCount = this.pagination.total;
-            } catch (e) {}
-            this.loading = false;
-            // 数据渲染后同步列表固定列布局
-            this.refreshTableLayout('mattersTableRef');
+                this.pagination.total = Number(data.total || 0);
+                const countFields = { pending: 'pendingCount', completed: 'completedCount', initiated: 'initiatedCount' };
+                this[countFields[tab]] = this.pagination.total;
+            } catch (e) {
+                if (this.isCurrentView(view) && requestId === this.listRequestId) {
+                    this.tableData = [];
+                    this.pagination.total = 0;
+                    this[{ pending: 'pendingCount', completed: 'completedCount', initiated: 'initiatedCount' }[tab]] = 0;
+                }
+            } finally {
+                if (this.isCurrentView(view) && requestId === this.listRequestId) {
+                    this.loading = false;
+                    this.refreshTableLayout('mattersTableRef');
+                }
+            }
         },
 
         // 重新计算指定表格固定列布局（数据渲染后 $nextTick + doLayout）
@@ -577,30 +613,30 @@ new Vue({
 
         // 加载分级规则提醒列表（后端 gradeRuleAlert 接口不变）
         async loadAlertList() {
+            if (this.businessDomain !== 'bond') return;
+            const view = this.captureView();
+            const requestId = ++this.alertRequestId;
             this.alertLoading = true;
             try {
                 const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
-                    securityCode: this.alertSearchForm.securityCode || null,
+                    currentUserId: this.currentUserId, securityCode: this.alertSearchForm.securityCode || null,
                     alertStatus: this.alertSearchForm.alertStatus || null,
-                    pageIndex: this.alertPagination.pageIndex,
-                    pageSize: this.alertPagination.pageSize,
+                    pageIndex: this.alertPagination.pageIndex, pageSize: this.alertPagination.pageSize,
                 });
-                this.alertTableData = (data && data.records) ? data.records : [];
-                this.alertPagination.total = data && data.total != null ? Number(data.total) : 0;
-                // Tab 角标直接用本次查询 total
+                if (!this.isCurrentView(view) || requestId !== this.alertRequestId) return;
+                this.alertTableData = data.records || [];
+                this.alertPagination.total = Number(data.total || 0);
                 this.alertOpenCount = this.alertPagination.total;
             } catch (e) {
-                this.$message.error((e && e.message) || '查询失败');
-                this.alertTableData = [];
-                this.alertPagination.total = 0;
-                this.alertOpenCount = 0;
+                if (this.isCurrentView(view) && requestId === this.alertRequestId) { this.alertTableData = []; this.alertPagination.total = 0; this.alertOpenCount = 0; }
+            } finally {
+                if (this.isCurrentView(view) && requestId === this.alertRequestId) { this.alertLoading = false; this.refreshTableLayout('alertTableRef'); }
             }
-            this.alertLoading = false;
-            this.refreshTableLayout('alertTableRef');
         },
 
         // 触发查询
         handleSearch() {
+            this.viewRevision++;
             if (this.isAlertTab) {
                 this.alertPagination.pageIndex = 1;
                 this.loadAlertList();
@@ -615,6 +651,7 @@ new Vue({
 
         // 切换事宜页签
         handleTabClick() {
+            this.viewRevision++;
             if (this.isAlertTab) {
                 this.alertPagination.pageIndex = 1;
                 this.loadAlertList();
@@ -629,6 +666,7 @@ new Vue({
 
         // 重置查询条件
         handleReset() {
+            this.viewRevision++;
             if (this.isAlertTab) {
                 this.alertSearchForm = {
                     securityCode: '',
@@ -658,6 +696,7 @@ new Vue({
 
         // 翻页
         handlePageChange(page) {
+            this.viewRevision++;
             this.pagination.pageIndex = page;
             if (this.activeTab === 'initiated') {
                 this.loadInitiatedList();
@@ -668,6 +707,7 @@ new Vue({
 
         // 切换每页条数
         handleSizeChange(size) {
+            this.viewRevision++;
             this.pagination.pageSize = size;
             this.pagination.pageIndex = 1;
             if (this.activeTab === 'initiated') {
@@ -679,12 +719,14 @@ new Vue({
 
         // 提醒列表翻页
         handleAlertPageChange(page) {
+            this.viewRevision++;
             this.alertPagination.pageIndex = page;
             this.loadAlertList();
         },
 
         // 提醒列表切换每页条数
         handleAlertSizeChange(size) {
+            this.viewRevision++;
             this.alertPagination.pageSize = size;
             this.alertPagination.pageIndex = 1;
             this.loadAlertList();
@@ -692,6 +734,7 @@ new Vue({
 
         // 从提醒跳转证券池调库（工作台内新开调库页签）
         openAlertAdjust(row) {
+            if (this.businessDomain !== 'bond') return;
             const code = row.securityCode || '';
             const name = row.securityShortName || code;
             const params = new URLSearchParams();
@@ -710,6 +753,8 @@ new Vue({
 
         // 标记提醒已处理，不改池
         async handleAlertProcessed(row) {
+            const view = this.captureView();
+            if (view.domain !== 'bond') return;
             try {
                 await this.$confirm('确认将本条标记为已处理？不会自动改池，请先在证券池调库完成下调或出库。', '提示', {
                     type: 'warning',
@@ -719,6 +764,7 @@ new Vue({
             } catch (e) {
                 return;
             }
+            if (!this.isCurrentView(view)) return;
             this.alertLoading = true;
             try {
                 await this.apiPost('/api/v1/gradeRuleAlert/editAlertProcessed', {
@@ -727,56 +773,39 @@ new Vue({
                     currentUserName: this.currentUserName,
                 });
                 this.$message.success('已标记处理');
-                this.loadAlertList();
+                if (this.isCurrentView(view)) this.loadAlertList();
             } catch (e) {
-                this.alertLoading = false;
-                this.$message.error((e && e.message) || '处理失败');
+                if (this.isCurrentView(view)) {
+                    this.alertLoading = false;
+                    this.$message.error((e && e.message) || '处理失败');
+                }
             }
         },
 
         // 打开对应审核/详情页（工作台内按记录新开页签，同键复用）
         openMatterPage(row) {
-            const params = new URLSearchParams();
-            const isForbiddenCompanyAdjust = row.businessScene === 'forbiddenCompanyAdjust';
-            const isCrmwAdjust = row.businessScene === 'crmwAdjust';
-            // 仅待处理进审核页；已完成 / 我发起的均只读详情
-            const isPending = this.activeTab === 'pending';
-            const code = row.securityCode || '';
-            const name = row.securityShortName || code;
-            if (code) {
-                params.set(isForbiddenCompanyAdjust ? 'companyCode' : 'securityCode', code);
+            const route = this.matterRoutes[row.businessScene];
+            if (!route || route.domain !== row.businessDomain || row.businessDomain !== this.businessDomain) {
+                this.$message.error('事项业务场景无效，请刷新后重试');
+                return;
             }
-            if (isCrmwAdjust && row.crmwScode) params.set('crmwScode', row.crmwScode);
+            const params = new URLSearchParams();
+            const isPending = this.activeTab === 'pending';
+            const code = row.objectCode || '';
+            const name = row.objectName || code;
+            params.set('businessDomain', row.businessDomain);
+            if (code) params.set(route.codeParam, code);
+            if (row.crmwScode) params.set('crmwScode', row.crmwScode);
             if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
             if (row.adjustLogId) params.set('adjustLogId', row.adjustLogId);
             if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
+            if (row.stepId) params.set('stepId', row.stepId);
             params.set('entryMode', isPending ? 'process' : 'view');
-            let page = isPending
-                ? this.pagePaths.securityPoolAdjustApprove
-                : this.pagePaths.securityPoolAdjustDetail;
-            let prefix = isPending ? 'security-approve' : 'security-detail';
-            if (isForbiddenCompanyAdjust) {
-                page = isPending
-                    ? this.pagePaths.forbiddenPoolAdjustApprove
-                    : this.pagePaths.forbiddenPoolAdjustDetail;
-                prefix = isPending ? 'forbidden-approve' : 'forbidden-detail';
-            } else if (isCrmwAdjust) {
-                page = isPending
-                    ? this.pagePaths.crmwPoolAdjustApprove
-                    : this.pagePaths.crmwPoolAdjustDetail;
-                prefix = isPending ? 'crmw-approve' : 'crmw-detail';
-            }
+            const page = isPending ? route.approve : route.detail;
             const opened = window.RrsWorkbench.openDetailTab({
-                index: window.RrsWorkbench.buildTabIndex(prefix, [
-                    isCrmwAdjust ? row.crmwScode : code,
-                    code,
-                    row.adjustLogId,
-                    row.adjustBatchNo,
-                    row.targetPoolId,
-                ]),
+                index: window.RrsWorkbench.buildTabIndex('matter-' + (isPending ? 'approve' : 'detail'), [row.businessDomain, row.businessScene, code, row.crmwScode, row.adjustLogId, row.adjustBatchNo, row.targetPoolId]),
                 title: window.RrsWorkbench.formatDetailTitle(name, code, isPending ? '审核' : '详情'),
-                page: page,
-                query: params.toString(),
+                page: page, query: params.toString(),
             });
             if (opened) return;
             params.set('loginUserId', this.currentUserId);

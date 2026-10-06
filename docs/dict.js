@@ -836,3 +836,6 @@ const DICT_SCHEDULE_ENABLED = {
     1: '已启用',
     0: '已关闭',
 };
+
+// 业务入口（BusinessDomain），股票仅预留编码。
+const DICT_BUSINESS_DOMAIN = { bond: '债券', fund: '基金', stock: '股票' };

@@ -145,7 +145,16 @@ new Vue({
     el: '#fundPoolAdjustApprove',
     data() { return { loading: false, submitting: false, pageError: '', fund: {}, poolStatuses: [], adjustLogs: [], flowStepList: [], attachments: [], activeLog: {}, adjustLogId: null, adjustBatchNo: '', auditAction: 'approve', auditComment: '', poolExpanded: false, sectionExpanded: { fundInfo: true, currentPools: true, adjustLog: true, reasonAdvice: true, flowStatus: true, auditApproval: true }, loginUser: window.RrsAuth.getCurrentUser(), currentLoginUserId: window.RrsAuth.getCurrentUser().userId }; },
     computed: {
-        currentPendingStep() { return this.flowStepList.find(step => step.stepStatus === 'pending' && (String(step.handlerId || '') === String(this.loginUser.userId) || String(this.loginUser.userId) === '1')) || null; },
+        // 当前用户可处理的待审批步骤
+        currentPendingStep() {
+            const pendingList = (this.flowStepList || []).filter(row => row.stepStatus === 'pending');
+            const ownStep = pendingList.find(row => this.isCurrentHandler(row));
+            if (ownStep) return ownStep;
+            if (this.isAdminUser()) {
+                return pendingList[0] || null;
+            }
+            return null;
+        },
         // 当前是否处于驳回待修改阶段
         isModifyAuditStage() {
             const step = this.currentPendingStep || {};
@@ -271,6 +280,12 @@ new Vue({
                 return row && String(row.handlerId || '') === String(this.currentLoginUserId);
             },
 
+            // 判断当前登录用户是否为管理员
+            isAdminUser() {
+                const userId = Number(this.currentLoginUserId);
+                return userId === 1 || (Number.isInteger(userId) && userId >= 10000 && userId <= 10100);
+            },
+
             stepStatusTagType(code) {
                 const map = { pending: "info", approve: "success", reject: "danger", submit: "info", auto_process: "success", canceled: "info" };
                 return map[code] || "info";
@@ -285,7 +300,7 @@ new Vue({
                 const base = { fundCode, adjustLogId: this.adjustLogId, adjustBatchNo: this.adjustBatchNo };
                 const [fund, pools, logs] = await Promise.all([this.apiPost('/api/v1/fundPoolAdjust/queryFundDetail', { fundCode }), this.apiPost('/api/v1/fundPoolAdjust/queryFundPoolStatus', { fundCode }), this.apiPost('/api/v1/fundPoolAdjust/queryAdjustLogList', base)]);
                 this.fund = fund || {}; this.poolStatuses = pools || []; this.adjustLogs = logs || [];
-                this.attachments = this.adjustLogs.length ? await this.apiPost('/api/v1/attachments/queryAttachmentList', { adjustLogIds: this.adjustLogs.map(row => row.id) }) || [] : [];
+                this.attachments = this.adjustLogs.length ? await this.apiPost('/api/v1/attachments/queryAttachmentList', { businessDomain: 'fund', adjustLogIds: this.adjustLogs.map(row => row.id) }) || [] : [];
                 this.activeLog = this.adjustLogs.find(row => String(row.id) === String(this.adjustLogId)) || this.adjustLogs[0] || {};
                 if (!this.adjustBatchNo) this.adjustBatchNo = this.activeLog.adjustBatchNo || '';
                 this.adjustLogId = this.activeLog.id || this.adjustLogId;
