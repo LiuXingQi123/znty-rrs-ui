@@ -42,6 +42,66 @@ test('所有修改页面和公共 API 脚本语法有效', () => {
     new vm.Script(fs.readFileSync(path.join(root, 'js/api.js'), 'utf8'));
 });
 
+test('顶部业务页签仅在多个入口时渲染，事项页签和零入口空状态保留', () => {
+    const html = fs.readFileSync(path.join(root, 'pages/my_matters.html'), 'utf8');
+    const tabs = Array.from(html.matchAll(/<el-tabs\b(?:[^"'>]|"[^"]*"|'[^']*')*>/g), match => match[0]);
+    const businessTabs = tabs.find(tag => /\bv-model="businessDomain"/.test(tag));
+    assert.ok(businessTabs, '顶部业务页签存在');
+    const condition = businessTabs.match(/\bv-if="([^"]+)"/);
+    assert.ok(condition, '整个业务页签组件按入口数量渲染');
+    assert.equal(condition[1], 'businessDomains.length > 1');
+    const { page } = harness();
+    for (const [domains, expected] of [[[], false], [['bond'], false], [['fund'], false], [['bond', 'fund'], true], [['bond', 'fund', 'stock'], true]]) {
+        page.businessDomains = domains.map(businessDomain => ({ businessDomain }));
+        assert.equal(vm.runInNewContext(condition[1], page), expected, domains.join(',') || '零入口');
+    }
+    assert.ok(tabs.some(tag => /\bv-model="activeTab"/.test(tag)), '事项页签保留');
+    assert.match(html, /<el-empty\b[^>]*v-if="businessReady && !businessDomain"/);
+    const alertCondition = html.match(/<el-tab-pane\b[^>]*v-if="([^"]+)"[^>]*name="gradeRuleAlert"/);
+    assert.ok(alertCondition, '提醒页签保留业务条件');
+    for (const businessDomain of ['', 'bond', 'fund']) {
+        assert.equal(vm.runInNewContext(alertCondition[1], { businessDomain }), businessDomain === 'bond');
+    }
+});
+
+for (const domain of ['bond', 'fund']) {
+    test('单一 ' + domain + ' 入口默认选中并正常查询，返回和筛选不重复初始化入口', async () => {
+        const { page, window, mount } = harness();
+        page.businessDomain = '';
+        const requests = [];
+        page.apiPost = async (url, body) => {
+            requests.push({ url, body });
+            if (url.endsWith('/queryBusinessDomainList')) return [{ businessDomain: domain }];
+            if (url.endsWith('/queryFlowOptionList')) return [{ flowId: domain, flowName: domain + '流程' }];
+            const total = url.includes('/gradeRuleAlert/') ? 5 : url.endsWith('/queryMyInitiatedMattersPage') ? 3 : body.stepStatus === 'completed' ? 2 : 4;
+            return { records: [{ businessDomain: domain, objectCode: domain + '-1', objectName: domain + '名称' }], total };
+        };
+        await mount();
+        assert.equal(page.businessDomain, domain); assert.equal(page.businessDomains.length, 1);
+        assert.equal(page.businessReady, true); assert.equal(page.businessLoading, false);
+        assert.equal(page.activeTab, 'pending'); assert.equal(page.flowOptions[0].flowName, domain + '流程');
+        assert.equal(page.tableData[0].businessDomain, domain); assert.equal(page.tableData[0].objectCode, domain + '-1');
+        assert.equal(page.pagination.total, 4); assert.equal(page.pendingCount, 4); assert.equal(page.completedCount, 2); assert.equal(page.initiatedCount, 3);
+        assert.equal(page.objectCodeLabel, domain === 'fund' ? '基金代码' : '证券编码');
+        assert.equal(page.objectNameLabel, domain === 'fund' ? '基金名称' : '证券名称');
+        assert.equal(page.alertOpenCount, domain === 'bond' ? 5 : 0);
+        assert.equal(requests.some(item => item.url.includes('/gradeRuleAlert/')), domain === 'bond');
+        page.searchForm.securityCode = domain + '-1'; page.searchForm.securityShortName = domain + '名称'; page.pagination.pageIndex = 3;
+        const returnedAt = requests.length;
+        await window.RrsPageOnShow();
+        const returnedList = requests.slice(returnedAt).find(item => item.url.endsWith('/queryMyMattersPage') && item.body.pageSize === 20);
+        assert.ok(returnedList); assert.equal(returnedList.body.businessDomain, domain); assert.equal(returnedList.body.pageIndex, 3);
+        assert.equal(returnedList.body.securityCode, domain + '-1'); assert.equal(returnedList.body.securityShortName, domain + '名称');
+        page.handleSearch(); await Promise.resolve();
+        assert.equal(page.pagination.pageIndex, 1); assert.equal(requests.at(-1).body.businessDomain, domain);
+        assert.equal(requests.at(-1).body.securityCode, domain + '-1'); assert.equal(requests.at(-1).body.securityShortName, domain + '名称');
+        await page.loadBusinessDomains();
+        assert.equal(requests.filter(item => item.url.endsWith('/queryBusinessDomainList')).length, 1);
+        assert.ok(requests.filter(item => item.url.includes('/myMatters/') && !item.url.endsWith('/queryBusinessDomainList')).every(item => item.body.businessDomain === domain));
+        assert.ok(requests.every(item => item.body.currentUserId === '2'));
+    });
+}
+
 test('切换业务清空筛选、分页、列表和角标', async () => {
     const { page, pending } = harness();
     page.searchForm.securityCode = 'B1'; page.pagination.pageIndex = 9; page.tableData = [{ id: 1 }]; page.pendingCount = 99;
