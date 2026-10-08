@@ -713,7 +713,7 @@
                     <ul>
                         <li>主表为 <code>rrs_securityinfo</code>。</li>
                         <li>国际证券识别码 <code>isin_code</code> 位于 <code>wind_code</code> 前，类型为 <code>VARCHAR(100) DEFAULT NULL</code>，返回字段为 <code>isinCode</code>。Demo 全部 45 条记录（含临时代码）在原始 INSERT 中填写不同的 12 位模拟 ISIN，格式为 CNDEMO 前缀 + 5 位顺序号 + 1 位校验位，仅用于演示，不是真实证券登记编号。</li>
-                        <li>主档包含标准条款判定 <code>std_clause_flag</code>（返回 <code>stdClauseFlag</code>：1=条款合格 / 0=条款不合格 / NULL=未判定）和标准信用债标识 <code>std_credit_flag</code>（返回 <code>stdCreditFlag</code>：1=标准信用债 / 0=非标准信用债 / NULL=未判定）。两列均为 <code>INT DEFAULT NULL</code>，保留原始值；当前不参与调库校验或页面展示。</li>
+                        <li>主档包含标准条款判定 <code>std_clause_flag</code>（返回 <code>stdClauseFlag</code>：1=条款合格 / 0=条款不合格 / NULL=未判定）和标准信用债标识 <code>std_credit_flag</code>（返回 <code>stdCreditFlag</code>：1=标准信用债 / 0=非标准信用债 / NULL=未判定）。两列均为 <code>INT DEFAULT NULL</code>，保留原始值；简易流程的独立方法 <code>isStandardCreditBond</code> 仅判断 <code>std_credit_flag==1</code>，标准信用债定义由上游维护，<code>std_clause_flag</code> 和其他标志不参与该方法。不新增页面展示。</li>
                         <li>Demo 全部 45 条证券显式填写两列：XYB001～XYB003、普通公司债/中票/短融/担保债为 1/1；私募债和定向工具为 1/0；永续/次级/含权及 XYB004 条款不合格样本为 0/0；ABS/资产证券化/CRMW/存单/国债/Govt债/可转债为 NULL/0；XYB005 未判定信用债、Corp债和临时代码为 NULL/NULL。这些是演示场景，不是系统按类型自动判定的规则，也不按评级高低判定。</li>
                         <li>内连接 <code>dict_security_type</code> 取名称，并限制 <code>category_type=bond</code>（本页仅债券；股/基等走其它入口）。</li>
                         <li>证券代码、简称、发行人均使用包含式模糊匹配：<code>LIKE %条件%</code>；证券类型为精确匹配 <code>si.security_type = #{securityType}</code>。</li>
@@ -763,7 +763,7 @@
         <section id="pool-status" class="section">
             <h2 class="section-title">当前所在池查询逻辑</h2>
             <p class="section-subtitle">接口同时返回“当前证券所在池”和“同发行主体所在池”，两者用途不同。</p>
-            <p>同主体证券按 <code>rrs_securityinfo.issuer_code</code> 关联，适用于主体所在池、最大剩余期限、近半年报告豁免、同主体信评回填和 180 天非简易入池记录；批量调库和 Excel 导入复用相同口径。代码相同而名称不同仍关联，同名不同代码不关联。<code>issuer</code> 保留名称展示和名称筛选用途。</p>
+            <p>同主体证券按 <code>rrs_securityinfo.issuer_code</code> 关联，适用于主体所在池、近半年报告豁免、同主体信评回填和简易流程近180天的非简易信用债入库经历与报告库查询；批量调库和 Excel 导入复用相同口径。简易流程要求发行人代码非空。代码相同而名称不同仍关联，同名不同代码不关联。<code>issuer</code> 保留名称展示和名称筛选用途。</p>
             <div class="logic-header">
                 <strong>接口</strong>
                 <span class="api-path">POST /api/v1/securityPoolAdjust/querySecurityPoolStatus</span>
@@ -995,26 +995,53 @@
                         <li>调入 → 已在信用债大库：同父级按 <code>innerSort</code> 上调 / 下调流程。</li>
                         <li>调入 → 不在信用债大库：同时评估白名单 / 简易 / 默认调入，推荐优先级 白名单 > 简易 > 默认。</li>
                         <li>白名单条件顺序：解析 <code>date_exists_str</code> 后剩余期限≤3年（无法解析时不命中）→ 非永续/私募/ABS → 债券类 → 主体在白名单池（<code>WHITELIST_POOL_IDS</code> 当前为空，本条件固定不成立）→ 非担保债。</li>
-                        <li>简易条件顺序：目标池为一/二/三级信用债库 → 剩余期限可解析（date_exists）→ 不超过同主体在池最大期限 → 180 天内一般流程入过目标池 → 主体/展望未下调或下调时担保人未下调（已注释）。</li>
+                        <li>简易条件顺序：按当前矩阵和特殊债准入规则计算信用债1～5级的完整允许层级，唯一且为一/二/三级并与目标层级一致 → 同发行人近180天以非简易入库流程进入过信用债大库任意层级 → 满足对应债券类型要求 → 同发行人报告库中有近180天有效信评报告。满足后简易可选并优先推荐，仍可改选默认调入。</li>
                     </ul>
                 </article>
             </div>
             <div class="implementation-note"><strong>当前实现说明：</strong>
                 校验结果带 <code>failReasons</code> 与 <code>warnings</code>；前端「调整说明」失败时分条展示「未通过（共 N 项）」+ 编号列表（保留全部 failReasons，检查项文案不含「无法调入」终局语气）；警告单独展示。同组（同一 <code>adjustGroupKey</code>）手工+联动/互斥行用底色区分。
-                评级下调由 RatingDowngradeChecker 查 wind（主体比较 creditrating/precreditrating，展望读 <code>rating_outlook</code> 是否负面，担保人由前端下拉传 <code>guarantorCode</code>）；简易流程末项「评级下调判断」已注释，但取值仍计算保留。
+                简易流程不再比较本券与同主体目标池最大剩余天数，不再要求同目标池180天非简易入池；原主体/展望/担保人评级下调条件也不参与简易命中。
                 文中「已注释」「空实现」「当前为空」等与源码一致，顺序与 <code>checkCommonIn</code> / <code>checkCommonOut</code> 调用顺序一致。
+            </div>
+            <div class="logic-grid" style="margin-top:14px">
+                <article class="logic-card">
+                    <h3>简易流程必要条件与半年报告</h3>
+                    <ul>
+                        <li>唯一性按信用债<strong>1～5级完整允许集合</strong>计算，不能按本次勾选池或仅筛一至三级计算；唯一层级必须为1～3并等于目标池 <code>innerSort</code>。放开规则不免除简易自身条件。</li>
+                        <li>非简易入库经历使用 <code>queryIssuerHasNonSimpleCreditBondInboundWithinDays(securityCode, 180)</code>：非空 <code>issuer_code</code> 相同的债券，历史 <code>ip_pool_status</code> 中 <code>pool_type=credit_bond</code>、<code>adjust_mode=调入</code>、<code>flow_type非空且不为simpleInbound</code>、<code>audit_status=20</code>，按 <code>entry_time</code> 算近180天。不要求同目标层级，已出池软删记录仍计；标准、特殊、升库、降库、白名单及批量调入等非简易流程均计入；简易和空流程类型不计入。简易条件中的“半年”统一为180天。</li>
+                        <li>半年报告使用 <code>queryIssuerHasRecentCreditReportWithinDays(securityCode, 180)</code> 查内部/外部报告库（<code>rrs_report_in</code> / <code>rrs_report_out</code>）：报告 <code>company_code</code> 直接匹配当前券非空 <code>issuer_code</code>，未删除，<code>report_type=bond_in_report/bond_out_report</code>，<code>crte_time</code> 在近180天内，并有对应未删除的报告库附件（<code>table_name=rrs_report_in/rrs_report_out</code>、<code>attachment_category=report_in/report_out</code>）。其他类型、无附件、软删报告或附件不计；报告库没有独立日期/状态字段，时间以 <code>crte_time</code> 为准，缺失主体代码不回退报告证券代码。</li>
+                        <li>报告<strong>不要求关联历史调入，也不要求与非简易入库经历属于同一笔业务</strong>。简易资格与提交阶段“半年调入日志带报告”的报告必填豁免各自判断。</li>
+                    </ul>
+                </article>
+                <article class="logic-card">
+                    <h3>简易流程债券类型要求</h3>
+                    <ul>
+                        <li>永续债：主体内评1档，在标准信用债规则最佳准入层级基础上<strong>恰好下调一级</strong>；其他内评<strong>至少下调一级</strong>。</li>
+                        <li>次级债：主体内评1档<strong>仅可调入一级库</strong>；2-、2、2+档在标准规则基准上<strong>恰好下调一级</strong>，其中2-档还须期限<strong>≤5年</strong>；其他档<strong>至少下调一级</strong>。</li>
+                        <li>标准信用债：主体内评3档还须期限<strong>≤1年</strong>；其他档无额外期限要求。未列举的其他类型不增加上述附加条件，仍须通过普通校验，并满足唯一准入层级、非简易入库经历和报告条件。</li>
+                        <li>下调一级是层级数字增加1；“至少一级”仍须同时满足完整允许层级唯一的必要条件。期限复用 <code>date_exists_str</code> 年口径解析及现有含权债期限工具，不使用旧 <code>date_exists</code> 天数；明确要求≤1年/≤5年时，缺失、无效或负数期限不满足。</li>
+                    </ul>
+                </article>
+                <article class="logic-card">
+                    <h3>独立判定标准信用债</h3>
+                    <ul>
+                        <li>标准信用债是公开发行、不涉及永续/回售/赎回/递延付息等特殊条款，无担保/内部分层/差额补足等增信措施，偿付不依赖特定资产，违约风险仅由发债主体信用资质决定，且未在内评系统观察或重点观察名单中的信用债。</li>
+                        <li>标准定义由上游维护 <code>std_credit_flag</code>；独立方法 <code>isStandardCreditBond</code> <strong>仅判断 <code>std_credit_flag==1</code></strong>，0、NULL 均不认定标准信用债；不叠加 <code>std_clause_flag</code> 或其他标志判断。</li>
+                    </ul>
+                </article>
             </div>
             <div class="logic-grid" style="margin-top:14px">
                 <article class="logic-card">
                     <h3>校验分层（check / submit / 终审）</h3>
                     <ul>
                         <li><strong>checkAdjust</strong>：全量通用+类型规则、联动互斥扩展、流程候选；行业调用已注释；基金评分仅此阶段（依赖请求 <code>fundRate</code>）。</li>
-                        <li><strong>submitAdjustLog</strong>：<strong>不</strong>整单再调 <code>checkAdjust</code>。提交专属：字段合法性、防重复、报告必填、互斥配套调出必须成功、pending 池组；直通项再走下方 recheck 子集后落池。</li>
-                        <li><strong>recheckBeforeFinalApproval</strong>（直通与最终审批共用）：锁目标池后只跑<strong>动态子集</strong>——调入：池锁 / 已在目标池 / 品种 / 来源 / 限制 / 全局禁投 / 容量（含同批增量）；调出：池锁 / 未在目标池 / 限制 / 冻结期。<strong>不再跑</strong>：开放日、行业、基金评分、内评矩阵、市场、pending、同请求互斥、弹性警告、到期/退市等静态或 check 专属项。</li>
+                        <li><strong>submitAdjustLog</strong>：<strong>不</strong>整单再调 <code>checkAdjust</code>。提交专属：字段合法性、防重复、报告必填、互斥配套调出必须成功、pending 池组；简易资格仅在“下一步”校验时判定，提交时不重验；直通项再走下方 recheck 子集后落池。</li>
+                        <li><strong>recheckBeforeFinalApproval</strong>（直通与最终审批共用）：锁目标池后只跑<strong>动态子集</strong>——调入：池锁 / 已在目标池 / 品种 / 来源 / 限制 / 全局禁投 / 容量（含同批增量）；调出：池锁 / 未在目标池 / 限制 / 冻结期。<strong>不再跑</strong>：开放日、行业、基金评分、内评矩阵、市场、pending、同请求互斥、弹性警告、到期/退市及简易资格等静态或发起阶段专属项。</li>
                     </ul>
                 </article>
             </div>
-            <div class="data-strip"><code>rrs_securityinfo：读</code><code>ip_investment_pool：读</code><code>ip_pool_status：读</code><code>ip_pool_relation：读</code><code>ip_adjust_log：读</code><code>ip_adjust_step：读</code><code>wf_flow_definition：读</code><code>credit_bond_pool_grade_rule：读</code><code>credit_bond_term_bucket：读</code></div>
+            <div class="data-strip"><code>rrs_securityinfo：读</code><code>ip_investment_pool：读</code><code>ip_pool_status：读</code><code>ip_pool_relation：读</code><code>ip_adjust_log：读</code><code>ip_adjust_step：读</code><code>wf_flow_definition：读</code><code>credit_bond_pool_grade_rule：读</code><code>credit_bond_term_bucket：读</code><code>rrs_report_in：读</code><code>rrs_report_out：读</code><code>sys_attachment：读</code></div>
         </section>
 
         <section id="submit-approval" class="section">
