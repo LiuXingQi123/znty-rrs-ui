@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金池批量调整｜表与业务逻辑</title>
+    <style>
+        #batch_fund_pool_adjust_doc, #batch_fund_pool_adjust_doc * { box-sizing: border-box; }
+        body { margin: 0; background: #F7F8FA; }
+        #batch_fund_pool_adjust_doc { max-width: 1180px; margin: 0 auto; padding: 24px; color: #3F485A; font: 13px/1.7 "PingFang SC", "Microsoft YaHei", Arial, sans-serif; }
+        #batch_fund_pool_adjust_doc h1 { margin: 0 0 8px; color: #242933; font-size: 20px; }
+        #batch_fund_pool_adjust_doc h2 { margin: 0 0 12px; color: #2743A4; font-size: 16px; }
+        #batch_fund_pool_adjust_doc section { margin-top: 16px; padding: 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 4px; }
+        #batch_fund_pool_adjust_doc p { margin: 8px 0; }
+        #batch_fund_pool_adjust_doc ul { padding-left: 20px; }
+        #batch_fund_pool_adjust_doc .table-wrap { overflow-x: auto; }
+        #batch_fund_pool_adjust_doc table { width: 100%; border-collapse: collapse; }
+        #batch_fund_pool_adjust_doc th, #batch_fund_pool_adjust_doc td { padding: 8px 12px; text-align: left; border: 1px solid #E5E5E5; vertical-align: top; }
+        #batch_fund_pool_adjust_doc th { background: #F7F8FA; color: #242933; }
+        #batch_fund_pool_adjust_doc code { color: #2743A4; word-break: break-word; }
+        #batch_fund_pool_adjust_doc a { color: #2743A4; }
+    </style>
+</head>
+<body>
+<main id="batch_fund_pool_adjust_doc">
+    <h1>基金池批量调整</h1>
+    <p>基金研究 · 投资池列表 → 选择调入/调出 → 跨页勾选基金与共享材料 → 逐基金校验 → 确认一般流程 → 提交申请。批量相当于一次发起多只基金的单笔调库，申请及审批继续基金独立链路。</p>
+    <section>
+        <h2>投资池与候选基金</h2>
+        <ul>
+            <li>工作台“基金池批量调整”位于“基金池调整”之后、“基金池Excel导入”之前；业务文档菜单同位。</li>
+            <li>只查询当前用户有调整权限、支持 <code>fund</code> 品种的启用叶子池，展示投资池全路径、配置及有效在池基金数量。</li>
+            <li>调入排除目标池的有效成员；调出只含目标池有效成员，均以 <code>ip_pool_status_fund.audit_status='20'</code> 且未删除为准。</li>
+            <li>候选列表沿用基金单笔的代码、简称、基金产品类型、基金管理人筛选及基础信息字段，终止、退市基金不作为候选。</li>
+            <li>跨页保留勾选，支持移除单只与清空。两步工作台沿用证券批量页面，固定底栏为分页与末尾内容预留空间。</li>
+        </ul>
+    </section>
+    <section>
+        <h2>整批基金调库信息</h2>
+        <p>“基金调库信息”位于工作台公共区域、可选基金之前，第一步和第二步均可填写，第二步仍可编辑。点击“下一步”先验证基金评分、基金类型和分管领导审批三个必填字段；评分和审批值 <code>0</code> 均有效，返回上一步保留三个字段。</p>
+        <p>整批统一填写以下三个字段，复制到全部提交基金的手工、联动和互斥日志；三个字段仅采集保存，不改变准入或一般流程，也不新增审批节点。页面没有“是否放开规则”。</p>
+        <div class="table-wrap"><table><thead><tr><th>字段</th><th>编码</th><th>填写规则</th></tr></thead><tbody>
+            <tr><td>基金评分</td><td><code>fundScore</code></td><td>必填数字，允许 <code>0</code>；既有 <code>DECIMAL(10,4)</code> 最多六位整数、四位小数，超出存储精度明确失败，不增加评分准入范围。</td></tr>
+            <tr><td>基金类型</td><td><code>fundInvestmentType</code></td><td>必填：<code>stock</code> 股票型、<code>equity_hybrid</code> 偏股混合型、<code>money_market</code> 货币型、<code>bond_hybrid</code> 偏债混合型、<code>other</code> 其余类型。</td></tr>
+            <tr><td>分管领导审批</td><td><code>needRiskLeaderApproval</code></td><td>必选“是 / 否”，<code>1=是 / 0=否</code>；<code>0</code> 有效，仅记录，不据此增加审批节点。</td></tr>
+        </tbody></table></div>
+        <p>“基金类型”是内部投资分类，与基金主档“基金产品类型” <code>securityType</code> 区分。原因和建议为整批选填，页面输入各最多 500 字，保存到全部提交日志。</p>
+    </section>
+    <section>
+        <h2>逐基金校验、流程与提交</h2>
+        <ul>
+            <li>每只基金调用 <code>FundPoolAdjustService.checkAdjust</code>，复用品种、市场、状态、权限、池状态、容量、在途、来源、限制、联动互斥和冻结期、开放日规则；报告要求在提交阶段按单笔规则复核。</li>
+            <li>校验结果展示完整手工、联动、互斥项，以及阻断原因、警告和可选的一般流程。每组主项选择服务端提供的一般流程，关系项跟随主项；不注入快速或批量流程，流程下拉可完整展开查看候选。</li>
+            <li>校验失败基金组不提交，可提交其他校验通过的完整组。主项及所有关系项必须完整，包含与主方向相反的互斥调整；失败主项的关系项不能单独提交。</li>
+            <li>提交时顺序锁定基金，统一复核全部组后逐组保存；基金名称和产品类型重新读取主档。任一复核、日志、步骤或附件绑定失败，整批事务回滚。</li>
+            <li>同一基金的主项和关系项共用一个 <code>FUND</code> 批次号，不同基金各自独立批次；结果区分基金数量和日志数量，关系项计入日志数量。</li>
+            <li>提交日志初始 <code>audit_status='00'</code>，后续复用基金审批服务；仅最终审批通过 <code>20</code> 更新基金池状态。</li>
+            <li>返回上一步保留基金、材料和三个基金调库字段，重新校验刷新结果与流程。提交中禁用重复点击，成功返回投资池列表并刷新；基金现有在途和短时间重复提交规则继续适用。</li>
+        </ul>
+    </section>
+    <section>
+        <h2>报告、材料与接口</h2>
+        <p>报告选择保留内部/外部双页签、类型和关键字筛选、日期范围、分页、附件下载与已选汇总；本地上传报告和其他材料在整批共享。目标池 <code>none/any/internal</code> 报告要求在提交阶段按基金单笔规则复核。</p>
+        <p>基金附件使用 <code>fund_report_hand/fund_report_in/fund_report_out/fund_material_hand/fund_material_in/fund_material_out</code>，绑定 <code>table_name='ip_adjust_log_fund'</code>。共享上传文件只保存一份物理文件，按各基金的手工主项日志分别绑定，关系项不另绑材料；原始文件名数组按文件顺序传递以保留中文名称。</p>
+        <div class="table-wrap"><table><thead><tr><th>POST 接口</th><th>主要数据</th></tr></thead><tbody>
+            <tr><td><code>/api/v1/batchFundPoolAdjust/queryPoolPage</code></td><td><code>currentUserId/poolIds/pageIndex/pageSize</code>，返回可调整基金池分页及有效在池数量。</td></tr>
+            <tr><td><code>/api/v1/batchFundPoolAdjust/queryFundPage</code></td><td><code>currentUserId/poolId/direction/fundCode/fundShortName/securityType/fundAdministrator/pageIndex/pageSize</code>，返回方向过滤后的候选基金分页。</td></tr>
+            <tr><td><code>/api/v1/batchFundPoolAdjust/checkAdjust</code></td><td><code>currentUserId/poolId/direction/funds:[{fundCode}]</code>，返回单笔基金结构的完整 <code>items</code>、分组键和一般流程候选。</td></tr>
+            <tr><td><code>/api/v1/batchFundPoolAdjust/addAdjustLog</code></td><td>JSON：池、方向、操作人、整批三个基金字段、原因建议及完整已选流程明细；返回 <code>fundCount/submitCount/logIds/adjustBatchNos</code>。</td></tr>
+            <tr><td><code>/api/v1/batchFundPoolAdjust/addAdjustLogWithFiles</code></td><td>multipart：<code>request</code> JSON、<code>files</code>、<code>originalFileNameListJson</code>，返回同上；原始名称数量不匹配时拒绝。</td></tr>
+        </tbody></table></div>
+        <p>批量根参数 <code>direction</code> 使用 <code>in/out</code>，进入单笔服务时转换为 <code>AdjustMode</code> 的 <code>调入/调出</code>；返回校验及提交明细 <code>adjustMode</code> 保持单笔中文 code。主项回传 <code>flowId/flowKey/flowType</code>；材料沿用 <code>reportFileIndexes/materialFileIndexes/reportSourceAttachmentIds/materialSourceAttachmentIds</code>。</p>
+    </section>
+    <section>
+        <h2>涉及表与验证</h2>
+        <div class="table-wrap"><table><thead><tr><th>表或表组</th><th>用途</th></tr></thead><tbody>
+            <tr><td><code>rrs_fundinfo</code></td><td>候选基金及提交时权威基础信息。</td></tr>
+            <tr><td><code>ip_investment_pool/ip_pool_permission/ip_pool_relation/ip_pool_open_day</code></td><td>叶子池、调整权限、关系展开和开放日。</td></tr>
+            <tr><td><code>ip_pool_status_fund</code></td><td>有效在池数量、候选过滤及最终审批落池。</td></tr>
+            <tr><td><code>ip_adjust_log_fund/ip_adjust_step_fund</code></td><td>每只基金每池的日志、整批三字段、独立批次及审批步骤。</td></tr>
+            <tr><td><code>wf_flow_*</code>、审批配置、AIS用户角色</td><td>已发布一般流程快照、审批策略与处理人。</td></tr>
+            <tr><td><code>rrs_report_in/rrs_report_out/sys_attachment</code></td><td>报告选择、原始文件名、共享上传与各基金手工主项日志附件绑定。</td></tr>
+        </tbody></table></div>
+        <p>复用现有基金业务表，无新增表、数据库迁移或 SQL 脚本。批量通用提交入口与 Excel 导入复用，Excel 的导入权限、清空、报告和服务器暂存快照限制保持原有规则。</p>
+        <p>接口与服务测试覆盖权限、候选方向、三字段有效值、完整关系组、反向互斥、一般流程、报告、中文附件、独立批次、防重复和整批回滚；前端测试覆盖跨页选择与有效组提交。工作台 iframe 检查两步布局、报告弹窗及固定底栏。</p>
+    </section>
+    <p><a href="fund-pool-adjust-tables.html">基金池调整</a> · <a href="fund-pool-adjust-approve-tables.html">基金审批与详情</a> · <a href="fund-pool-excel-import.html">基金Excel导入</a> · <a href="batch-security-pool-adjust-tables.html">证券批量基准</a> · <a href="module-tables-index.html">模块总览</a></p>
+</main>
+</body>
+</html>
