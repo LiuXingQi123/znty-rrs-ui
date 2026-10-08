@@ -17,6 +17,8 @@
     <tr><td style="padding:8px;border:1px solid #E5E5E5">/api/v1/fundPoolAdjust/queryAdjustStepList</td><td style="padding:8px;border:1px solid #E5E5E5">审批步骤列表</td></tr>
     <tr><td style="padding:8px;border:1px solid #E5E5E5">/api/v1/fundPoolAdjust/submitAdjustAudit</td><td style="padding:8px;border:1px solid #E5E5E5">审批处理与流程推进</td></tr>
     </tbody></table>
+    <h2 style="font-size:16px;color:#242933">临时代码与 O32</h2>
+    <p>基金调库 O32 节点按 <code>rrs_temp_fund_code.temp_fund_code</code> 与 <code>status=temporary</code> 识别临时基金；命中时转人工待处理（<code>pending</code>），由有处理资格的用户审批，不自动通过。人工转正式时只替换审核状态为 <code>00/11</code> 的在途基金日志代码和正式快照，保留原步骤与附件关联；终态历史日志保持原代码。取消发行会停用临时基金主档，已有业务引用不会自动移除，可能阻塞后续处理。具体转正与删除规则见 <a href="temp-fund-code-tables.html">基金临时代码管理</a>。</p>
     <h2 style="font-size:16px;color:#242933">状态落库</h2><p>只有最终审批通过的批次状态为 20 并写入基金当前池状态表 <code>ip_pool_status_fund</code>。其他审核状态仅保存在基金日志和步骤表中。</p>
 <section class="panel"><h2>业务入口与处理范围</h2><p>本页所属业务为 <code>fund</code>。附件列表由页面明确发送 <code>businessDomain=fund</code> 和 <code>adjustLogIds</code>，附件下载只发送 <code>id</code>；公共 <code>apiPost</code> 原样发送参数。我的事宜仅在新页面 mounted 时读取业务入口；本页直接读取详情、批次记录、步骤和附件，后端业务查询及审批不校验入口名单。普通用户仅处理本人待办，不能处理他人或无处理人的步骤；后端 <code>AdminUserIdUtil</code> 统一识别管理员（ID 为 1 或整数 10000～10100），管理员可接管待办并优先处理本人步骤。审核页使用相同 ID 规则展示操作：优先定位本人待办，无本人待办时管理员展示首个待办，其他人不启用审批操作；实际提交根据真实步骤校验处理资格。各业务审批状态、会签及驳回修改逻辑保留；投资池权限独立。工作台事项页签键带业务代码，返回我的事宜只刷新数据，不重新读取入口。<a href="my-matters-tables.html#business-permission">业务入口说明</a></p></section>
 </main>

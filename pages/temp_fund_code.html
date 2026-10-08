@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>基金临时代码管理</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <link rel="stylesheet" href="../css/temp_fund_code.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="temp-fund-code-page">
+<div id="temp_fund_code" v-cloak>
+    <!-- 顶栏与债券临时代码管理保持一致 -->
+    <header class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+            </div>
+            <h2>基金临时代码管理</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta"><span class="topbar-date-badge">{{ currentDateText }}</span></div>
+    </header>
+
+    <div class="list-body">
+        <!-- 查询条件及操作按钮 -->
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+                <el-input v-model.trim="queryParam.tempFundCode" size="small" clearable maxlength="100" placeholder="临时基金代码" style="width: 190px;" @keyup.enter.native="handleSearch"></el-input>
+                <el-input v-model.trim="queryParam.tempFundShortName" size="small" clearable maxlength="100" placeholder="基金简称" style="width: 220px;" @keyup.enter.native="handleSearch"></el-input>
+                <el-select v-model="queryParam.statusList" size="small" multiple collapse-tags clearable placeholder="状态" style="width: 220px;">
+                    <el-option v-for="item in statusFilterOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                </el-select>
+                <el-select v-model="queryParam.oprtSourceList" size="small" multiple collapse-tags clearable placeholder="操作来源" style="width: 220px;">
+                    <el-option v-for="item in oprtSourceFilterOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                </el-select>
+                <el-button size="small" type="primary" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <el-button size="small" type="primary" icon="el-icon-plus" :disabled="submitLoading || actionBusy" @click="openAddDialog">新增</el-button>
+                <div class="total-badge"><i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录</div>
+            </div>
+        </div>
+
+        <!-- 临时登记及正式基金快照列表 -->
+        <div class="table-card">
+            <el-table ref="tempFundTableRef" :data="tableData" v-loading="loading" border stripe size="small" empty-text="暂无数据" style="width:100%;">
+                <el-table-column label="序号" width="50" align="center" type="index"></el-table-column>
+                <el-table-column prop="tempFundShortName" label="临时基金简称" min-width="170" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="tempFundCode" label="临时基金代码" min-width="150" show-overflow-tooltip></el-table-column>
+                <el-table-column label="临时基金市场" min-width="130" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.tempMarketCode" class="market-tag" size="mini">{{ marketName(row.tempMarketCode) }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="临时产品类型" min-width="130" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.tempSecurityType" class="type-tag" size="mini">{{ securityTypeName(row.tempSecurityType) }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="状态" width="92" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.status" size="mini" :type="statusTagType(row.status)">{{ statusName(row.status) }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="操作来源" width="100" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.oprtSource" size="mini" :type="oprtSourceTagType(row.oprtSource)">{{ oprtSourceName(row.oprtSource) }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="fundShortName" label="正式基金简称" min-width="170" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="fundCode" label="正式基金代码" min-width="150" show-overflow-tooltip></el-table-column>
+                <el-table-column label="正式基金市场" min-width="120" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.marketCode" class="market-tag" size="mini">{{ marketName(row.marketCode) }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="正式产品类型" min-width="130" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.securityType" class="type-tag" size="mini">{{ securityTypeName(row.securityType, row.securityTypeName) }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="更新时间" width="160" align="center">
+                    <template slot-scope="{ row }">{{ datetimeText(row.updateTime) }}</template>
+                </el-table-column>
+                <el-table-column label="操作" width="230" fixed="right" align="center">
+                    <template slot-scope="{ row }">
+                        <div class="op-buttons">
+                            <el-button v-if="canOperate(row)" class="row-action-btn" type="primary" size="mini" plain :disabled="submitLoading || actionBusy" @click="openUpdateDialog(row)">更新</el-button>
+                            <el-button v-if="canOperate(row)" class="row-action-btn" type="primary" size="mini" plain :disabled="submitLoading || actionBusy" @click="handleCancelIssue(row)">取消发行</el-button>
+                            <el-button v-if="canDelete(row)" class="row-action-btn" type="danger" size="mini" plain :disabled="submitLoading || actionBusy" @click="handleDelete(row)">删除</el-button>
+                        </div>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <!-- 分页沿用后端 pageIndex / pageSize -->
+            <div class="pagination-wrap">
+                <el-pagination small layout="total, sizes, prev, pager, next, jumper" :current-page="pagination.pageIndex" :page-size="pagination.pageSize" :page-sizes="[10, 20, 50, 100]" :total="pagination.total" @size-change="handleSizeChange" @current-change="handlePageChange"></el-pagination>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增只填写基金占位所需的四项信息 -->
+    <el-dialog title="新增基金临时代码" :visible.sync="addDialogVisible" width="50%" :close-on-click-modal="false" :close-on-press-escape="!submitLoading" :show-close="!submitLoading">
+        <div class="form-tip">新增后状态默认为临时，并同步写入基金占位主档；基金全称与简称一致，可用于后续调库，不代表正式发行。</div>
+        <el-form ref="addFormRef" :model="addForm" :rules="addRules" label-width="132px" size="small">
+            <div class="form-section">
+                <div class="section-title"><span class="section-title-line"></span>临时基金信息</div>
+                <el-row :gutter="16">
+                    <el-col :span="12">
+                        <el-form-item label="基金简称" prop="tempFundShortName">
+                            <el-input v-model.trim="addForm.tempFundShortName" maxlength="100" placeholder="请输入基金简称"></el-input>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                        <el-form-item label="临时基金代码" prop="tempFundCode">
+                            <el-input v-model.trim="addForm.tempFundCode" maxlength="100" placeholder="请输入临时基金代码"></el-input>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+                <el-row :gutter="16">
+                    <el-col :span="12">
+                        <el-form-item label="市场" prop="tempMarketCode">
+                            <el-select v-model="addForm.tempMarketCode" style="width: 100%;">
+                                <el-option v-for="item in marketOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
+                            </el-select>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                        <el-form-item label="产品类型" prop="tempSecurityType">
+                            <el-select v-model="addForm.tempSecurityType" filterable style="width: 100%;">
+                                <el-option v-for="item in securityTypeOptions" :key="item.securityType" :label="securityTypeName(item.securityType, item.securityTypeName)" :value="item.securityType"></el-option>
+                            </el-select>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+            </div>
+        </el-form>
+        <span slot="footer">
+            <el-button size="small" :disabled="submitLoading" @click="addDialogVisible = false">取消</el-button>
+            <el-button size="small" type="primary" :loading="submitLoading" @click="submitAdd">确认</el-button>
+        </span>
+    </el-dialog>
+
+    <!-- 临时信息只读；正式基金从已有主数据远程选择 -->
+    <el-dialog title="更新正式基金" :visible.sync="updateDialogVisible" width="50%" :close-on-click-modal="false" :close-on-press-escape="!submitLoading" :show-close="!submitLoading" @close="handleUpdateDialogClose">
+        <div class="form-tip">临时基金信息仅供对照、不可修改。请按代码或名称选择已有正式基金，代码、市场和产品类型会自动带出。更新会替换在途调库引用，并为已在池记录办理临时调出和正式调入。</div>
+        <el-form ref="updateFormRef" :model="updateForm" :rules="updateRules" label-width="132px" size="small">
+            <div class="form-section">
+                <div class="section-title"><span class="section-title-line"></span>临时基金信息</div>
+                <el-row :gutter="16">
+                    <el-col :span="12">
+                        <el-form-item label="基金简称"><el-input :value="updateForm.tempFundShortName" disabled></el-input></el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                        <el-form-item label="临时基金代码"><el-input :value="updateForm.tempFundCode" disabled></el-input></el-form-item>
+                    </el-col>
+                </el-row>
+                <el-row :gutter="16">
+                    <el-col :span="12">
+                        <el-form-item label="市场"><el-input :value="marketName(updateForm.tempMarketCode)" disabled></el-input></el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                        <el-form-item label="产品类型"><el-input :value="securityTypeName(updateForm.tempSecurityType)" disabled></el-input></el-form-item>
+                    </el-col>
+                </el-row>
+            </div>
+            <div class="form-section">
+                <div class="section-title"><span class="section-title-line"></span>正式基金信息</div>
+                <el-row :gutter="16">
+                    <el-col :span="12">
+                        <el-form-item label="正式基金" prop="fundCode">
+                            <el-select v-model="updateForm.fundCode" filterable remote clearable reserve-keyword placeholder="输入基金代码或名称搜索" :remote-method="searchFormalFundOptions" :loading="formalFundLoading" style="width: 100%;" @change="handleFormalFundChange" @clear="clearFormalFund">
+                                <el-option v-for="item in formalFundOptions" :key="item.fundCode" :label="formalFundLabel(item)" :value="item.fundCode"></el-option>
+                            </el-select>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                        <el-form-item label="正式基金代码"><el-input :value="updateForm.fundCode" disabled></el-input></el-form-item>
+                    </el-col>
+                </el-row>
+                <el-row :gutter="16">
+                    <el-col :span="12">
+                        <el-form-item label="市场"><el-input :value="marketName(updateForm.marketCode)" disabled></el-input></el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                        <el-form-item label="产品类型"><el-input :value="securityTypeName(updateForm.securityType, updateForm.securityTypeName)" disabled></el-input></el-form-item>
+                    </el-col>
+                </el-row>
+            </div>
+        </el-form>
+        <span slot="footer">
+            <el-button size="small" :disabled="submitLoading" @click="updateDialogVisible = false">取消</el-button>
+            <el-button size="small" type="primary" :loading="submitLoading" @click="submitUpdate">确认</el-button>
+        </span>
+    </el-dialog>
+</div>
+
+<script>
+    new Vue({
+        el: '#temp_fund_code',
+        // 初始化筛选条件、表单、选项和请求状态
+        data() {
+            return {
+                loading: false, // 列表加载状态
+                submitLoading: false, // 表单提交状态
+                actionBusy: false, // 取消、删除的确认及请求状态
+                addDialogVisible: false, // 新增弹窗状态
+                updateDialogVisible: false, // 转正式弹窗状态
+                tableData: [], // 临时与正式基金列表
+                formalFundOptions: [], // 正式基金远程选项
+                formalFundLoading: false, // 正式基金搜索状态
+                formalSearchVersion: 0, // 防止较早搜索覆盖较新搜索
+                securityTypeOptions: [], // 后端基金产品类型选项
+                securityTypeNames: { // 基金产品类型统一中文名称
+                    closed_fund: '封闭式基金',
+                    open_fund: '开放式基金',
+                    qdii_fund: 'QDII基金类型',
+                    lof_fund: 'LOF基金类型',
+                    etf_fund: 'ETF基金类型'
+                },
+                operatorId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户
+                queryParam: { // 列表筛选条件
+                    tempFundCode: '', // 临时基金代码
+                    tempFundShortName: '', // 临时基金简称
+                    statusList: [], // 状态多选
+                    oprtSourceList: ['manual'] // 默认查询人工操作
+                },
+                statusFilterOptions: [ // 登记生命周期筛选选项
+                    { value: 'temporary', label: '临时' },
+                    { value: 'updated', label: '已更新' },
+                    { value: 'cancelled', label: '已取消' },
+                    { value: 'deleted', label: '已删除' }
+                ],
+                oprtSourceFilterOptions: [ // 操作来源筛选选项
+                    { value: 'manual', label: '人工' },
+                    { value: 'job', label: '定时任务' },
+                    { value: 'other', label: '其他' }
+                ],
+                pagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 分页参数
+                addForm: {}, // 新增表单
+                updateForm: {}, // 转正式表单
+                marketOptions: [ // 与现有基金页面一致的市场枚举
+                    { value: 'SSE', label: '上海证券交易所' },
+                    { value: 'SZSE', label: '深圳证券交易所' },
+                    { value: 'CIBM', label: '银行间市场' },
+                    { value: 'BSE', label: '北京证券交易所' },
+                    { value: 'COMPANY', label: '主体' },
+                    { value: 'OTC', label: '场外市场' },
+                    { value: 'HKEX', label: '香港交易所' },
+                    { value: 'QDII', label: '其他QDII市场' },
+                    { value: 'JWCW', label: 'JWCW市场' },
+                    { value: 'UNKNOWN', label: '未知' },
+                    { value: 'OTHER', label: '其他' }
+                ],
+                statusOptions: { temporary: '临时', updated: '已更新', cancelled: '已取消', deleted: '已删除' }, // 状态字典
+                oprtSourceOptions: { manual: '人工', job: '定时任务', other: '其他' }, // 来源字典
+                addRules: { // 新增四项必填校验
+                    tempFundShortName: [{ required: true, message: '请输入基金简称', trigger: 'blur' }],
+                    tempFundCode: [{ required: true, message: '请输入临时基金代码', trigger: 'blur' }],
+                    tempMarketCode: [{ required: true, message: '请选择市场', trigger: 'change' }],
+                    tempSecurityType: [{ required: true, message: '请选择产品类型', trigger: 'change' }]
+                },
+                updateRules: { // 转正式必须选择正式基金
+                    fundCode: [{ required: true, message: '请选择正式基金', trigger: 'change' }]
+                }
+            }
+        },
+        computed: {
+            // 顶栏日期
+            currentDateText() {
+                return moment().format('YYYY年MM月DD日')
+            }
+        },
+        // 页面创建时加载产品类型和首屏列表
+        created() {
+            // 初始化基金产品类型选项
+            this.loadOptions()
+            // 初始化分页列表
+            this.loadList()
+        },
+        // 注册窗口变化监听，延迟同步表格固定列布局
+        mounted() {
+            this.handleWindowResize = () => {
+                window.clearTimeout(this.resizeLayoutTimer)
+                this.resizeLayoutTimer = window.setTimeout(() => {
+                    // 窗口变化后同步固定列布局
+                    this.refreshAllTableLayout()
+                }, 120)
+            }
+            window.addEventListener('resize', this.handleWindowResize)
+        },
+        // 销毁页面时释放窗口监听和待执行的布局任务
+        beforeDestroy() {
+            window.removeEventListener('resize', this.handleWindowResize)
+            window.clearTimeout(this.resizeLayoutTimer)
+        },
+        methods: {
+            // 加载列表，查询失败后释放加载状态
+            async loadList() {
+                this.loading = true
+                try {
+                    const data = await this.apiPost('/api/v1/tempFundCode/queryTempFundCodePage', {
+                        ...this.queryParam,
+                        pageIndex: this.pagination.pageIndex,
+                        pageSize: this.pagination.pageSize
+                    })
+                    this.tableData = data.records || []
+                    this.pagination.total = data.total || 0
+                } catch (e) {
+                    this.$message.error(e.message || '查询失败')
+                } finally {
+                    this.loading = false
+                    // 数据渲染后重新计算列表固定列
+                    this.refreshTableLayout('tempFundTableRef')
+                }
+            },
+
+            // 渲染完成后更新指定表格的布局
+            refreshTableLayout(refName) {
+                this.$nextTick(() => {
+                    const table = this.$refs[refName]
+                    if (table && typeof table.doLayout === 'function') {
+                        table.doLayout()
+                    }
+                })
+            },
+
+            // 窗口变化后更新所有表格布局
+            refreshAllTableLayout() {
+                this.$nextTick(() => {
+                    Object.keys(this.$refs || {}).forEach(refName => {
+                        const ref = this.$refs[refName]
+                        const table = Array.isArray(ref) ? ref[0] : ref
+                        if (table && typeof table.doLayout === 'function') {
+                            table.doLayout()
+                        }
+                    })
+                })
+            },
+
+            // 从后端基金字典加载产品类型选项
+            async loadOptions() {
+                try {
+                    const data = await this.apiPost('/api/v1/tempFundCode/queryTempFundCodeOptions', {})
+                    this.securityTypeOptions = data.securityTypes || []
+                } catch (e) {
+                    this.$message.error(e.message || '加载产品类型失败')
+                }
+            },
+
+            // 查询从第一页开始
+            handleSearch() {
+                this.pagination.pageIndex = 1
+                // 根据最新筛选条件加载列表
+                this.loadList()
+            },
+
+            // 重置恢复默认人工来源
+            handleReset() {
+                this.queryParam = { tempFundCode: '', tempFundShortName: '', statusList: [], oprtSourceList: ['manual'] }
+                this.pagination.pageIndex = 1
+                // 根据默认筛选条件加载列表
+                this.loadList()
+            },
+
+            // 新增默认取市场、产品类型第一项
+            openAddDialog() {
+                if (this.submitLoading || this.actionBusy) {
+                    return
+                }
+                this.addForm = {
+                    tempFundCode: '',
+                    tempFundShortName: '',
+                    tempMarketCode: this.marketOptions.length ? this.marketOptions[0].value : '',
+                    tempSecurityType: this.securityTypeOptions.length ? this.securityTypeOptions[0].securityType : ''
+                }
+                this.addDialogVisible = true
+                this.$nextTick(() => {
+                    this.$refs.addFormRef.clearValidate()
+                })
+            },
+
+            // 新增只提交四个业务字段和当前操作人
+            async submitAdd() {
+                if (this.submitLoading) {
+                    return
+                }
+                this.submitLoading = true
+                try {
+                    await this.$refs.addFormRef.validate()
+                    await this.apiPost('/api/v1/tempFundCode/addTempFundCode', {
+                        tempFundCode: this.addForm.tempFundCode,
+                        tempFundShortName: this.addForm.tempFundShortName,
+                        tempMarketCode: this.addForm.tempMarketCode,
+                        tempSecurityType: this.addForm.tempSecurityType,
+                        operatorId: this.operatorId
+                    })
+                    this.$message.success('新增成功')
+                    this.addDialogVisible = false
+                    // 新增成功后刷新列表
+                    await this.loadList()
+                } catch (e) {
+                    if (e instanceof Error || (e && e.message)) {
+                        this.$message.error(e.message || '操作失败')
+                    }
+                } finally {
+                    this.submitLoading = false
+                }
+            },
+
+            // 保留临时快照，正式信息必须重新选取
+            openUpdateDialog(row) {
+                // 仅临时状态且无进行中的操作时允许打开转正式弹窗
+                if (!this.canOperate(row) || this.submitLoading || this.actionBusy) {
+                    return
+                }
+                this.updateForm = {
+                    id: row.id,
+                    tempFundCode: row.tempFundCode || '',
+                    tempFundShortName: row.tempFundShortName || '',
+                    tempMarketCode: row.tempMarketCode || '',
+                    tempSecurityType: row.tempSecurityType || '',
+                    fundCode: '',
+                    fundName: '',
+                    fundShortName: '',
+                    marketCode: '',
+                    securityType: '',
+                    securityTypeName: ''
+                }
+                this.formalSearchVersion++
+                this.formalFundOptions = []
+                this.formalFundLoading = false
+                this.updateDialogVisible = true
+                this.$nextTick(() => {
+                    this.$refs.updateFormRef.clearValidate()
+                })
+            },
+
+            // 关闭弹窗使未完成的正式基金搜索失效
+            handleUpdateDialogClose() {
+                this.formalSearchVersion++
+                this.formalFundOptions = []
+                this.formalFundLoading = false
+            },
+
+            // 代码或名称远程搜索正式基金，忽略过期响应
+            async searchFormalFundOptions(keyword) {
+                const version = ++this.formalSearchVersion
+                this.formalFundLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/tempFundCode/queryFormalFundOptionList', { fundKeyword: keyword || '' })
+                    if (version === this.formalSearchVersion) {
+                        this.formalFundOptions = data || []
+                    }
+                } catch (e) {
+                    if (version === this.formalSearchVersion) {
+                        this.formalFundOptions = []
+                        this.$message.error(e.message || '搜索正式基金失败')
+                    }
+                } finally {
+                    if (version === this.formalSearchVersion) {
+                        this.formalFundLoading = false
+                    }
+                }
+            },
+
+            // 正式选项以简称或全称加代码展示
+            formalFundLabel(item) {
+                if (!item) {
+                    return ''
+                }
+                const name = item.fundShortName || item.fundName || ''
+                const code = item.fundCode || ''
+                return name && code ? name + '（' + code + '）' : name || code
+            },
+
+            // 选择后仅从后端选项带出正式基金快照
+            handleFormalFundChange(fundCode) {
+                if (!fundCode) {
+                    // 清空所有关联正式字段
+                    this.clearFormalFund()
+                    return
+                }
+                const item = this.formalFundOptions.find(option => option.fundCode === fundCode)
+                if (!item) {
+                    return
+                }
+                this.updateForm.fundCode = item.fundCode || ''
+                this.updateForm.fundName = item.fundName || ''
+                this.updateForm.fundShortName = item.fundShortName || ''
+                this.updateForm.marketCode = item.marketCode || ''
+                this.updateForm.securityType = item.securityType || ''
+                this.updateForm.securityTypeName = item.securityTypeName || ''
+            },
+
+            // 清空正式选择时同时清除只读回显
+            clearFormalFund() {
+                this.updateForm.fundCode = ''
+                this.updateForm.fundName = ''
+                this.updateForm.fundShortName = ''
+                this.updateForm.marketCode = ''
+                this.updateForm.securityType = ''
+                this.updateForm.securityTypeName = ''
+            },
+
+            // 转正式仅提交映射 ID、正式代码和操作人
+            async submitUpdate() {
+                if (this.submitLoading) {
+                    return
+                }
+                this.submitLoading = true
+                try {
+                    await this.$refs.updateFormRef.validate()
+                    await this.apiPost('/api/v1/tempFundCode/editTempFundCodeToUpdated', {
+                        id: this.updateForm.id,
+                        fundCode: this.updateForm.fundCode,
+                        operatorId: this.operatorId
+                    })
+                    this.$message.success('更新成功')
+                    this.updateDialogVisible = false
+                    // 转正式后刷新映射与状态信息
+                    await this.loadList()
+                } catch (e) {
+                    if (e instanceof Error || (e && e.message)) {
+                        this.$message.error(e.message || '操作失败')
+                    }
+                } finally {
+                    this.submitLoading = false
+                }
+            },
+
+            // 取消沿用债券语义：停用占位主档，不自动清理业务引用
+            async handleCancelIssue(row) {
+                // 仅临时状态允许取消发行
+                if (!this.canOperate(row) || this.actionBusy || this.submitLoading) {
+                    return
+                }
+                this.actionBusy = true
+                try {
+                    try {
+                        await this.$confirm('确认取消发行该基金临时代码？取消后将停用临时基金主档，已有调库和池引用不会自动移除，可能阻塞后续业务。', '提示', { type: 'warning' })
+                    } catch (e) {
+                        return
+                    }
+                    try {
+                        await this.apiPost('/api/v1/tempFundCode/editTempFundCodeToCancelled', { id: row.id, operatorId: this.operatorId })
+                        this.$message.success('已取消发行')
+                        // 取消成功后刷新状态
+                        await this.loadList()
+                    } catch (e) {
+                        this.$message.error(e.message || '操作失败')
+                    }
+                } finally {
+                    this.actionBusy = false
+                }
+            },
+
+            // 确认软删除临时登记；后端校验无业务引用后删除，保留基金主档
+            async handleDelete(row) {
+                // 仅临时状态允许删除
+                if (!this.canDelete(row) || this.actionBusy || this.submitLoading) {
+                    return
+                }
+                this.actionBusy = true
+                try {
+                    try {
+                        await this.$confirm('确认删除该基金临时代码？仅删除临时代码映射，基金占位主档将保留，已有调库和池引用不会自动移除。', '提示', { type: 'warning' })
+                    } catch (e) {
+                        return
+                    }
+                    try {
+                        await this.apiPost('/api/v1/tempFundCode/deleteTempFundCode', { id: row.id, operatorId: this.operatorId })
+                        this.$message.success('删除成功')
+                        // 删除成功后刷新状态
+                        await this.loadList()
+                    } catch (e) {
+                        this.$message.error(e.message || '操作失败')
+                    }
+                } finally {
+                    this.actionBusy = false
+                }
+            },
+
+            // 更新和取消操作仅对临时状态开放
+            canOperate(row) {
+                return row && row.status === 'temporary'
+            },
+
+            // 删除按钮仅对临时状态开放，业务引用由后端校验
+            canDelete(row) {
+                return row && row.status === 'temporary'
+            },
+
+            // 修改每页条数并回到第一页
+            handleSizeChange(size) {
+                this.pagination.pageSize = size
+                this.pagination.pageIndex = 1
+                // 应用新的分页参数
+                this.loadList()
+            },
+
+            // 切换列表页码
+            handlePageChange(page) {
+                this.pagination.pageIndex = page
+                // 读取目标页
+                this.loadList()
+            },
+
+            // 市场中文名称，未知代码原样显示
+            marketName(code) {
+                const item = this.marketOptions.find(option => option.value === code)
+                return item ? item.label : code || ''
+            },
+
+            // 产品类型中文名称，未知代码原样显示
+            securityTypeName(code, fallbackName) {
+                const item = this.securityTypeOptions.find(option => option.securityType === code)
+                return this.securityTypeNames[code] || fallbackName || (item && item.securityTypeName) || code || ''
+            },
+
+            // 状态中文名称
+            statusName(status) {
+                return this.statusOptions[status] || status || ''
+            },
+
+            // 状态标签颜色沿用债券页
+            statusTagType(status) {
+                const map = { temporary: 'info', updated: 'success', cancelled: 'warning', deleted: 'danger' }
+                return map[status] || 'info'
+            },
+
+            // 操作来源中文名称
+            oprtSourceName(source) {
+                return this.oprtSourceOptions[source] || source || ''
+            },
+
+            // 操作来源标签颜色沿用债券页
+            oprtSourceTagType(source) {
+                const map = { manual: '', job: 'warning', other: 'info' }
+                return Object.prototype.hasOwnProperty.call(map, source) ? map[source] : 'info'
+            },
+
+            // 更新时间统一格式化
+            datetimeText(value) {
+                return value ? moment(value).format('YYYY-MM-DD HH:mm:ss') : ''
+            }
+        }
+    })
+</script>
+</body>
+</html>

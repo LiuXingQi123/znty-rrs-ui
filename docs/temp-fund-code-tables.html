@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金临时代码管理｜表与业务逻辑</title>
+    <style>
+        /* 文档基础布局；body 仅设置本独立文档的页面背景与默认外边距。 */
+        #temp_fund_code_doc, #temp_fund_code_doc * { box-sizing: border-box; }
+        body { margin: 0; background: #F7F8FA; }
+        #temp_fund_code_doc { max-width: 1180px; margin: 0 auto; padding: 24px; color: #3F485A; font: 13px/1.7 "Microsoft YaHei", Arial, sans-serif; }
+        #temp_fund_code_doc h1 { margin: 0 0 8px; color: #242933; font-size: 20px; }
+        #temp_fund_code_doc h2 { margin: 0 0 12px; color: #2743A4; font-size: 16px; }
+        #temp_fund_code_doc section { margin-top: 16px; padding: 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 4px; }
+        #temp_fund_code_doc p { margin: 8px 0; }
+        #temp_fund_code_doc ul { padding-left: 20px; }
+        /* 接口和表结构说明的表格样式，横向溢出时保留滚动查看。 */
+        #temp_fund_code_doc .table-wrap { overflow-x: auto; }
+        #temp_fund_code_doc table { width: 100%; border-collapse: collapse; }
+        #temp_fund_code_doc th, #temp_fund_code_doc td { padding: 8px 12px; text-align: left; border: 1px solid #E5E5E5; vertical-align: top; }
+        #temp_fund_code_doc th { background: #F7F8FA; color: #242933; }
+        #temp_fund_code_doc code { color: #2743A4; word-break: break-word; }
+        #temp_fund_code_doc a { color: #2743A4; }
+    </style>
+</head>
+<body>
+<main id="temp_fund_code_doc">
+    <h1>基金临时代码管理</h1>
+    <p>基金研究 · 查询临时代码 → 新增基金占位 → 人工转正式 / 取消发行 / 删除映射。查询区、列表、分页及弹窗沿用债券临时代码管理，基金页使用独立的 <code>css/temp_fund_code.css</code>，债券页使用 <code>css/temp_security_code.css</code>，两页保持相同布局与风格。</p>
+    <section>
+        <h2>页面字段与选项</h2>
+        <ul>
+            <li>查询支持临时基金代码、基金简称模糊检索，状态与操作来源多选。默认来源为人工（<code>manual</code>），重置恢复该默认并回到第一页。</li>
+            <li>状态为 <code>temporary</code> 临时、<code>updated</code> 已更新、<code>cancelled</code> 已取消、<code>deleted</code> 已删除；只有临时状态显示更新、取消发行、删除按钮。列表保留软删除映射，可按已删除状态检索。</li>
+            <li>新增四项必填：<code>tempFundCode</code> 临时代码、<code>tempFundShortName</code> 基金简称、<code>tempMarketCode</code> 市场、<code>tempSecurityType</code> 产品类型。基金全称与简称一致；不填写债券发行主体、日期或 CRMW 等字段。</li>
+            <li>市场采用既有基金页面的 11 项 MarketCode：SSE、SZSE、CIBM、BSE、COMPANY、OTC、HKEX、QDII、JWCW、UNKNOWN、OTHER。实际调库仍执行投资池支持市场规则。</li>
+            <li>产品类型由后端字典返回：<code>closed_fund</code> 封闭式基金、<code>open_fund</code> 开放式基金、<code>qdii_fund</code> QDII基金类型、<code>lof_fund</code> LOF基金类型、<code>etf_fund</code> ETF基金类型。该字段不同于基金调库的投资类型。</li>
+            <li>转正式弹窗显示四项只读临时信息；正式基金按代码、简称或全称远程搜索，选择后带出代码、市场和产品类型。正式信息初始为空，不允许手工改写正式快照。</li>
+        </ul>
+    </section>
+    <section>
+        <h2>新增与人工转正式</h2>
+        <ul>
+            <li>新增状态固定为 <code>temporary</code>，写入临时映射与基金占位主档：<code>source_system=temporary</code>、<code>security_status=L</code>、<code>is_deleted=0</code>。已有代码不得重复新增。</li>
+            <li>正式基金必须来自已有有效主档，排除临时占位、停用和删除数据；正式代码不能与临时代码相同。本期不增加自动替换定时任务。</li>
+            <li>转正式只提交 <code>id/fundCode/operatorId</code>，后端重新读取正式基金全称、简称、市场与产品类型，写入映射快照并记为 <code>updated</code>。</li>
+            <li>在途日志（<code>audit_status=00/11</code>）只替换基金代码、全称、简称和产品类型，保留批次、流程快照、原步骤、原附件关联及三个调库参数；终态历史日志保持原码。</li>
+            <li>已在池状态（<code>audit_status=20</code>）逐池写临时代码调出日志并软删除临时池状态；正式代码尚未在同池时再写正式调入日志并建立正式池状态。正式已在同池时只办理临时调出。</li>
+            <li>新入池日志复制原基金日志附件关联，保留基金报告和原文件分类。原基金评分、投资类型、风管领导审批等业务信息按原记录继承。</li>
+            <li>转正式停用临时占位主档：<code>security_status=D</code>，更新 <code>updt_time</code>；主档 <code>is_deleted</code> 保持 0，不额外写退市日期。</li>
+            <li>正式基金同池已有在途申请时仍允许替换，冲突交给后续基金审批校验。转正中的执行异常使本次操作整体回滚。</li>
+            <li>转正、基金提交和审批共同按主档 ID 顺序加锁，取得锁后重新读取业务状态；审批等待期间代码被替换时提示刷新。</li>
+            <li>Excel 原始行、校验快照及已提交历史保留。旧临时代码转正或取消后，未提交批次在任何日志写入前整体拒绝，提示重置重传。</li>
+        </ul>
+    </section>
+    <section>
+        <h2>取消、删除与 O32</h2>
+        <ul>
+            <li>取消发行仅允许 <code>temporary → cancelled</code>：停用基金占位主档（<code>security_status=D</code>、更新 <code>updt_time</code>），主档 <code>is_deleted=0</code>。已有调库和池引用不自动移除，可能阻塞后续业务；页面二次确认会明确提示该影响。</li>
+            <li>删除仅允许 <code>temporary → deleted</code>，且任何未删除的基金调库日志或池状态引用均会阻止删除，终态历史日志也包含在内。通过校验后只将映射 <code>is_deleted</code> 置为 1，保留占位主档当前状态；页面二次确认说明删除范围。</li>
+            <li><code>updated/cancelled/deleted</code> 均不再提供更新、取消或删除操作。取消确认时不发业务请求。</li>
+            <li>申请初始步骤及后续审批均按未删除登记的 <code>status=temporary</code> 识别有效临时基金；O32 转人工待处理（<code>pending</code>）。普通 auto 节点与正式基金 O32 保持现有处理方式。</li>
+            <li>操作人从当前登录上下文读取 <code>operatorId</code>。操作来源保留 <code>manual/job/other</code> 字典，但本期没有基金自动替换任务。</li>
+        </ul>
+    </section>
+    <section>
+        <h2>接口</h2>
+        <p>以下均为 POST，接口前缀 <code>/api/v1/tempFundCode/</code>。</p>
+        <div class="table-wrap"><table><thead><tr><th>接口后缀</th><th>请求及响应</th></tr></thead><tbody>
+            <tr><td><code>queryTempFundCodePage</code></td><td><code>tempFundCode/tempFundShortName/statusList/oprtSourceList/pageIndex/pageSize</code>；响应 <code>records/total</code>，包含临时四字段、正式基金快照、状态、来源和更新时间。</td></tr>
+            <tr><td><code>queryTempFundCodeOptions</code></td><td>空对象；响应 <code>{securityTypes:[{securityType,securityTypeName}]}</code>。</td></tr>
+            <tr><td><code>queryFormalFundOptionList</code></td><td><code>fundKeyword</code>；响应正式基金选项，含 <code>fundCode/fundName/fundShortName/marketCode/securityType/securityTypeName</code>。</td></tr>
+            <tr><td><code>addTempFundCode</code></td><td>临时四字段与 <code>operatorId</code>；新增映射和占位主档。</td></tr>
+            <tr><td><code>editTempFundCodeToUpdated</code></td><td><code>id/fundCode/operatorId</code>；人工转正式。</td></tr>
+            <tr><td><code>editTempFundCodeToCancelled</code></td><td><code>id/operatorId</code>；取消发行。</td></tr>
+            <tr><td><code>deleteTempFundCode</code></td><td><code>id/operatorId</code>；软删除临时映射。</td></tr>
+        </tbody></table></div>
+    </section>
+    <section>
+        <h2>涉及表</h2>
+        <div class="table-wrap"><table><thead><tr><th>表</th><th>用途</th></tr></thead><tbody>
+            <tr><td><code>rrs_temp_fund_code</code></td><td>临时四字段、正式快照及生命周期映射；查询与状态变更。</td></tr>
+            <tr><td><code>rrs_temp_fund_code_evt</code></td><td>新增、转正式、取消和删除操作事件。</td></tr>
+            <tr><td><code>rrs_temp_fund_code_update_log</code></td><td>转正时在途代码替换和池状态迁移的技术明细。</td></tr>
+            <tr><td><code>rrs_fundinfo</code></td><td>基金占位主档、正式选项及停用状态。</td></tr>
+            <tr><td><code>dict_security_type</code></td><td>基金产品类型选项和类型名称。</td></tr>
+            <tr><td><code>ip_adjust_log_fund / ip_adjust_step_fund</code></td><td>基金调库日志与审批步骤；在途日志改码，已在池转正办理出入。</td></tr>
+            <tr><td><code>ip_pool_status_fund</code></td><td>有效在池状态；软删除临时状态，正式未在同池时建立状态。</td></tr>
+            <tr><td><code>sys_attachment</code></td><td>基金日志报告和原文件关联；转正时沿用分类并复制新日志所需关联。</td></tr>
+        </tbody></table></div>
+        <p><code>sql/fund/rrs_temp_fund_code_schema.sql</code> 先用 <code>DROP TABLE IF EXISTS</code> 删除登记审计表、替换明细日志和登记主表，再用 <code>CREATE TABLE IF NOT EXISTS</code> 完整重建三表。执行会清除三表原有数据；本模块不提供动态 SQL 升级入口。</p>
+    </section>
+    <p><a href="fund-pool-adjust-tables.html">基金池调整</a> · <a href="fund-pool-adjust-approve-tables.html">基金审核与详情</a> · <a href="temp-security-code-tables.html">债券临时代码基准</a> · <a href="module-tables-index.html">模块总览</a></p>
+</main>
+</body>
+</html>

@@ -36,6 +36,7 @@
 | `fund_pool_adjust_history.html` | 基金池调整历史查询 | `css/fund_pool_adjust_history.css`、`css/common.css` |
 | `fund_pool_query.html` | 基金池查询 | `css/fund_pool_query.css`、`css/common.css` |
 | `fund_nav_export.html` | 基金净值导出 | `css/fund_nav_export.css`、`css/common.css` |
+| `temp_fund_code.html` | 基金临时代码管理 | `css/temp_fund_code.css`、`css/common.css` |
 | `forbidden_pool_adjust.html` | 禁投池调整 | `css/forbidden_pool_adjust.css`、`css/common.css` |
 | `forbidden_pool_adjust_approve.html` | 禁投池调整审核 | `css/forbidden_pool_adjust_approve.css`、`css/common.css` |
 | `forbidden_pool_adjust_detail.html` | 禁投池调整详情 | `css/forbidden_pool_adjust_detail.css`、`css/common.css` |
@@ -162,7 +163,8 @@
 | `css/script_table_clear.css` | 表数据清空页面样式 | `docs/script_table_clear.html` |
 | `css/script_table_row_counts.css` | 表记录数统计页面样式 | `docs/script_table_row_counts.html` |
 | `css/script_tool.css` | 数据初始化页面样式 | `docs/script_tool.html` |
-| `css/temp_security_code.css` | 临时代码管理页面样式 | `temp_security_code.html` |
+| `css/temp_security_code.css` | 债券临时代码管理页面样式 | `temp_security_code.html` |
+| `css/temp_fund_code.css` | 基金临时代码管理页面样式 | `temp_fund_code.html` |
 | `css/hs_pool_manual_export.css` | 恒生格式手动导出页面样式 | `hs_pool_manual_export.html` |
 | `css/pool_open_day.css` | 投资池开放日维护页面样式 | `pool_open_day.html` |
 | `css/scheduled_task.css` | 定时任务管理页面样式 | `scheduled_task.html` |
@@ -210,6 +212,7 @@
 | `docs/fund-pool-adjust-history-tables.html` | 基金池调整历史文档 | HTML 内联样式 |
 | `docs/fund-pool-query-tables.html` | 基金池查询文档 | HTML 内联样式 |
 | `docs/fund-nav-export-tables.html` | 基金净值导出文档 | HTML 内联样式 |
+| `docs/temp-fund-code-tables.html` | 基金临时代码管理文档 | HTML 内联样式 |
 | `docs/rule-manager-tables.html` | 规则管理中心文档 | HTML 内联样式 |
 | `docs/credit-bond-grade-rule-tables.html` | 主体内评分档规则文档 | HTML 内联样式 |
 | `docs/scheduled-task-tables.html` | 定时任务管理文档 | HTML 内联样式 |
