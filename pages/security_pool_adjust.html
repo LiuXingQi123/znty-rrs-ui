@@ -1917,12 +1917,24 @@
                 this.inMutexMap = inMap;
                 return inPoolsFiltered;
             },
+            // 进入或切换证券前复原步骤1：清空可调入/调出池列表与已选，并清掉表格内部勾选态
+            resetAdjustPoolSelection() {
+                this.selectedInPools = [];
+                this.selectedOutPools = [];
+                this.adjustInTree = [];
+                this.adjustOutTree = [];
+                this.$nextTick(() => {
+                    if (this.$refs.inTableRef) this.$refs.inTableRef.clearSelection();
+                    if (this.$refs.outTableRef) this.$refs.outTableRef.clearSelection();
+                });
+            },
             // 先加载证券详情与四类关系主体，再按接口顺序确定首条默认值并加载池列表
             async loadDetailData(securityCode) {
+                // 先复原池列表与勾选，再发起查询，避免慢查询期间闪现上一只券的勾选
+                this.resetAdjustPoolSelection();
                 this.initializeFinancialEditData([]);
                 this.detailLoading = true;
                 this.adjustInPoolQuerySeq++;
-                this.selectedInPools = [];
                 try {
                     // 有调库日志时带 adjustLogId，后端优先返回提交时证券信息快照
                     const detailReq = { securityCode: securityCode };

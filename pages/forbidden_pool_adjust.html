@@ -2734,8 +2734,21 @@
                 };
                 return map[poolType] || poolType || '';
             },
+            // 进入或切换主体前复原步骤1：清空可调入/调出池列表与已选，并清掉表格内部勾选态
+            resetAdjustPoolSelection() {
+                this.selectedInPools = [];
+                this.selectedOutPools = [];
+                this.adjustInTree = [];
+                this.adjustOutTree = [];
+                this.$nextTick(() => {
+                    if (this.$refs.inTableRef) this.$refs.inTableRef.clearSelection();
+                    if (this.$refs.outTableRef) this.$refs.outTableRef.clearSelection();
+                });
+            },
             // 并发加载详情页所需的全部数据（主体详情/可调入出池/当前所在池/调库记录）
             async loadDetailData(companyCode) {
+                // 先复原池列表与勾选，再发起查询，避免慢查询期间闪现上一个主体的勾选
+                this.resetAdjustPoolSelection();
                 this.detailLoading = true;
                 try {
                     const inPoolParams = { companyCode: companyCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
@@ -4123,8 +4136,21 @@
                 this.currentPage = 'absDetail';
                 await this.absLoadDetailData(row.windCode || row.securityCode);
             },
+            // 进入或切换 ABS 债前复原步骤1：清空可调入/调出池列表与已选，并清掉表格内部勾选态
+            resetAbsPoolSelection() {
+                this.absSelectedInPools = [];
+                this.absSelectedOutPools = [];
+                this.absInPools = [];
+                this.absOutPools = [];
+                this.$nextTick(() => {
+                    if (this.$refs.absInTableRef) this.$refs.absInTableRef.clearSelection();
+                    if (this.$refs.absOutTableRef) this.$refs.absOutTableRef.clearSelection();
+                });
+            },
             // 加载 ABS 详情（证券 / 池列表 / 当前所在池）
             async absLoadDetailData(securityCode) {
+                // 先复原池列表与勾选，再发起查询，避免慢查询期间闪现上一只债的勾选
+                this.resetAbsPoolSelection();
                 this.absDetailLoading = true;
                 try {
                     const inPoolParams = {
@@ -4195,8 +4221,6 @@
                     this.absMaterialFiles = {};
                     this.absCreditReportSelections = {};
                     this.absOtherMaterialSelections = {};
-                    this.absSelectedInPools = [];
-                    this.absSelectedOutPools = [];
                     this.absAdjustStep = 1;
                     this.absAdjustReviewList = [];
                     this.absAdjustReason = '';
