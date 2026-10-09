@@ -29,7 +29,17 @@
 | `crmw_pool_adjust_history.html` | CRMW池调整历史查询 | `css/crmw_pool_adjust_history.css`、`css/common.css` |
 | `crmw_pool_query.html` | CRMW池查询 | `css/crmw_pool_query.css`、`css/common.css` |
 | `flow_definition.html` | 流程定义 - 工作流平台 | `css/flow_definition.css`、`css/common.css` |
-| `fund_pool_adjust.html` | 基金池调整申请 | `css/fund_pool_adjust.css`、`css/common.css` |
+| `stock_pool_adjust.html` | 股票池调整申请 | `css/stock_pool_adjust.css`、`css/common.css` |
+| `stock_pool_query.html` | 股票池查询 | `css/stock_pool_query.css`、`css/common.css` |
+| `stock_pool_adjust_history.html` | 股票池调整历史查询 | `css/stock_pool_adjust_history.css`、`css/common.css` |
+| `stock_pool_adjust_approve.html` | 股票池调库审核 | `css/stock_pool_adjust_approve.css`、`css/common.css` |
+| `stock_pool_adjust_detail.html` | 股票池调库详情 | `css/stock_pool_adjust_detail.css`、`css/common.css` |
+| `fund_pool_adjust.html` | 基金池调整申请 | `css/stock_pool_adjust.css` | 股票池调整申请页面样式 | `stock_pool_adjust.html` |
+| `css/stock_pool_query.css` | 股票池查询页面样式 | `stock_pool_query.html` |
+| `css/stock_pool_adjust_history.css` | 股票池调整历史查询页面样式 | `stock_pool_adjust_history.html` |
+| `css/stock_pool_adjust_approve.css` | 股票池调库审核页面样式 | `stock_pool_adjust_approve.html` |
+| `css/stock_pool_adjust_detail.css` | 股票池调库详情页面样式 | `stock_pool_adjust_detail.html` |
+| `css/fund_pool_adjust.css`、`css/common.css` |
 | `batch_fund_pool_adjust.html` | 基金池批量调整 | `css/batch_fund_pool_adjust.css`、`css/common.css` |
 | `fund_pool_excel_import.html` | 基金池 Excel 导入 | `css/fund_pool_excel_import.css`、`css/common.css` |
 | `fund_pool_adjust_approve.html` | 基金池调库审核 | `css/fund_pool_adjust_approve.css`、`css/common.css` |
@@ -208,6 +218,10 @@
 | `docs/investment-pool-tables.html` | 投资池维护文档 | HTML 内联样式 |
 | `docs/pool-open-day-tables.html` | 投资池开放日维护文档 | HTML 内联样式 |
 | `docs/flow-definition-tables.html` | 流程定义文档 | HTML 内联样式 |
+| `docs/stock-pool-adjust-tables.html` | 股票池调整申请文档 | HTML 内联样式 |
+| `docs/stock-pool-query-tables.html` | 股票池查询文档 | HTML 内联样式 |
+| `docs/stock-pool-adjust-history-tables.html` | 股票池调整历史查询文档 | HTML 内联样式 |
+| `docs/stock-pool-adjust-approve-tables.html` | 股票池调库审核与详情文档 | HTML 内联样式 |
 | `docs/fund-pool-adjust-tables.html` | 基金池调整申请文档 | HTML 内联样式 |
 | `docs/batch-fund-pool-adjust-tables.html` | 基金池批量调整文档 | HTML 内联样式 |
 | `docs/fund-pool-excel-import.html` | 基金池 Excel 导入文档 | HTML 内联样式 |

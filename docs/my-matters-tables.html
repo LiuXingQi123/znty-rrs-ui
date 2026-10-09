@@ -359,9 +359,9 @@
 <header>
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>我的事宜</h1>
-        <p class="desc">按当前用户汇总与本人相关的调库流程事项，区分待办与已办，并根据所选业务及场景跳转到基金、证券、主体禁投或 CRMW
+        <p class="desc">按当前用户汇总与本人相关的调库流程事项，区分待办与已办，并根据所选业务及场景跳转到股票、基金、证券、主体禁投或 CRMW
             审批/详情页。禁投池 ABS 债归证券审核（非主体禁投）。债券专属页签「分级规则提醒」独立列表，不与审批混排。</p>
-        <div class="stats"><span class="stat">债券 / 基金独立表组</span><span class="stat">6 个主要接口</span><span
+        <div class="stats"><span class="stat">债券 / 基金 / 股票独立表组</span><span class="stat">6 个主要接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
 </header>
@@ -370,19 +370,20 @@
             href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
 
     <section class="panel" id="business-permission"><h2>业务隔离与入口显示</h2>
-        <p>新页面 mounted 时查询一次可显示的业务入口，再按所选业务分派独立的债券/基金 Service 与 Mapper。仅有一个业务入口时自动使用该业务，隐藏顶部业务 Tab 且不留占位；有多个入口时显示业务 Tab，默认选择第一个并允许切换；无入口时保留空状态。股票编码预留，接入查询模块和路由后再开放。</p>
+        <p>新页面 mounted 时查询一次可显示的业务入口，再按所选业务分派独立的债券/基金/股票 Service 与 Mapper。仅有一个业务入口时自动使用该业务，隐藏顶部业务 Tab 且不留占位；有多个入口时显示业务 Tab，默认选择第一个并允许切换；无入口时保留空状态。股票已接入独立 stock 业务，stockAdjust 使用 stockCode 定位股票审核或详情。</p>
         <table><thead><tr><th>入口/业务</th><th>规则</th></tr></thead><tbody>
-            <tr><td>固定用户入口</td><td><code>MyMattersService</code> 直接调用 <code>BusinessPermissionMapper.queryBusinessDomainList(Long)</code>；Mapper XML 的 SQL 固定：用户 1 显示 bond/fund，用户 3 显示 fund。</td></tr>
-            <tr><td>固定角色入口</td><td>角色 1～6 显示 bond，角色 7～9 显示 fund，角色 10 显示 bond/fund。入口查询从 AIS 的用户角色关系和 <code>t_sys_role.enable=1</code> 查询直接所属启用角色，与用户固定配置取并集并去重，不继承父子角色。</td></tr>
+            <tr><td>固定用户入口</td><td><code>MyMattersService</code> 直接调用 <code>BusinessPermissionMapper.queryBusinessDomainList(Long)</code>；Mapper XML 的 SQL 固定：用户 1 显示 bond/fund/stock，用户 3 显示 fund；用户 5 增加 stock 演示审批入口。</td></tr>
+            <tr><td>固定角色入口</td><td>角色 1～6 显示 bond，角色 7～9 显示 fund，角色 10 显示 bond/fund；角色 2、3、7、8、9、10 增加 stock。入口查询从 AIS 的用户角色关系和 <code>t_sys_role.enable=1</code> 查询直接所属启用角色，与用户固定配置取并集并去重，不继承父子角色。</td></tr>
             <tr><td>普通用户事项范围</td><td>待处理限当前处理人，已完成限本人参与且批次结束，我发起的始终限本人；不能处理他人或无处理人的步骤。</td></tr>
             <tr><td>管理员事项范围</td><td><code>AdminUserIdUtil</code> 识别用户 ID 为 1 或整数 10000～10100，可查看和接管该业务全部事项；我发起的仍限本人。此规则不为固定名单自动添加业务入口；投资池查看/调整/导入授权独立。</td></tr>
             <tr><td>债券 <code>bond</code></td><td>BondMyMattersService / Mapper；ip_adjust_log、ip_adjust_step。保留证券、禁投主体、CRMW 场景及债券专属共享提醒。</td></tr>
             <tr><td>基金 <code>fund</code></td><td>FundMyMattersService / Mapper；ip_adjust_log_fund、ip_adjust_step_fund；fundAdjust 跳转既有基金审核/详情页，携带 fundCode。</td></tr>
+            <tr><td>股票 <code>stock</code></td><td>StockMyMattersService / Mapper；ip_adjust_log_stock、ip_adjust_step_stock；stockAdjust 跳转股票审核/详情，携带 stockCode、adjustLogId、adjustBatchNo。股票代码和名称列使用股票文案。</td></tr>
         </tbody></table>
         <p><code>POST /api/v1/myMatters/queryBusinessDomainList</code> 请求 currentUserId，返回仅含 <code>businessDomain</code> 的对象数组 <code>[{businessDomain}]</code>，使用既有 <code>BusinessDomainDto</code>。事项分页、我发起的和流程下拉必传 businessDomain；摘要返回业务、场景、objectCode/objectName 和记录/批次/步骤定位。入口接口仅决定页面显示。业务选项、事项分页、角标、流程下拉和分级提醒所需的 <code>currentUserId</code> 由本页显式传入；公共 <code>apiPost</code> 原样发送参数，不按接口或页面文件名补充用户与业务字段。附件列表由各业务页面明确提供 <code>businessDomain</code> 和 <code>adjustLogIds</code>，附件下载只发送 <code>id</code>。</p>
         <p>返回工作台页签、切换业务、查询和分页不重新读取业务入口；返回时刷新当前业务数据。切换业务清空筛选、列表、流程下拉和角标，重置分页；旧响应按业务和视图版本丢弃。工作台页签键包含业务代码，不同表相同 ID 不混用。</p>
         <p>后端事项查询、角标、流程下拉、详情、步骤、附件和审批不校验入口名单。详情、步骤和附件直接按参数读取；审批根据真实步骤检查处理资格。审核页优先展示本人待办，无本人待办时管理员（ID 为 1 或整数 10000～10100）展示首个待办，其他人不启用审批操作；后端用相同管理员规则接管待办并优先处理本人步骤。原审批状态、会签及驳回修改校验保留；分级规则提醒保持共享口径，不按入口名单过滤。</p>
-        <p>用户/角色固定入口名单在上述 Mapper XML 中维护，修改后重新部署。角色停用或成员移除在下次真正加载页面时更新入口显示，用户直接配置不随角色撤回消失；股票尚未接入，SQL 只保留扩展注释。首版沿用演示登录，正式环境需要可信后端身份；无权限维护页面。</p>
+        <p>用户/角色固定入口名单在上述 Mapper XML 中维护，修改后重新部署。角色停用或成员移除在下次真正加载页面时更新入口显示，用户直接配置不随角色撤回消失；股票已接入独立查询模块与固定入口名单。首版沿用演示登录，正式环境需要可信后端身份；无权限维护页面。</p>
     </section>
     <section class="panel" id="overview"><h2>业务流程总览</h2>
         <p class="sub">从页面操作到数据库读写的主要路径。</p>

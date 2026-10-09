@@ -35,7 +35,7 @@ function harness() {
 }
 
 test('所有修改页面和公共 API 脚本语法有效', () => {
-    for (const name of ['my_matters', ...['security', 'forbidden', 'crmw', 'fund'].flatMap(domain => [`${domain}_pool_adjust`, `${domain}_pool_adjust_approve`, `${domain}_pool_adjust_detail`])]) {
+    for (const name of ['my_matters', ...['security', 'forbidden', 'crmw', 'fund', 'stock'].flatMap(domain => [`${domain}_pool_adjust`, `${domain}_pool_adjust_approve`, `${domain}_pool_adjust_detail`])]) {
         const html = fs.readFileSync(path.join(root, `pages/${name}.html`), 'utf8');
         for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) new vm.Script(match[1], { filename: name });
     }
@@ -64,7 +64,7 @@ test('顶部业务页签仅在多个入口时渲染，事项页签和零入口�
     }
 });
 
-for (const domain of ['bond', 'fund']) {
+for (const domain of ['bond', 'fund', 'stock']) {
     test('单一 ' + domain + ' 入口默认选中并正常查询，返回和筛选不重复初始化入口', async () => {
         const { page, window, mount } = harness();
         page.businessDomain = '';
@@ -82,8 +82,8 @@ for (const domain of ['bond', 'fund']) {
         assert.equal(page.activeTab, 'pending'); assert.equal(page.flowOptions[0].flowName, domain + '流程');
         assert.equal(page.tableData[0].businessDomain, domain); assert.equal(page.tableData[0].objectCode, domain + '-1');
         assert.equal(page.pagination.total, 4); assert.equal(page.pendingCount, 4); assert.equal(page.completedCount, 2); assert.equal(page.initiatedCount, 3);
-        assert.equal(page.objectCodeLabel, domain === 'fund' ? '基金代码' : '证券编码');
-        assert.equal(page.objectNameLabel, domain === 'fund' ? '基金名称' : '证券名称');
+        assert.equal(page.objectCodeLabel, domain === 'fund' ? '基金代码' : domain === 'stock' ? '股票代码' : '证券编码');
+        assert.equal(page.objectNameLabel, domain === 'fund' ? '基金名称' : domain === 'stock' ? '股票名称' : '证券名称');
         assert.equal(page.alertOpenCount, domain === 'bond' ? 5 : 0);
         assert.equal(requests.some(item => item.url.includes('/gradeRuleAlert/')), domain === 'bond');
         page.searchForm.securityCode = domain + '-1'; page.searchForm.securityShortName = domain + '名称'; page.pagination.pageIndex = 3;
@@ -251,7 +251,7 @@ test('场景路由使用独立页面，页签键包含业务代码，相同 ID �
     const { page, window } = harness();
     const tabs = [];
     window.RrsWorkbench = { buildTabIndex: (prefix, parts) => prefix + ':' + parts.join(':'), formatDetailTitle: () => '详情', openDetailTab: tab => { tabs.push(tab); return true; } };
-    for (const [domain, scene, target] of [['bond', 'securityAdjust', 'security'], ['bond', 'forbiddenCompanyAdjust', 'forbidden'], ['bond', 'crmwAdjust', 'crmw'], ['fund', 'fundAdjust', 'fund']]) {
+    for (const [domain, scene, target] of [['bond', 'securityAdjust', 'security'], ['bond', 'forbiddenCompanyAdjust', 'forbidden'], ['bond', 'crmwAdjust', 'crmw'], ['fund', 'fundAdjust', 'fund'], ['stock', 'stockAdjust', 'stock']]) {
         page.businessDomain = domain;
         page.openMatterPage({ businessDomain: domain, businessScene: scene, objectCode: 'CODE', objectName: '名称', adjustLogId: 1 });
         assert.equal(tabs.at(-1).page, `${target}_pool_adjust_approve.html`); assert.ok(tabs.at(-1).index.includes(domain));
@@ -306,8 +306,8 @@ test('事项和提醒页面显式提供当前用户，无需公共 API 补参', 
 });
 
 test('所有附件列表页面显式传业务，债券和基金相同日志 ID 不串业务', async () => {
-    for (const prefix of ['security', 'forbidden', 'crmw', 'fund']) {
-        for (const mode of prefix === 'fund' ? ['_approve', '_detail'] : ['', '_approve', '_detail']) {
+    for (const prefix of ['security', 'forbidden', 'crmw', 'fund', 'stock']) {
+        for (const mode of ['fund', 'stock'].includes(prefix) ? ['_approve', '_detail'] : ['', '_approve', '_detail']) {
             let options;
             function Vue(config) { options = config; }
             const context = vm.createContext({ Vue, window: {}, URLSearchParams, document: { addEventListener() {} } });
@@ -318,7 +318,7 @@ test('所有附件列表页面显式传业务，债券和基金相同日志 ID �
             }
             const requests = [];
             const page = {
-                adjustLogId: 7, adjustBatchNo: 'batch7',
+                adjustLogId: 7, adjustBatchNo: 'batch7', detailRequestId: 0,
                 $set(row, key, value) { row[key] = value; },
                 async apiPost(url, body) {
                     requests.push({ url, body });
@@ -326,22 +326,22 @@ test('所有附件列表页面显式传业务，债券和基金相同日志 ID �
                     return [];
                 }
             };
-            if (prefix === 'fund') {
+            if (['fund', 'stock'].includes(prefix)) {
                 await options.methods.loadDetail.call(page, 'F1');
-                assert.equal(page.pageError, undefined, name);
+                assert.ok(!page.pageError, name);
             } else {
                 await options.methods.loadLogAttachments.call(page, [{ id: 7 }, { id: 7 }, { id: 8 }, null]);
             }
             const request = requests.find(item => item.url.endsWith('/queryAttachmentList'));
             assert.ok(request, name);
-            assert.equal(request.body.businessDomain, prefix === 'fund' ? 'fund' : 'bond', name);
-            assert.deepEqual(Array.from(request.body.adjustLogIds), prefix === 'fund' ? [7] : [7, 8], name);
+            assert.equal(request.body.businessDomain, ['fund', 'stock'].includes(prefix) ? prefix : 'bond', name);
+            assert.deepEqual(Array.from(request.body.adjustLogIds), ['fund', 'stock'].includes(prefix) ? [7] : [7, 8], name);
         }
     }
 });
 
 test('审核页优先展示本人待办，仅原演示管理员可展示其他人待办', () => {
-    for (const prefix of ['security', 'forbidden', 'crmw', 'fund']) {
+    for (const prefix of ['security', 'forbidden', 'crmw', 'fund', 'stock']) {
         let options;
         function Vue(config) { options = config; }
         const context = vm.createContext({ Vue, window: {}, URLSearchParams, document: { addEventListener() {} } });
@@ -382,7 +382,7 @@ test('审核页优先展示本人待办，仅原演示管理员可展示其他�
 });
 
 test('详情和审核页不再读取或维护重复业务授权', () => {
-    for (const prefix of ['security', 'forbidden', 'crmw', 'fund']) {
+    for (const prefix of ['security', 'forbidden', 'crmw', 'fund', 'stock']) {
         for (const mode of ['approve', 'detail']) {
             const html = fs.readFileSync(path.join(root, `pages/${prefix}_pool_adjust_${mode}.html`), 'utf8');
             assert.doesNotMatch(html, /canManageBusiness|RrsBusiness|queryBusinessDomainList/);

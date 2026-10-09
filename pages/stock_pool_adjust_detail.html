@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票池调库详情</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/print_export.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <link rel="stylesheet" href="../css/stock_pool_adjust_detail.css"><link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="stock-pool-adjust-detail-page">
+<div id="stockPoolAdjustDetail" class="pool-adjust-workflow-page">
+    <div class="topbar">
+        <el-button class="back-btn" @click="backToList" size="mini" type="text"><i class="el-icon-arrow-left"></i>返回</el-button><div class="divider"></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:700;color:var(--c-text);">股票池调库详情</span><span v-if="stock.stockCode" style="font-family:'Courier New',monospace;font-size:13px;font-weight:600;color:var(--c-primary);background:var(--c-primary-l);padding:2px 10px;border-radius:5px;border:1px solid rgba(23,70,212,.15);">{{ stock.stockCode }}</span><span v-if="stock.stockShortName || stock.stockName" style="color:var(--c-text-2);font-weight:500;font-size:13px;">{{ stock.stockShortName || stock.stockName }}</span></div>
+    </div>
+    <div class="detail-body" v-loading="loading">
+        <div class="print-doc-header"><div class="print-doc-title">股票池调库详情</div><div class="print-doc-sub">{{ [stock.stockCode, stock.stockShortName || stock.stockName].filter(Boolean).join(' ') }}</div></div>
+        <div class="section-card section-bond-info print-section">
+            <div class="section-header" @click="toggleSection('stockInfo')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">股票基础信息</div><i :class="sectionExpanded.stockInfo ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div>
+            <div v-show="sectionExpanded.stockInfo" style="padding:0;"><el-descriptions :column="3" border size="small" class="bond-info-descriptions">
+                        <el-descriptions-item label="股票简称"><el-input :value="emptyNumber(stock.stockShortName)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="股票代码"><el-input :value="emptyNumber(stock.stockCode)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="所属行业"><el-input :value="emptyNumber(stock.industryName)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="市场"><el-input :value="marketLabel(stock.marketCode)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="昨收"><el-input :value="emptyNumber(stock.previousClosePrice)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="最高"><el-input :value="emptyNumber(stock.highPrice)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="最低"><el-input :value="emptyNumber(stock.lowPrice)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="平均"><el-input :value="emptyNumber(stock.averagePrice)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="换手率"><el-input :value="formatPercent(stock.turnoverRate)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="交易总量(手)"><el-input :value="emptyNumber(stock.tradeVolume)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="交易市值(万)"><el-input :value="emptyNumber(stock.tradeMarketValue)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="总股本(百万)"><el-input :value="emptyNumber(stock.totalShares)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="总市值(百万)"><el-input :value="emptyNumber(stock.totalMarketValue)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="流通A股(百万)"><el-input :value="emptyNumber(stock.circulatingAShares)" size="small" disabled></el-input></el-descriptions-item>
+                        <el-descriptions-item label="A股市值(百万)"><el-input :value="emptyNumber(stock.aShareMarketValue)" size="small" disabled></el-input></el-descriptions-item>
+                    </el-descriptions></div>
+        </div>
+        <div class="section-card section-current-pools print-section">
+            <div class="section-header" @click="toggleSection('currentPools')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">当前所在池</div><i :class="sectionExpanded.currentPools ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div>
+            <div v-show="sectionExpanded.currentPools" style="padding:0 0 4px;"><div class="pool-sub-block block-bond"><div class="pool-inline-row" :class="{ 'is-expanded': poolExpanded }"><div class="pool-inline-label"><span class="pool-sub-label">当前股票所在池</span><span class="pool-sub-count type-bond">{{ poolStatuses.length }}</span></div><div class="pool-inline-content"><template v-if="!poolExpanded"><span v-if="poolStatuses.length === 0" style="color:var(--c-text-3);font-size:12px;">暂无</span><span v-for="(pool, index) in poolStatuses" :key="pool.poolName + index" class="pool-name-chip">{{ pool.poolName }}</span><span v-if="poolStatuses.length > 0" class="pool-overflow-hint">···</span></template></div><el-button class="pool-toggle-btn" @click.stop="poolExpanded = !poolExpanded" size="mini" type="text"><i :class="poolExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>{{ poolExpanded ? '收起' : '展开' }}</el-button></div><div v-if="poolExpanded" class="pool-expand-table"><el-table :data="poolStatuses" size="small" stripe border style="width:100%;" :empty-text="'暂无'"><el-table-column label="序号" width="50" align="center"><template slot-scope="{ $index }">{{ $index + 1 }}</template></el-table-column><el-table-column prop="poolName" label="投资池名称" min-width="200"><template slot-scope="{ row }"><span style="font-weight:600;color:var(--c-text);">{{ row.poolName }}</span></template></el-table-column><el-table-column prop="poolType" label="池类型" min-width="110"><template slot-scope="{ row }"><el-tag v-if="row.poolType" size="mini" type="info">{{ poolTypeLabel(row.poolType) }}</el-tag></template></el-table-column><el-table-column prop="entryTime" label="入池时间" min-width="160" align="center"></el-table-column></el-table></div></div></div>
+        </div>
+        <div class="section-card section-adjust-log print-section">
+            <div class="section-header" @click="toggleSection('adjustLog')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">调库记录</div><i :class="sectionExpanded.adjustLog ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div>
+            <div v-show="sectionExpanded.adjustLog" class="section-body"><el-table :data="adjustLogs" size="small" stripe border style="width:100%;" :empty-text="'暂无调库记录'"><el-table-column prop="stockCode" label="股票代码" min-width="130"></el-table-column><el-table-column prop="targetPoolName" label="投资池名称" min-width="180"></el-table-column><el-table-column prop="adjustType" label="调整类型" min-width="100" align="center"><template slot-scope="{ row }"><el-tag v-if="row.adjustType" size="mini" :type="adjustTypeTagType(row.adjustType)">{{ row.adjustType }}</el-tag></template></el-table-column><el-table-column label="调整方向" min-width="90" align="center"><template slot-scope="{ row }"><el-tag v-if="adjustModeLabel(row.adjustMode) === '调入'" size="mini" type="success">调入</el-tag><el-tag v-else-if="adjustModeLabel(row.adjustMode) === '调出'" size="mini" type="danger">调出</el-tag></template></el-table-column><el-table-column prop="adjustReason" label="调整原因" min-width="180" show-overflow-tooltip></el-table-column><el-table-column label="股票报告" min-width="150"><template slot-scope="{ row }"><el-button v-for="file in attachmentsByLog(row.id, 'stock_report_')" :key="file.id" type="text" size="mini" @click="downloadAttachment(file)">{{ file.originalFileName }}</el-button></template></el-table-column><el-table-column label="其他材料" min-width="150"><template slot-scope="{ row }"><el-button v-for="file in attachmentsByLog(row.id, 'stock_material_')" :key="file.id" type="text" size="mini" @click="downloadAttachment(file)">{{ file.originalFileName }}</el-button></template></el-table-column><el-table-column prop="submitTime" label="提交时间" width="170" align="center"></el-table-column><el-table-column prop="flowName" label="审批流程" min-width="175" show-overflow-tooltip></el-table-column><el-table-column prop="auditStatus" label="审核状态" width="150" fixed="right" align="center"><template slot-scope="{ row }"><el-tag v-if="row.auditStatus" size="mini" :type="auditStatusType(row.auditStatus)">{{ auditStatusLabel(row.auditStatus) }}</el-tag></template></el-table-column></el-table></div>
+        </div>
+        <div class="section-card section-reason-advice print-section"><div class="section-header" @click="toggleSection('reasonAdvice')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">原因和建议</div><i :class="sectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div><div v-show="sectionExpanded.reasonAdvice" class="reason-advice-body" style="padding:20px 22px;"><div class="reason-advice-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div><div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div><el-input :value="activeLog.adjustReason || ''" type="textarea" :rows="4" size="small" disabled></el-input></div><div><div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div><el-input :value="activeLog.adjustAdvice || ''" type="textarea" :rows="4" size="small" disabled></el-input></div></div></div></div>
+        <div class="section-card section-flow-status"><div class="section-header" @click="toggleSection('flowStatus')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">当前流程状态</div><el-tag v-if="activeLog.flowName" size="mini" type="info">流程名称：{{ activeLog.flowName }}</el-tag><i :class="sectionExpanded.flowStatus ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div><div v-show="sectionExpanded.flowStatus" class="section-body"><div v-if="flowStepList.length === 0" style="color:var(--c-text-3);font-size:13px;padding:8px 0;">暂无流程步骤</div><el-table
+                            v-else
+                            class="flow-step-table"
+                            :data="flowStepList"
+                            size="small"
+                            stripe
+                            border
+                            row-key="id"
+                            :span-method="flowStepSpanMethod"
+                            :row-class-name="getFlowStepRowClass"
+                            style="width:100%;">
+                        <el-table-column prop="nodeLabel" label="步骤名称" min-width="140">
+                            <template slot-scope="{ row }"><span style="font-weight:500;color:var(--c-text);">{{ row.nodeLabel }}</span></template>
+                        </el-table-column>
+                        <el-table-column label="步骤结果" min-width="110">
+                            <template slot-scope="{ row }">
+                                <el-tag v-if="row.stepStatus" size="mini" :type="stepStatusTagType(row.stepStatus)">{{ stepStatusLabel(row.stepStatus) }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="开始时间" min-width="160" align="center">
+                            <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.startTime ? moment(row.startTime).format('YYYY-MM-DD HH:mm:ss') : '' }}</span></template>
+                        </el-table-column>
+                        <el-table-column prop="handlerName" label="处理人" min-width="100">
+                            <template slot-scope="{ row }">
+                                <span v-if="isCurrentHandler(row)" class="flow-current-handler" title="当前登录用户">
+                                    <i class="el-icon-user-solid"></i>{{ row.handlerName || '' }}
+                                </span>
+                                <span v-else>{{ row.handlerName || '' }}</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="处理结果" min-width="100">
+                            <template slot-scope="{ row }">
+                                <el-tag v-if="row.processAction" size="mini" :type="row.processAction === 'approve' ? 'success' : (row.processAction === 'reject' ? 'danger' : 'info')">{{ processActionLabel(row.processAction) }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="处理时间" min-width="160" align="center">
+                            <template slot-scope="{ row }"><span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text-2);">{{ row.processTime ? moment(row.processTime).format('YYYY-MM-DD HH:mm:ss') : '' }}</span></template>
+                        </el-table-column>
+                        <el-table-column prop="processComment" label="处理意见" min-width="180">
+                            <template slot-scope="{ row }"><span style="color:var(--c-text-2);">{{ row.processComment || '' }}</span></template>
+                        </el-table-column>
+                    </el-table></div></div>
+        <div class="detail-bottom-actions"><el-button size="small" icon="el-icon-printer" :disabled="loading" @click="handleExportPdf">导出 PDF</el-button><el-button size="small" icon="el-icon-arrow-left" @click="backToList">返回</el-button></div>
+    </div>
+</div>
+<script>
+new Vue({
+    el: '#stockPoolAdjustDetail',
+    data() { return { loading: false, pageError: '', stock: {}, poolStatuses: [], adjustLogs: [], flowStepList: [], attachments: [], activeLog: {}, adjustLogId: null, adjustBatchNo: '', targetPoolId: null, detailRequestId: 0, poolExpanded: false, currentLoginUserId: window.RrsAuth.getCurrentUser().userId, sectionExpanded: { stockInfo: true, currentPools: true, adjustLog: true, reasonAdvice: true, flowStatus: true } }; },
+    async created() { const params = new URLSearchParams(window.location.search); this.adjustLogId = params.get('adjustLogId'); this.adjustBatchNo = params.get('adjustBatchNo') || ''; this.targetPoolId = params.get('targetPoolId'); const stockCode = params.get('stockCode') || ''; if (!stockCode) { this.$message.warning('缺少股票信息，请从业务页面进入'); return; } await this.loadDetail(stockCode); },
+    beforeDestroy() { window.RrsPrintExport.unbind(); },
+    methods: {
+        // 投资池类型按前端字典显示。
+        poolTypeLabel(code) { return { stock: '股票', stock_product: '股票产品', forbidden: '禁止库', observe: '观察池', whitelist: '白名单', blacklist: '黑名单', restricted: '限制名单', other: '其他' }[code] || code || ''; },
+        // 联动、互斥与手工调整使用统一标签颜色。
+        adjustTypeTagType(type) { return type === '互斥调整' ? 'danger' : type === '联动调整' ? 'warning' : 'info'; },
+        // 可空数值保持空白，零值仍显示为 0。
+        emptyNumber(value) { return value == null ? '' : value; },
+        // 按原始百分数值显示换手率。
+        formatPercent(value) { return value == null || value === '' ? '' : value + '%'; },
+        // 交易市场由前端字典显示中文。
+        marketLabel(code) { return { SSE: '上海证券交易所', SZSE: '深圳证券交易所', HKEX: '香港交易所' }[code] || code || ''; },
+        // 股票研究评级编码转展示文案。
+        ratingLabel(code) { return { buy: '买入', overweight: '增持', neutral: '中性', underweight: '减持', sell: '卖出' }[code] || code || ''; },
+        // 股票评级沿用证券评级标签配色。
+        ratingTagType() { return 'success'; },
+
+        toggleSection(name) { this.$set(this.sectionExpanded, name, !this.sectionExpanded[name]); },
+        handleExportPdf() {
+            if (this.loading) { this.$message.warning('股票信息加载中，请稍后'); return; }
+            window.RrsPrintExport.print({
+                fileTitle: ['股票池调库详情', this.stock.stockCode, this.stock.stockShortName || this.stock.stockName],
+                nextTick: fn => this.$nextTick(fn),
+                prepare: () => {
+                    const snapshot = { ...this.sectionExpanded, poolExpanded: this.poolExpanded };
+                    ['stockInfo', 'currentPools', 'adjustLog', 'reasonAdvice'].forEach(name => this.$set(this.sectionExpanded, name, true));
+                    this.poolExpanded = true;
+                    return snapshot;
+                },
+                restore: snapshot => {
+                    ['stockInfo', 'currentPools', 'adjustLog', 'reasonAdvice', 'flowStatus'].forEach(name => this.$set(this.sectionExpanded, name, snapshot[name]));
+                    this.poolExpanded = snapshot.poolExpanded;
+                }
+            });
+        },
+        adjustModeLabel(value) { return value === 'in' || value === '调入' ? '调入' : value === 'out' || value === '调出' ? '调出' : value || ''; },
+        auditStatusLabel(value) { const labels = { '-1': '无效调整', '00': '流程中', '11': '驳回待修改', '20': '审批通过', '21': '审批驳回', '32': 'O32自动审批', '99': '发起人已撤回' }; return labels[String(value)] || value || ''; },
+        auditStatusType(value) { const types = { '-1': 'danger', '00': 'warning', '11': 'warning', '20': 'success', '21': 'danger', '32': 'success', '99': 'info' }; return types[String(value)] || 'info'; },
+        stepStatusLabel(value) { const labels = { pending: '待处理', approve: '通过', reject: '驳回', submit: '提交', auto_process: '自动处理', canceled: '已撤回' }; return labels[value] || value || ''; },
+        stepStatusType(value) { return value === 'approve' ? 'success' : value === 'reject' ? 'danger' : value === 'pending' ? 'warning' : 'info'; },
+            // 当前流程状态表格行合并：前三列按各自业务含义分别合并
+            flowStepSpanMethod({ rowIndex, columnIndex }) {
+                if (columnIndex > 2) return { rowspan: 1, colspan: 1 };
+                const span = this.getFlowStepMergeSpan(rowIndex, columnIndex);
+                return { rowspan: span, colspan: span === 0 ? 0 : 1 };
+            },
+
+            // 计算当前行在连续相同流程步骤组中的合并行数
+            getFlowStepMergeSpan(rowIndex, columnIndex) {
+                const list = this.flowStepList || [];
+                const row = list[rowIndex];
+                if (!row) return 1;
+                const currentKey = this.getFlowStepMergeKey(row, columnIndex);
+                const prevRow = list[rowIndex - 1];
+                if (prevRow && this.getFlowStepMergeKey(prevRow, columnIndex) === currentKey) return 0;
+                let span = 1;
+                for (let i = rowIndex + 1; i < list.length; i++) {
+                    if (this.getFlowStepMergeKey(list[i], columnIndex) !== currentKey) break;
+                    span++;
+                }
+                return span;
+            },
+
+            // 按列生成合并键：名称按节点，结果按节点+结果，开始时间按节点+结果+时间
+            getFlowStepMergeKey(row, columnIndex) {
+                if (!row) return '';
+                if (columnIndex === 0) return row.nodeLabel || '';
+                if (columnIndex === 1) return [row.nodeLabel || '', row.stepStatus || ''].join('|');
+                return [row.nodeLabel || '', row.stepStatus || '', row.startTime || ''].join('|');
+            },
+
+            // 流程步骤行样式：节点背景按角色区分，处理状态按边框和强调层区分
+            getFlowStepRowClass({ row }) {
+                if (!row) return '';
+                const classList = [this.getFlowStepNodeClass(row)];
+                if (row.stepStatus === 'pending') {
+                    classList.push(this.isCurrentHandler(row)
+                        ? 'flow-row-pending-current'
+                        : 'flow-row-pending-other');
+                    return classList.join(' ');
+                }
+                if (row.stepStatus === 'auto_process') classList.push('flow-row-auto');
+                if (row.stepStatus === 'reject') classList.push('flow-row-rejected');
+                if (row.stepStatus === 'approve' || row.stepStatus === 'submit') classList.push('flow-row-approved');
+                if (row.stepStatus === 'canceled') classList.push('flow-row-ended');
+                return classList.join(' ');
+            },
+
+            // 根据节点类型和名称识别流程节点角色
+            getFlowStepNodeClass(row) {
+                const nodeType = String(row.nodeType || '').toLowerCase();
+                const text = [row.nodeLabel, row.nodeCode, row.nodeType].filter(Boolean).join(' ');
+                if (nodeType === 'start' || nodeType === 'end' || text.indexOf('开始') >= 0 || text.indexOf('结束') >= 0) {
+                    return 'flow-node-terminal';
+                }
+                if (nodeType === 'auto' || text.indexOf('自动审批') >= 0 || text.toLowerCase().indexOf('o32') >= 0) {
+                    return 'flow-node-auto';
+                }
+                if (text.indexOf('发起') >= 0 || text.indexOf('提交') >= 0) {
+                    return 'flow-node-initiator';
+                }
+                if (text.indexOf('复核') >= 0 || text.indexOf('复合') >= 0) {
+                    return 'flow-node-review';
+                }
+                if (text.indexOf('修改') >= 0) {
+                    return 'flow-node-modify';
+                }
+                if (text.indexOf('审批') >= 0) {
+                    return 'flow-node-approve';
+                }
+                return 'flow-node-default';
+            },
+
+            // 判断流程步骤处理人是否为当前登录人
+            isCurrentHandler(row) {
+                return row && String(row.handlerId || '') === String(this.currentLoginUserId);
+            },
+
+            stepStatusTagType(code) {
+                const map = { pending: "info", approve: "success", reject: "danger", submit: "info", auto_process: "success", canceled: "info" };
+                return map[code] || "info";
+            },
+
+        processActionLabel(value) { const labels = { approve: '通过', reject: '驳回', submit: '提交', auto_process: '自动处理', skipped: '被跳过' }; return labels[value] || value || ''; },
+        attachmentsByLog(logId, prefix) { return this.attachments.filter(file => String(file.mainId) === String(logId) && String(file.attachmentCategory || '').indexOf(prefix) === 0); },
+        async downloadAttachment(file) { try { const base64 = await this.apiPost('/api/v1/attachments/downloadAttachment', { id: file.id }); const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0)); const blob = new Blob([bytes], { type: file.contentType || 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = file.originalFileName || '附件'; link.click(); URL.revokeObjectURL(link.href); } catch (e) { this.$message.error(e.message || '附件下载失败'); } },
+        // 实时加载基础信息，日志保留申请时的行业和评级。
+        async loadDetail(stockCode) {
+            this.loading = true;
+            this.pageError = '';
+            const requestId = ++this.detailRequestId;
+            try {
+                const query = { stockCode, adjustLogId: this.adjustLogId, adjustBatchNo: this.adjustBatchNo, targetPoolId: this.targetPoolId };
+                const [stock, pools, logs] = await Promise.all([
+                    this.apiPost('/api/v1/stockPoolAdjust/queryStockDetail', { stockCode }),
+                    this.apiPost('/api/v1/stockPoolAdjust/queryStockPoolStatus', { stockCode }),
+                    this.apiPost('/api/v1/stockPoolAdjust/queryAdjustLogList', query)
+                ]);
+                if (requestId !== this.detailRequestId) return;
+                const records = logs || [];
+                const activeLog = records.find(row => String(row.id) === String(this.adjustLogId)) || records[0] || {};
+                const adjustLogId = activeLog.id || this.adjustLogId;
+                const adjustBatchNo = this.adjustBatchNo || activeLog.adjustBatchNo || '';
+                const [attachments, steps] = await Promise.all([
+                    records.length ? this.apiPost('/api/v1/attachments/queryAttachmentList', { businessDomain: 'stock', adjustLogIds: records.map(row => row.id) }) : [],
+                    adjustLogId || adjustBatchNo ? this.apiPost('/api/v1/stockPoolAdjust/queryAdjustStepList', { adjustLogId, adjustBatchNo }) : []
+                ]);
+                if (requestId !== this.detailRequestId) return;
+                this.stock = stock || {}; this.poolStatuses = pools || []; this.adjustLogs = records;
+                this.attachments = attachments || []; this.activeLog = activeLog;
+                this.adjustLogId = adjustLogId; this.adjustBatchNo = adjustBatchNo; this.flowStepList = steps || [];
+            } catch (e) { if (requestId === this.detailRequestId) this.pageError = e.message || '股票调库详情加载失败'; }
+            finally { if (requestId === this.detailRequestId) this.loading = false; }
+        },
+        backToList() { if (window.RrsWorkbench.closeActiveTab()) return; window.history.back(); }
+    }
+});
+</script>
+</body>
+</html>

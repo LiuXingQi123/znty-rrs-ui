@@ -104,6 +104,8 @@ const DICT_ITEM_TYPE = {
 const DICT_FLOW_TYPE = {
     'whitelistInbound':  '白名单调入',
     'simpleInbound':     '简易调入',
+    'fastInbound':       '快速调入',
+    'fastOutbound':      '快速调出',
     'normalInbound':     '默认调入',
     'specialInbound':    '特殊审批',
     'upgradeInbound':    '上调',
@@ -739,6 +741,12 @@ const DICT_ATTACHMENT_CATEGORY = {
     'material_hand':      '手工上传其他材料',
     'material_in':        '内部报告库其他材料',
     'material_out':       '外部报告库其他材料',
+    'stock_report_hand':  '手工上传股票报告',
+    'stock_report_in':    '内部报告库股票报告',
+    'stock_report_out':   '外部报告库股票报告',
+    'stock_material_hand': '手工上传股票其他材料',
+    'stock_material_in':   '内部报告库股票其他材料',
+    'stock_material_out':  '外部报告库股票其他材料',
     'report_in':          '内部报告库附件',
     'report_out':         '外部报告库附件',
 };
@@ -837,5 +845,8 @@ const DICT_SCHEDULE_ENABLED = {
     0: '已关闭',
 };
 
-// 业务入口（BusinessDomain），股票仅预留编码。
+// 业务入口（BusinessDomain），债券、基金、股票独立事项链路。
 const DICT_BUSINESS_DOMAIN = { bond: '债券', fund: '基金', stock: '股票' };
+
+// 股票研究评级，最近两次有效评级按评级日期、主键倒序选取。
+const DICT_STOCK_RATING = { buy: '买入', overweight: '增持', neutral: '中性', underweight: '减持', sell: '卖出' };

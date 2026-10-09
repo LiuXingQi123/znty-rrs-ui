@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票池调整历史查询</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <link rel="stylesheet" href="../css/stock_pool_adjust_history.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="stock-pool-adjust-history-page">
+<div id="stock_pool_adjust_history">
+    <!-- 顶栏 -->
+    <div class="topbar">
+        <div class="topbar-brand">
+            <div class="topbar-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+            </div>
+            <h2>股票池调整历史查询</h2>
+        </div>
+        <div class="topbar-sep"></div>
+        <span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta">
+            <span class="topbar-date-badge">{{ today }}</span>
+        </div>
+    </div>
+
+    <!-- 列表页 -->
+    <div class="list-body">
+        <!-- 搜索面板 -->
+        <div class="search-panel">
+            <div class="search-row">
+                <span class="search-label"><i class="el-icon-search"></i>筛选</span>
+
+                <el-popover
+                    placement="bottom-start"
+                    width="340"
+                    v-model="poolTreeVisible"
+                    :append-to-body="false"
+                    @hide="handlePoolTreeHide">
+                    <div class="pool-popover-content">
+                        <el-input
+                            v-model.trim="poolTreeKeyword"
+                            class="pool-tree-search"
+                            size="small"
+                            clearable
+                            prefix-icon="el-icon-search"
+                            placeholder="搜索投资池"
+                            @input="filterPoolTree">
+                        </el-input>
+                        <div class="pool-tree-scroll">
+                            <el-tree
+                                ref="poolTreeRef"
+                                :data="poolTreeData"
+                                node-key="id"
+                                :props="treeProps"
+                                show-checkbox
+                                check-strictly
+                                :filter-node-method="filterPoolNode">
+                            </el-tree>
+                        </div>
+                    </div>
+                    <div class="pool-popover-actions">
+                        <el-button size="mini" @click="poolTreeVisible = false">取消</el-button>
+                        <el-button type="primary" size="mini" @click="handlePoolTreeConfirm">确认</el-button>
+                    </div>
+                    <span slot="reference" class="pool-trigger" :class="{ 'has-selection': searchForm.poolIds.length > 0 }">
+                        <i class="el-icon-folder-opened"></i>
+                        {{ searchForm.poolIds.length > 0 ? '已选 ' + searchForm.poolIds.length + ' 个池' : '请选择投资池' }}
+                    </span>
+                </el-popover>
+
+                <el-input v-model.trim="searchForm.stockCode" placeholder="证券代码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-document"></i>
+                </el-input>
+
+                <el-select v-model="searchForm.industryCode" placeholder="行业" filterable clearable size="small" style="width:140px;"><el-option v-for="item in industryOptions" :key="item.industryCode" :label="item.industryName" :value="item.industryCode"></el-option></el-select>
+
+                <el-date-picker
+                    v-model="searchForm.adjustTimeRange"
+                    type="daterange"
+                    popper-class="project-date-range-picker"
+                    range-separator="至"
+                    start-placeholder="调整开始"
+                    end-placeholder="调整结束"
+                    size="small"
+                    style="width:240px;"
+                    value-format="yyyy-MM-dd">
+                </el-date-picker>
+
+                <el-input v-model.trim="searchForm.adjusterName" placeholder="调整人" clearable size="small" style="width:130px;">
+                    <i slot="prefix" class="el-input__icon el-icon-user"></i>
+                </el-input>
+
+                <el-select v-model="searchForm.adjustMode" placeholder="调整方向" clearable size="small" style="width:110px;">
+                    <el-option v-for="m in adjustModeOptions" :key="m.value" :label="m.label" :value="m.value"></el-option>
+                </el-select>
+
+                <el-select v-model="searchForm.auditStatus" placeholder="审核状态" clearable size="small" style="width:130px;">
+                    <el-option v-for="a in auditStatusOptions" :key="a.value" :label="a.label" :value="a.value"></el-option>
+                </el-select>
+
+                <el-button type="primary" size="small" icon="el-icon-search" @click="handleSearch">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+                <el-button size="small" icon="el-icon-download" :loading="exporting" @click="handleExport">导出</el-button>
+
+                <div class="total-badge">
+                    <i class="el-icon-data-line"></i> 共 {{ pagination.total }} 条记录
+                </div>
+            </div>
+
+            <!-- 已选池标签行 -->
+            <div class="search-row" v-if="selectedPoolTags.length > 0">
+                <span class="search-label" style="visibility:hidden;"><i class="el-icon-search"></i>筛选</span>
+                <div class="pool-tag-row">
+                    <span class="pool-tag" v-for="p in selectedPoolTags" :key="p.id">
+                        <span :title="p.poolName">{{ p.poolName }}</span>
+                        <i class="el-icon-close" @click="removePoolTag(p.id)"></i>
+                    </span>
+                </div>
+                <el-button class="compact-clear-btn" @click="clearPoolSelection" size="mini" type="text">
+                    <i class="el-icon-delete"></i> 清空
+                </el-button>
+            </div>
+        </div>
+
+        <!-- 表格卡片 -->
+        <div class="table-card">
+            <el-table :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;">
+                <el-table-column label="序号" width="72" align="center">
+                    <template slot-scope="{ $index }">
+                        {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
+                    </template>
+                </el-table-column>
+                <el-table-column prop="adjusterName" label="调整人" min-width="100">
+                    <template slot-scope="{ row }">{{ row.adjusterName || '' }}</template>
+                </el-table-column>
+                <el-table-column prop="submitTime" label="提交日期" min-width="170" align="center">
+                    <template slot-scope="{ row }">{{ row.submitTime ? moment(row.submitTime).format('YYYY-MM-DD HH:mm') : '' }}</template>
+                </el-table-column>
+                <el-table-column prop="stockName" label="证券名称" min-width="240" show-overflow-tooltip>
+                    <template slot-scope="{ row }">
+                        <span class="desc-link" @click="openStockAdjustDetail(row)">{{ row.stockName || '' }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="stockCode" label="证券代码" min-width="130">
+                    <template slot-scope="{ row }">
+                        <span class="desc-link" @click="openStockAdjustDetail(row)">{{ row.stockCode || '' }}</span>
+                    </template>
+                </el-table-column>
+<el-table-column prop="industryName" label="行业" min-width="130" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="adjustType" label="调整类型" min-width="110" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.adjustType" size="mini" :type="adjustTypeTagType(row.adjustType)">{{ row.adjustType }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="调整方向" min-width="90" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.adjustMode === '调入'" class="adjust-direction-tag" type="success" size="mini">调入</el-tag>
+                        <el-tag v-else-if="row.adjustMode === '调出'" class="adjust-direction-tag" type="danger" size="mini">调出</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="targetPoolPath" label="投资池" min-width="180" show-overflow-tooltip>
+                    <template slot-scope="{ row }">{{ row.targetPoolPath || row.targetPoolName || '' }}</template>
+                </el-table-column>
+                <el-table-column label="审核状态" min-width="110" align="center">
+                    <template slot-scope="{ row }">
+                        <el-tag v-if="row.auditStatus != null" :type="auditStatusType(row.auditStatus)" size="mini">
+                            {{ auditStatusLabel(row.auditStatus) }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+                <el-pagination
+                    :total="pagination.total"
+                    :current-page="pagination.pageIndex"
+                    :page-size="pagination.pageSize"
+                    :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    small
+                    @current-change="handlePageChange"
+                    @size-change="handleSizeChange">
+                </el-pagination>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+new Vue({
+    el: '#stock_pool_adjust_history',
+    // 初始化页面状态。
+    data() {
+        return {
+            moment: moment, // 日期处理工具
+            pagePaths: { // 业务详情页路径
+                stockPoolAdjustDetail: 'stock_pool_adjust_detail.html', // 股票调库详情页
+            },
+            today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
+            searchForm: { // 搜索条件
+                poolIds: [],              // 选中的池 ID 列表
+                stockCode: '', industryCode: '',             // 股票代码关键词
+                adjustTimeRange: null,    // 调整时间范围
+                adjusterName: '',         // 调整人关键词
+                adjustMode: '',           // 调整方向
+                auditStatus: '',          // 审核状态码
+            },
+            industryOptions: [], // 历史日志行业选项
+            adjustModeOptions: [ // 调整方向选项
+                { value: '调入', label: '调入' },
+                { value: '调出', label: '调出' },
+            ],
+            auditStatusOptions: [ // 审核状态选项
+                { value: '-1', label: '无效调整' },
+                { value: '00', label: '流程中' },
+                { value: '11', label: '驳回待修改' },
+                { value: '20', label: '审批通过' },
+                { value: '21', label: '审批驳回' },
+                { value: '32', label: 'O32自动审批' },
+                { value: '99', label: '发起人已撤回' },
+            ],
+            poolTreeData: [],       // 投资池树数据
+            poolTreeVisible: false, // 投资池选择弹层显隐
+            poolTreeKeyword: '',    // 投资池树搜索词
+            selectedPoolTags: [],   // 已选投资池标签
+            treeProps: { // 投资池树字段配置
+                children: 'children', // 子节点字段
+                label: 'poolName',     // 节点名称字段
+                // 禁用非叶子节点，只允许选择叶子投资池。
+                disabled(data) {
+                    return data.children && data.children.length > 0;
+                },
+            },
+            tableData: [],    // 当前页表格数据
+            loading: false,   // 表格加载状态
+            listRequestId: 0, exporting: false, // 导出处理中状态
+            pagination: { // 分页参数
+                pageIndex: 1, // 当前页码（后端字段 pageIndex）
+                pageSize: 20, // 每页条数
+                total: 0,     // 总条数
+            },
+        };
+    },
+    // 页面初始化时加载筛选项和历史列表。
+    mounted() {
+        this.loadPoolTree();
+        this.loadIndustries();
+        this.loadList();
+    },
+    methods: {
+        // 调整类型 Tag 配色。
+        adjustTypeTagType(adjustType) {
+            if (adjustType === '联动调整') return 'warning';
+            if (adjustType === '互斥调整') return 'danger';
+            return 'info';
+        },
+
+        // 审核状态码转中文。
+        auditStatusLabel(code) {
+            const map = {
+                '-1': '无效调整', '00': '流程中', '11': '驳回待修改', '20': '审批通过',
+                '21': '审批驳回', '32': 'O32自动审批', '99': '发起人已撤回',
+            };
+            return map[String(code)] || code || '';
+        },
+
+        // 审核状态 Tag 配色。
+        auditStatusType(code) {
+            const map = {
+                '20': 'success', '-1': 'danger', '21': 'danger', '32': 'success',
+                '99': 'info', '11': 'warning', '00': 'warning',
+            };
+            return map[String(code)] || 'info';
+        },
+
+        // 打开股票调库详情页签。
+        openStockAdjustDetail(row) {
+            const params = new URLSearchParams();
+            params.set('stockCode', row.stockCode || '');
+            const adjustLogId = window.RrsWorkbench.resolveAdjustLogId(row, true);
+            if (adjustLogId) params.set('adjustLogId', adjustLogId);
+            if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
+            if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
+            const title = row.stockName || row.stockCode || '股票';
+            const opened = window.RrsWorkbench.openDetailTab({
+                index: window.RrsWorkbench.buildTabIndex('stock-detail', [row.stockCode, adjustLogId, row.adjustBatchNo, row.targetPoolId]),
+                title: window.RrsWorkbench.formatDetailTitle(title, row.stockCode),
+                page: this.pagePaths.stockPoolAdjustDetail,
+                query: params.toString(),
+            });
+            if (opened) return;
+            window.RrsAuth.appendUserParams(params);
+            window.location.href = this.pagePaths.stockPoolAdjustDetail + '?' + params.toString();
+        },
+
+        // 加载支持股票品种的投资池树。
+        async loadPoolTree() {
+            try {
+                const data = await this.apiPost('/api/v1/common/queryPoolTreeList', {
+                    includeVarietyCodes: ['stock'],
+                });
+                this.poolTreeData = this.buildPoolTree(data || []);
+            } catch (e) {}
+        },
+
+        // 行业选项来自历史日志中的实际行业。
+        async loadIndustries() {
+            try { this.industryOptions = await this.apiPost('/api/v1/stockPoolAdjustHistory/queryIndustryList', {}) || []; } catch (e) { this.industryOptions = []; }
+        },
+
+        // 将扁平投资池列表转换为树结构。
+        buildPoolTree(list) {
+            if (!list || list.length === 0) return [];
+            const map = {};
+            const roots = [];
+            list.forEach(function(item) {
+                map[item.id] = Object.assign({}, item, { children: [] });
+            });
+            list.forEach(function(item) {
+                const node = map[item.id];
+                if (item.parentId != null && map[item.parentId]) {
+                    const parent = map[item.parentId];
+                    node.fullPath = node.poolFullName || parent.poolName + '/' + node.poolName;
+                    parent.children.push(node);
+                } else {
+                    node.fullPath = node.poolFullName || node.poolName;
+                    roots.push(node);
+                }
+            });
+            return roots;
+        },
+
+        // 按关键字过滤投资池节点。
+        filterPoolNode(value, data) {
+            if (!value) return true;
+            const searchableText = data.fullPath || data.poolName || '';
+            return String(searchableText).toLowerCase().indexOf(value.toLowerCase()) !== -1;
+        },
+
+        // 触发投资池树过滤。
+        filterPoolTree(value) {
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.filter(value.trim());
+            }
+        },
+
+        // 关闭投资池弹层后清空搜索词。
+        handlePoolTreeHide() {
+            this.poolTreeKeyword = '';
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.filter('');
+            }
+        },
+
+        // 确认投资池树选择。
+        handlePoolTreeConfirm() {
+            const checkedKeys = this.$refs.poolTreeRef.getCheckedKeys();
+            const halfCheckedKeys = this.$refs.poolTreeRef.getHalfCheckedKeys();
+            const allKeys = checkedKeys.concat(halfCheckedKeys);
+            this.searchForm.poolIds = allKeys;
+            const flatList = this.flattenTree(this.poolTreeData);
+            this.selectedPoolTags = flatList.filter(function(node) {
+                return allKeys.indexOf(node.id) !== -1;
+            }).map(function(node) {
+                return { id: node.id, poolName: node.fullPath };
+            });
+            this.poolTreeVisible = false;
+            this.handleSearch();
+        },
+
+        // 移除一个已选投资池。
+        removePoolTag(poolId) {
+            this.searchForm.poolIds = this.searchForm.poolIds.filter(function(id) {
+                return id !== poolId;
+            });
+            this.selectedPoolTags = this.selectedPoolTags.filter(function(pool) {
+                return pool.id !== poolId;
+            });
+            this.$refs.poolTreeRef.setCheckedKeys(this.searchForm.poolIds);
+            this.handleSearch();
+        },
+
+        // 清空全部已选投资池。
+        clearPoolSelection() {
+            this.searchForm.poolIds = [];
+            this.selectedPoolTags = [];
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.setCheckedKeys([]);
+            }
+            this.handleSearch();
+        },
+
+        // 扁平化投资池树。
+        flattenTree(nodes) {
+            const result = [];
+            (function walk(list) {
+                list.forEach(function(node) {
+                    result.push(node);
+                    if (node.children && node.children.length > 0) {
+                        walk(node.children);
+                    }
+                });
+            })(nodes);
+            return result;
+        },
+
+        // 构建与列表一致的查询参数。
+        buildQueryParams() {
+            return {
+                poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
+                stockCode: this.searchForm.stockCode || null,
+                industryCode: this.searchForm.industryCode || null,
+                adjustTimeStart: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[0] : null,
+                adjustTimeEnd: this.searchForm.adjustTimeRange ? this.searchForm.adjustTimeRange[1] : null,
+                adjusterName: this.searchForm.adjusterName || null,
+                adjustMode: this.searchForm.adjustMode || null,
+                auditStatus: this.searchForm.auditStatus || null,
+            };
+        },
+
+        // 分页加载股票池调整历史查询。
+        async loadList() {
+            this.loading = true;
+            const requestId = ++this.listRequestId;
+            try {
+                const params = Object.assign({}, this.buildQueryParams(), {
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize,
+                });
+                const data = await this.apiPost('/api/v1/stockPoolAdjustHistory/queryStockPoolAdjustHistoryPage', params);
+                if (requestId !== this.listRequestId) return;
+                this.tableData = data.records || [];
+                this.pagination.total = data.total || 0;
+            } catch (e) {}
+            if (requestId === this.listRequestId) this.loading = false;
+        },
+
+        // 按当前筛选条件导出全部命中记录。
+        async handleExport() {
+            this.exporting = true;
+            try {
+                const file = await this.apiPost(
+                    '/api/v1/stockPoolAdjustHistory/exportStockPoolAdjustHistoryExcel',
+                    this.buildQueryParams()
+                );
+                this.downloadBase64File(file.contentBase64, file.fileName, file.contentType);
+                this.$message.success('导出成功');
+            } finally {
+                this.exporting = false;
+            }
+        },
+
+        // 查询时回到第一页。
+        handleSearch() {
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+
+        // 重置筛选条件和投资池选择。
+        handleReset() {
+            this.searchForm = {
+                poolIds: [],
+                stockCode: '', industryCode: '',
+                adjustTimeRange: null,
+                adjusterName: '',
+                adjustMode: '',
+                auditStatus: '',
+            };
+            this.selectedPoolTags = [];
+            this.pagination.pageIndex = 1;
+            if (this.$refs.poolTreeRef) {
+                this.$refs.poolTreeRef.setCheckedKeys([]);
+            }
+            this.loadList();
+        },
+
+        // 切换当前页。
+        handlePageChange(page) {
+            this.pagination.pageIndex = page;
+            this.loadList();
+        },
+
+        // 切换每页条数。
+        handleSizeChange(size) {
+            this.pagination.pageSize = size;
+            this.pagination.pageIndex = 1;
+            this.loadList();
+        },
+    },
+});
+</script>
+</body>
+</html>
