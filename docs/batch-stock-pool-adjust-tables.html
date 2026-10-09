@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票池批量调整｜表与业务逻辑</title>
+    <style>
+        #batch_stock_pool_adjust_doc, #batch_stock_pool_adjust_doc * { box-sizing: border-box; }
+        body { margin: 0; background: #F7F8FA; }
+        #batch_stock_pool_adjust_doc { max-width: 1180px; margin: 0 auto; padding: 24px; color: #3F485A; font: 13px/1.7 "PingFang SC", "Microsoft YaHei", Arial, sans-serif; }
+        #batch_stock_pool_adjust_doc h1 { margin: 0 0 8px; color: #242933; font-size: 20px; }
+        #batch_stock_pool_adjust_doc h2 { margin: 0 0 12px; color: #2743A4; font-size: 16px; }
+        #batch_stock_pool_adjust_doc section { margin-top: 16px; padding: 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 4px; }
+        #batch_stock_pool_adjust_doc p { margin: 8px 0; }
+        #batch_stock_pool_adjust_doc ul { padding-left: 20px; }
+        #batch_stock_pool_adjust_doc .table-wrap { overflow-x: auto; }
+        #batch_stock_pool_adjust_doc table { width: 100%; border-collapse: collapse; }
+        #batch_stock_pool_adjust_doc th, #batch_stock_pool_adjust_doc td { padding: 8px 12px; text-align: left; border: 1px solid #E5E5E5; vertical-align: top; }
+        #batch_stock_pool_adjust_doc th { background: #F7F8FA; color: #242933; }
+        #batch_stock_pool_adjust_doc code { color: #2743A4; word-break: break-word; }
+        #batch_stock_pool_adjust_doc a { color: #2743A4; }
+    </style>
+</head>
+<body>
+<main id="batch_stock_pool_adjust_doc">
+    <h1>股票池批量调整</h1>
+    <p>股票研究 · 投资池列表 → 选择调入/调出 → 跨页勾选股票与共享材料 → 逐股票校验 → 确认一般流程 → 提交申请。两步工作台以基金池批量调整为模板，沿用证券批量的布局和交互，审批继续股票独立链路。</p>
+    <section>
+        <h2>投资池与候选股票</h2>
+        <ul>
+            <li>工作台及业务文档中的“股票池批量调整”均位于“股票池调整”之后。</li>
+            <li>只展示当前用户有调整权限、启用且支持 <code>stock</code> 品种的叶子池，包含全路径、描述、市场、品种、上限及有效在池股票数量；管理员口径沿用股票单笔。</li>
+            <li>调入排除目标池有效成员，调出只含目标池有效成员；以 <code>ip_pool_status_stock.audit_status='20'</code> 且未删除为准，数量按股票代码去重。</li>
+            <li>候选按股票代码、简称、行业、市场筛选，沿用单笔股票状态、品种和市场约束。列表显示股票代码、简称、行业、市场、最新评级、上次评级、昨收及数据日期。</li>
+            <li>评级 <code>buy/overweight/neutral/underweight/sell</code> 分别展示买入/增持/中性/减持/卖出，市场和评级使用既有标签。空值留白，零值正常显示。</li>
+            <li>股票按代码跨页保留勾选，支持移除和清空；固定底栏为分页及末尾内容预留空间。</li>
+        </ul>
+    </section>
+    <section>
+        <h2>校验、一般流程与整批提交</h2>
+        <ul>
+            <li>逐股票调用 <code>StockPoolAdjustService.checkAdjust</code>，复用权限、评级、品种、市场、状态、容量、当前池、在途、来源、行业、联动互斥、开放日和冻结期规则。</li>
+            <li>每只股票一条手工主项及完整关系项，组键为 <code>&lt;stockCode&gt;_stock-group-1</code>。组内任一项校验失败则整组不可提交，其余通过的完整组可以提交；反向互斥项必须保留。</li>
+            <li>仅提供目标池配置的 <code>normalInbound/normalOutbound</code> 一般流程。主项选择流程，关系项共用主项流程；错误 ID/Key/类型或不可用发布配置明确拒绝。</li>
+            <li>统一填写原因和建议，页面各最多 500 字。返回第一步保留股票和材料；重新校验刷新结果，退出后忽略迟到响应。提交中禁止重复点击，成功返回池列表并刷新。</li>
+            <li>提交一次锁定整批股票主档，再按池 ID 顺序锁定所有目标池；全部分组复核通过后保存日志、附件和步骤。任一最新复核或保存失败，整批事务回滚。</li>
+            <li>手工主项标记“手动批量调整”，关系项仍为联动/互斥类型。每只股票独立 <code>STOCK</code> 批次，同股票主项与关系项共享该批次。</li>
+            <li>待办、审核、驳回修改、撤回及详情继续股票既有链路；仅审批通过 <code>20</code> 时更新有效池状态，终审仍复核报告、评级、权限及并发容量。</li>
+        </ul>
+    </section>
+    <section>
+        <h2>股票报告与共享材料</h2>
+        <p>材料区保留内部/外部报告双页签、标题、证券编码、类型及日期筛选、分页、跨页勾选、下载和已选汇总。本地股票报告和其他材料整批共享，报告库研究报告必须为股票品种且 <code>securityCode</code> 匹配已选股票，按股票归属分配到该股票完整分组。不匹配报告明确提示，不给其他股票使用。</p>
+        <p>同股票主项、联动和互斥项复用该组材料。后端按集合复核同股票报告来源及整批本地文件、其他材料一致，不一致请求在写入前拒绝。共享上传只保存一份物理文件，再按各条股票日志分别绑定；中文原文件名数组与上传顺序和数量一致。分类使用 <code>stock_report_hand/in/out</code>、<code>stock_material_hand/in/out</code>，关联表为 <code>ip_adjust_log_stock</code>。</p>
+        <p>各池 <code>none/any/internal</code> 报告要求、股票归属和来源有效性继续按股票单笔规则复核，终审再次验证。研究报告和其他材料仍按用途分别处理。</p>
+    </section>
+    <section>
+        <h2>接口契约</h2>
+        <p>全部 POST，统一 <code>ApiResponse</code>，分页 <code>data</code> 为 <code>PageResult</code>。</p>
+        <div class="table-wrap"><table><thead><tr><th>接口</th><th>主要数据</th></tr></thead><tbody>
+            <tr><td><code>/api/v1/batchStockPoolAdjust/queryPoolPage</code></td><td><code>currentUserId/poolIds/pageIndex/pageSize</code>，返回可调整股票叶子池及有效数量。</td></tr>
+            <tr><td><code>/api/v1/batchStockPoolAdjust/queryStockPage</code></td><td><code>currentUserId/poolId/direction/stockCode/stockShortName/industryCode/marketCode/pageIndex/pageSize</code>，返回方向过滤的候选股票。</td></tr>
+            <tr><td><code>/api/v1/batchStockPoolAdjust/checkAdjust</code></td><td><code>currentUserId/poolId/direction/stocks:[{stockCode}]</code>，返回单笔股票结构的完整 <code>items</code>、<code>stockCount</code> 及一般流程候选。</td></tr>
+            <tr><td><code>/api/v1/batchStockPoolAdjust/addAdjustLog</code></td><td>JSON：用户、池、方向、原因建议及完整已选流程明细。返回 <code>stockCount/submitCount/logIds/adjustBatchNos</code>。</td></tr>
+            <tr><td><code>/api/v1/batchStockPoolAdjust/addAdjustLogWithFiles</code></td><td>multipart：<code>request</code> JSON、<code>files</code>、<code>originalFileNameListJson</code>，返回同上。</td></tr>
+        </tbody></table></div>
+        <p>根参数 <code>direction</code> 为 <code>in/out</code>，明细 <code>adjustMode</code> 为单笔的 <code>调入/调出</code>。明细增加 <code>stockCode</code>，保留 <code>targetPoolId/itemTag/adjustGroupKey/flowId/flowKey/flowType</code> 及 <code>reportFileIndexes/materialFileIndexes/reportSourceAttachmentIds/materialSourceAttachmentIds</code>。股票数不重复计算关系项，日志数包含全部关系项；调整人与当前用户须一致。</p>
+    </section>
+    <section>
+        <h2>涉及表与验证</h2>
+        <div class="table-wrap"><table><thead><tr><th>表或表组</th><th>用途</th></tr></thead><tbody>
+            <tr><td><code>rrs_stockinfo/rrs_stock_rating</code></td><td>股票主档、最新两次有效评级和提交时名称/行业/评级留痕。</td></tr>
+            <tr><td><code>ip_investment_pool/ip_pool_permission/ip_pool_relation/ip_pool_open_day</code></td><td>股票叶子池、调整权限、来源及关系、开放日。</td></tr>
+            <tr><td><code>ip_pool_status_stock</code></td><td>有效在池数量、方向候选及审批生效。</td></tr>
+            <tr><td><code>ip_adjust_log_stock/ip_adjust_step_stock</code></td><td>股票独立批次、每池日志和主项审批步骤。</td></tr>
+            <tr><td><code>wf_flow_*</code>、审批配置、AIS用户角色</td><td>一般流程发布快照、审批策略及处理人。</td></tr>
+            <tr><td><code>rrs_report_in/rrs_report_out/sys_attachment</code></td><td>报告库归属、共享物理文件、中文原名及股票日志附件绑定。</td></tr>
+        </tbody></table></div>
+        <p>复用现有股票业务表，无需新增表、迁移或 SQL 脚本。验证候选方向、权限、失败组隔离、完整关系、报告归属、一般流程、共享文件及整批回滚，并回归股票单笔申请、审批、查询和历史。</p>
+    </section>
+    <p><a href="stock-pool-adjust-tables.html">股票池调整</a> · <a href="stock-pool-adjust-approve-tables.html">股票审核与详情</a> · <a href="batch-fund-pool-adjust-tables.html">基金批量基准</a> · <a href="batch-security-pool-adjust-tables.html">证券批量基准</a> · <a href="module-tables-index.html">模块总览</a></p>
+</main>
+</body>
+</html>
