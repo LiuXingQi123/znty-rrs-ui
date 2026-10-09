@@ -31,6 +31,7 @@
 | `flow_definition.html` | 流程定义 - 工作流平台 | `css/flow_definition.css`、`css/common.css` |
 | `stock_pool_adjust.html` | 股票池调整申请 | `css/stock_pool_adjust.css`、`css/common.css` |
 | `batch_stock_pool_adjust.html` | 股票池批量调整 | `css/batch_stock_pool_adjust.css`、`css/common.css` |
+| `stock_pool_excel_import.html` | 股票池 Excel 导入 | `css/stock_pool_excel_import.css`、`css/common.css` |
 | `stock_pool_query.html` | 股票池查询 | `css/stock_pool_query.css`、`css/common.css` |
 | `stock_pool_adjust_history.html` | 股票池调整历史查询 | `css/stock_pool_adjust_history.css`、`css/common.css` |
 | `stock_pool_adjust_approve.html` | 股票池调库审核 | `css/stock_pool_adjust_approve.css`、`css/common.css` |
@@ -146,6 +147,7 @@
 | `css/fund_pool_adjust.css` | 基金池调整申请页面样式 | `fund_pool_adjust.html` |
 | `css/batch_fund_pool_adjust.css` | 基金池批量调整页面样式 | `batch_fund_pool_adjust.html` |
 | `css/batch_stock_pool_adjust.css` | 股票池批量调整页面样式 | `batch_stock_pool_adjust.html` |
+| `css/stock_pool_excel_import.css` | 股票池 Excel 导入页面样式 | `stock_pool_excel_import.html` |
 | `css/fund_pool_excel_import.css` | 基金池 Excel 导入页面样式 | `fund_pool_excel_import.html` |
 | `css/fund_pool_adjust_approve.css` | 基金池调库审核页面样式 | `fund_pool_adjust_approve.html` |
 | `css/fund_pool_adjust_detail.css` | 基金池调库详情页面样式 | `fund_pool_adjust_detail.html` |
@@ -222,6 +224,7 @@
 | `docs/flow-definition-tables.html` | 流程定义文档 | HTML 内联样式 |
 | `docs/stock-pool-adjust-tables.html` | 股票池调整申请文档 | HTML 内联样式 |
 | `docs/batch-stock-pool-adjust-tables.html` | 股票池批量调整文档 | HTML 内联样式 |
+| `docs/stock-pool-excel-import.html` | 股票池 Excel 导入文档 | HTML 内联样式 |
 | `docs/stock-pool-query-tables.html` | 股票池查询文档 | HTML 内联样式 |
 | `docs/stock-pool-adjust-history-tables.html` | 股票池调整历史查询文档 | HTML 内联样式 |
 | `docs/stock-pool-adjust-approve-tables.html` | 股票池调库审核与详情文档 | HTML 内联样式 |

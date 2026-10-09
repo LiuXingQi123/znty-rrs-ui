@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票池 Excel 导入｜表与业务逻辑</title>
+    <style>
+        #stock_excel_import_doc, #stock_excel_import_doc * { box-sizing: border-box; }
+        body { margin: 0; background: #F7F8FA; }
+        #stock_excel_import_doc { max-width: 1180px; margin: 0 auto; padding: 24px; color: #3F485A; font: 13px/1.7 "Microsoft YaHei", Arial, sans-serif; }
+        #stock_excel_import_doc h1 { margin: 0 0 8px; color: #242933; font-size: 20px; }
+        #stock_excel_import_doc h2 { margin: 0 0 12px; color: #2743A4; font-size: 16px; }
+        #stock_excel_import_doc section { margin-top: 16px; padding: 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 4px; }
+        #stock_excel_import_doc p { margin: 8px 0; }
+        #stock_excel_import_doc ul { padding-left: 20px; }
+        #stock_excel_import_doc table { width: 100%; border-collapse: collapse; }
+        #stock_excel_import_doc th, #stock_excel_import_doc td { padding: 8px 12px; text-align: left; border: 1px solid #E5E5E5; vertical-align: top; }
+        #stock_excel_import_doc th { background: #F7F8FA; color: #242933; }
+        #stock_excel_import_doc code { color: #2743A4; word-break: break-word; }
+        #stock_excel_import_doc a { color: #2743A4; }
+    </style>
+</head>
+<body>
+<main id="stock_excel_import_doc">
+<h1>股票池 Excel 导入</h1><p>股票研究 · 四列模板 → 导入明细 → 调库校验 → 选择一般流程 → 提交审批申请。</p>
+<section><h2>模板与页面参数</h2><table><thead><tr><th>列名</th><th>填写要求</th></tr></thead><tbody>
+<tr><td>父池名称 / 子池名称</td><td>按直接父池及子池名称解析支持股票的启用叶子池；多匹配明确失败。</td></tr>
+<tr><td>股票名称 / 股票代码</td><td>代码使用文本格式，保留前导零及市场后缀；名称以主档为准，评级读取已有评级记录。</td></tr>
+</tbody></table><p>支持 xls/xlsx、5MB、首表最多2000个非空数据行。明细保留Excel真实行号，名称及代码可筛选分页。模板下载编码为 <code>stock_pool_import</code>，第二表附填写说明。</p>
+<p>模板内置5条Demo示例：正常A股调入、正常港股调入、市场不匹配、已退市、已在目标池。第二表标注真实行号及预期结果；以已加载公共池、股票基础与股票调库Demo、具备目标池双权限、选择调入并关闭清空为前提，实际结果随当前配置及数据变化。正式导入前请删除这5行并填写实际数据。</p>
+<p>默认调入、关闭清空、开启联动互斥。上传后固定方向、清空和关系选项；调整原因及意见可在提交前修改（各最多1000字）。更改固定选项须清空页面重新上传。</p></section>
+<section><h2>校验、清空与审批</h2><ul>
+<li>复用股票状态、市场、品种、行业、评级、容量、在途、来源池、开放日、冻结期及限制池规则，并检查调整与Excel导入双权限。</li>
+<li>仅允许目标池配置的已发布一般人工审批流程。快速、批量、自动一般流程不可用于导入；不提供报告材料入口，要求报告的主项明确失败。</li>
+<li>关闭联动互斥时只提交主项，开启时提交通过的关系项；失败主项阻断本组，失败关系保留原因。不同来源组同股票同池冲突时全部相关组失败。</li>
+<li>清空仅适用调入：目标池有效成员减去可识别导入名单，跳过在途成员；失败但可识别的导入行仍保留。先保存清空调出申请，再保存导入申请，不提前释放容量。</li>
+<li>允许提交部分通过来源组。客户端只选择服务端候选流程；提交复核最新规则及关系集合，任一复核或写入失败整批回滚。</li>
+<li>每个来源行独立STOCK批次，主项类型为Excel导入或Excel清空，关系项保留联动、互斥类型。提交状态为00，终审通过20才落池；终审及驳回修改继续复核报告和评级。</li>
+</ul></section>
+<section><h2>批次与接口</h2><p>沿用证券及基金导入的上传取消顺序、失败现场保留、重校验及已提交批次防重。重选合法文件前先取消旧批次，取消失败保留原结果。已提交批次的清空仅重置页面。</p>
+<p>全部POST，前缀 <code>/api/v1/stockPoolExcelImport</code>：uploadExcel、queryTask、queryItemPage、checkImport、submitImport、cancelImport。上传使用multipart的request JSON、file及originalFileNameListJson。</p>
+<table><thead><tr><th>表</th><th>用途</th></tr></thead><tbody><tr><td>sys_imp_tmp / sys_imp_tmp_detl</td><td>stock_pool_excel业务隔离、固定选项、原始四列、解析池及服务端快照；原因意见使用TEXT槽fld011/012。</td></tr><tr><td>ip_adjust_log_stock / ip_adjust_step_stock</td><td>独立股票申请及审批步骤，服务端重算并整批锁定写入。</td></tr><tr><td>ip_pool_status_stock</td><td>仅终审通过才更新有效股票成员。</td></tr></tbody></table>
+<p>关联业务：<a href="stock-pool-adjust-tables.html">股票池单笔调整</a>、<a href="stock-pool-adjust-approve-tables.html">股票调库审核与详情</a>。</p></section>
+</main></body></html>

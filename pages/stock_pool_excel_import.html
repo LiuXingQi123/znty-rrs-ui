@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票池 Excel 导入</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <link rel="stylesheet" href="../css/stock_pool_excel_import.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="stock-pool-excel-import-page">
+<div id="stock_pool_excel_import">
+    <header class="topbar">
+        <div class="topbar-brand"><div class="topbar-icon"><i class="el-icon-upload2"></i></div><h2>股票池Excel导入</h2></div>
+        <div class="topbar-sep"></div><span class="topbar-sys">证券投资管理系统</span>
+        <div class="topbar-meta"><span class="topbar-date-badge">{{ currentDateText }}</span></div>
+    </header>
+    <div class="list-body" v-loading="busy">
+        <div class="top-grid">
+            <!-- 整批导入参数：上传后锁定，清空后才能重新设置 -->
+            <section class="panel-card compact-panel">
+                <div class="panel-hd"><span class="step-no">1</span><span class="title">导入参数</span><span class="hint">方向与选项作用于整批</span></div>
+                <div class="panel-bd">
+                    <div class="field field-row">
+                        <div class="field field-inline field-col"><span class="field-label">导入类型</span><el-tag size="small" type="info">股票</el-tag></div>
+                        <div class="field field-inline field-col">
+                            <span class="field-label"><span class="req">*</span>调整方向</span>
+                            <el-radio-group v-model="form.direction" size="small" class="dir-group" :disabled="parametersLocked" @change="onDirectionChange">
+                                <el-radio-button label="in">调入</el-radio-button><el-radio-button label="out">调出</el-radio-button>
+                            </el-radio-group>
+                        </div>
+                    </div>
+                    <div class="field field-inline">
+                        <span class="field-label">导入选项</span>
+                        <div class="option-inline">
+                            <span v-if="form.direction === 'in'" class="clear-wrap">
+                                <el-checkbox v-model="form.clearTarget" size="small" :disabled="parametersLocked">首先清空目标池</el-checkbox>
+                                <el-tooltip placement="top" content="把目标池中不在本批名单内的股票按出库申请调出，仅创建调出审批申请，不立即出池"><i class="el-icon-info clear-tip-icon"></i></el-tooltip>
+                            </span>
+                            <el-checkbox v-model="form.allowLinkMutex" size="small" :disabled="parametersLocked">允许联动与互斥调整</el-checkbox>
+                        </div>
+                    </div>
+                    <div class="field field-row field-last">
+                        <div class="field field-inline field-reason field-col"><span class="field-label">调整原因</span><el-input type="textarea" v-model="form.adjustReason" :rows="3" maxlength="1000" show-word-limit placeholder="选填，本批调整原因" resize="none" :disabled="busy || isSubmitted"></el-input></div>
+                        <div class="field field-inline field-reason field-col"><span class="field-label">调整意见</span><el-input type="textarea" v-model="form.adjustAdvice" :rows="3" maxlength="1000" show-word-limit placeholder="选填，本批调整意见" resize="none" :disabled="busy || isSubmitted"></el-input></div>
+                    </div>
+                </div>
+            </section>
+            <!-- 四列模板由服务端解析，预览仅供核对 -->
+            <section class="panel-card compact-panel">
+                <div class="panel-hd"><span class="step-no">2</span><span class="title">下载模板并上传</span><span class="hint">股票模板 · xls/xlsx ≤5MB</span></div>
+                <div class="panel-bd">
+                    <div class="upload-toolbar">
+                        <el-button type="primary" plain size="small" icon="el-icon-download" @click="handleDownloadTemplate">下载股票模板</el-button>
+                        <span v-if="fileName" class="file-chip" :title="fileName"><i class="el-icon-document"></i>{{ fileName }}</span>
+                        <span v-if="impId && isAdmin" class="file-chip batch-chip"><i class="el-icon-s-order"></i>{{ impId }}</span>
+                    </div>
+                    <el-upload class="upload-area" drag action="#" :auto-upload="false" :show-file-list="false" accept=".xls,.xlsx" :limit="1" :file-list="fileList" :on-change="handleFileChange" :on-exceed="handleFileExceed" :disabled="isUploadDisabled">
+                        <i class="el-icon-upload upload-icon"></i><div class="upload-text">将<strong>股票</strong> Excel 拖到此处，或 <em>点击选择</em></div>
+                        <div class="upload-tip">再次选择覆盖未提交批次；修改导入参数须先清空，再上传</div>
+                        <div class="upload-tip">导入数据只读，错误请修改 Excel 后重传；不提供报告或附件，需报告的调库项将校验失败</div>
+                    </el-upload>
+                    <div class="tpl-cols"><span class="tpl-col-tag" v-for="col in templateColumns" :key="col">{{ col }}</span></div>
+                </div>
+            </section>
+        </div>
+        <section class="panel-card result-tabs-panel">
+            <el-tabs v-model="activeResultTab" class="result-tabs">
+                <el-tab-pane name="import">
+                    <span slot="label">导入明细<span v-if="task.totalCount" class="tab-badge">{{ task.totalCount }}</span></span>
+                    <div class="tab-pane-body">
+                        <div class="filter-row">
+                            <el-radio-group v-model="filterChkRslt" size="small" :disabled="!impId || busy" @change="onFilterChange"><el-radio-button label="">全部</el-radio-button><el-radio-button label="0">待校验</el-radio-button><el-radio-button label="1">通过</el-radio-button><el-radio-button label="2">失败</el-radio-button></el-radio-group>
+                            <el-input v-model.trim="keyword" size="small" clearable placeholder="股票代码" prefix-icon="el-icon-search" style="width:160px;" :disabled="!impId || busy" @keyup.enter.native="onFilterChange" @clear="onFilterChange"></el-input>
+                            <el-button size="small" type="primary" icon="el-icon-search" :disabled="!impId || busy" @click="onFilterChange">查询</el-button>
+                            <div class="hd-stats filter-stats"><span class="stat">合计 <strong>{{ task.totalCount || 0 }}</strong></span><span class="stat pass">通过 <strong>{{ task.passCount || 0 }}</strong></span><span class="stat fail">失败 <strong>{{ task.failCount || 0 }}</strong></span></div>
+                            <div class="filter-actions"><el-button size="small" icon="el-icon-delete" :disabled="busy" @click="handleReset">清空</el-button><el-button size="small" type="primary" plain icon="el-icon-circle-check" :disabled="!impId || busy || isSubmitted" :loading="checking" @click="handleCheck">校验</el-button></div>
+                        </div>
+                        <div class="table-wrap table-wrap-import">
+                            <el-table :data="tableData" border stripe size="small" empty-text="暂无数据" height="100%" :header-cell-style="{ background: '#F7F8FA' }">
+                                <el-table-column label="序号" width="50" align="center" fixed><template slot-scope="{ $index }">{{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}</template></el-table-column>
+                                <el-table-column label="Excel行号" prop="rowNo" width="96" align="right"></el-table-column>
+                                <el-table-column label="父池名称" prop="parentPoolName" min-width="120" show-overflow-tooltip></el-table-column>
+                                <el-table-column label="子池名称" prop="childPoolName" min-width="120" show-overflow-tooltip></el-table-column>
+                                <el-table-column label="股票名称" prop="stockName" min-width="150" show-overflow-tooltip></el-table-column>
+                                <el-table-column label="股票代码" prop="stockCode" min-width="130"><template slot-scope="{ row }"><span class="stock-code">{{ row.stockCode }}</span></template></el-table-column>
+                                <el-table-column label="校验" width="78" align="center" fixed="right"><template slot-scope="{ row }"><el-tag v-if="hasValue(row.chkRslt)" size="mini" :type="chkTagType(row.chkRslt)">{{ chkLabel(row.chkRslt) }}</el-tag></template></el-table-column>
+                                <el-table-column label="校验说明" prop="chkDscr" min-width="180" show-overflow-tooltip fixed="right"></el-table-column>
+                            </el-table>
+                        </div>
+                        <div class="pagination-wrap"><el-pagination :total="pagination.total" :current-page="pagination.pageIndex" :page-size="pagination.pageSize" :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" :disabled="busy" @current-change="handlePageChange" @size-change="handleSizeChange"></el-pagination></div>
+                    </div>
+                </el-tab-pane>
+                <el-tab-pane name="check">
+                    <span slot="label">调库校验结果<span v-if="checkItems.length" class="tab-badge" :class="{ fail: Number(task.checkFailCount) > 0 }">{{ checkItems.length }}</span></span>
+                    <div class="tab-pane-body">
+                        <div class="filter-row">
+                            <span class="check-tip">{{ checkHint }}</span>
+                            <div class="hd-stats filter-stats"><span class="stat">共 <strong>{{ checkItems.length }}</strong> 条</span><span class="stat pass">可调整 <strong>{{ task.checkPassCount || 0 }}</strong></span><span class="stat fail">不可调整 <strong>{{ task.checkFailCount || 0 }}</strong></span></div>
+                            <div class="filter-actions">
+                                <el-button size="small" type="primary" plain icon="el-icon-circle-check" :disabled="!impId || busy || isSubmitted" :loading="checking" @click="handleCheck">重新校验</el-button>
+                                <el-tooltip :content="submitDisabledTip" :disabled="canSubmit" placement="top"><span><el-button size="small" type="primary" icon="el-icon-check" :disabled="!canSubmit" :loading="submitting" @click="openSubmitDialog">提交<span v-if="validCheckCount" class="btn-count">{{ validCheckCount }}</span></el-button></span></el-tooltip>
+                            </div>
+                        </div>
+                        <div class="table-wrap table-wrap-check">
+                            <el-table :data="checkItems" border stripe size="small" empty-text="请先在「导入明细」中点击「校验」" height="100%" style="width:100%;" :header-cell-style="{ background: '#F7F8FA' }" :row-class-name="getAdjustReviewRowClass">
+                                <el-table-column label="序号" width="50" align="center"><template slot-scope="{ $index }">{{ $index + 1 }}</template></el-table-column>
+                                <el-table-column label="Excel行号" prop="rowNo" width="96" align="right"></el-table-column>
+                                <el-table-column label="股票简称" min-width="140" show-overflow-tooltip><template slot-scope="{ row }">{{ row.stockShortName || row.stockCode || '' }}</template></el-table-column>
+                                <el-table-column prop="stockCode" label="股票代码" min-width="130"><template slot-scope="{ row }"><span class="stock-code">{{ row.stockCode }}</span></template></el-table-column>
+                                <el-table-column prop="poolName" label="投资池名称" min-width="190" show-overflow-tooltip></el-table-column>
+                                <el-table-column label="调整类型" min-width="100" align="center"><template slot-scope="{ row }"><el-tag v-if="row.adjustType" size="mini" :type="adjustTypeTagType(row.adjustType)">{{ row.adjustType }}</el-tag></template></el-table-column>
+                                <el-table-column label="调整方向" min-width="90" align="center"><template slot-scope="{ row }"><el-tag v-if="row.adjustDirection" size="mini" :type="row.adjustDirection === 'in' ? 'success' : 'danger'">{{ directionLabel(row.adjustDirection) }}</el-tag></template></el-table-column>
+                                <el-table-column label="审批流程" min-width="200">
+                                    <template slot-scope="{ row }">
+                                        <el-select v-if="row.canAdjust && isManualItem(row)" v-model="row.selectedFlowOptionKey" size="small" placeholder="请选择流程" popper-class="stock-excel-flow-select-dropdown" :disabled="busy || isSubmitted" @change="handleRowFlowChange(row)">
+                                            <el-option v-for="option in row.flowOptions" :key="option.optionKey" :label="resolveFlowDisplayName(option)" :value="option.optionKey" :disabled="!option.selectable"><span class="batch-flow-option-name">{{ resolveFlowDisplayName(option) }}</span><span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">{{ flowTypeLabel(option.flowType) }}</span></el-option>
+                                        </el-select>
+                                        <span v-else-if="row.canAdjust" class="flow-placeholder muted">随手工项</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="调整说明" min-width="280">
+                                    <template slot-scope="{ row }">
+                                        <div v-if="!row.canAdjust && row.failReasons && row.failReasons.length" class="fail-reason-block"><div class="fail-reason-title">未通过（共 {{ row.failReasons.length }} 项）</div><ol class="fail-reason-list"><li v-for="(reason, ri) in row.failReasons" :key="ri">{{ reason }}</li></ol></div>
+                                        <span v-else class="fail-reason-pass">{{ row.adjustmentNote || '' }}<span v-if="row.warnings && row.warnings.length">（警告：{{ row.warnings.join('；') }}）</span></span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column label="校验结果" width="120" fixed="right" align="center"><template slot-scope="{ row }"><el-tag size="mini" :type="row.canAdjust ? 'success' : 'danger'">{{ row.canAdjust ? '可调整' : '不可调整' }}</el-tag></template></el-table-column>
+                            </el-table>
+                        </div>
+                    </div>
+                </el-tab-pane>
+            </el-tabs>
+        </section>
+    </div>
+    <!-- 通过的手工项与清空项逐项确认流程 -->
+    <el-dialog :visible.sync="flowDialogVisible" width="760px" custom-class="flow-dialog" :close-on-click-modal="false" :show-close="false">
+        <span slot="title" class="flow-dialog-title"><span class="flow-dialog-title-text">选择调库流程</span><span class="flow-dialog-submit-hint" v-if="validManualCheckItems.length">本次共 {{ validManualCheckItems.length }} 项将选择流程并提交</span></span>
+        <div class="flow-option-list">
+            <div v-for="(row, rowIndex) in validManualCheckItems" :key="rowIndex" class="flow-option-card flow-row-card" :class="getFlowRowColorClass(rowIndex)">
+                <div class="flow-option-head"><span class="flow-option-name flow-pool-name">{{ row.stockShortName || row.stockCode }}（{{ row.stockCode }}） · {{ row.poolName }}</span><el-tag size="mini" :type="row.adjustDirection === 'in' ? 'success' : 'danger'">{{ directionLabel(row.adjustDirection) }}</el-tag><el-tag v-if="row.itemTag === 'clear'" size="mini" type="warning">Excel清空</el-tag></div>
+                <el-radio-group v-model="row.selectedFlowOptionKey" style="width:100%;margin-top:10px;" :disabled="submitting" @change="handleRowFlowChange(row)">
+                    <el-radio v-for="option in row.flowOptions" :key="option.optionKey" :label="option.optionKey" :disabled="!option.selectable" class="flow-option-card flow-choice-card" :class="{ 'is-selected': row.selectedFlowOptionKey === option.optionKey, 'is-disabled': !option.selectable }">
+                        <div class="flow-option-head"><span class="flow-option-name">{{ resolveFlowDisplayName(option) }}</span><el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag><el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag><el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag></div>
+                        <div class="flow-option-reasons"><div v-for="(reason, index) in option.matchReasons" :key="'match_' + index" class="flow-option-reason ok">{{ reason }}</div><div v-for="(reason, index) in option.unmatchReasons" :key="'unmatch_' + index" class="flow-option-reason warn">{{ reason }}</div></div>
+                    </el-radio>
+                </el-radio-group>
+            </div>
+            <div v-if="!validManualCheckItems.length" class="flow-placeholder muted">暂无可选择流程的调库项</div>
+        </div>
+        <span slot="footer"><el-button size="small" :disabled="submitting" @click="flowDialogVisible = false">取消</el-button><el-button type="primary" size="small" :disabled="!canSubmit" :loading="submitting" @click="confirmFlowSelection">确认</el-button></span>
+    </el-dialog>
+</div>
+<script>
+new Vue({
+    el: '#stock_pool_excel_import',
+    data() {
+        const user = window.RrsAuth.getCurrentUser()
+        return {
+            loading: false, checking: false, submitting: false, // 串行处理上传、校验与提交
+            form: {
+                direction: 'in',
+                clearTarget: false,
+                allowLinkMutex: true,
+                adjustReason: '',
+                adjustAdvice: ''
+            }, // 整批参数
+            templateColumns: ['父池名称', '子池名称', '股票名称', '股票代码'], // Excel 四列
+            fileList: [], fileName: '', impId: '', task: {}, // 当前批次与文件
+            tableData: [], checkItems: [], activeResultTab: 'import', // 预览与调库校验结果
+            flowDialogVisible: false, filterChkRslt: '', keyword: '', // 弹窗与明细筛选
+            pagination: {
+                pageIndex: 1,
+                pageSize: 20,
+                total: 0
+            }, // 导入明细分页
+            currentUserId: user.userId, currentUserName: user.userName // 操作人
+        }
+    },
+    computed: {
+        // 顶栏日期。
+        currentDateText() {
+            return moment().format('YYYY-MM-DD')
+        },
+        // 正在处理的操作禁止交叉请求。
+        busy() {
+            return this.loading || this.checking || this.submitting
+        },
+        // 提交后只读展示该批次。
+        isSubmitted() {
+            return String(this.task.saveRslt) === '1'
+        },
+        // 导入选项与清空信息上传后锁定。
+        parametersLocked() {
+            return !!this.impId || this.busy
+        },
+        // 上传区域在处理期间和已提交时禁用。
+        isUploadDisabled() {
+            return this.busy || this.isSubmitted
+        },
+        // 导入批次号沿用证券页，仅管理员可见。
+        isAdmin() {
+            return String(this.currentUserId) === '1'
+        },
+        // 主项未通过时，同来源的附属项也不进入提交集合。
+        validCheckItems() {
+            const failedSources = new Set(this.checkItems.filter(row => this.isManualItem(row) && !row.canAdjust).map(row => this.sourceKey(row)))
+            return this.checkItems.filter(row => row.canAdjust && !failedSources.has(this.sourceKey(row)))
+        },
+        // 手工与清空主项均需要选择流程。
+        validManualCheckItems() {
+            return this.validCheckItems.filter(row => this.isManualItem(row))
+        },
+        // 可提交总条数包含主项及其联动、互斥项。
+        validCheckCount() {
+            return this.validCheckItems.length
+        },
+        // 每个主项必须选择已有且可选的流程候选。
+        allValidRowsHaveFlow() {
+            return this.validManualCheckItems.length > 0 && this.validManualCheckItems.every(row => !!this.selectedRowFlowOption(row))
+        },
+        // 仅校验完成、未提交且流程完备的批次允许提交。
+        canSubmit() {
+            return !!this.impId && !this.busy && !!this.task.checkDone && !this.isSubmitted && this.validCheckCount > 0 && this.allValidRowsHaveFlow
+        },
+        // 禁用提交时提示缺少的前置步骤。
+        submitDisabledTip() {
+            if (!this.impId) {
+                return '请先上传 Excel'
+            }
+            if (this.isSubmitted) {
+                return '该批次已提交'
+            }
+            if (!this.task.checkDone) {
+                return '请先点击校验'
+            }
+            if (!this.validCheckCount) {
+                return '没有可提交的校验结果'
+            }
+            if (!this.allValidRowsHaveFlow) {
+                return '请为所有可提交的手工及清空项选择审批流程'
+            }
+            return ''
+        },
+        // 校验结果区说明。
+        checkHint() {
+            if (!this.impId) {
+                return '上传并校验后展示'
+            }
+            if (this.isSubmitted) {
+                return this.task.saveDscr || '股票池调库申请已提交'
+            }
+            if (!this.task.checkDone) {
+                return this.task.chkDscr || '请先点击「校验」'
+            }
+            return this.form.allowLinkMutex ? '含手工 / 联动 / 互斥及清空项' : '仅 Excel 手工及清空项（未勾选联动与互斥）'
+        }
+    },
+    methods: {
+        // 空值保持空白，数字 0 仍为有效值。
+        hasValue(value) {
+            return value !== null && value !== undefined && String(value).trim() !== ''
+        },
+        // 方向文案与股票单笔一致。
+        directionLabel(value) {
+            return value === 'in' ? '调入' : (value === 'out' ? '调出' : value || '')
+        },
+        // 调出不允许清空目标池。
+        onDirectionChange(direction) {
+            if (direction === 'out') {
+                this.form.clearTarget = false
+            }
+        },
+        // 校验上传调整方向。
+        validateImportParameters() {
+            return this.form.direction === 'in' || this.form.direction === 'out' ? '' : '请选择调整方向'
+        },
+        // 下载后端维护的股票模板。
+        async handleDownloadTemplate() {
+            try {
+                const data = await this.apiPost('/api/v1/commonFile/downloadTemplate', { templateCode: 'stock_pool_import' })
+                if (!data || !data.contentBase64) {
+                    this.$message.error('模板内容为空')
+                    return
+                }
+                // 将 Base64 模板转为浏览器下载。
+                this.downloadBase64File(data.contentBase64, data.fileName || '股票池导入模板.xlsx', data.contentType)
+                this.$message.success('股票模板已开始下载')
+            } catch (e) {
+                /* api 已提示 */
+            }
+        },
+        // Base64 文件下载与证券 Excel 导入一致。
+        downloadBase64File(base64, fileName, contentType) {
+            const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0))
+            const url = URL.createObjectURL(new Blob([bytes], { type: contentType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+            const anchor = document.createElement('a')
+            anchor.href = url
+            anchor.download = fileName
+            document.body.appendChild(anchor)
+            anchor.click()
+            document.body.removeChild(anchor)
+            URL.revokeObjectURL(url)
+        },
+        // 单文件区域再次选择时替换未提交批次。
+        async handleFileExceed(files) {
+            if (files && files.length) {
+                await this.processSelectedFile(files[0])
+            }
+        },
+        // 只处理新选择的 ready 文件。
+        async handleFileChange(file) {
+            if (file && file.status && file.status !== 'ready') {
+                return
+            }
+            const raw = file && (file.raw || file)
+            if (raw) {
+                await this.processSelectedFile(raw)
+            }
+        },
+        // 验证文件及参数，成功取消旧批次后上传新文件。
+        async processSelectedFile(file) {
+            if (this.isUploadDisabled) {
+                return
+            }
+            if (!/\.(xls|xlsx)$/i.test(file.name || '')) {
+                this.$message.warning('请选择 xls 或 xlsx 文件')
+                return
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                this.$message.warning('Excel 文件不能超过 5MB')
+                return
+            }
+            // 校验上传前的整批方向参数。
+            const error = this.validateImportParameters()
+            if (error) {
+                this.$message.warning(error)
+                return
+            }
+            this.loading = true
+            try {
+                if (this.impId) {
+                    await this.apiPost('/api/v1/stockPoolExcelImport/cancelImport', { impId: this.impId })
+                    // 成功取消后清除旧结果，保留本批参数。
+                    this.clearTaskDataKeepForm()
+                }
+                const clearing = this.form.direction === 'in' && this.form.clearTarget
+                const request = {
+                    direction: this.form.direction,
+                    clearTarget: clearing,
+                    allowLinkMutex: !!this.form.allowLinkMutex,
+                    adjustReason: this.form.adjustReason || null,
+                    adjustAdvice: this.form.adjustAdvice || null,
+                    currentUserId: this.currentUserId,
+                    currentUserName: this.currentUserName,
+                    pageIndex: 1,
+                    pageSize: this.pagination.pageSize
+                }
+                const formData = new FormData()
+                formData.append('request', new Blob([JSON.stringify(request)], { type: 'application/json' }))
+                formData.append('file', file)
+                formData.append('originalFileNameListJson', JSON.stringify([file.name || '']))
+                const data = await this.apiPost('/api/v1/stockPoolExcelImport/uploadExcel', formData)
+                // 回填后端批次、原始四列和统计。
+                this.applyTask(data)
+                this.fileName = file.name || ''
+                this.fileList = [{ name: this.fileName, raw: file }]
+                this.$message.success('上传成功')
+            } catch (e) {
+                /* api 已提示，取消失败时保留旧批次 */
+            } finally {
+                this.loading = false
+            }
+        },
+        // 清除批次结果但保留方向、原因和清空参数。
+        clearTaskDataKeepForm() {
+            this.impId = ''
+            this.task = {}
+            this.tableData = []
+            this.checkItems = []
+            this.fileName = ''
+            this.fileList = []
+            this.activeResultTab = 'import'
+            this.flowDialogVisible = false
+            this.filterChkRslt = ''
+            this.keyword = ''
+            this.pagination = {
+                pageIndex: 1,
+                pageSize: this.pagination.pageSize || 20,
+                total: 0
+            }
+        },
+        // 回填服务端批次，部分提交响应不覆盖本地已有数据。
+        applyTask(data) {
+            if (!data) {
+                return
+            }
+            this.impId = data.impId || this.impId
+            this.task = Object.assign({}, this.task, data)
+            if (data.bizMode) {
+                this.form.direction = data.bizMode
+            }
+            if (typeof data.allowLinkMutex === 'boolean') {
+                this.form.allowLinkMutex = data.allowLinkMutex
+            }
+            if (data.reason != null) {
+                this.form.adjustReason = data.reason
+            }
+            if (data.advice != null) {
+                this.form.adjustAdvice = data.advice
+            }
+            if (data.items) {
+                this.tableData = data.items.records || []
+                this.pagination.total = data.items.total || 0
+                this.pagination.pageIndex = data.items.pageIndex || 1
+                this.pagination.pageSize = data.items.pageSize || this.pagination.pageSize
+            }
+            if (Array.isArray(data.checkItems)) {
+                // 同步后端校验快照与默认推荐流程。
+                this.checkItems = this.normalizeCheckItems(data.checkItems)
+            }
+        },
+        // 筛选明细时返回第一页。
+        onFilterChange() {
+            if (!this.impId || this.busy) {
+                return
+            }
+            this.pagination.pageIndex = 1
+            this.loadItemPage()
+        },
+        // 分页与批次摘要串行刷新。
+        async loadItemPage() {
+            if (!this.impId || this.busy) {
+                return
+            }
+            this.loading = true
+            try {
+                const page = await this.apiPost('/api/v1/stockPoolExcelImport/queryItemPage', {
+                    impId: this.impId,
+                    chkRslt: this.filterChkRslt || null,
+                    keyword: this.keyword || null,
+                    pageIndex: this.pagination.pageIndex,
+                    pageSize: this.pagination.pageSize
+                })
+                this.tableData = (page && page.records) || []
+                this.pagination.total = (page && page.total) || 0
+                const task = await this.apiPost('/api/v1/stockPoolExcelImport/queryTask', { impId: this.impId })
+                // 摘要刷新保留当前明细页及用户已选流程。
+                const choices = this.checkItems.map(row => ({
+                    source: this.sourceKey(row),
+                    pool: row.targetPoolId,
+                    direction: row.adjustDirection,
+                    key: row.selectedFlowKey,
+                    id: row.selectedFlowId,
+                    type: row.selectedFlowType
+                }))
+                this.applyTask(Object.assign({}, task, { items: null }))
+                this.checkItems.forEach(row => {
+                    const choice = choices.find(item => item.source === this.sourceKey(row) && item.pool === row.targetPoolId && item.direction === row.adjustDirection)
+                    if (!choice) {
+                        return
+                    }
+                    const option = row.flowOptions.find(item => item.selectable && item.flowId === choice.id && item.flowKey === choice.key && item.flowType === choice.type)
+                    if (option) {
+                        row.selectedFlowOptionKey = option.optionKey
+                        this.handleRowFlowChange(row)
+                    }
+                })
+            } catch (e) {
+                /* api 已提示 */
+            } finally {
+                this.loading = false
+            }
+        },
+        // 切换明细页。
+        handlePageChange(page) {
+            if (this.busy) {
+                return
+            }
+            this.pagination.pageIndex = page
+            this.loadItemPage()
+        },
+        // 修改每页条数。
+        handleSizeChange(size) {
+            if (this.busy) {
+                return
+            }
+            this.pagination.pageSize = size
+            this.pagination.pageIndex = 1
+            this.loadItemPage()
+        },
+        // 执行整批校验，重新校验时清除旧流程与结果。
+        async handleCheck() {
+            if (!this.impId || this.busy || this.isSubmitted) {
+                return
+            }
+            this.checking = true
+            this.flowDialogVisible = false
+            this.checkItems = []
+            this.$set(this.task, 'checkDone', false)
+            try {
+                const data = await this.apiPost('/api/v1/stockPoolExcelImport/checkImport', {
+                    impId: this.impId,
+                    currentUserId: this.currentUserId,
+                    currentUserName: this.currentUserName,
+                    pageIndex: 1,
+                    pageSize: this.pagination.pageSize
+                })
+                this.filterChkRslt = ''
+                this.pagination.pageIndex = 1
+                // 采用后端本次校验快照。
+                this.applyTask(data)
+                this.activeResultTab = 'check'
+                if (String(data && data.chkRslt) === '1') {
+                    this.$message.success('校验全部通过')
+                } else {
+                    this.$message.warning((data && data.chkDscr) || '存在校验失败项')
+                }
+            } catch (e) {
+                /* api 已提示 */
+            } finally {
+                this.checking = false
+            }
+        },
+        // 打开所有通过主项的流程确认弹窗。
+        openSubmitDialog() {
+            if (this.canSubmit) {
+                this.flowDialogVisible = true
+            }
+        },
+        // 提交已有校验快照及其候选流程，不修改业务字段。
+        async confirmFlowSelection() {
+            if (!this.canSubmit) {
+                return
+            }
+            const checkItems = this.validCheckItems.map(row => {
+                const item = Object.assign({}, row)
+                delete item.selectedFlowOptionKey
+                delete item.groupColorIndex
+                delete item.flowOptions
+                if (this.isManualItem(row)) {
+                    // 仅从校验快照中已有且可选的流程候选写入三字段。
+                    const option = this.selectedRowFlowOption(row)
+                    item.selectedFlowId = option.flowId
+                    item.selectedFlowKey = option.flowKey
+                    item.selectedFlowType = option.flowType
+                }
+                return item
+            })
+            this.submitting = true
+            this.flowDialogVisible = false
+            try {
+                const data = await this.apiPost('/api/v1/stockPoolExcelImport/submitImport', {
+                    impId: this.impId,
+                    adjustReason: this.form.adjustReason,
+                    adjustAdvice: this.form.adjustAdvice,
+                    currentUserId: this.currentUserId,
+                    currentUserName: this.currentUserName,
+                    checkItems: checkItems
+                })
+                // 保存状态采用服务端响应，防止重复提交。
+                this.applyTask(data)
+                const count = data && Array.isArray(data.logIds) ? data.logIds.length : checkItems.length
+                const batches = (data && data.adjustBatchNoList) || []
+                const batchText = this.isAdmin && batches.length ? '，调库批次 ' + batches[0] + (batches.length > 1 ? ' 等 ' + batches.length + ' 个批次' : '') : ''
+                this.$message.success('股票池调库申请已提交，共 ' + count + ' 条' + batchText)
+            } catch (e) {
+                /* api 已提示 */
+            } finally {
+                this.submitting = false
+            }
+        },
+        // 取消未提交批次并解除参数锁定。
+        async handleReset() {
+            if (this.busy) {
+                return
+            }
+            this.loading = true
+            try {
+                if (this.impId && !this.isSubmitted) {
+                    await this.apiPost('/api/v1/stockPoolExcelImport/cancelImport', { impId: this.impId })
+                }
+                // 仅成功取消或已提交后清除页面数据。
+                this.clearTaskDataKeepForm()
+                this.form.clearTarget = false
+                this.form.allowLinkMutex = true
+            } catch (e) {
+                /* api 已提示，取消失败时不丢失批次 */
+            } finally {
+                this.loading = false
+            }
+        },
+        // 主项类型包含 Excel 清空。
+        isManualItem(row) {
+            return row.itemTag === 'manual' || row.itemTag === 'clear'
+        },
+        // 来源行独立分组，避免同股票不同池互相影响。
+        sourceKey(row) {
+            return row.stockCode + '_' + (row.sourceItemId != null ? row.sourceItemId : row.adjustGroupKey || row.rowNo || row.targetPoolId)
+        },
+        // 格式化流程候选与默认推荐选项。
+        normalizeCheckItems(list) {
+            const groupIndexes = new Map()
+            return list.map((row, rowIndex) => {
+                const options = (row.flowOptions || []).map((option, index) => Object.assign({}, option, {
+                    optionKey: rowIndex + '_' + index,
+                    selectable: option.selectable !== false,
+                    matchReasons: option.matchReasons || [],
+                    unmatchReasons: option.unmatchReasons || []
+                }))
+                const selected = options.find(option => option.selectable && this.hasValue(row.selectedFlowKey) && option.flowKey === row.selectedFlowKey && option.flowId === row.selectedFlowId && option.flowType === row.selectedFlowType)
+                    || options.find(option => option.recommended && option.selectable) || options.find(option => option.selectable)
+                const group = row.adjustGroupKey || this.sourceKey(row)
+                if (!groupIndexes.has(group)) {
+                    groupIndexes.set(group, groupIndexes.size % 5)
+                }
+                const next = Object.assign({}, row, {
+                    flowOptions: options,
+                    selectedFlowOptionKey: selected ? selected.optionKey : '',
+                    groupColorIndex: groupIndexes.get(group)
+                })
+                // 将界面默认选中同步到提交用流程三字段。
+                this.handleRowFlowChange(next)
+                return next
+            })
+        },
+        // 从原始候选中取得可选流程，禁止任意 optionKey。
+        selectedRowFlowOption(row) {
+            return (row.flowOptions || []).find(option => option.selectable && option.optionKey === row.selectedFlowOptionKey) || null
+        },
+        // 行内下拉与弹窗共用流程选择。
+        handleRowFlowChange(row) {
+            // 根据选择写回流程身份，不改股票、池或方向。
+            const option = this.selectedRowFlowOption(row)
+            row.selectedFlowId = option ? option.flowId : null
+            row.selectedFlowKey = option ? option.flowKey : ''
+            row.selectedFlowType = option ? option.flowType : ''
+        },
+        // 优先展示流程名称，避免展示纯编码。
+        resolveFlowDisplayName(option) {
+            return option.flowName || (this.flowTypeLabel(option.flowType) + '流程')
+        },
+        // 流程类型复用股票单笔字典。
+        flowTypeLabel(type) {
+            return {
+                whitelistInbound: '白名单',
+                simpleInbound: '简易',
+                normalInbound: '默认调入',
+                specialInbound: '特殊审批',
+                upgradeInbound: '上调',
+                downgradeInbound: '下调',
+                normalOutbound: '调出'
+            }[type] || '一般'
+        },
+        // 流程类型样式复用股票单笔。
+        flowTypeClass(type) {
+            return {
+                whitelistInbound: 'whitelist',
+                simpleInbound: 'simple',
+                normalInbound: 'normal',
+                specialInbound: 'special',
+                upgradeInbound: 'upgrade',
+                downgradeInbound: 'downgrade',
+                normalOutbound: 'outbound'
+            }[type] || 'normal'
+        },
+        // 流程卡片标签颜色复用股票单笔。
+        getFlowOptionTagType(option) {
+            return option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound' ? 'success' : (option.flowType === 'specialInbound' || option.flowType === 'downgradeInbound' ? 'warning' : 'info')
+        },
+        // 流程弹窗行类名与证券导入一致。
+        getFlowRowColorClass(index) {
+            return 'flow-row-color-' + (index % 5)
+        },
+        // 调库校验同组底色。
+        getAdjustReviewRowClass({ row }) {
+            return 'adjust-group-color-' + (row.groupColorIndex || 0)
+        },
+        // 校验枚举标签颜色。
+        chkTagType(value) {
+            return String(value) === '1' ? 'success' : (String(value) === '2' ? 'danger' : 'info')
+        },
+        // 校验枚举文案。
+        chkLabel(value) {
+            return String(value) === '1' ? '通过' : (String(value) === '2' ? '失败' : '待校验')
+        },
+        // 调整类型使用既有渠道及联动、互斥配色。
+        adjustTypeTagType(type) {
+            return type === '互斥调整' ? 'danger' : (type === '联动调整' || type === 'Excel清空' ? 'warning' : 'info')
+        }
+    }
+})
+</script>
+</body>
+</html>
