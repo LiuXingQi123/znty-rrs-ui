@@ -159,9 +159,14 @@
                                                 size="mini" type="info">{{ securityMarketLabel(code) }}</el-tag>
                                     </template>
                                 </el-table-column>
-                                <el-table-column label="证券代码" prop="securityCode" min-width="140" show-overflow-tooltip>
-                                    <template slot-scope="{ row }"><span class="security-code">{{ row.securityCode || '' }}</span></template>
-                                </el-table-column>
+                                <el-table-column label="证券代码" prop="securityCode" min-width="230">
+                        <template slot-scope="{ row }">
+                            <span v-if="!row.isinCode && row.securityType !== 'company'">{{ row.securityCode || '' }}</span><div class="rrs-security-code-list">
+                                <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }">{{ code.value }}</span>
+                                <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
+                            </div>
+                        </template>
+                    </el-table-column>
                                 <el-table-column label="证券全称" prop="securityName" min-width="160" show-overflow-tooltip></el-table-column>
                                 <el-table-column label="证券类型" min-width="110" align="center">
                                     <template slot-scope="{ row }">
@@ -242,9 +247,14 @@
                                                 size="mini" type="info">{{ securityMarketLabel(code) }}</el-tag>
                                     </template>
                                 </el-table-column>
-                                <el-table-column prop="securityCode" label="证券代码" min-width="130">
-                                    <template slot-scope="{ row }"><span class="security-code">{{ row.securityCode || '' }}</span></template>
-                                </el-table-column>
+                                <el-table-column prop="securityCode" label="证券代码" min-width="230">
+                        <template slot-scope="{ row }">
+                            <span v-if="!row.isinCode && row.securityType !== 'company'">{{ row.securityCode || '' }}</span><div class="rrs-security-code-list">
+                                <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }">{{ code.value }}</span>
+                                <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
+                            </div>
+                        </template>
+                    </el-table-column>
                                 <el-table-column prop="securityName" label="证券全称" min-width="150" show-overflow-tooltip>
                                     <template slot-scope="{ row }">{{ row.securityName || row.securityShortName || '' }}</template>
                                 </el-table-column>
@@ -327,7 +337,7 @@
         </span>
         <div class="flow-option-list">
             <div v-for="(row, rowIndex) in validManualCheckItems"
-                 :key="(row.crmwScode || '') + '_' + (row.securityCode || '') + '_' + rowIndex"
+                 :key="(row.crmwIsinCode || '') + '_' + (row.isinCode || '') + '_' + rowIndex"
                  class="flow-option-card flow-row-card"
                  :class="getFlowRowColorClass(rowIndex)">
                 <div class="flow-option-head">
@@ -481,6 +491,31 @@ new Vue({
         this.loadPoolList()
     },
     methods: {
+            // 五个市场共用一个ISIN，按固定顺序完整展示，空代码不占位。
+            securityCodeItems(row) {
+                if (!row) return [];
+                const markets = [['Sh', '沪'], ['Sz', '深'], ['Nib', '银行间'], ['Bj', '北'], ['Nbc', '其他']];
+                const codes = markets.filter(([market]) => row.securityType !== 'crmw' || market === 'Nib')
+                    .map(([market, label]) => ({ market, label, value: String(row['windCode' + market] || '').trim() }))
+                    .filter(code => code.value);
+                if (codes.length === 0 && String(row.isinCode || '').startsWith('TEMP:')) {
+                    const labels = { SSE: '沪', SZSE: '深', CIBM: '银行间', BSE: '北', OTHER: '其他' };
+                    codes.push({ market: 'Temp', label: labels[row.securityMarket || row.tempSecurityMarket] || '临时', value: row.isinCode.substring(5) });
+                }
+                return codes;
+            },
+            crmwCodeItems(row) {
+                if (!row) return [];
+                const value = row.crmwScode || (row.securityType === 'crmw' ? row.windCodeNib : '');
+                return value ? [{ market: 'Nib', label: '银行间', value }] : [];
+            },
+            securityCodesText(row) {
+                return this.securityCodeItems(row).map(code => code.value).join('  ');
+            },
+            isTemporarySecurity(row) {
+                return !!row && (row.securitySource === 'temporary' || String(row.isinCode || '').startsWith('TEMP:'));
+            },
+
         // 下载 classpath 模板（Base64）
         async downloadTemplate(templateCode) {
             const data = await this.apiPost('/api/v1/commonFile/downloadTemplate', { templateCode: templateCode })
@@ -892,7 +927,7 @@ new Vue({
             let next = 0
             return (list || []).map(row => {
                 const key = row.adjustGroupKey
-                    || ('__solo_' + (row.crmwScode || '') + '_' + (row.securityCode || ''))
+                    || ('__solo_' + (row.crmwIsinCode || '') + '_' + (row.isinCode || ''))
                 if (keyToIndex[key] === undefined) {
                     keyToIndex[key] = next % 5
                     next++

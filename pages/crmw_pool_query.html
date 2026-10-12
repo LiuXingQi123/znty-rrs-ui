@@ -36,7 +36,7 @@
         <div class="search-panel">
             <div class="search-row">
                 <span class="search-label"><i class="el-icon-search"></i>筛选</span>
-                <el-input v-model.trim="searchForm.crmwScode" placeholder="CRMW代码" clearable size="small" style="width:160px;">
+                <el-input v-model.trim="searchForm.crmwKeyword" placeholder="CRMW代码" clearable size="small" style="width:160px;">
                     <i slot="prefix" class="el-input__icon el-icon-document"></i>
                 </el-input>
                 <el-input v-model.trim="searchForm.crmwName" placeholder="CRMW名称" clearable size="small" style="width:180px;">
@@ -77,17 +77,25 @@
                         <span class="desc-link" @click="openCrmwAdjustDetail(row)">{{ row.crmwName || '' }}</span>
                     </template>
                 </el-table-column>
-                <el-table-column prop="crmwScode" label="CRMW代码" min-width="130">
-                    <template slot-scope="{ row }">
-                        <span class="desc-link" @click="openCrmwAdjustDetail(row)">{{ row.crmwScode || '' }}</span>
-                    </template>
-                </el-table-column>
+                <el-table-column prop="crmwIsinCode" label="CRMW代码" min-width="230">
+                        <template slot-scope="{ row }">
+                            <div class="rrs-security-code-list">
+                                <span v-for="code in crmwCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }"><span class="desc-link" @click="openCrmwAdjustDetail(row)">{{ code.value }}</span></span>
+                                <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
+                            </div>
+                        </template>
+                    </el-table-column>
                 <el-table-column prop="securityShortName" label="证券名称" min-width="150" show-overflow-tooltip>
                     <template slot-scope="{ row }"><span class="desc-link" @click="openCrmwAdjustDetail(row)">{{ row.securityShortName || '' }}</span></template>
                 </el-table-column>
-                <el-table-column prop="securityCode" label="证券代码" min-width="130">
-                    <template slot-scope="{ row }"><span class="desc-link" @click="openCrmwAdjustDetail(row)">{{ row.securityCode || '' }}</span></template>
-                </el-table-column>
+                <el-table-column prop="isinCode" label="证券代码" min-width="230">
+                        <template slot-scope="{ row }">
+                            <div class="rrs-security-code-list">
+                                <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }"><span class="desc-link" @click="openCrmwAdjustDetail(row)">{{ code.value }}</span></span>
+                                <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
+                            </div>
+                        </template>
+                    </el-table-column>
                 <el-table-column prop="adjusterName" label="调整人" min-width="100"></el-table-column>
                 <el-table-column prop="entryTime" label="入池时间" min-width="170" align="center"></el-table-column>
                 <el-table-column prop="targetPoolName" label="投资池名称" min-width="180" show-overflow-tooltip></el-table-column>
@@ -119,7 +127,7 @@ new Vue({
             },
             today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
             searchForm: { // 搜索条件
-                crmwScode: '',        // CRMW代码关键词
+                crmwKeyword: '',        // CRMW代码关键词
                 crmwName: '',         // CRMW名称关键词
                 entryTimeRange: null, // 入池时间范围
                 adjusterName: '',     // 调整人姓名关键词
@@ -149,12 +157,37 @@ new Vue({
         window.clearTimeout(this.resizeLayoutTimer);
     },
     methods: {
+            // 五个市场共用一个ISIN，按固定顺序完整展示，空代码不占位。
+            securityCodeItems(row) {
+                if (!row) return [];
+                const markets = [['Sh', '沪'], ['Sz', '深'], ['Nib', '银行间'], ['Bj', '北'], ['Nbc', '其他']];
+                const codes = markets.filter(([market]) => row.securityType !== 'crmw' || market === 'Nib')
+                    .map(([market, label]) => ({ market, label, value: String(row['windCode' + market] || '').trim() }))
+                    .filter(code => code.value);
+                if (codes.length === 0 && String(row.isinCode || '').startsWith('TEMP:')) {
+                    const labels = { SSE: '沪', SZSE: '深', CIBM: '银行间', BSE: '北', OTHER: '其他' };
+                    codes.push({ market: 'Temp', label: labels[row.securityMarket || row.tempSecurityMarket] || '临时', value: row.isinCode.substring(5) });
+                }
+                return codes;
+            },
+            crmwCodeItems(row) {
+                if (!row) return [];
+                const value = row.crmwScode || (row.securityType === 'crmw' ? row.windCodeNib : '');
+                return value ? [{ market: 'Nib', label: '银行间', value }] : [];
+            },
+            securityCodesText(row) {
+                return this.securityCodeItems(row).map(code => code.value).join('  ');
+            },
+            isTemporarySecurity(row) {
+                return !!row && (row.securitySource === 'temporary' || String(row.isinCode || '').startsWith('TEMP:'));
+            },
+
         // 加载列表
         async loadList() {
             this.loading = true;
             try {
                 const params = {
-                    crmwScode: this.searchForm.crmwScode || null,
+                    crmwKeyword: this.searchForm.crmwKeyword || null,
                     crmwName: this.searchForm.crmwName || null,
                     entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
                         ? this.searchForm.entryTimeRange[0] + ' 00:00:00' : null,
@@ -192,7 +225,7 @@ new Vue({
         // 重置查询条件
         handleReset() {
             this.searchForm = {
-                crmwScode: '',
+                crmwKeyword: '',
                 crmwName: '',
                 entryTimeRange: null,
                 adjusterName: '',
@@ -216,20 +249,20 @@ new Vue({
 
         // 打开CRMW调库详情页（工作台内按凭证+标的新开页签，同键复用）
         openCrmwAdjustDetail(row) {
-            const crmwScode = row.crmwScode || '';
-            const securityCode = row.securityCode || '';
-            const name = row.crmwSname || row.securityShortName || crmwScode || securityCode;
+            const crmwIsinCode = row.crmwIsinCode || '';
+            const isinCode = row.isinCode || '';
+            const name = row.crmwSname || row.securityShortName || crmwIsinCode || isinCode;
             const params = new URLSearchParams();
-            params.set('securityCode', securityCode);
-            params.set('crmwScode', crmwScode);
+            params.set('isinCode', isinCode);
+            params.set('crmwIsinCode', crmwIsinCode);
             if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
             const adjustLogId = window.RrsWorkbench.resolveAdjustLogId(row, false);
             if (adjustLogId) params.set('adjustLogId', adjustLogId);
             if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
             params.set('entryMode', 'view');
             const opened = window.RrsWorkbench.openDetailTab({
-                index: window.RrsWorkbench.buildTabIndex('crmw-detail', [crmwScode, securityCode, adjustLogId, row.adjustBatchNo, row.targetPoolId]),
-                title: window.RrsWorkbench.formatDetailTitle(name, crmwScode || securityCode),
+                index: window.RrsWorkbench.buildTabIndex('crmw-detail', [crmwIsinCode, isinCode, adjustLogId, row.adjustBatchNo, row.targetPoolId]),
+                title: window.RrsWorkbench.formatDetailTitle(name, crmwIsinCode || isinCode),
                 page: this.pagePaths.crmwPoolAdjustDetail,
                 query: params.toString(),
             });

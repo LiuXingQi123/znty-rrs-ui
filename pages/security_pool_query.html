@@ -76,7 +76,7 @@
                     </span>
                 </el-popover>
 
-                <el-input v-model.trim="searchForm.securityCode" placeholder="证券代码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                <el-input v-model.trim="searchForm.securityKeyword" placeholder="证券代码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-document"></i>
                 </el-input>
 
@@ -156,11 +156,14 @@
                         <span class="desc-link" @click="openSecurityAdjustDetail(row)">{{ row.securityShortName || '' }}</span>
                     </template>
                 </el-table-column>
-                <el-table-column prop="securityCode" label="证券代码" min-width="130">
-                    <template slot-scope="{ row }">
-                        <span class="desc-link" @click="openSecurityAdjustDetail(row)">{{ row.securityCode || '' }}</span>
-                    </template>
-                </el-table-column>
+                <el-table-column prop="isinCode" label="证券代码" min-width="230">
+                        <template slot-scope="{ row }">
+                            <div class="rrs-security-code-list">
+                                <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }"><span class="desc-link" @click="openSecurityAdjustDetail(row)">{{ code.value }}</span></span>
+                                <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
+                            </div>
+                        </template>
+                    </el-table-column>
                 <el-table-column prop="adjusterName" label="调整人" min-width="100"></el-table-column>
                 <el-table-column prop="entryTime" label="入池时间" min-width="170" align="center"></el-table-column>
                 <el-table-column prop="targetPoolName" label="投资池名称" min-width="160" show-overflow-tooltip></el-table-column>
@@ -261,7 +264,7 @@ new Vue({
             today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
             searchForm: { // 搜索表单
                 poolIds: [],           // 选中的池ID列表（多选）
-                securityCode: '',      // 证券代码关键词
+                securityKeyword: '',      // 证券代码关键词
                 securityShortName: '', // 证券简称关键词
                 securityType: '',      // 证券类型（下拉选中值）
                 securityStatus: '',        // 证券状态：空=不限；active=存续 / matured=到期
@@ -329,6 +332,31 @@ new Vue({
         window.clearTimeout(this.resizeLayoutTimer);
     },
     methods: {
+            // 五个市场共用一个ISIN，按固定顺序完整展示，空代码不占位。
+            securityCodeItems(row) {
+                if (!row) return [];
+                const markets = [['Sh', '沪'], ['Sz', '深'], ['Nib', '银行间'], ['Bj', '北'], ['Nbc', '其他']];
+                const codes = markets.filter(([market]) => row.securityType !== 'crmw' || market === 'Nib')
+                    .map(([market, label]) => ({ market, label, value: String(row['windCode' + market] || '').trim() }))
+                    .filter(code => code.value);
+                if (codes.length === 0 && String(row.isinCode || '').startsWith('TEMP:')) {
+                    const labels = { SSE: '沪', SZSE: '深', CIBM: '银行间', BSE: '北', OTHER: '其他' };
+                    codes.push({ market: 'Temp', label: labels[row.securityMarket || row.tempSecurityMarket] || '临时', value: row.isinCode.substring(5) });
+                }
+                return codes;
+            },
+            crmwCodeItems(row) {
+                if (!row) return [];
+                const value = row.crmwScode || (row.securityType === 'crmw' ? row.windCodeNib : '');
+                return value ? [{ market: 'Nib', label: '银行间', value }] : [];
+            },
+            securityCodesText(row) {
+                return this.securityCodeItems(row).map(code => code.value).join('  ');
+            },
+            isTemporarySecurity(row) {
+                return !!row && (row.securitySource === 'temporary' || String(row.isinCode || '').startsWith('TEMP:'));
+            },
+
         // 格式化剩余期限展示文本
         formatRemainTerm(days) {
             if (days === null || days === undefined || days === '') return ''
@@ -487,7 +515,7 @@ new Vue({
             try {
                 const params = {
                     poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
-                    securityCode: this.searchForm.securityCode || null,
+                    securityKeyword: this.searchForm.securityKeyword || null,
                     securityShortName: this.searchForm.securityShortName || null,
                     securityType: this.searchForm.securityType || null,
                     securityStatus: this.searchForm.securityStatus || null,
@@ -516,7 +544,7 @@ new Vue({
         buildQueryParams() {
             return {
                 poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
-                securityCode: this.searchForm.securityCode || null,
+                securityKeyword: this.searchForm.securityKeyword || null,
                 securityShortName: this.searchForm.securityShortName || null,
                 securityType: this.searchForm.securityType || null,
                 securityStatus: this.searchForm.securityStatus || null,
@@ -575,7 +603,7 @@ new Vue({
         handleReset() {
             this.searchForm = {
                 poolIds: [],
-                securityCode: '',
+                securityKeyword: '',
                 securityShortName: '',
                 securityType: '',
                 securityStatus: '',
@@ -615,10 +643,10 @@ new Vue({
 
         // 打开证券调库详情页（工作台内按证券新开页签，同键复用）
         openSecurityAdjustDetail(row) {
-            const code = row.securityCode || row.windCode || '';
+            const code = row.isinCode || '';
             const name = row.securityShortName || code;
             const params = new URLSearchParams();
-            if (code) params.set('securityCode', code);
+            if (code) params.set('isinCode', code);
             if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
             const adjustLogId = window.RrsWorkbench.resolveAdjustLogId(row, false);
             if (adjustLogId) params.set('adjustLogId', adjustLogId);
@@ -647,7 +675,7 @@ new Vue({
                         { confirmButtonText: '确认移除', cancelButtonText: '取消', type: 'warning' }
                     );
                     const deleteFavoriteParams = {
-                        securityCode: row.securityCode,
+                        isinCode: row.isinCode,
                         userId: userId,
                     };
                     await this.apiPost('/api/v1/securityPoolQuery/deleteSecurityFromMyPool', deleteFavoriteParams);
@@ -661,7 +689,7 @@ new Vue({
                 // 添加收藏：调用接口并前端乐观更新收藏 ID
                 try {
                     const addFavoriteParams = {
-                        securityCode: row.securityCode,
+                        isinCode: row.isinCode,
                         securityType: row.securityType || '证券',
                         market: '',
                         userId: userId,

@@ -850,3 +850,10 @@ const DICT_BUSINESS_DOMAIN = { bond: '债券', fund: '基金', stock: '股票' }
 
 // 股票研究评级，最近两次有效评级按评级日期、主键倒序选取。
 const DICT_STOCK_RATING = { buy: '买入', overweight: '增持', neutral: '中性', underweight: '减持', sell: '卖出' };
+
+// 主档 security_source：来源仅作展示，身份统一使用 isin_code。
+const DICT_SECURITY_SOURCE = {
+    official: '正式证券',
+    temporary: '临时证券',
+    temp_converted: '已转正证券',
+};

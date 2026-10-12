@@ -366,6 +366,14 @@
     </div>
 </header>
 <main class="wrap">
+<section class="card" id="security-isin-contract">
+    <h2>证券身份与五码展示</h2>
+    <p>证券主档以 isin_code 为主键，正式券使用真实 ISIN，临时券使用 TEMP:临时代码；不再使用 Wind 总码，也不增加 security_ref_type。主体、独立基金及股票保持原业务代码。</p>
+    <p>搜索传 securityKeyword，对沪、深、银行间、北、其他五码做括号内 OR 筛选。证券代码一列换行显示全部有值代码，仅显示代码本身，不添加市场名前缀，可点击代码沿用证券简称的链接样式，普通代码继承表格文字样式，空值不占位，临时来源明确标示；任一码点击均使用同一 isinCode。实现采用本页 new Vue 方法与插槽。</p>
+    <p>调库、收藏、页签、缓存和报告引用统一传 isinCode；CRMW 另传 crmwIsinCode，凭证仅有银行间编码。不同市场码不能重复占池或绕过在途检查；只在审批通过 20 时落池，整券全部代码同步入出。</p>
+    <p>临时转正选择已存在的正式 ISIN，同一事务内切换在途引用，已在池执行临时出／正式入，已存在正式对象时不重复入池。通用 Excel 独立输出 ISIN 与五码；历史、打印及恒生增量删除沿用事件快照。旧身份链接和导入校验草稿须重新选择或上传。</p>
+</section>
+
     <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">事项分页与可见范围</a><a href="#logic-2">流程选项与业务场景</a><a
             href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
 
@@ -380,7 +388,7 @@
             <tr><td>基金 <code>fund</code></td><td>FundMyMattersService / Mapper；ip_adjust_log_fund、ip_adjust_step_fund；fundAdjust 跳转既有基金审核/详情页，携带 fundCode。</td></tr>
             <tr><td>股票 <code>stock</code></td><td>StockMyMattersService / Mapper；ip_adjust_log_stock、ip_adjust_step_stock；stockAdjust 跳转股票审核/详情，携带 stockCode、adjustLogId、adjustBatchNo。股票代码和名称列使用股票文案。</td></tr>
         </tbody></table>
-        <p><code>POST /api/v1/myMatters/queryBusinessDomainList</code> 请求 currentUserId，返回仅含 <code>businessDomain</code> 的对象数组 <code>[{businessDomain}]</code>，使用既有 <code>BusinessDomainDto</code>。事项分页、我发起的和流程下拉必传 businessDomain；摘要返回业务、场景、objectCode/objectName 和记录/批次/步骤定位。入口接口仅决定页面显示。业务选项、事项分页、角标、流程下拉和分级提醒所需的 <code>currentUserId</code> 由本页显式传入；公共 <code>apiPost</code> 原样发送参数，不按接口或页面文件名补充用户与业务字段。附件列表由各业务页面明确提供 <code>businessDomain</code> 和 <code>adjustLogIds</code>，附件下载只发送 <code>id</code>。</p>
+        <p><code>POST /api/v1/myMatters/queryBusinessDomainList</code> 请求 currentUserId，返回仅含 <code>businessDomain</code> 的对象数组 <code>[{businessDomain}]</code>，使用既有 <code>BusinessDomainDto</code>。事项分页、我发起的和流程下拉必传 businessDomain；摘要返回业务、场景、objectCode/objectName、记录/批次/步骤定位及布尔值 <code>canProcess</code>。入口接口仅决定页面显示。业务选项、事项分页、角标、流程下拉和分级提醒所需的 <code>currentUserId</code> 由本页显式传入；公共 <code>apiPost</code> 原样发送参数，不按接口或页面文件名补充用户与业务字段。附件列表由各业务页面明确提供 <code>businessDomain</code> 和 <code>adjustLogIds</code>，附件下载只发送 <code>id</code>。</p>
         <p>返回工作台页签、切换业务、查询和分页不重新读取业务入口；返回时刷新当前业务数据。切换业务清空筛选、列表、流程下拉和角标，重置分页；旧响应按业务和视图版本丢弃。工作台页签键包含业务代码，不同表相同 ID 不混用。</p>
         <p>后端事项查询、角标、流程下拉、详情、步骤、附件和审批不校验入口名单。详情、步骤和附件直接按参数读取；审批根据真实步骤检查处理资格。审核页优先展示本人待办，无本人待办时管理员（ID 为 1 或整数 10000～10100）展示首个待办，其他人不启用审批操作；后端用相同管理员规则接管待办并优先处理本人步骤。原审批状态、会签及驳回修改校验保留；分级规则提醒保持共享口径，不按入口名单过滤。</p>
         <p>用户/角色固定入口名单在上述 Mapper XML 中维护，修改后重新部署。角色停用或成员移除在下次真正加载页面时更新入口显示，用户直接配置不随角色撤回消失；股票已接入独立查询模块与固定入口名单。首版沿用演示登录，正式环境需要可信后端身份；无权限维护页面。</p>
@@ -392,7 +400,7 @@
             <div class="step"><b>2. 事项查询与角标预载</b><span>进入页面时并行查询待处理、已完成、我发起的；债券视图另查分级规则提醒 Tab：当前 Tab 加载列表，其余 Tab 以每页 1 条仅取总数；后续查询或切换 Tab 只刷新当前 Tab 及其角标。</span></div>
             <div class="step"><b>3. 选择代表步骤</b><span>待办取本人最新待处理（<code>pending</code>）步骤；已完成/我发起的取每申请最新步骤。</span></div>
             <div class="step"><b>4. 识别场景</b><span>根据池类型和主体类型判断跳转页面。</span></div>
-            <div class="step"><b>5. 进入处理/查看</b><span>工作台新开审核/详情页签；提醒页签去调库同样新开。返回关闭该页签。</span></div>
+            <div class="step"><b>5. 进入处理/查看</b><span>待处理和我发起的按 canProcess 显示“处理”或“查看”，按钮及流程描述链接统一打开审核或详情页签；已完成始终只读。提醒页签去调库同样新开。返回关闭该页签。</span></div>
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>事项分页与可见范围</h2>
@@ -410,6 +418,8 @@
                     <li>接口：<code>POST /api/v1/myMatters/queryMyInitiatedMattersPage</code>。</li>
                     <li>按 <code>al.adjuster_id = currentUserId</code> 过滤（管理员也只看自己发起的），取每条申请最新步骤。</li>
                     <li>含流程中与已结束；页面隐藏「发起人」筛选项；不传 stepStatus。</li>
+                    <li>后端 <code>canProcess=true</code> 时显示“处理”并进入审核页（entryMode=process），否则显示“查看”并进入只读详情（entryMode=view）；流程描述链接采用相同规则。债券、禁投主体、CRMW、基金、股票一致。</li>
+                    <li>资格按实际 pending 步骤判断：审核状态须为 00/11，普通用户限本人待办并遵守发起人回避（仅 initiator 提交/修改节点例外），管理员沿用接管权限。会签中最新步骤已完成不代表本人没有待办；终态不显示“处理”。审批提交仍由原服务重新校验。</li>
                 </ul>
             </article>
         </div>

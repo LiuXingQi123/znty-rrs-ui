@@ -136,7 +136,14 @@
                     </template>
                 </el-table-column>
                 <el-table-column prop="securityName" label="证券名称" min-width="170" show-overflow-tooltip></el-table-column>
-                <el-table-column prop="securityCode" label="证券代码" min-width="150" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="isinCode" label="正式证券代码" min-width="230">
+                        <template slot-scope="{ row }">
+                            <div class="rrs-security-code-list">
+                                <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }">{{ code.value }}</span>
+                                <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
+                            </div>
+                        </template>
+                    </el-table-column>
                 <el-table-column label="证券市场" min-width="120" align="center">
                     <template slot-scope="{ row }">
                         <el-tag v-if="row.securityMarket" class="market-tag" size="mini">{{ marketName(row.securityMarket) }}</el-tag>
@@ -189,7 +196,7 @@
                     </el-col>
                     <el-col :span="12">
                         <el-form-item label="临时证券代码" prop="tempSecurityCode">
-                            <el-input v-model.trim="addForm.tempSecurityCode" maxlength="20" placeholder="请输入，需带市场后缀"></el-input>
+                            <el-input v-model.trim="addForm.tempSecurityCode" maxlength="95" placeholder="请输入，需带市场后缀"></el-input>
                         </el-form-item>
                     </el-col>
                 </el-row>
@@ -341,9 +348,9 @@
                 <div class="section-title"><span class="section-title-line"></span>正式证券信息</div>
                 <el-row :gutter="16">
                     <el-col :span="12">
-                        <el-form-item label="证券名称" prop="securityCode">
+                        <el-form-item label="证券名称" prop="isinCode">
                             <el-select
-                                v-model="updateForm.securityCode"
+                                v-model="updateForm.isinCode"
                                 filterable
                                 remote
                                 clearable
@@ -356,16 +363,16 @@
                                 @clear="clearFormalSecurity">
                                 <el-option
                                     v-for="item in formalSecurityOptions"
-                                    :key="item.securityCode"
+                                    :key="item.isinCode"
                                     :label="formalSecurityLabel(item)"
-                                    :value="item.securityCode">
+                                    :value="item.isinCode">
                                 </el-option>
                             </el-select>
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="证券代码">
-                            <el-input :value="updateForm.securityCode" disabled placeholder="由所选证券带出"></el-input>
+                        <el-form-item label="正式证券代码">
+                            <el-input :value="updateForm.isinCode" disabled placeholder="由所选证券带出"></el-input>
                         </el-form-item>
                     </el-col>
                 </el-row>
@@ -464,7 +471,7 @@
                     tempMaturityDate: [{ required: true, message: '请选择到期日期', trigger: 'change' }]
                 },
                 updateRules: {              // 更新正式证券校验
-                    securityCode: [{ required: true, message: '请选择正式证券', trigger: 'change' }]
+                    isinCode: [{ required: true, message: '请选择正式证券', trigger: 'change' }]
                 }
             }
         },
@@ -493,6 +500,31 @@
             window.clearTimeout(this.resizeLayoutTimer)
         },
         methods: {
+            // 五个市场共用一个ISIN，按固定顺序完整展示，空代码不占位。
+            securityCodeItems(row) {
+                if (!row) return [];
+                const markets = [['Sh', '沪'], ['Sz', '深'], ['Nib', '银行间'], ['Bj', '北'], ['Nbc', '其他']];
+                const codes = markets.filter(([market]) => row.securityType !== 'crmw' || market === 'Nib')
+                    .map(([market, label]) => ({ market, label, value: String(row['windCode' + market] || '').trim() }))
+                    .filter(code => code.value);
+                if (codes.length === 0 && String(row.isinCode || '').startsWith('TEMP:')) {
+                    const labels = { SSE: '沪', SZSE: '深', CIBM: '银行间', BSE: '北', OTHER: '其他' };
+                    codes.push({ market: 'Temp', label: labels[row.securityMarket || row.tempSecurityMarket] || '临时', value: row.isinCode.substring(5) });
+                }
+                return codes;
+            },
+            crmwCodeItems(row) {
+                if (!row) return [];
+                const value = row.crmwScode || (row.securityType === 'crmw' ? row.windCodeNib : '');
+                return value ? [{ market: 'Nib', label: '银行间', value }] : [];
+            },
+            securityCodesText(row) {
+                return this.securityCodeItems(row).map(code => code.value).join('  ');
+            },
+            isTemporarySecurity(row) {
+                return !!row && (row.securitySource === 'temporary' || String(row.isinCode || '').startsWith('TEMP:'));
+            },
+
             // 加载列表数据
             async loadList() {
                 this.loading = true
@@ -634,7 +666,7 @@
                     tempMaturityDate: row.tempMaturityDate || '',
                     // 正式证券信息：默认空，不预填临时代码
                     securityName: '',
-                    securityCode: '',
+                    isinCode: '',
                     securityMarket: '',
                     securityType: '',
                     securityTypeName: ''
@@ -667,7 +699,7 @@
                     return ''
                 }
                 const name = item.securityName || ''
-                const code = item.securityCode || ''
+                const code = this.securityCodesText(item)
                 if (name && code) {
                     return name + '（' + code + '）'
                 }
@@ -675,16 +707,16 @@
             },
 
             // 选中正式证券后回填代码/市场/类型
-            handleFormalSecurityChange(securityCode) {
-                if (!securityCode) {
+            handleFormalSecurityChange(isinCode) {
+                if (!isinCode) {
                     this.clearFormalSecurity()
                     return
                 }
-                const item = this.formalSecurityOptions.find(option => option.securityCode === securityCode)
+                const item = this.formalSecurityOptions.find(option => option.isinCode === isinCode)
                 if (!item) {
                     return
                 }
-                this.updateForm.securityCode = item.securityCode || ''
+                this.updateForm.isinCode = item.isinCode || ''
                 this.updateForm.securityName = item.securityName || ''
                 this.updateForm.securityMarket = item.securityMarket || ''
                 this.updateForm.securityType = item.securityType || ''
@@ -693,7 +725,7 @@
 
             // 清空正式证券选择
             clearFormalSecurity() {
-                this.updateForm.securityCode = ''
+                this.updateForm.isinCode = ''
                 this.updateForm.securityName = ''
                 this.updateForm.securityMarket = ''
                 this.updateForm.securityType = ''
@@ -707,7 +739,7 @@
                 try {
                     await this.apiPost('/api/v1/tempSecurityCode/editTempSecurityCodeToUpdated', {
                         id: this.updateForm.id,
-                        securityCode: this.updateForm.securityCode
+                        isinCode: this.updateForm.isinCode
                     })
                     this.$message.success('更新成功')
                     this.updateDialogVisible = false
