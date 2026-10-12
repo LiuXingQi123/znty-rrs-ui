@@ -366,6 +366,17 @@
                                                                                             href="scheduled-task-tables.html"><b>定时任务管理</b>
             <p>sys_scheduled_task；不同 taskCode 无编排，依赖靠 cron 先后。</p><span class="tag">运维调度</span></a></div>
     </section>
+    <section class="group" id="script-tool-initialization"><h2>脚本工具 · 数据初始化</h2>
+        <p><a href="script_tool.html">打开数据初始化</a>：按「债券 / 基金 / 股票 / 全部」Tab 分类，每行左侧为建表语句，右侧为同一模块的 Demo 数据。首次搭建完整环境，在「全部」先执行全库建表，再执行全库 Demo；窄屏按先建表、后 Demo 的顺序纵向展示。</p>
+        <ul>
+            <li>债券批量：<code>INIT_BOND_SCHEMA / INIT_BOND_DEMO</code>，包含债券、禁投主体、CRMW、外部证券基础信息和公共业务脚本；不执行 AIS、基金和股票专属脚本。公共池、流程、附件、自选等共享数据也会重置，已有基金/股票环境执行前须注意其公共依赖。</li>
+            <li>基金批量：<code>INIT_FUND_SCHEMA / INIT_FUND_DEMO</code>，仅处理基金基础信息、临时代码、净值和基金调库表；公共池、流程及用户配置须已具备。</li>
+            <li>股票批量：<code>INIT_STOCK_SCHEMA / INIT_STOCK_DEMO</code>，仅处理股票主档、评级、分管和调库表，清理股票日志附件关联；公共池、流程、附件及自选表须已具备。股票自选幂等追加。</li>
+            <li>全库批量：<code>INIT_ALL_SCHEMA / INIT_ALL_DEMO</code>，覆盖 <code>znty_rrs / ais_inv_analysis / ais_inv_ods</code> 已注册项目表，含 AIS 用户角色、Wind ODS 本地演示表及全部资产。仅执行后端 SQL 白名单，不操作其他未注册表。公共脚本先于基金、股票，避免附件表缺失或股票自选被覆盖。</li>
+        </ul>
+        <p>「全部」保留通用业务、外部基础信息、基金、股票和 AIS 独立任务；运行态清空和「重建通用业务演示环境」另列维护区。旧 <code>INIT_SCHEMA / INIT_DEMO / RESET_ALL</code> 范围不变，仍排除 AIS、外部导入、基金和股票专属脚本。</p>
+        <p>接口均为 POST：<code>/api/v1/scriptTool/queryScriptTaskList</code> 返回任务说明、脚本清单、确认文本、风险及影响表数；<code>/api/v1/scriptTool/executeScriptTask</code> 接收 <code>taskCode / confirmText / currentUserId / currentUserName</code>。执行前必须输入当前任务确认文本；开关、互斥、逐项结果及执行审计保持有效。建表会清空对应原表，Demo 按脚本重置数据；仅建结构的表在「未灌数据」中列出。</p>
+    </section>
 <p>我的事宜已接入独立的债券/基金/股票业务，用户/角色入口名单固定在 BusinessPermissionMapper.xml/queryBusinessDomainList 的 SQL 中，仅在新页面 mounted 时查询一次；事项查询及审批沿用原管理员规则，投资池权限独立维护。<a href="my-matters-tables.html#business-permission">入口显示与名单维护</a></p>
 </main>
 <footer>znty-rrs-ui/docs · 30 个功能文档 · 业务问题专题与菜单对齐 · 依据当前代码</footer>
