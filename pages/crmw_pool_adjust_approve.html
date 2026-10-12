@@ -45,7 +45,7 @@
                 <span class="search-label">
                     <i class="el-icon-search"></i>筛选
                 </span>
-                <el-input v-model.trim="searchForm.securityKeyword" placeholder="证券代码" clearable
+                <el-input v-model.trim="searchForm.securityCode" placeholder="证券代码" clearable
                           size="small" style="width:148px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-document"></i>
                 </el-input>
@@ -74,12 +74,9 @@
                             {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
                         </template>
                     </el-table-column>
-                    <el-table-column prop="isinCode" label="证券代码" min-width="230">
+                    <el-table-column prop="windCode" label="证券代码" min-width="130">
                         <template slot-scope="{ row }">
-                            <div class="rrs-security-code-list">
-                                <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }">{{ code.value }}</span>
-                                <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
-                            </div>
+                            <span style="font-family:'Courier New',monospace;font-size:12.5px;color:var(--c-primary);font-weight:500;">{{ row.windCode || '' }}</span>
                         </template>
                     </el-table-column>
                     <el-table-column prop="shortName" label="证券简称" min-width="130"></el-table-column>
@@ -154,9 +151,9 @@
             <div class="divider"></div>
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:14px;font-weight:700;color:var(--c-text);">{{ pageTitle }}</span>
-                <span v-if="bondDetail.isinCode"
+                <span v-if="bondDetail.windCode"
                       style="font-family:'Courier New',monospace;font-size:13px;font-weight:600;color:var(--c-primary);background:var(--c-primary-l);padding:2px 10px;border-radius:5px;border:1px solid rgba(23,70,212,.15);">
-                    {{ securityCodesText(bondDetail) }}
+                    {{ bondDetail.windCode }}
                 </span>
                 <span v-if="bondDetail.shortName || bondDetail.fullName"
                       style="color:var(--c-text-2);font-weight:500;font-size:13px;">
@@ -169,7 +166,7 @@
 
             <div class="print-doc-header">
                 <div class="print-doc-title">{{ printDocumentTitle }}</div>
-                <div class="print-doc-sub">{{ [securityCodesText(crmwDetail) || securityCodesText(bondDetail), crmwDetail.shortName || bondDetail.shortName || bondDetail.fullName].filter(Boolean).join(' ') }}</div>
+                <div class="print-doc-sub">{{ [crmwDetail.windCode || bondDetail.windCode, crmwDetail.shortName || bondDetail.shortName || bondDetail.fullName].filter(Boolean).join(' ') }}</div>
             </div>
 
             <!-- 证券基本信息 -->
@@ -187,8 +184,8 @@
                         <el-descriptions-item label="证券简称">
                             <el-input v-model.trim="bondDetail.shortName" size="small" placeholder="请输入" disabled maxlength="100"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="ISIN">
-                            <el-input v-model.trim="bondDetail.isinCode" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
+                        <el-descriptions-item label="证券代码">
+                            <el-input v-model.trim="bondDetail.windCode" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="发行人名称">
                             <el-input v-model.trim="bondDetail.issuer" size="small" placeholder="请输入" disabled maxlength="30"></el-input>
@@ -204,9 +201,6 @@
                         </el-descriptions-item>
                         <el-descriptions-item label="北交所代码">
                             <el-input v-model.trim="bondDetail.windCodeBj" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
-                        </el-descriptions-item>
-                        <el-descriptions-item label="其他市场代码">
-                            <span class="rrs-security-code-item">{{ bondDetail.windCodeNbc || '' }}</span>
                         </el-descriptions-item>
                         <el-descriptions-item label="发行总额(亿元)">
                             <el-input type="number" v-model="bondDetail.issueAmountplan" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly" maxlength="12"></el-input>
@@ -356,11 +350,8 @@
                         <el-descriptions-item label="CRMW名称">
                             <el-input v-model.trim="crmwDetail.shortName" size="small" disabled></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="CRMW银行间代码">
-                            <el-input :value="crmwDetail.windCodeNib || ''" size="small" disabled></el-input>
-                        </el-descriptions-item>
-                        <el-descriptions-item label="CRMW ISIN">
-                            <el-input :value="crmwDetail.isinCode || ''" size="small" disabled></el-input>
+                        <el-descriptions-item label="CRMW代码">
+                            <el-input v-model.trim="crmwDetail.windCode" size="small" disabled></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券类型">
                             <el-input v-model.trim="crmwDetail.securityTypeName" size="small" disabled></el-input>
@@ -1165,7 +1156,7 @@
                         <el-input v-model.trim="internalReportFilters.title" placeholder="标题关键字" clearable size="small"
                                   style="width:200px;" prefix-icon="el-icon-search"
                                   @keyup.enter.native="queryInternalReports"></el-input>
-                        <el-input v-model.trim="internalReportFilters.securityKeyword" placeholder="证券编码" clearable size="small"
+                        <el-input v-model.trim="internalReportFilters.securityCode" placeholder="证券编码" clearable size="small"
                                   style="width:180px;" prefix-icon="el-icon-document"
                                   @keyup.enter.native="queryInternalReports"></el-input>
                         <el-date-picker v-model="internalReportFilters.writeDateRange" type="daterange" popper-class="project-date-range-picker"
@@ -1196,14 +1187,11 @@
                                 <el-tag v-if="row.reportType" size="mini" :type="reportTypeTagType(row.reportType)">{{ reportTypeLabel(row.reportType) }}</el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="isinCode" label="证券编码" min-width="230">
-                        <template slot-scope="{ row }">
-                            <div class="rrs-security-code-list">
-                                <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }">{{ code.value }}</span>
-                                <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
-                            </div>
-                        </template>
-                    </el-table-column>
+                        <el-table-column prop="securityCode" label="证券编码" min-width="120">
+                            <template slot-scope="{ row }">
+                                <span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-primary);">{{ row.securityCode }}</span>
+                            </template>
+                        </el-table-column>
                         <el-table-column prop="companyCode" label="主体编码" min-width="120">
                             <template slot-scope="{ row }">
                                 <span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text);">{{ row.companyCode }}</span>
@@ -1270,7 +1258,7 @@
                         <el-input v-model.trim="externalReportFilters.title" placeholder="标题关键字" clearable size="small"
                                   style="width:200px;" prefix-icon="el-icon-search"
                                   @keyup.enter.native="queryExternalReports"></el-input>
-                        <el-input v-model.trim="externalReportFilters.securityKeyword" placeholder="证券编码" clearable size="small"
+                        <el-input v-model.trim="externalReportFilters.securityCode" placeholder="证券编码" clearable size="small"
                                   style="width:180px;" prefix-icon="el-icon-document"
                                   @keyup.enter.native="queryExternalReports"></el-input>
                         <el-date-picker v-model="externalReportFilters.writeDateRange" type="daterange" popper-class="project-date-range-picker"
@@ -1302,14 +1290,11 @@
                                 <el-tag v-if="row.reportType" size="mini" :type="reportTypeTagType(row.reportType)">{{ reportTypeLabel(row.reportType) }}</el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="isinCode" label="证券编码" min-width="230">
-                        <template slot-scope="{ row }">
-                            <div class="rrs-security-code-list">
-                                <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }">{{ code.value }}</span>
-                                <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
-                            </div>
-                        </template>
-                    </el-table-column>
+                        <el-table-column prop="securityCode" label="证券编码" min-width="120">
+                            <template slot-scope="{ row }">
+                                <span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-primary);">{{ row.securityCode }}</span>
+                            </template>
+                        </el-table-column>
                         <el-table-column prop="companyCode" label="主体编码" min-width="120">
                             <template slot-scope="{ row }">
                                 <span style="font-family:'Courier New',monospace;font-size:12px;color:var(--c-text);">{{ row.companyCode }}</span>
@@ -1448,7 +1433,7 @@
         computed: {
             // 当前证券编码，用于查询发行主体财务数据
             issuerFinancialSecurityCode() {
-                return (this.bondDetail && this.bondDetail.isinCode) || '';
+                return (this.bondDetail && this.bondDetail.windCode) || '';
             },
             // 按城投债或产业债分类返回对应指标行
             currentIssuerFinancialIndicatorRows() {
@@ -1472,16 +1457,16 @@
         methods: {
             // 按证券编码加载发行主体财务数据，忽略过期请求结果
             async loadIssuerFinancialData() {
-                const isinCode = String(this.issuerFinancialSecurityCode || '').trim();
+                const securityCode = String(this.issuerFinancialSecurityCode || '').trim();
                 const requestSeq = ++this.issuerFinancialRequestSeq;
                 this.issuerFinancialList = [];
                 this.issuerFinancialLoadError = '';
-                if (!isinCode) return;
+                if (!securityCode) return;
                 this.issuerFinancialLoading = true;
                 try {
                     const records = await this.apiPost(
                         '/api/v1/securityPoolAdjust/queryIssuerFinancialList',
-                        { isinCode }
+                        { securityCode }
                     );
                     if (requestSeq !== this.issuerFinancialRequestSeq) return;
                     this.issuerFinancialList = Array.isArray(records) ? records : [];
@@ -1518,7 +1503,7 @@
                     crmwPoolAdjust: 'crmw_pool_adjust.html', // CRMW池调整列表页
                 },
                 currentPage: 'detail',          // 当前显示页：'list'=列表页 / 'detail'=详情页
-                searchForm: { securityKeyword: '', securityShortName: '', issuer: '' }, // 列表页搜索条件
+                searchForm: { securityCode: '', securityShortName: '', issuer: '' }, // 列表页搜索条件
                 tableData: [],                // 列表页表格数据
                 loading: false,               // 列表页加载状态
                 pagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 列表页分页参数
@@ -1579,7 +1564,7 @@
                 internalReportData: [],            // 全部内部报告数据
                 internalReportFilters: { // 内部报告查询条件
                     title: '',                     // 标题筛选
-                    securityKeyword: '',              // 证券编码筛选
+                    securityCode: '',              // 证券编码筛选
                     reportType: '',                // 报告类型快捷筛选
                     writeDateRange: null           // 撰写日期范围 [start, end]
                 },
@@ -1593,7 +1578,7 @@
                 externalReportData: [],            // 全部外部报告数据
                 externalReportFilters: { // 外部报告查询条件
                     title: '',                     // 标题筛选
-                    securityKeyword: '',              // 证券编码筛选
+                    securityCode: '',              // 证券编码筛选
                     reportType: '',                // 报告类型快捷筛选
                     writeDateRange: null           // 撰写日期范围 [start, end]
                 },
@@ -1806,31 +1791,6 @@
             window.RrsPrintExport.unbind();
         },
         methods: {
-            // 五个市场共用一个ISIN，按固定顺序完整展示，空代码不占位。
-            securityCodeItems(row) {
-                if (!row) return [];
-                const markets = [['Sh', '沪'], ['Sz', '深'], ['Nib', '银行间'], ['Bj', '北'], ['Nbc', '其他']];
-                const codes = markets.filter(([market]) => row.securityType !== 'crmw' || market === 'Nib')
-                    .map(([market, label]) => ({ market, label, value: String(row['windCode' + market] || '').trim() }))
-                    .filter(code => code.value);
-                if (codes.length === 0 && String(row.isinCode || '').startsWith('TEMP:')) {
-                    const labels = { SSE: '沪', SZSE: '深', CIBM: '银行间', BSE: '北', OTHER: '其他' };
-                    codes.push({ market: 'Temp', label: labels[row.securityMarket || row.tempSecurityMarket] || '临时', value: row.isinCode.substring(5) });
-                }
-                return codes;
-            },
-            crmwCodeItems(row) {
-                if (!row) return [];
-                const value = row.crmwScode || (row.securityType === 'crmw' ? row.windCodeNib : '');
-                return value ? [{ market: 'Nib', label: '银行间', value }] : [];
-            },
-            securityCodesText(row) {
-                return this.securityCodeItems(row).map(code => code.value).join('  ');
-            },
-            isTemporarySecurity(row) {
-                return !!row && (row.securitySource === 'temporary' || String(row.isinCode || '').startsWith('TEMP:'));
-            },
-
 
             // 数字输入空串转 null，避免后端 BigDecimal 反序列化失败
             toNullableNumber(val) {
@@ -1875,19 +1835,19 @@
             },
             // 初始化独立调库审核页
             async initStandaloneReviewPage() {
-                const isinCode = this.getUrlParam('isinCode');
-                const crmwIsinCode = this.getUrlParam('crmwIsinCode');
-                if (!isinCode || !crmwIsinCode) {
+                const securityCode = this.getUrlParam('securityCode') || this.getUrlParam('windCode');
+                const crmwScode = this.getUrlParam('crmwScode');
+                if (!securityCode || !crmwScode) {
                     this.$message.warning('缺少证券或CRMW信息，请从业务页面进入');
                     return;
                 }
-                this.selectedCrmwCode = crmwIsinCode;
+                this.selectedCrmwCode = crmwScode;
                 this.selectedTargetPoolId = this.getUrlParam('targetPoolId') || null;
                 this.selectedAdjustLogId = this.getUrlParam('adjustLogId') || this.getUrlParam('adjust_log_id') || null;
                 this.selectedAdjustBatchNo = this.getUrlParam('adjustBatchNo') || this.getUrlParam('adjust_batch_no') || null;
                 this.entryMode = this.getUrlParam('entryMode') === 'next' ? 'next' : 'process';
                 this.adjustStep = 2;
-                await this.loadDetailData(isinCode);
+                await this.loadDetailData(securityCode);
                 await this.restoreStandaloneAdjustDraft();
             },
             // 从会话草稿恢复下一步页面状态，供其他 HTML 跳转复用
@@ -1918,7 +1878,7 @@
                 this.loading = true;
                 try {
                     const queryParams = {
-                        securityKeyword: this.searchForm.securityKeyword,
+                        securityCode: this.searchForm.securityCode,
                         securityShortName: this.searchForm.securityShortName,
                         issuer: this.searchForm.issuer,
                         pageIndex: this.pagination.pageIndex,
@@ -1936,7 +1896,7 @@
             handleSearch() { this.pagination.pageIndex = 1; this.loadList(); },
             // 重置搜索条件并重新加载
             handleReset() {
-                this.searchForm = { securityKeyword: '', securityShortName: '', issuer: '' };
+                this.searchForm = { securityCode: '', securityShortName: '', issuer: '' };
                 this.pagination.pageIndex = 1; this.loadList();
             },
             // 分页页码切换
@@ -1949,14 +1909,14 @@
                 this.selectedAdjustLogId = this.getUrlParam('adjustLogId') || this.getUrlParam('adjust_log_id') || null;
                 this.selectedAdjustBatchNo = this.getUrlParam('adjustBatchNo') || this.getUrlParam('adjust_batch_no') || null;
                 this.currentPage = 'detail';
-                await this.loadDetailData(row.isinCode);
+                await this.loadDetailData(row.windCode || row.securityCode);
             },
             // 查询当前证券所在池及主体所在池
-            async loadSecurityPoolStatus(isinCode) {
+            async loadSecurityPoolStatus(securityCode) {
                 try {
                     const data = await this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', {
-                        isinCode: isinCode,
-                        crmwIsinCode: this.crmwDetail.isinCode || this.selectedCrmwCode || '',
+                        securityCode: securityCode,
+                        crmwScode: this.crmwDetail.windCode || this.selectedCrmwCode || '',
                         crmwStype: this.crmwDetail.securityType || 'crmw'
                     });
                     this.securityCurrentPools = data.securityCurrentPools || [];
@@ -1979,15 +1939,15 @@
                 return map[poolType] || poolType || '';
             },
             // 并发加载详情页所需的全部数据（证券详情/可调入出池/当前所在池/调库记录）
-            async loadDetailData(isinCode) {
+            async loadDetailData(securityCode) {
                 this.detailLoading = true;
                 try {
-                    const crmwDetail = await this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwDetail', { isinCode: this.selectedCrmwCode, adjustLogId: this.selectedAdjustLogId });
+                    const crmwDetail = await this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwDetail', { securityCode: this.selectedCrmwCode });
                     this.crmwDetail = crmwDetail || {};
-                    const inPoolParams = { isinCode: isinCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
-                    const outPoolParams = { isinCode: isinCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
+                    const inPoolParams = { securityCode: securityCode, adjustDirection: 'in', currentUserId: this.currentLoginUserId };
+                    const outPoolParams = { securityCode: securityCode, adjustDirection: 'out', currentUserId: this.currentLoginUserId };
                     // 有调库日志时带 adjustLogId，后端优先返回提交时证券信息快照
-                    const detailReq = { isinCode: isinCode };
+                    const detailReq = { securityCode: securityCode };
                     if (this.selectedAdjustLogId) {
                         detailReq.adjustLogId = this.selectedAdjustLogId;
                     }
@@ -1995,9 +1955,9 @@
                         this.apiPost('/api/v1/crmwPoolAdjust/querySecurityDetail', detailReq),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', inPoolParams),
                         this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustPoolList', outPoolParams),
-                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', { isinCode: isinCode, crmwIsinCode: this.crmwDetail.isinCode, crmwStype: this.crmwDetail.securityType || 'crmw' }),
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwPoolStatus', { securityCode: securityCode, crmwScode: this.crmwDetail.windCode, crmwStype: this.crmwDetail.securityType || 'crmw' }),
                         // 审核页通常带批次（含终态）；无批次时后端仍按调库入口未带批次时的查询排除终态
-                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustLogList', { isinCode: isinCode, crmwIsinCode: this.crmwDetail.isinCode, crmwStype: this.crmwDetail.securityType || 'crmw' })
+                        this.apiPost('/api/v1/crmwPoolAdjust/queryCrmwAdjustLogList', { securityCode: securityCode, crmwScode: this.crmwDetail.windCode, crmwStype: this.crmwDetail.securityType || 'crmw' })
                     ]);
                     this.bondDetail    = detail  || {};
                     // 当前所在池
@@ -2219,7 +2179,7 @@
                 }
                 window.RrsPrintExport.print({
                     // 组成浏览器“另存为 PDF”的默认文件名
-                    fileTitle: [this.printDocumentTitle, this.crmwDetail.isinCode || this.bondDetail.isinCode, this.crmwDetail.shortName || this.bondDetail.shortName || this.bondDetail.fullName],
+                    fileTitle: [this.printDocumentTitle, this.crmwDetail.windCode || this.bondDetail.windCode, this.crmwDetail.shortName || this.bondDetail.shortName || this.bondDetail.fullName],
                     // 传入 Vue nextTick，确保展开后的 DOM 完成渲染
                     nextTick: (fn) => this.$nextTick(fn),
                     // 打印前展开导出区块，并返回原状态快照
@@ -2595,9 +2555,9 @@
                     }
                     this.$message.success((result && result.message) || '审批处理成功');
                     this.auditComment = '';
-                    const isinCode = this.bondDetail.isinCode || this.getUrlParam('isinCode');
-                    if (isinCode) {
-                        await this.loadDetailData(isinCode);
+                    const securityCode = this.bondDetail.windCode || this.getUrlParam('securityCode') || this.getUrlParam('windCode');
+                    if (securityCode) {
+                        await this.loadDetailData(securityCode);
                     }
                 } catch (e) {
                     if (e !== 'cancel' && e !== 'close') {
@@ -2741,7 +2701,7 @@
                 let next = 0
                 return (list || []).map(row => {
                     const key = row.adjustGroupKey
-                        || ('__solo_' + (row.poolId || '') + '_' + (row.direction || '') + '_' + (row.isinCode || ''))
+                        || ('__solo_' + (row.poolId || '') + '_' + (row.direction || '') + '_' + (row.securityCode || ''))
                     if (keyToIndex[key] === undefined) {
                         keyToIndex[key] = next % 5
                         next++
@@ -2779,10 +2739,10 @@
 
                 this.adjustCheckLoading = true;
                 const checkParams = {
-                    isinCode: this.bondDetail.isinCode || '',
+                    securityCode: this.bondDetail.windCode || '',
                     securityShortName: this.bondDetail.shortName || '',
                     securityType: this.bondDetail.securityType || '',
-                    crmwIsinCode: this.crmwDetail.isinCode || '',
+                    crmwScode: this.crmwDetail.windCode || '',
                     crmwStype: this.crmwDetail.securityType || 'crmw',
                     guarantorCode: (this.bondDetail.absFlag == 1 || this.bondDetail.securityType === 'abs') ? '' : (this.bondDetail.guarantorId || ''),
                     rightsHolderCode: (this.bondDetail.absFlag == 1 || this.bondDetail.securityType === 'abs') && !this.bondDetail.companySelector ? (this.bondDetail.guarantorId || '') : '',
@@ -2811,7 +2771,6 @@
                         ? ('未通过（共 ' + failReasons.length + ' 项）：' + failReasons.map((r, i) => (i + 1) + '. ' + r).join(' '))
                         : typePrefix
                     return {
-                        ...item,
                         poolId: item.targetPoolId,
                         poolName: item.poolName,
                         poolType: item.poolType,
@@ -2897,7 +2856,7 @@
                 const securityInfo = {
                     fullName: this.bondDetail.fullName,
                     shortName: this.bondDetail.shortName,
-                    isinCode: this.bondDetail.isinCode,
+                    windCode: this.bondDetail.windCode,
                     issuer: this.bondDetail.issuer,
                     windCodeNib: this.bondDetail.windCodeNib,
                     windCodeSh: this.bondDetail.windCodeSh,
@@ -2925,11 +2884,11 @@
                     analysis: this.bondDetail.analysis
                 };
                 const payload = {
-                    isinCode: this.bondDetail.isinCode || '',
+                    securityCode: this.bondDetail.windCode || '',
                     securityShortName: this.bondDetail.shortName || '',
                     securityType: this.bondDetail.securityType || '',
                     crmwName: this.crmwDetail.shortName || '',
-                    crmwIsinCode: this.crmwDetail.isinCode || '',
+                    crmwScode: this.crmwDetail.windCode || '',
                     crmwStype: this.crmwDetail.securityType || 'crmw',
                     guarantorCode: (this.bondDetail.absFlag == 1 || this.bondDetail.securityType === 'abs') ? '' : (this.bondDetail.guarantorId || ''),
                     rightsHolderCode: (this.bondDetail.absFlag == 1 || this.bondDetail.securityType === 'abs') && !this.bondDetail.companySelector ? (this.bondDetail.guarantorId || '') : '',
@@ -3008,9 +2967,9 @@
                 this.resetInternalReportFiltersSilent();
                 this.resetExternalReportFiltersSilent();
                 // 打开选择报告时默认带上当前证券编码查询
-                const defaultSecurityCode = (this.bondDetail && (this.bondDetail.isinCode)) || '';
-                this.internalReportFilters.isinCode = defaultSecurityCode;
-                this.externalReportFilters.isinCode = defaultSecurityCode;
+                const defaultSecurityCode = (this.bondDetail && (this.bondDetail.windCode || this.bondDetail.securityCode)) || '';
+                this.internalReportFilters.securityCode = defaultSecurityCode;
+                this.externalReportFilters.securityCode = defaultSecurityCode;
                 this.internalReportPagination.pageIndex = 1;
                 this.externalReportPagination.pageIndex = 1;
                 this.queryInternalReports();
@@ -3047,9 +3006,7 @@
                         pageIndex: pagination.pageIndex,
                         pageSize: pagination.pageSize,
                         reportTitle: filters.title,
-                        securityKeyword: filters.securityKeyword,
-                        isinCode: filters.isinCode || '',
-                        securityCode: filters.securityCode || '',
+                        securityCode: filters.securityCode,
                         reportType: filters.reportType,
                         crteTimeStart: range.length === 2 ? range[0] : '',
                         crteTimeEnd: range.length === 2 ? range[1] : ''
@@ -3186,24 +3143,24 @@
 
             // 重置内部报告筛选
             resetInternalReportFilters() {
-                this.internalReportFilters = { title: '', securityKeyword: '', reportType: '', writeDateRange: null };
+                this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null };
                 this.internalReportPagination.pageIndex = 1;
                 this.queryInternalReports();
             },
             // 静默重置内部报告筛选（不触发查询，用于弹窗打开/关闭时初始化）
             resetInternalReportFiltersSilent() {
-                this.internalReportFilters = { title: '', securityKeyword: '', reportType: '', writeDateRange: null };
+                this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null };
             },
 
             // 重置外部报告筛选
             resetExternalReportFilters() {
-                this.externalReportFilters = { title: '', securityKeyword: '', reportType: '', writeDateRange: null };
+                this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null };
                 this.externalReportPagination.pageIndex = 1;
                 this.queryExternalReports();
             },
             // 静默重置外部报告筛选（不触发查询，用于弹窗打开/关闭时初始化）
             resetExternalReportFiltersSilent() {
-                this.externalReportFilters = { title: '', securityKeyword: '', reportType: '', writeDateRange: null };
+                this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null };
             },
 
             // 设置内部报告类型快捷筛选

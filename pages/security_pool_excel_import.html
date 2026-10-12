@@ -169,15 +169,8 @@
                                 <el-table-column label="父池名称" prop="parentPoolName" min-width="120" show-overflow-tooltip></el-table-column>
                                 <el-table-column label="子池名称" prop="childPoolName" min-width="120" show-overflow-tooltip></el-table-column>
                                 <el-table-column :label="nameColumnLabel" prop="securityName" min-width="140" show-overflow-tooltip></el-table-column>
-                                <el-table-column :label="codeColumnLabel" prop="securityCode" min-width="230">
-                                    <template slot-scope="{ row }">
-                                        <span v-if="isCompanyImport">{{ row.securityCode || '' }}</span>
-                                        <div v-else class="rrs-security-code-list">
-                                            <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }">{{ code.value }}</span>
-                                            <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
-                                            <span v-if="!row.isinCode">{{ row.securityCode || '' }}</span>
-                                        </div>
-                                    </template>
+                                <el-table-column :label="codeColumnLabel" prop="securityCode" min-width="140" show-overflow-tooltip>
+                                    <template slot-scope="{ row }"><span class="security-code">{{ row.securityCode || '' }}</span></template>
                                 </el-table-column>
                                 <el-table-column v-if="!isCompanyImport" label="担保人/权益人*" min-width="190">
                                     <template slot-scope="{ row }">
@@ -278,15 +271,8 @@
                                                  min-width="130" show-overflow-tooltip>
                                     <template slot-scope="{ row }">{{ row.securityShortName || row.securityCode || '' }}</template>
                                 </el-table-column>
-                                <el-table-column prop="securityCode" :label="codeColumnLabel" min-width="230">
-                                    <template slot-scope="{ row }">
-                                        <span v-if="isCompanyImport">{{ row.securityCode || '' }}</span>
-                                        <div v-else class="rrs-security-code-list">
-                                            <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }">{{ code.value }}</span>
-                                            <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
-                                            <span v-if="!row.isinCode">{{ row.securityCode || '' }}</span>
-                                        </div>
-                                    </template>
+                                <el-table-column prop="securityCode" :label="codeColumnLabel" min-width="130">
+                                    <template slot-scope="{ row }"><span class="security-code">{{ row.securityCode || '' }}</span></template>
                                 </el-table-column>
                                 <el-table-column v-if="!isCompanyImport" label="权益人/担保人名称" prop="ratingCompanyName" min-width="190" show-overflow-tooltip></el-table-column>
                                 <el-table-column v-if="!isCompanyImport" label="权益人/担保人代码" prop="ratingCompanyCode" min-width="170" show-overflow-tooltip></el-table-column>
@@ -601,31 +587,6 @@ new Vue({
         },
     },
     methods: {
-            // 五个市场共用一个ISIN，按固定顺序完整展示，空代码不占位。
-            securityCodeItems(row) {
-                if (!row) return [];
-                const markets = [['Sh', '沪'], ['Sz', '深'], ['Nib', '银行间'], ['Bj', '北'], ['Nbc', '其他']];
-                const codes = markets.filter(([market]) => row.securityType !== 'crmw' || market === 'Nib')
-                    .map(([market, label]) => ({ market, label, value: String(row['windCode' + market] || '').trim() }))
-                    .filter(code => code.value);
-                if (codes.length === 0 && String(row.isinCode || '').startsWith('TEMP:')) {
-                    const labels = { SSE: '沪', SZSE: '深', CIBM: '银行间', BSE: '北', OTHER: '其他' };
-                    codes.push({ market: 'Temp', label: labels[row.securityMarket || row.tempSecurityMarket] || '临时', value: row.isinCode.substring(5) });
-                }
-                return codes;
-            },
-            crmwCodeItems(row) {
-                if (!row) return [];
-                const value = row.crmwScode || (row.securityType === 'crmw' ? row.windCodeNib : '');
-                return value ? [{ market: 'Nib', label: '银行间', value }] : [];
-            },
-            securityCodesText(row) {
-                return this.securityCodeItems(row).map(code => code.value).join('  ');
-            },
-            isTemporarySecurity(row) {
-                return !!row && (row.securitySource === 'temporary' || String(row.isinCode || '').startsWith('TEMP:'));
-            },
-
 
         // 将后端候选和已保存选择转成与批量调整相同的行数据
         normalizeImportItems(records) {

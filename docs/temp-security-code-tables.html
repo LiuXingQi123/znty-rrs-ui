@@ -365,14 +365,6 @@
     </div>
 </header>
 <main class="wrap">
-<section class="card" id="security-isin-contract">
-    <h2>证券身份与五码展示</h2>
-    <p>证券主档以 isin_code 为主键，正式券使用真实 ISIN，临时券使用 TEMP:临时代码；不再使用 Wind 总码，也不增加 security_ref_type。主体、独立基金及股票保持原业务代码。</p>
-    <p>搜索传 securityKeyword，对沪、深、银行间、北、其他五码做括号内 OR 筛选。证券代码一列换行显示全部有值代码，仅显示代码本身，不添加市场名前缀，可点击代码沿用证券简称的链接样式，普通代码继承表格文字样式，空值不占位，临时来源明确标示；任一码点击均使用同一 isinCode。实现采用本页 new Vue 方法与插槽。</p>
-    <p>调库、收藏、页签、缓存和报告引用统一传 isinCode；CRMW 另传 crmwIsinCode，凭证仅有银行间编码。不同市场码不能重复占池或绕过在途检查；只在审批通过 20 时落池，整券全部代码同步入出。</p>
-    <p>临时转正选择已存在的正式 ISIN，同一事务内切换在途引用，已在池执行临时出／正式入，已存在正式对象时不重复入池。通用 Excel 独立输出 ISIN 与五码；历史、打印及恒生增量删除沿用事件快照。旧身份链接和导入校验草稿须重新选择或上传。</p>
-</section>
-
     <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">查询与下拉选项</a><a href="#logic-2">新增、转正式、取消与删除</a><a
             href="#logic-3">转正调库日志</a><a href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
     <section class="panel" id="overview"><h2>业务流程总览</h2>
@@ -413,7 +405,7 @@
             <article class="card"><h3>新增</h3>
                 <ul>
                     <li>状态固定 temporary，仅写临时字段。新增代码框提示需带市场后缀；名称必填并有输入提示。</li>
-                    <li>同步插入 <code>rrs_securityinfo</code>（isin_code=TEMP:临时代码，security_source=temporary，<code>security_status=L</code> 上市中，issuer_code 取主体代码，发行/到期取表单并格式化为 <code>yyyyMMdd</code>；起息/止息/剩余期限未知不写）。上市状态枚举 <code>SecurityStatus</code>：<code>L</code>/<code>N</code>/<code>D</code>/<code>U</code>；占位须写明确值（临时代码用 <code>L</code>，来源无状态用 <code>U</code>）。留 <code>NULL</code> 时调库列表 <code>security_status != 'D'</code> 会因三值逻辑查不到。</li>
+                    <li>同步插入 <code>rrs_securityinfo</code>（wind_code=临时代码，security_source=temporary，<code>security_status=L</code> 上市中，issuer_code 取主体代码，发行/到期取表单并格式化为 <code>yyyyMMdd</code>；起息/止息/剩余期限未知不写）。上市状态枚举 <code>SecurityStatus</code>：<code>L</code>/<code>N</code>/<code>D</code>/<code>U</code>；占位须写明确值（临时代码用 <code>L</code>，来源无状态用 <code>U</code>）。留 <code>NULL</code> 时调库列表 <code>security_status != 'D'</code> 会因三值逻辑查不到。</li>
                     <li>若临时码已在主数据存在则拒绝新增。</li>
                 </ul>
             </article>
@@ -423,7 +415,7 @@
                     <li>先把主表写成 updated（必须命中 1 行），再改调库/池状态；避免已在途或已在池时主表状态没改却提示成功。</li>
                     <li><b>在途</b>（ip_adjust_log audit_status=00/11）：只改日志上证券/CRMW 字段为正式码，不写出/入业务单。</li>
                     <li><b>已在池</b>（ip_pool_status 等 audit_status=20）：每池写「债券临时代码调出」+ 软删临时状态；正式未在池再写正式调入 + 新建池状态。</li>
-                    <li>正式主档必须已存在，服务端不覆盖主档；转正后旧临时主档置 security_status=D。</li>
+                    <li>正式主数据已存在则不再 upsert；临时占位置 security_status=D。</li>
                     <li>定时入口 <code>bond_temp_code_replace</code> 扫描已由外部数据补齐正式 <code>security_code</code> 的 temporary 记录，复用上述完整分叉，来源记为 <code>job</code>；与空壳 <code>wind_code_sync</code> 独立。</li>
                 </ul>
             </article>
@@ -521,7 +513,7 @@
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
             <li>状态流转：temporary → updated / cancelled；删除仅 temporary → deleted。updated/cancelled 为冻结态，不可再转正式/取消/删除。</li>
-            <li>转正式必须从主数据选已有正式券，按正式 ISIN 选定对象，不覆盖正式主档；凭证与标的必须保持相同对象类型。</li>
+            <li>转正式必须从主数据选已有正式券，不再对正式 wind_code 做 upsert 覆盖；正式码不能等于临时码。</li>
             <li>转正分叉：在途（audit_status=00/11）只改字段；已在池（20）写出库+（正式未在同池时）入库；终态历史日志不改码，保留审计轨迹。</li>
             <li>O32 识别：按 <code>temp_security_code</code> + status=temporary 判断，临时代码转人工待处理（<code>pending</code>）——属调库审批侧逻辑，见证券池调库流程。</li>
             <li>关联：调入信用债大库时，临时占位无内评默认 grade_code=4 再走矩阵；正式无内评禁止入 1～5 级（见证券池调库，非本 Service 内实现）。</li>

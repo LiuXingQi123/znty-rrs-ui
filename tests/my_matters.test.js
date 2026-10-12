@@ -91,10 +91,10 @@ for (const domain of ['bond', 'fund', 'stock']) {
         await window.RrsPageOnShow();
         const returnedList = requests.slice(returnedAt).find(item => item.url.endsWith('/queryMyMattersPage') && item.body.pageSize === 20);
         assert.ok(returnedList); assert.equal(returnedList.body.businessDomain, domain); assert.equal(returnedList.body.pageIndex, 3);
-        assert.equal(returnedList.body[domain === 'bond' ? 'securityKeyword' : 'securityCode'], domain + '-1'); assert.equal(returnedList.body.securityShortName, domain + '名称');
+        assert.equal(returnedList.body.securityCode, domain + '-1'); assert.equal(returnedList.body.securityShortName, domain + '名称');
         page.handleSearch(); await Promise.resolve();
         assert.equal(page.pagination.pageIndex, 1); assert.equal(requests.at(-1).body.businessDomain, domain);
-        assert.equal(requests.at(-1).body[domain === 'bond' ? 'securityKeyword' : 'securityCode'], domain + '-1'); assert.equal(requests.at(-1).body.securityShortName, domain + '名称');
+        assert.equal(requests.at(-1).body.securityCode, domain + '-1'); assert.equal(requests.at(-1).body.securityShortName, domain + '名称');
         await page.loadBusinessDomains();
         assert.equal(requests.filter(item => item.url.endsWith('/queryBusinessDomainList')).length, 1);
         assert.ok(requests.filter(item => item.url.includes('/myMatters/') && !item.url.endsWith('/queryBusinessDomainList')).every(item => item.body.businessDomain === domain));
@@ -253,7 +253,7 @@ test('场景路由使用独立页面，页签键包含业务代码，相同 ID �
     window.RrsWorkbench = { buildTabIndex: (prefix, parts) => prefix + ':' + parts.join(':'), formatDetailTitle: () => '详情', openDetailTab: tab => { tabs.push(tab); return true; } };
     for (const [domain, scene, target] of [['bond', 'securityAdjust', 'security'], ['bond', 'forbiddenCompanyAdjust', 'forbidden'], ['bond', 'crmwAdjust', 'crmw'], ['fund', 'fundAdjust', 'fund'], ['stock', 'stockAdjust', 'stock']]) {
         page.businessDomain = domain;
-        page.openMatterPage({ businessDomain: domain, businessScene: scene, objectCode: 'CODE', objectName: '名称', adjustLogId: 1, canProcess: true });
+        page.openMatterPage({ businessDomain: domain, businessScene: scene, objectCode: 'CODE', objectName: '名称', adjustLogId: 1 });
         assert.equal(tabs.at(-1).page, `${target}_pool_adjust_approve.html`); assert.ok(tabs.at(-1).index.includes(domain));
         page.activeTab = 'completed';
         page.openMatterPage({ businessDomain: domain, businessScene: scene, objectCode: 'CODE', adjustLogId: 1 });
@@ -387,47 +387,5 @@ test('详情和审核页不再读取或维护重复业务授权', () => {
             const html = fs.readFileSync(path.join(root, `pages/${prefix}_pool_adjust_${mode}.html`), 'utf8');
             assert.doesNotMatch(html, /canManageBusiness|RrsBusiness|queryBusinessDomainList/);
         }
-    }
-});
-
-
-test('所有事项场景的按钮和描述链接按实际资格进入审核或只读详情', () => {
-    const { page, window } = harness();
-    const tabs = [];
-    window.RrsWorkbench.openDetailTab = tab => { tabs.push(tab); return true; };
-    const html = fs.readFileSync(path.join(root, 'pages/my_matters.html'), 'utf8');
-    assert.match(html, /<el-button v-if="canProcessMatter\(row\)"[^>]*>处理<\/el-button>/);
-    assert.match(html, /class="desc-link" @click="openMatterPage\(row\)"/);
-    for (const [domain, scene, target] of [
-        ['bond', 'securityAdjust', 'security'], ['bond', 'forbiddenCompanyAdjust', 'forbidden'],
-        ['bond', 'crmwAdjust', 'crmw'], ['fund', 'fundAdjust', 'fund'], ['stock', 'stockAdjust', 'stock']
-    ]) {
-        page.businessDomain = domain;
-        const row = { businessDomain: domain, businessScene: scene, objectCode: 'CODE', isinCode: 'CN1',
-            crmwIsinCode: scene === 'crmwAdjust' ? 'CN2' : null, adjustLogId: 7, adjustBatchNo: 'B7',
-            stepStatus: 'approve', auditStatus: '11', stepId: 9 };
-        for (const activeTab of ['pending', 'initiated', 'completed']) {
-            page.activeTab = activeTab;
-            for (const canProcess of [true, false, null, undefined, 'true', 1]) {
-                row.canProcess = canProcess;
-                const expected = activeTab !== 'completed' && canProcess === true;
-                assert.equal(page.canProcessMatter(row), expected, domain + '/' + activeTab);
-                page.openMatterPage(row);
-                const tab = tabs.at(-1);
-                assert.equal(tab.page, `${target}_pool_adjust_${expected ? 'approve' : 'detail'}.html`);
-                const query = new URLSearchParams(tab.query);
-                assert.equal(query.get('entryMode'), expected ? 'process' : 'view');
-                assert.equal(query.get('adjustLogId'), '7');
-                assert.equal(query.get('adjustBatchNo'), 'B7');
-                assert.equal(query.get('stepId'), '9');
-                assert.ok(tab.index.includes(expected ? 'approve' : 'detail'));
-            }
-        }
-        // 流程中且最新步骤待处理，也不能替代后端的处理资格判断。
-        page.activeTab = 'initiated';
-        row.auditStatus = '00'; row.stepStatus = 'pending'; row.canProcess = false;
-        assert.equal(page.canProcessMatter(row), false);
-        row.canProcess = true;
-        assert.equal(page.canProcessMatter(row), true);
     }
 });

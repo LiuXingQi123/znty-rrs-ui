@@ -41,7 +41,7 @@
                 <span class="search-label"><i class="el-icon-search"></i>筛选</span>
 
                 <!-- 证券代码输入框：支持回车触发查询 -->
-                <el-input v-model.trim="searchForm.securityKeyword" placeholder="证券代码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                <el-input v-model.trim="searchForm.securityCode" placeholder="证券代码" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
                     <i slot="prefix" class="el-input__icon el-icon-document"></i>
                 </el-input>
 
@@ -115,14 +115,11 @@
                         <span class="desc-link" @click="openPoolAdjustDetail(row)">{{ row.securityShortName || '' }}</span>
                     </template>
                 </el-table-column>
-                <el-table-column prop="securityCode" label="证券代码" min-width="230">
-                        <template slot-scope="{ row }"><span v-if="row.securityType === 'company'">{{ row.securityCode || '' }}</span>
-                            <div class="rrs-security-code-list">
-                                <span v-for="code in securityCodeItems(row)" :key="code.market" class="rrs-security-code-item" :class="{ 'rrs-security-code-bank': code.market === 'Nib' }"><span class="desc-link" @click="openPoolAdjustDetail(row)">{{ code.value }}</span></span>
-                                <span v-if="isTemporarySecurity(row)" class="rrs-security-code-source">临时券</span>
-                            </div>
-                        </template>
-                    </el-table-column>
+                <el-table-column prop="securityCode" label="证券代码" min-width="130">
+                    <template slot-scope="{ row }">
+                        <span class="desc-link" @click="openPoolAdjustDetail(row)">{{ row.securityCode || '' }}</span>
+                    </template>
+                </el-table-column>
                 <!-- 发行主体：空值显示空字符串 -->
                 <el-table-column prop="issuer" label="发行主体" min-width="180" show-overflow-tooltip>
                     <template slot-scope="{ row }">{{ row.issuer || '' }}</template>
@@ -182,7 +179,7 @@ new Vue({
             },
             today: moment().format('YYYY年MM月DD日'), // 顶栏显示的当前日期文字
             searchForm: { // 搜索表单
-                securityKeyword: '',        // 证券代码关键词
+                securityCode: '',        // 证券代码关键词
                 securityShortName: '',   // 证券简称关键词
                 securityType: '',        // 证券类型代码（从下拉选项获取）
                 categoryType: '',        // 对象类型：company=主体 / bond=债券
@@ -219,31 +216,6 @@ new Vue({
         this.loadList();
     },
     methods: {
-            // 五个市场共用一个ISIN，按固定顺序完整展示，空代码不占位。
-            securityCodeItems(row) {
-                if (!row) return [];
-                const markets = [['Sh', '沪'], ['Sz', '深'], ['Nib', '银行间'], ['Bj', '北'], ['Nbc', '其他']];
-                const codes = markets.filter(([market]) => row.securityType !== 'crmw' || market === 'Nib')
-                    .map(([market, label]) => ({ market, label, value: String(row['windCode' + market] || '').trim() }))
-                    .filter(code => code.value);
-                if (codes.length === 0 && String(row.isinCode || '').startsWith('TEMP:')) {
-                    const labels = { SSE: '沪', SZSE: '深', CIBM: '银行间', BSE: '北', OTHER: '其他' };
-                    codes.push({ market: 'Temp', label: labels[row.securityMarket || row.tempSecurityMarket] || '临时', value: row.isinCode.substring(5) });
-                }
-                return codes;
-            },
-            crmwCodeItems(row) {
-                if (!row) return [];
-                const value = row.crmwScode || (row.securityType === 'crmw' ? row.windCodeNib : '');
-                return value ? [{ market: 'Nib', label: '银行间', value }] : [];
-            },
-            securityCodesText(row) {
-                return this.securityCodeItems(row).map(code => code.value).join('  ');
-            },
-            isTemporarySecurity(row) {
-                return !!row && (row.securitySource === 'temporary' || String(row.isinCode || '').startsWith('TEMP:'));
-            },
-
         // 加载证券类型下拉选项（返回 [{securityType, securityTypeName}] 列表）
         async loadBondTypeOptions() {
             try {
@@ -258,7 +230,7 @@ new Vue({
         buildQueryParams() {
             return {
                 currentUserId: window.RrsAuth.getCurrentUser().userId,
-                securityKeyword: this.searchForm.securityKeyword || null,
+                securityCode: this.searchForm.securityCode || null,
                 securityShortName: this.searchForm.securityShortName || null,
                 securityType: this.searchForm.securityType || null,
                 categoryType: this.searchForm.categoryType || null,
@@ -318,7 +290,7 @@ new Vue({
         // 点击重置按钮：清空所有搜索条件，重置页码，并重新加载列表
         handleReset() {
             this.searchForm = {
-                securityKeyword: '',
+                securityCode: '',
                 securityShortName: '',
                 securityType: '',
                 categoryType: '',
@@ -352,9 +324,9 @@ new Vue({
         openPoolAdjustDetail(row) {
             const params = new URLSearchParams();
             const isCompany = this.isCompany(row);
-            const targetCode = isCompany ? (row.securityCode || '') : (row.isinCode || '');
+            const targetCode = row.securityCode || row.windCode || '';
             const name = row.securityShortName || row.companyName || targetCode;
-            if (targetCode) params.set(isCompany ? 'companyCode' : 'isinCode', targetCode);
+            if (targetCode) params.set(isCompany ? 'companyCode' : 'securityCode', targetCode);
             if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
             const adjustLogId = window.RrsWorkbench.resolveAdjustLogId(row, false);
             if (adjustLogId) params.set('adjustLogId', adjustLogId);

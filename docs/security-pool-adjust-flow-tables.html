@@ -646,15 +646,6 @@
     </header>
 
     <main class="page">
-<section class="card" id="security-isin-contract">
-    <h2>证券身份与五码展示</h2>
-    <p>证券主档以 isin_code 为主键，正式券使用真实 ISIN，临时券使用 TEMP:临时代码；不再使用 Wind 总码，也不增加 security_ref_type。主体、独立基金及股票保持原业务代码。</p>
-    <p>搜索传 securityKeyword，对沪、深、银行间、北、其他五码做括号内 OR 筛选。证券代码一列换行显示全部有值代码，仅显示代码本身，不添加市场名前缀，可点击代码沿用证券简称的链接样式，仅文字区域可点击，行内空白及长码换行后的空白不触发跳转，普通代码继承表格文字样式，空值不占位，临时来源明确标示；任一码点击均使用同一 isinCode。实现采用本页 new Vue 方法与插槽。</p>
-    <p>调库校验结果保留接口返回的证券身份和市场代码；主调整、联动、互斥、关联行分别展示自身代码，CRMW 同时保留凭证银行间代码，不用当前主券代码替代其他对象。</p>
-    <p>调库、收藏、页签、缓存和报告引用统一传 isinCode；CRMW 另传 crmwIsinCode，凭证仅有银行间编码。不同市场码不能重复占池或绕过在途检查；只在审批通过 20 时落池，整券全部代码同步入出。</p>
-    <p>临时转正选择已存在的正式 ISIN，同一事务内切换在途引用，已在池执行临时出／正式入，已存在正式对象时不重复入池。通用 Excel 独立输出 ISIN 与五码；历史、打印及恒生增量删除沿用事件快照。旧身份链接和导入校验草稿须重新选择或上传。</p>
-</section>
-
         <nav class="quick-nav" aria-label="页面导航">
             <a href="#overview">流程总览</a>
             <a href="#list-query">主页面查询</a>
@@ -721,7 +712,7 @@
                     <h3>SQL 与返回数据</h3>
                     <ul>
                         <li>主表为 <code>rrs_securityinfo</code>。</li>
-                        <li>证券身份 <code>isin_code</code> 为 <code>VARCHAR(100) NOT NULL</code> 主键，返回 <code>isinCode</code>。正式 Demo 使用 12 位 CNDEMO 模拟 ISIN，临时券使用 TEMP:临时代码；正式主档保留五码并删除 Wind 总码。</li>
+                        <li>国际证券识别码 <code>isin_code</code> 位于 <code>wind_code</code> 前，类型为 <code>VARCHAR(100) DEFAULT NULL</code>，返回字段为 <code>isinCode</code>。Demo 全部 45 条记录（含临时代码）在原始 INSERT 中填写不同的 12 位模拟 ISIN，格式为 CNDEMO 前缀 + 5 位顺序号 + 1 位校验位，仅用于演示，不是真实证券登记编号。</li>
                         <li>主档包含标准条款判定 <code>std_clause_flag</code>（返回 <code>stdClauseFlag</code>：1=条款合格 / 0=条款不合格 / NULL=未判定）和标准信用债标识 <code>std_credit_flag</code>（返回 <code>stdCreditFlag</code>：1=标准信用债 / 0=非标准信用债 / NULL=未判定）。两列均为 <code>INT DEFAULT NULL</code>，保留原始值；简易流程的独立方法 <code>isStandardCreditBond</code> 仅判断 <code>std_credit_flag==1</code>，标准信用债定义由上游维护，<code>std_clause_flag</code> 和其他标志不参与该方法。不新增页面展示。</li>
                         <li>Demo 全部 45 条证券显式填写两列：XYB001～XYB003、普通公司债/中票/短融/担保债为 1/1；私募债和定向工具为 1/0；永续/次级/含权及 XYB004 条款不合格样本为 0/0；ABS/资产证券化/CRMW/存单/国债/Govt债/可转债为 NULL/0；XYB005 未判定信用债、Corp债和临时代码为 NULL/NULL。这些是演示场景，不是系统按类型自动判定的规则，也不按评级高低判定。</li>
                         <li>内连接 <code>dict_security_type</code> 取名称，并限制 <code>category_type=bond</code>（本页仅债券；股/基等走其它入口）。</li>
@@ -764,7 +755,7 @@
                 <div class="sequence-item"><strong>1. 输入条件</strong><span>证券代码、简称、证券类型或发行人，可留空查询全部。</span></div>
                 <div class="sequence-item"><strong>2. 开启分页</strong><span>PageHelper 拦截紧随其后的 Mapper 查询。</span></div>
                 <div class="sequence-item"><strong>3. 查询证券</strong><span>证券主表关联证券类型字典并执行模糊过滤。</span></div>
-                <div class="sequence-item"><strong>4. 点击“调库”</strong><span>以 isinCode 进入详情视图；先将「是否放开规则」恢复为「否」，清空步骤1的可调入/调出池列表与勾选（含表格内部选中态），再并发加载业务数据，避免沿用上一次调库选择。</span></div>
+                <div class="sequence-item"><strong>4. 点击“调库”</strong><span>以 windCode 进入详情视图；先清空步骤1的可调入/调出池列表与勾选（含表格内部选中态），再并发加载业务数据，避免慢查询期间闪现上一只券的选中。</span></div>
             </div>
             <div class="data-strip"><code>rrs_securityinfo：读</code><code>dict_security_type：读</code><code>ais_inv_ods.wind_companyfinancial：查询 + 提交时仅更新已有数据</code></div>
         </section>
@@ -825,8 +816,7 @@
                     <li>进入某只证券的调库详情后，左右两栏分别是可调入库、可调出库。列：投资池名称、上限数量、现有数量；可调入库末级池还可选信评报告 / 其他材料。</li>
                     <li>可调入库默认仅展开「信用债大库(new)」，其余节点默认收起；可调出库默认全部收起。接口只返回投资品种包含债券的池及其上级。</li>
                     <li>只有<strong>末级池</strong>能勾选（有下级的节点不能勾）。勾选时若与已选池互斥，自动取消先选的冲突项并提示。</li>
-                    <li>进入详情时并发请求两次本接口：一次 <code>adjustDirection=in</code>（默认不放开规则，<code>releaseRules=false</code>），一次 <code>adjustDirection=out</code>。同时查证券详情、当前所在池、调库记录。</li>
-                    <li>每次重新进入调库时，「是否放开规则」恢复为「否」；同一次申请从确认页返回上一步时保留当前选择，返回列表后清理选择。证券批量调整、CRMW 批量调整、存量证券批量调整进入工作台时也默认选择「否」。</li>
+                    <li>进入详情时并发请求两次本接口：一次 <code>adjustDirection=in</code>（带当前「是否放开规则」），一次 <code>adjustDirection=out</code>。同时查证券详情、当前所在池、调库记录。</li>
                     <li>页面上切换「是否放开规则」后，只重查 <code>in</code> 这一次；已勾但不在新结果里的调入项会被清掉。</li>
                     <li>可调入库结果出来后，若其中含信用债 1～5 级，会按池预填近 6 个月审批通过调入的信评报告（该级尚无手工选择时才填）。先查当前券，再查同主体；同一日志内按手工信评附件、内部库、外部库的顺序选择（分别赋值 3/2/1，按 <code>CASE ... END DESC</code> 排序），同类附件按 <code>id DESC</code> 取 ID 最大的一份；其他材料不参与回填。手工信评附件 <code>credit_report_hand</code> 通过相同 <code>file_name</code> 反查内部报告的 <code>report_in</code> 库附件，返回报告库附件 ID 供再次提交。选定历史记录后，若查不到有效报告或库附件则不回填，不再尝试更早记录。报告库附件分类仍为 <code>report_in</code>，原有/新增报告由 <code>data_source</code> 区分。</li>
                 </ol>
