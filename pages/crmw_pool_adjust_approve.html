@@ -191,16 +191,19 @@
                             <el-input v-model.trim="bondDetail.issuer" size="small" placeholder="请输入" disabled maxlength="30"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="银行间代码">
-                            <el-input v-model.trim="bondDetail.windCodeNib" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
+                            <el-input :value="relatedMarketCodeText(bondDetail, 'CIBM')" size="small" :title="relatedMarketCodeText(bondDetail, 'CIBM')" placeholder="请输入" disabled></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="沪市证券代码">
-                            <el-input v-model.trim="bondDetail.windCodeSh" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
+                            <el-input :value="relatedMarketCodeText(bondDetail, 'SSE')" size="small" :title="relatedMarketCodeText(bondDetail, 'SSE')" placeholder="请输入" disabled></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="深市证券代码">
-                            <el-input v-model.trim="bondDetail.windCodeSz" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
+                            <el-input :value="relatedMarketCodeText(bondDetail, 'SZSE')" size="small" :title="relatedMarketCodeText(bondDetail, 'SZSE')" placeholder="请输入" disabled></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="北交所代码">
-                            <el-input v-model.trim="bondDetail.windCodeBj" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
+                            <el-input :value="relatedMarketCodeText(bondDetail, 'BSE')" size="small" :title="relatedMarketCodeText(bondDetail, 'BSE')" placeholder="请输入" disabled></el-input>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="其他市场代码">
+                            <el-input :value="relatedMarketCodeText(bondDetail, 'OTHER')" size="small" :title="relatedMarketCodeText(bondDetail, 'OTHER')" placeholder="请输入" disabled></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="发行总额(亿元)">
                             <el-input type="number" v-model="bondDetail.issueAmountplan" size="small" placeholder="请输入" :disabled="isSecurityInfoReadonly" maxlength="12"></el-input>
@@ -1455,6 +1458,7 @@
             }
         },
         methods: {
+
             // 按证券编码加载发行主体财务数据，忽略过期请求结果
             async loadIssuerFinancialData() {
                 const securityCode = String(this.issuerFinancialSecurityCode || '').trim();
@@ -1791,6 +1795,17 @@
             window.RrsPrintExport.unbind();
         },
         methods: {
+            // 按市场完整展示同券代码，包含当前代码及只读关联代码。
+            relatedMarketCodeText(detail, marketCode) {
+                if (!detail) return '';
+                const matchesMarket = item => marketCode === 'OTHER'
+                    ? item.marketCode && !['CIBM', 'SSE', 'SZSE', 'BSE'].includes(item.marketCode)
+                    : item.marketCode === marketCode;
+                const codes = (detail.relatedMarketCodes || []).filter(matchesMarket).map(item => item.windCode);
+                if (matchesMarket(detail) && detail.windCode) codes.unshift(detail.windCode);
+                return [...new Set(codes)].join('、');
+            },
+
 
             // 数字输入空串转 null，避免后端 BigDecimal 反序列化失败
             toNullableNumber(val) {
@@ -2858,10 +2873,6 @@
                     shortName: this.bondDetail.shortName,
                     windCode: this.bondDetail.windCode,
                     issuer: this.bondDetail.issuer,
-                    windCodeNib: this.bondDetail.windCodeNib,
-                    windCodeSh: this.bondDetail.windCodeSh,
-                    windCodeSz: this.bondDetail.windCodeSz,
-                    windCodeBj: this.bondDetail.windCodeBj,
                     issueAmountplan: this.toNullableNumber(this.bondDetail.issueAmountplan),
                     couponRate: this.toNullableNumber(this.bondDetail.couponRate),
                     maturityembeddedDesc: this.bondDetail.maturityembeddedDesc,
