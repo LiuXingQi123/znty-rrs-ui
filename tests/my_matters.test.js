@@ -253,7 +253,7 @@ test('场景路由使用独立页面，页签键包含业务代码，相同 ID �
     window.RrsWorkbench = { buildTabIndex: (prefix, parts) => prefix + ':' + parts.join(':'), formatDetailTitle: () => '详情', openDetailTab: tab => { tabs.push(tab); return true; } };
     for (const [domain, scene, target] of [['bond', 'securityAdjust', 'security'], ['bond', 'forbiddenCompanyAdjust', 'forbidden'], ['bond', 'crmwAdjust', 'crmw'], ['fund', 'fundAdjust', 'fund'], ['stock', 'stockAdjust', 'stock']]) {
         page.businessDomain = domain;
-        page.openMatterPage({ businessDomain: domain, businessScene: scene, objectCode: 'CODE', objectName: '名称', adjustLogId: 1 });
+        page.openMatterPage({ businessDomain: domain, businessScene: scene, objectCode: 'CODE', objectName: '名称', adjustLogId: 1, canProcess: true });
         assert.equal(tabs.at(-1).page, `${target}_pool_adjust_approve.html`); assert.ok(tabs.at(-1).index.includes(domain));
         page.activeTab = 'completed';
         page.openMatterPage({ businessDomain: domain, businessScene: scene, objectCode: 'CODE', adjustLogId: 1 });
@@ -262,6 +262,35 @@ test('场景路由使用独立页面，页签键包含业务代码，相同 ID �
     const count = tabs.length;
     page.openMatterPage({ businessDomain: 'bond', businessScene: 'fundAdjust', adjustLogId: 1 });
     assert.equal(tabs.length, count);
+});
+
+test('操作按钮与流程描述链接按实际处理资格路由，不按事项页签或审核状态推断', () => {
+    const { page, window } = harness();
+    const tabs = [];
+    window.RrsWorkbench = { buildTabIndex: (prefix, parts) => prefix + ':' + parts.join(':'), formatDetailTitle: () => '详情', openDetailTab: tab => { tabs.push(tab); return true; } };
+    const html = fs.readFileSync(path.join(root, 'pages/my_matters.html'), 'utf8');
+    assert.match(html, /v-if="canProcessMatter\(row\)"[^>]*@click="openMatterPage\(row\)">处理/);
+    assert.match(html, /class="desc-link" @click="openMatterPage\(row\)"/);
+    assert.match(html, /v-else class="matter-view-action"[^>]*@click="openMatterPage\(row\)">查看/);
+    for (const [domain, scene, target] of [['bond', 'securityAdjust', 'security'], ['bond', 'forbiddenCompanyAdjust', 'forbidden'], ['bond', 'crmwAdjust', 'crmw'], ['fund', 'fundAdjust', 'fund'], ['stock', 'stockAdjust', 'stock']]) {
+        page.businessDomain = domain;
+        for (const activeTab of ['pending', 'completed', 'initiated']) {
+            page.activeTab = activeTab;
+            for (const canProcess of [true, false, undefined]) {
+                const row = { businessDomain: domain, businessScene: scene, objectCode: 'CODE', adjustLogId: 1, auditStatus: '00', canProcess };
+                assert.equal(page.canProcessMatter(row), canProcess === true);
+                page.openMatterPage(row);
+                const tab = tabs.at(-1);
+                assert.equal(tab.page, `${target}_pool_adjust_${canProcess === true ? 'approve' : 'detail'}.html`);
+                assert.equal(new URLSearchParams(tab.query).get('entryMode'), canProcess === true ? 'process' : 'view');
+            }
+        }
+    }
+    window.RrsWorkbench.openDetailTab = () => false;
+    page.activeTab = 'initiated';
+    page.openMatterPage({ businessDomain: 'stock', businessScene: 'stockAdjust', adjustLogId: 1, canProcess: true });
+    assert.match(window.location.href, /^stock_pool_adjust_approve\.html\?/);
+    assert.equal(new URLSearchParams(window.location.href.split('?')[1]).get('entryMode'), 'process');
 });
 
 test('公共 API 原样发送参数，不补用户身份、业务或 URL 定位信息', async () => {

@@ -152,8 +152,8 @@
                 <el-table-column prop="startTime" label="开始时间" min-width="170" align="center"></el-table-column>
                 <el-table-column label="操作" width="100" fixed="right" align="center">
                     <template slot-scope="{ row }">
-                        <el-button v-if="activeTab === 'pending'" class="matter-action" type="primary" size="mini" icon="el-icon-edit-outline" @click="openMatterPage(row)">处理</el-button>
-                        <el-button v-else-if="activeTab === 'completed' || activeTab === 'initiated'" class="matter-view-action" size="mini" icon="el-icon-view" @click="openMatterPage(row)">查看</el-button>
+                        <el-button v-if="canProcessMatter(row)" class="matter-action" type="primary" size="mini" icon="el-icon-edit-outline" @click="openMatterPage(row)">处理</el-button>
+                        <el-button v-else class="matter-view-action" size="mini" icon="el-icon-view" @click="openMatterPage(row)">查看</el-button>
                     </template>
                 </el-table-column>
             </el-table>
@@ -783,6 +783,11 @@ new Vue({
             }
         },
 
+        // 按后端实际处理资格统一按钮文案和流程描述链接入口
+        canProcessMatter(row) {
+            return !!row && row.canProcess === true;
+        },
+
         // 打开对应审核/详情页（工作台内按记录新开页签，同键复用）
         openMatterPage(row) {
             const route = this.matterRoutes[row.businessScene];
@@ -791,7 +796,7 @@ new Vue({
                 return;
             }
             const params = new URLSearchParams();
-            const isPending = this.activeTab === 'pending';
+            const canProcess = this.canProcessMatter(row);
             const code = row.objectCode || '';
             const name = row.objectName || code;
             params.set('businessDomain', row.businessDomain);
@@ -801,11 +806,11 @@ new Vue({
             if (row.adjustLogId) params.set('adjustLogId', row.adjustLogId);
             if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
             if (row.stepId) params.set('stepId', row.stepId);
-            params.set('entryMode', isPending ? 'process' : 'view');
-            const page = isPending ? route.approve : route.detail;
+            params.set('entryMode', canProcess ? 'process' : 'view');
+            const page = canProcess ? route.approve : route.detail;
             const opened = window.RrsWorkbench.openDetailTab({
-                index: window.RrsWorkbench.buildTabIndex('matter-' + (isPending ? 'approve' : 'detail'), [row.businessDomain, row.businessScene, code, row.crmwScode, row.adjustLogId, row.adjustBatchNo, row.targetPoolId]),
-                title: window.RrsWorkbench.formatDetailTitle(name, code, isPending ? '审核' : '详情'),
+                index: window.RrsWorkbench.buildTabIndex('matter-' + (canProcess ? 'approve' : 'detail'), [row.businessDomain, row.businessScene, code, row.crmwScode, row.adjustLogId, row.adjustBatchNo, row.targetPoolId]),
+                title: window.RrsWorkbench.formatDetailTitle(name, code, canProcess ? '审核' : '详情'),
                 page: page, query: params.toString(),
             });
             if (opened) return;
