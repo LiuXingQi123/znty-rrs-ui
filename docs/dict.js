@@ -417,7 +417,7 @@ const DICT_RATING_AGENCY = {
     '惠誉':       '惠誉（Fitch）',
 };
 
-// ── 27. 主体内评分档（inner_issuer_rating / 调库矩阵）──────
+// ── 27. 主体内评分取值与准入矩阵评分档（inner_issuer_rating / 调库矩阵）──────
 // 表：rrs_securityinfo.inner_issuer_rating；字典表 credit_bond_inner_rating_grade
 // 说明：信用债大库准入矩阵（credit_bond_pool_grade_rule）使用本套 8 档 code；
 //       演示数据与调库校验均为 grade_code=1 / 2+ / 2 / 2- / 3+ / 3 / 3- / 4（1 最优，4 最低）。
