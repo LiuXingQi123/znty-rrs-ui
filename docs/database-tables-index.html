@@ -567,6 +567,21 @@ const tableCatalog = [
   {
     "db": "ais_inv_ods",
     "module": "Wind ODS",
+    "moduleDesc": "外部只读跨市场证券代码",
+    "table": "wind_windcustomcode",
+    "comment": "Wind 跨市场证券代码关联表",
+    "purpose": "保留外部源 28 列；同一非空 ISIN 关联不同市场的同券代码",
+    "kind": "外部ODS",
+    "script": "ais_inv_ods_schema.sql",
+    "relations": [
+      "S_INFO_WINDCODE → znty_rrs.rrs_securityinfo.wind_code",
+      "S_INFO_ISINCODE → rrs_securityinfo.isin_code；NULL 不作为同券依据",
+      "Demo：交投/城投/能源信用债各 3 个市场代码，共 9 行；另 1 只可转债独立 ISIN"
+    ]
+  },
+  {
+    "db": "ais_inv_ods",
+    "module": "Wind ODS",
     "moduleDesc": "外部只读发行人/评级",
     "table": "wind_cbondissuer",
     "comment": "Wind 中国债券发行主体信息表（债券+主体粒度，同主体可多行；外部 ODS 表一般不自建二级索引）",
@@ -711,7 +726,8 @@ const tableCatalog = [
     "script": "rrs_external_import_schema.sql",
     "relations": [
       "security_code 业务主键口径",
-      "调库选券、快照、到期任务主数据来源"
+      "调库选券、快照、到期任务主数据来源",
+      "wind_code / isin_code → ais_inv_ods.wind_windcustomcode；3 组同券跨 IB/SH/SZ 市场 Demo"
     ]
   },
   {
@@ -1512,7 +1528,7 @@ const DB_META = {
     },
     ais_inv_ods: {
         title: 'ais_inv_ods · Wind 外部 ODS（只读）',
-        desc: 'Wind 发行人与主体评级外部源；一般不在本系统写业务数据，供评级下调等任务与校验只读查询。',
+        desc: 'Wind 发行人、主体评级与跨市场证券代码外部源；一般不在本系统写业务数据，供评级下调等任务与校验只读查询。',
         cls: 'is-ods'
     }
 };
