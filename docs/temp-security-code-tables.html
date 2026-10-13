@@ -368,7 +368,7 @@
     <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">查询与下拉选项</a><a href="#logic-2">新增、转正式、取消与删除</a><a
             href="#logic-3">转正调库日志</a><a href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
     <section class="panel" id="overview">
-        <p>正式证券市场直接读取 <code>rrs_securityinfo.exchmarket</code>（VARCHAR(10)，表末尾新增，与 Wind <code>EXCHMARKET</code> 原值一致，IB→CIBM）；临时代码使用登记市场。同券其他代码按 Wind 非空 <code>S_INFO_ISINCODE</code> 查询，空 ISIN 不关联。详情的 <code>marketCode</code> 和 <code>relatedMarketCodes</code> 为只读，同市场多个代码完整展示，不再提交旧市场字段。每条市场代码独立校验；证券与 CRMW 快照不再保存市场列，历史详情补查当前关联关系，其余业务字段按原快照回显。主档 <code>sec_id</code> 是独立外部证券 ID，转正保留正式证券 ID。</p><h2>业务流程总览</h2>
+        <p>正式证券市场直接读取 <code>rrs_securityinfo.exchmarket</code>（VARCHAR(10)，表末尾新增，与 Wind <code>EXCHMARKET</code> 原值一致，IB→CIBM）；临时代码使用登记市场。同券其他代码按 Wind 非空 <code>S_INFO_ISINCODE</code> 查询，空 ISIN 不关联。详情的 <code>marketCode</code> 和 <code>relatedMarketCodes</code> 为只读，同市场多个代码完整展示，不再提交旧市场字段。每条市场代码独立校验；证券与 CRMW 快照不再保存市场列，历史详情补查当前关联关系，其余业务字段按原快照回显。正式主档 <code>sec_id</code> 是独立外部证券 ID，转正保留正式证券 ID；临时占位主档的 ID 与临时登记一致，为 <code>TEMP_ + 临时代码</code>。</p><h2>业务流程总览</h2>
         <p class="sub">从页面操作到数据库读写的主要路径。</p>
         <div class="flow">
             <div class="step"><b>1. 查询列表</b><span>按临时代码、名称分页并展示临时及正式信息。</span></div>
@@ -406,6 +406,7 @@
             <article class="card"><h3>新增</h3>
                 <ul>
                     <li>状态固定 temporary，仅写临时字段。新增代码框提示需带市场后缀；名称必填并有输入提示。</li>
+                    <li>新增时额外写入 <code>sec_id = TEMP_ + 临时代码</code>，并同步到占位主档。例如代码 <code>001.IB</code> 对应 ID <code>TEMP_001.IB</code>。该字段仅供外部使用，当前页面和接口不展示、不返回，也不新增专门校验或业务判断；转正、取消和软删除不改 ID。</li>
                     <li>同步插入 <code>rrs_securityinfo</code>（wind_code=临时代码，security_source=temporary，<code>security_status=L</code> 上市中，issuer_code 取主体代码，发行/到期取表单并格式化为 <code>yyyyMMdd</code>；起息/止息/剩余期限未知不写）。上市状态枚举 <code>SecurityStatus</code>：<code>L</code>/<code>N</code>/<code>D</code>/<code>U</code>；占位须写明确值（临时代码用 <code>L</code>，来源无状态用 <code>U</code>）。留 <code>NULL</code> 时调库列表 <code>security_status != 'D'</code> 会因三值逻辑查不到。</li>
                     <li>若临时码已在主数据存在则拒绝新增。</li>
                 </ul>
