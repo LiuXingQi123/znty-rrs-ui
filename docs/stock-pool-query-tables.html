@@ -1,2 +1,456 @@
 <!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>股票池查询｜表与业务逻辑</title><style>body{margin:0;background:#F7F8FA;color:#3F485A;font:13px/1.8 "Microsoft YaHei",Arial,sans-serif}header{padding:20px 6%;background:#2743A4;color:#fff}header h1{margin:0;font-size:20px}main{max-width:1180px;margin:20px auto;padding:0 20px}section{padding:16px 20px;margin-bottom:16px;background:#fff;border:1px solid #E5E5E5;border-radius:4px}h2{font-size:16px;color:#2743A4}table{width:100%;border-collapse:collapse}th,td{border:1px solid #E5E5E5;padding:8px 12px;text-align:left;vertical-align:top}th{background:#F7F8FA}code{color:#2743A4}a{color:#2743A4}</style></head><body><header><h1>股票池查询</h1><p>股票研究 · 沪市、深市、港股 · 独立股票表组</p></header><main><section><h2>查询条件及表格</h2><p>条件：投资池、入池日期范围、股票代码、调整人、我分管股票、我的自选股。表格：股票名称、股票代码、所属行业、最新评级、上次评级、投资池、调整人、入池时间、操作（添加到我的股票池/移除）。沿用债券分页序号。只读取审批通过、未删除的当前池状态；分管和自选同时勾选取交集，允许同股票多池行。</p><p>名称或代码打开独立股票详情页签，携带 adjustLogId、adjustBatchNo、targetPoolId；查询只认 adjustLogId，不能把状态主键 id 当日志主键。相同业务键复用页签，不同业务同 ID 保持隔离。</p></section><section><h2>股票基础信息与口径</h2><p>申请、审核和详情均展示 股票简称、股票代码、所属行业、市场、昨收、最高、最低、平均、换手率、交易总量(手)、交易市值(万)、总股本(百万)、总市值(百万)、流通A股(百万)、A股市值(百万)。基础信息实时读取 rrs_stockinfo；空值为空白，数值零正常显示。换手率 1.25 展示 1.25%，不再乘 100。交易市值表示当日成交金额，币种跟随股票市场；港股交易量直接显示来源的“手”。市场编码 SSE / SZSE / HKEX 由前端转换中文。</p><p>评级编码 buy / overweight / neutral / underweight / sell 对应买入 / 增持 / 中性 / 减持 / 卖出；按评级日期、主键倒序取最近两次有效记录，无评级不占位。</p></section><section><h2>API 与自选</h2><p>POST /api/v1/stockPoolQuery/queryStockPoolPage，参数 poolIds、stockCode、entryTimeStart、entryTimeEnd、adjusterName、myManagedStocks、myStocks、currentUserId、pageIndex、pageSize。日期发送 yyyy-MM-dd，后端按自然日闭区间筛选。exportStockPoolExcel 复用筛选，无分页限制，返回 fileName、contentType、contentBase64。</p><p>addStockToMyPool / deleteStockFromMyPool 传 stockCode、currentUserId。myStockPoolId 非空表示已自选；添加幂等，删除须用户确认，同代码多池行同步更新，勾选我的自选股时删除后重查。</p></section><section><a href="module-tables-index.html">返回业务文档总览</a></section></main></body></html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>股票池查询｜表与业务逻辑</title>
+    <style>
+        #stock-pool-query-tables-doc {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        #stock-pool-query-tables-doc, #stock-pool-query-tables-doc * {
+            box-sizing: border-box
+        }
+
+        #stock-pool-query-tables-doc {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        #stock-pool-query-tables-doc .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        #stock-pool-query-tables-doc header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        #stock-pool-query-tables-doc .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        #stock-pool-query-tables-doc h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        #stock-pool-query-tables-doc header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        #stock-pool-query-tables-doc .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        #stock-pool-query-tables-doc .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        #stock-pool-query-tables-doc main {
+            padding: 28px 0 56px
+        }
+
+        #stock-pool-query-tables-doc .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        #stock-pool-query-tables-doc .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        #stock-pool-query-tables-doc .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #stock-pool-query-tables-doc .panel {
+            overflow-wrap: anywhere;
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        #stock-pool-query-tables-doc h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        #stock-pool-query-tables-doc .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        #stock-pool-query-tables-doc .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        #stock-pool-query-tables-doc .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #stock-pool-query-tables-doc .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        #stock-pool-query-tables-doc .step span {
+            color: var(--regular)
+        }
+
+        #stock-pool-query-tables-doc .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        #stock-pool-query-tables-doc .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #stock-pool-query-tables-doc .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        #stock-pool-query-tables-doc .card ul,#stock-pool-query-tables-doc .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #stock-pool-query-tables-doc .card li + li {
+            margin-top: 6px
+        }
+
+        #stock-pool-query-tables-doc .api {
+            overflow-wrap: anywhere;
+            max-width: 100%;
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        #stock-pool-query-tables-doc .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        #stock-pool-query-tables-doc table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        #stock-pool-query-tables-doc th,#stock-pool-query-tables-doc td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        #stock-pool-query-tables-doc th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        #stock-pool-query-tables-doc tr:last-child td {
+            border-bottom: 0
+        }
+
+        #stock-pool-query-tables-doc tbody tr:hover {
+            background: #f8fbff
+        }
+
+        #stock-pool-query-tables-doc code,#stock-pool-query-tables-doc .name {
+            font-family: Consolas, monospace
+        }
+
+        #stock-pool-query-tables-doc .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        #stock-pool-query-tables-doc .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        #stock-pool-query-tables-doc .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #stock-pool-query-tables-doc .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        #stock-pool-query-tables-doc .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        #stock-pool-query-tables-doc .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        #stock-pool-query-tables-doc .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        #stock-pool-query-tables-doc .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #stock-pool-query-tables-doc .notes li + li {
+            margin-top: 5px
+        }
+
+        #stock-pool-query-tables-doc .panel a, #stock-pool-query-tables-doc .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        #stock-pool-query-tables-doc footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            #stock-pool-query-tables-doc .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            #stock-pool-query-tables-doc .flow,#stock-pool-query-tables-doc .logic {
+                grid-template-columns: 1fr
+            }
+
+            #stock-pool-query-tables-doc .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            #stock-pool-query-tables-doc .wrap {
+                width: calc(100% - 24px)
+            }
+
+            #stock-pool-query-tables-doc header {
+                padding: 24px 0 20px
+            }
+
+            #stock-pool-query-tables-doc .stats {
+                grid-template-columns: 1fr
+            }
+
+            #stock-pool-query-tables-doc .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            #stock-pool-query-tables-doc .nav {
+                display: none
+            }
+
+            #stock-pool-query-tables-doc .panel {
+                break-inside: avoid
+            }
+        }
+    </style>
+</head>
+<body id="stock-pool-query-tables-doc" class="docs-page">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>股票池查询</h1>
+        <p class="desc">查询已生效股票池状态，关联股票资料、最近两次评级、池层级和当前用户自选状态，并支持维护“我的股票池”。</p>
+        <div class="stats"><span class="stat">6 项表/表组</span><span class="stat">6 个主要接口</span><span class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav" aria-label="章节导航"><a href="#overview">业务流程总览</a><a href="#logic-1">股票池分页查询</a><a href="#logic-2">我的股票池收藏</a><a href="#tables">涉及表、用途与触发场景</a><a href="#notes">关键规则与当前实现说明</a><a href="module-tables-index.html">文档目录</a></nav>
+<section class="panel" id="overview"><h2>业务流程总览</h2>
+<p class="sub">从页面操作到数据库读写的主要路径。</p>
+<div class="flow">
+    <div class="step"><b>1. 初始化筛选</b><span>加载股票品种的投资池树，读取当前用户。</span></div>
+    <div class="step"><b>2. 组合查询</b><span>按投资池、代码、日期、调整人及分管/自选分页。</span></div>
+    <div class="step"><b>3. 资料与评级</b><span>关联股票主档和最近两次有效评级。</span></div>
+    <div class="step"><b>4. 路径回填</b><span>补齐池全路径和本人自选状态。</span></div>
+    <div class="step"><b>5. 自选与详情</b><span>维护个人自选，或新开对应股票详情页签。</span></div>
+</div>
+</section>
+<section class="panel" id="logic-1"><h2>股票池分页查询</h2>
+<p class="sub">只展示已经生效且未删除的股票池状态；导出复用全部筛选条件，不受当前分页限制。</p>
+<span class="api">POST /api/v1/stockPoolQuery/queryStockPoolPage</span>
+<span class="api">POST /api/v1/stockPoolQuery/exportStockPoolExcel</span>
+<span class="api">POST /api/v1/common/queryPoolTreeList</span>
+<div class="logic">
+<article class="card"><h3>查询主线</h3>
+<ul>
+    <li>主表 <code>ip_pool_status_stock</code> 固定过滤 <code>audit_status=20</code>、<code>is_deleted=0</code>；内连未删除股票主档及 <code>category_type=stock</code> 品种字典。</li>
+    <li>按 <code>entry_time DESC, id DESC</code> 排序；同股票在多个池的状态各保留一行。服务层使用 <code>queryPoolFullNameMap</code> 回填完整池路径。</li>
+    <li>评级按 <code>rating_date DESC, id DESC</code> 取最近两次未删除记录；<code>buy / overweight / neutral / underweight / sell</code> 分别展示买入 / 增持 / 中性 / 减持 / 卖出，无评级留白。</li>
+    <li>回填当前用户匹配代码、品种、市场且 <code>status=use</code> 的 <code>myStockPoolId</code>；分管和自选采用存在性过滤，不放大行数。</li>
+    <li>列表字段：股票名称、股票代码、所属行业、最新评级、上次评级、投资池、调整人、入池时间、操作；分页序号沿用债券页面。</li>
+</ul>
+</article>
+<article class="card"><h3>筛选条件</h3>
+<ul>
+    <li>条件为投资池、入池日期范围、股票代码、调整人、我分管股票、我的自选股；发送 <code>poolIds / stockCode / entryTimeStart / entryTimeEnd / adjusterName / myManagedStocks / myStocks / currentUserId</code>。</li>
+    <li>日期发送 <code>yyyy-MM-dd</code>；下限包含当天零点，上限转换为次日零点的开区间，包含结束日的全部毫秒。用户 ID 必填。</li>
+    <li>代码、调整人使用模糊匹配；分管/自选同时勾选时取交集，只读取当前用户有效记录。</li>
+    <li>投资池树调用 <code>/api/v1/common/queryPoolTreeList</code>，传 <code>includeVarietyCodes: ['stock']</code>，默认收起并支持搜索。</li>
+    <li>分页传 <code>pageIndex / pageSize</code>，返回 <code>PageResult</code>；快速翻页只接受最后一次请求响应，空单元格留白。</li>
+    <li>导出调用 <code>exportStockPoolExcel</code>，复用相同 SQL 与全部条件、不传分页；输出 8 个业务列，不含序号和操作列，返回 <code>fileName / contentType / contentBase64</code>。</li>
+</ul>
+</article>
+</div>
+</section>
+<section class="panel" id="logic-2"><h2>我的股票池收藏</h2>
+<p class="sub">收藏仅改变本人视图，不产生正式调库申请，也不改变当前股票池状态。</p>
+<span class="api">POST /api/v1/stockPoolQuery/addStockToMyPool</span>
+<span class="api">POST /api/v1/stockPoolQuery/deleteStockFromMyPool</span>
+<span class="api">POST /api/v1/stockPoolQuery/queryFavoritedCodeList</span>
+<div class="logic">
+<article class="card"><h3>新增收藏</h3>
+<ul>
+    <li><code>addStockToMyPool</code> 传 <code>stockCode / currentUserId</code>；服务端锁定真实股票主档，核实股票品种和市场。</li>
+    <li>存在有效收藏时幂等返回；相同代码已有其他品种或市场记录时明确报错。新增 <code>my_security_pool.status=use</code>，主档锁防止并发重复插入。</li>
+    <li>页面按股票代码控制请求加载状态，并同步更新同代码的多池行。</li>
+</ul>
+</article>
+<article class="card"><h3>取消与回显</h3>
+<ul>
+    <li>移除前二次确认；<code>deleteStockFromMyPool</code> 仅将本人、该代码、匹配品种及市场的有效记录更新为 <code>status=del</code>。重复移除保持幂等。</li>
+    <li><code>myStockPoolId</code> 非空表示已自选；移除后清空同代码行的自选状态，若勾选“我的自选股”则重新查询。</li>
+    <li><code>queryFavoritedCodeList</code> 可查本人有效股票收藏代码；当前列表通过分页返回的 <code>myStockPoolId</code> 回显。其他用户记录不受影响。</li>
+</ul>
+</article>
+</div>
+</section>
+<section class="panel" id="tables"><h2>涉及表、用途与触发场景</h2>
+<p class="sub">读写口径包含页面初始化、主业务接口及其正常后续流程；只读查询与提交后的审批落地区分说明。</p>
+<div class="table-wrap"><table>
+<thead><tr><th>表名</th><th>用途</th><th>读写</th><th>触发场景</th></tr></thead>
+<tbody>
+    <tr><td><span class="name">rrs_stockinfo / dict_security_type</span></td><td>未删除股票主档、行业、市场与股票品种字典。</td><td><span class="tag r">查询</span></td><td>列表关联、股票品种确认、自选维护前核实并锁定主档。</td></tr>
+    <tr><td><span class="name">rrs_stock_rating</span></td><td>最近两次未删除的股票研究评级。</td><td><span class="tag r">查询</span></td><td>分页、全部条件导出中的最新评级和上次评级。</td></tr>
+    <tr><td><span class="name">ip_pool_status_stock</span></td><td>当前已审批通过的股票池成员，是列表主数据。</td><td><span class="tag r">查询</span></td><td>分页与全部筛选结果导出；每股票每池保留一行。</td></tr>
+    <tr><td><span class="name">ip_investment_pool</span></td><td>目标池名称与完整层级路径。</td><td><span class="tag r">查询</span></td><td>股票池树初始化、列表关联、服务层回填全路径。</td></tr>
+    <tr><td><span class="name">rrs_stock_manager</span></td><td>当前用户的有效股票分管关系。</td><td><span class="tag r">查询</span></td><td>勾选“我分管股票”时通过 EXISTS 过滤，避免多人分管放大分页。</td></tr>
+    <tr><td><span class="name">my_security_pool</span></td><td>按用户、股票代码、真实品种及市场隔离的个人自选。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag u">更新</span></td><td>自选筛选、myStockPoolId 回显、幂等添加与逻辑移除。</td></tr>
+</tbody>
+</table></div>
+</section>
+<section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
+<p class="sub">与当前股票业务实现一致的状态、权限及数据边界。</p>
+<ul class="notes">
+    <li>本页查询有效成员，历史页查询全部未删除调整日志；两者主表与审核状态范围不同。分管关系只用于查询，不能替代投资池调整权限。</li>
+    <li>名称/代码点击 <code>openStockAdjustDetail</code>，携带 <code>stockCode / adjustLogId / adjustBatchNo / targetPoolId</code>；查询页只认来源日志 <code>adjustLogId</code>，不能把池状态主键 <code>id</code> 当日志 ID。</li>
+    <li>工作台按股票业务及代码、日志/批次、池复用详情页签；不同业务同 ID 保持隔离，返回关闭当前详情页签并回到来源。</li>
+    <li>详情的 15 项实时基础信息为：股票简称、股票代码、所属行业、市场、昨收、最高、最低、平均、换手率、交易总量(手)、交易市值(万)、总股本(百万)、总市值(百万)、流通A股(百万)、A股市值(百万)。基础信息实时读取 <code>rrs_stockinfo</code>；空值留白，零值正常显示。换手率原值 1.25 展示 1.25%，不再乘 100；交易市值为当日成交金额，币种跟随市场；港股交易量按来源的“手”展示。</li>
+    <li>市场 <code>SSE / SZSE / HKEX</code> 与评级由前端字典和标签展示；数值零不视为空值。</li>
+    <li>导出使用股票查询模板：楷体 11 磅、浅蓝加粗表头、行高 20 磅、列宽 18；代码保留文本格式。</li>
+</ul>
+<div class="note">本页依据 <code>StockPoolQueryController / StockPoolQueryService / StockPoolQueryMapper.xml</code> 及需求 [42]、对应需求文档和前端调用链整理；后续代码规则变化时应同步维护。</div>
+</section>
+    <p><a class="back" href="module-tables-index.html">返回业务文档总览</a></p>
+</main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
+</body>
+</html>

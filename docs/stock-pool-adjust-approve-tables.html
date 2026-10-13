@@ -1,3 +1,531 @@
 <!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>股票池调库审核与详情｜表与业务逻辑</title><style>body{margin:0;background:#F7F8FA;color:#3F485A;font:13px/1.8 "Microsoft YaHei",Arial,sans-serif}header{padding:20px 6%;background:#2743A4;color:#fff}header h1{margin:0;font-size:20px}main{max-width:1180px;margin:20px auto;padding:0 20px}section{padding:16px 20px;margin-bottom:16px;background:#fff;border:1px solid #E5E5E5;border-radius:4px}h2{font-size:16px;color:#2743A4}table{width:100%;border-collapse:collapse}th,td{border:1px solid #E5E5E5;padding:8px 12px;text-align:left;vertical-align:top}th{background:#F7F8FA}code{color:#2743A4}a{color:#2743A4}</style></head><body><header><h1>股票池调库审核与详情</h1><p>股票研究 · 沪市、深市、港股 · 独立股票表组</p></header><main><section><h2>入口和状态机</h2><p>我的事宜 businessDomain=stock、businessScene=stockAdjust 使用 stockCode 定位。待处理打开审核，已完成和我发起的打开详情；角色 2、3、7、8、9、10 及演示用户 1、5 有股票入口，处理权限沿用统一管理员/待办规则。本人待办优先，原演示管理员可代办其他人的步骤。</p><p>审核保留会签、驳回修改、重新提交和终止流程。只有状态 20 落池；通过时整组复核。驳回或终止需要处理意见和二次确认。状态 11 且当前步骤 approvalStrategy=initiator 时可修改原因建议；修改阶段当前处理人可增加、删除股票报告与材料，变更统一随提交落库。</p></section><section><h2>股票基础信息与口径</h2><p>申请、审核和详情均展示 股票简称、股票代码、所属行业、市场、昨收、最高、最低、平均、换手率、交易总量(手)、交易市值(万)、总股本(百万)、总市值(百万)、流通A股(百万)、A股市值(百万)。基础信息实时读取 rrs_stockinfo；空值为空白，数值零正常显示。换手率 1.25 展示 1.25%，不再乘 100。交易市值表示当日成交金额，币种跟随股票市场；港股交易量直接显示来源的“手”。市场编码 SSE / SZSE / HKEX 由前端转换中文。</p><p>评级编码 buy / overweight / neutral / underweight / sell 对应买入 / 增持 / 中性 / 减持 / 卖出；按评级日期、主键倒序取最近两次有效记录，无评级不占位。</p></section><section><h2>API 与隔离</h2><p>POST /api/v1/stockPoolAdjust/queryAdjustLogList 传 stockCode、adjustLogId、adjustBatchNo、targetPoolId；queryAdjustStepList 传 adjustLogId、adjustBatchNo。附件列表 POST /api/v1/attachments/queryAttachmentList 必传 businessDomain=stock 及日志 ID，下载仅传附件 id。</p><p>submitAdjustAudit 传 adjustLogId、adjustBatchNo、stepId、processAction（approve/reject）、processComment、handlerId、handlerName；修改时补充 adjustReason、adjustAdvice。submitAdjustAuditWithFiles 使用 request JSON Blob + files，attachmentChanges 按日志含 reportFileIndexes、materialFileIndexes、reportSourceAttachmentIds、materialSourceAttachmentIds、deleteAttachmentIds。股票附件不能串用基金或债券绑定。</p><p>详情按实时主档展示基础信息，保留申请时名称行业评级日志、当前所在池、调库记录、原因建议及步骤，支持附件下载和 PDF 导出；返回关闭当前详情页签并回到来源。</p></section><section><h2>独立数据表</h2><table><tr><th>表</th><th>职责</th></tr><tr><td>rrs_stockinfo</td><td>股票主档及行情；不创建全量业务快照。</td></tr><tr><td>rrs_stock_rating</td><td>评级历史，最近两次有效记录。</td></tr><tr><td>rrs_stock_manager</td><td>多人分管关系，筛选采用 EXISTS 去重。</td></tr><tr><td>ip_adjust_log_stock</td><td>STOCK 批次申请、流程、方向、原因建议以及提交时名称、行业和评级。</td></tr><tr><td>ip_adjust_step_stock</td><td>开始、提交、待审、会签、驳回修改、结束节点。</td></tr><tr><td>ip_pool_status_stock</td><td>仅审批状态 20 更新的当前有效池状态。</td></tr></table><p>自选复用 my_security_pool；报告附件复用 sys_attachment，主表分类与业务域为 stock，和债券/基金日志 ID 隔离。SQL 位于后端 sql/stock/，表结构和 Demo 成对，支持独立脚本任务；前端页面不执行清库或初始化。</p></section><section><a href="module-tables-index.html">返回业务文档总览</a></section><p>Excel导入和Excel清空主项在终审、驳回修改重新提交时继续复核最新报告要求；未改附件也不能绕过报告要求变化。导入范围见 <a href="stock-pool-excel-import.html">股票池Excel导入</a>。</p>
-</main></body></html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>股票池调库审核与详情｜表与业务逻辑</title>
+    <style>
+        #stock-pool-adjust-approve-tables-doc {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        #stock-pool-adjust-approve-tables-doc, #stock-pool-adjust-approve-tables-doc * {
+            box-sizing: border-box
+        }
+
+        #stock-pool-adjust-approve-tables-doc {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        #stock-pool-adjust-approve-tables-doc .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        #stock-pool-adjust-approve-tables-doc header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        #stock-pool-adjust-approve-tables-doc .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        #stock-pool-adjust-approve-tables-doc h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        #stock-pool-adjust-approve-tables-doc header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        #stock-pool-adjust-approve-tables-doc main {
+            padding: 28px 0 56px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        #stock-pool-adjust-approve-tables-doc .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #stock-pool-adjust-approve-tables-doc .panel {
+            overflow-wrap: anywhere;
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        #stock-pool-adjust-approve-tables-doc h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #stock-pool-adjust-approve-tables-doc .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .step span {
+            color: var(--regular)
+        }
+
+        #stock-pool-adjust-approve-tables-doc .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #stock-pool-adjust-approve-tables-doc .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .card ul,#stock-pool-adjust-approve-tables-doc .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .card li + li {
+            margin-top: 6px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .api {
+            overflow-wrap: anywhere;
+            max-width: 100%;
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        #stock-pool-adjust-approve-tables-doc .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        #stock-pool-adjust-approve-tables-doc table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        #stock-pool-adjust-approve-tables-doc th,#stock-pool-adjust-approve-tables-doc td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        #stock-pool-adjust-approve-tables-doc th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        #stock-pool-adjust-approve-tables-doc tr:last-child td {
+            border-bottom: 0
+        }
+
+        #stock-pool-adjust-approve-tables-doc tbody tr:hover {
+            background: #f8fbff
+        }
+
+        #stock-pool-adjust-approve-tables-doc code,#stock-pool-adjust-approve-tables-doc .name {
+            font-family: Consolas, monospace
+        }
+
+        #stock-pool-adjust-approve-tables-doc .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        #stock-pool-adjust-approve-tables-doc .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        #stock-pool-adjust-approve-tables-doc .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #stock-pool-adjust-approve-tables-doc .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        #stock-pool-adjust-approve-tables-doc .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        #stock-pool-adjust-approve-tables-doc .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        #stock-pool-adjust-approve-tables-doc .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        #stock-pool-adjust-approve-tables-doc .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .notes li + li {
+            margin-top: 5px
+        }
+
+        #stock-pool-adjust-approve-tables-doc .panel a, #stock-pool-adjust-approve-tables-doc .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        #stock-pool-adjust-approve-tables-doc footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            #stock-pool-adjust-approve-tables-doc .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            #stock-pool-adjust-approve-tables-doc .flow,#stock-pool-adjust-approve-tables-doc .logic {
+                grid-template-columns: 1fr
+            }
+
+            #stock-pool-adjust-approve-tables-doc .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            #stock-pool-adjust-approve-tables-doc .wrap {
+                width: calc(100% - 24px)
+            }
+
+            #stock-pool-adjust-approve-tables-doc header {
+                padding: 24px 0 20px
+            }
+
+            #stock-pool-adjust-approve-tables-doc .stats {
+                grid-template-columns: 1fr
+            }
+
+            #stock-pool-adjust-approve-tables-doc .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            #stock-pool-adjust-approve-tables-doc .nav {
+                display: none
+            }
+
+            #stock-pool-adjust-approve-tables-doc .panel {
+                break-inside: avoid
+            }
+        }
+    </style>
+</head>
+<body id="stock-pool-adjust-approve-tables-doc" class="docs-page">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>股票池调库审核与详情</h1>
+        <p class="desc">说明股票待办加载、实时基础信息、审批权限与并发校验、会签/抢占、驳回修改重提、附件变更及最终整组复核落池；详情页复用只读数据和 PDF 导出。</p>
+        <div class="stats"><span class="stat">16 项表/表组</span><span class="stat">8 个主要接口</span><span class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav" aria-label="章节导航"><a href="#overview">业务流程总览</a><a href="#logic-1">查询、校验与操作逻辑</a><a href="#tables">涉及表、用途与触发场景</a><a href="#boundaries">关键规则与边界</a><a href="#scope">业务入口与处理范围</a><a href="#notes">关键规则与当前实现说明</a><a href="module-tables-index.html">文档目录</a></nav>
+<section class="panel" id="overview"><h2>业务流程总览</h2>
+<p class="sub">从页面操作到数据库读写的主要路径。</p>
+<div class="flow">
+    <div class="step"><b>1. 进入待办/详情</b><span>股票业务域定位日志、批次和待处理步骤。</span></div>
+    <div class="step"><b>2. 加载资料</b><span>读取实时股票、当前池、申请组、审批记录及附件。</span></div>
+    <div class="step"><b>3. 权限与校验</b><span>核实待办处理人、步骤状态和批次上下文。</span></div>
+    <div class="step"><b>4. 处理或重提</b><span>审批、驳回或发起人修改后重提，原子更新步骤及附件。</span></div>
+    <div class="step"><b>5. 整组结束</b><span>沿固定版本路由；通过前复核并落池，详情只读可导出 PDF。</span></div>
+</div>
+</section>
+<section class="panel" id="logic-1"><h2>查询、校验与操作逻辑</h2>
+<p class="sub">审核与详情使用同一股票数据链路；审核操作由当前步骤、实际处理人和固定流程版本决定。</p>
+<span class="api">POST /api/v1/stockPoolAdjust/queryStockDetail</span>
+<span class="api">POST /api/v1/stockPoolAdjust/queryStockPoolStatus</span>
+<span class="api">POST /api/v1/stockPoolAdjust/queryAdjustLogList</span>
+<span class="api">POST /api/v1/stockPoolAdjust/queryAdjustStepList</span>
+<span class="api">POST /api/v1/stockPoolAdjust/submitAdjustAudit</span>
+<span class="api">POST /api/v1/stockPoolAdjust/submitAdjustAuditWithFiles</span>
+<span class="api">POST /api/v1/attachments/queryAttachmentList</span>
+<span class="api">POST /api/v1/attachments/downloadAttachment</span>
+<div class="logic">
+<article class="card"><h3>审核页面加载</h3>
+<ul>
+    <li>我的事宜以 <code>businessDomain=stock / businessScene=stockAdjust</code> 分发至股票服务，携带日志、批次及步骤定位。股票待办不是债券日志的别名。</li>
+    <li>依次加载 <code>queryStockDetail / queryStockPoolStatus / queryAdjustLogList / queryAdjustStepList</code>，日志和步骤以批次优先，展示本组主项及关系项。</li>
+    <li>读取当前用户角色、待办归属和附件，操作按钮由当前步骤与页面模式决定；直接入口仍须经过服务端权限校验。</li>
+</ul>
+</article>
+<article class="card"><h3>实时股票信息与只读详情</h3>
+<ul>
+    <li>审核与详情统一展示 15 项基础信息：股票简称、股票代码、所属行业、市场、昨收、最高、最低、平均、换手率、交易总量(手)、交易市值(万)、总股本(百万)、总市值(百万)、流通A股(百万)、A股市值(百万)。</li>
+    <li>基础信息实时读取 <code>rrs_stockinfo</code>；空值留白，零值正常显示。换手率原值 1.25 展示 1.25%，不再乘 100；交易市值为当日成交金额，币种跟随市场；港股交易量按来源的“手”展示。</li>
+    <li>评级按 <code>rating_date DESC, id DESC</code> 取最近两次未删除记录；<code>buy / overweight / neutral / underweight / sell</code> 分别展示买入 / 增持 / 中性 / 减持 / 卖出，无评级留白。</li>
+    <li>历史申请名称、行业及评级以日志留痕为准；实时基础区域不代表提交时行情。详情展示当前池、调整组、步骤和报告材料，只读不触发新调整。</li>
+</ul>
+</article>
+<article class="card"><h3>导出 PDF</h3>
+<ul>
+    <li>审核和详情复用 <code>js/print_export.js</code>，输出基础信息、当前所在池、调库明细、审批流程及报告材料区域。</li>
+    <li>使用当前已加载数据生成打印/PDF 视图；隐藏操作、上传等交互控件，保留内容与文件名称，数值空白和市场单位沿用页面。</li>
+    <li>PDF 导出只读，不保存申请、不推进步骤，不改变当前池状态。</li>
+</ul>
+</article>
+<article class="card"><h3>并发与权限校验</h3>
+<ul>
+    <li><code>submitAdjustAudit / submitAdjustAuditWithFiles</code> 传 <code>stepId / adjustLogId / adjustBatchNo / handlerId / handlerName / processAction / processComment</code>。</li>
+    <li>核实日志、批次、步骤相互匹配且待处理；实际处理人或管理员才可操作，管理员优先定位自己的待办。非管理员发起人不能越过普通后续审批，仅发起人语义节点允许。</li>
+    <li>先锁股票，再重读待办；步骤条件更新防重复处理。上下文不匹配、已办步骤或越权明确失败，前端隐藏按钮不是安全边界。</li>
+</ul>
+</article>
+<article class="card"><h3>会签与抢占</h3>
+<ul>
+    <li><code>ALL</code> 要全部同意后继续；其他策略按先处理结果决定路由，其余未处理步骤作跳过处理。</li>
+    <li>抢占在实际审批事务内完成，不存在额外“认领”接口。并发操作由锁及待处理状态条件保护，后到操作不能覆盖已办结果。</li>
+    <li>审批读取当前步骤 <code>flow_node_id</code> 所属版本，再按该版本节点/边推进；新发布流程版本不替换在途申请路由。</li>
+</ul>
+</article>
+<article class="card"><h3>修改后重提</h3>
+<ul>
+    <li>11 且当前节点具有发起人语义时允许修改原因建议并重提；同意提交的原因建议接口最多 1000 字，审批意见与原因建议分开保存。</li>
+    <li>可按允许范围修改本组报告材料，校验旧附件归属、分类、来源和新文件索引；修改与步骤推进在同一事务完成。</li>
+    <li>普通驳回必须填写意见并确认；路由进入 11 或最终 21，已在 11 时驳回并结束为 99。重提继续按原版本流程处理。</li>
+</ul>
+</article>
+<article class="card"><h3>流程结束与最终复核</h3>
+<ul>
+    <li>到达通过结束前，按整组最新数据复核股票、池状态、市场品种、权限、行业评级、来源/联动互斥、开放日、冻结期、报告和容量；任一失败不落池。</li>
+    <li>全部通过后日志统一置 20，入池新增有效成员，出池逻辑移除成员；驳回和撤回只更新日志/步骤。</li>
+    <li>Excel 导入/清空主项在终审及驳回修改重新提交时也复核最新报告要求，未改附件不能绕过规则变化。</li>
+</ul>
+</article>
+<article class="card"><h3>附件与报告处理</h3>
+<ul>
+    <li>列表/下载走 <code>/api/v1/attachments/queryAttachmentList / downloadAttachment</code>，固定股票业务域及 <code>ip_adjust_log_stock</code> 主表。</li>
+    <li><code>attachmentChanges</code> 按日志携带报告/材料文件索引、来源附件 ID 和删除 ID；逐项验证归属、股票代码、分类与可操作批次。</li>
+    <li>报告仍需满足 <code>none / any / internal</code> 与同股票归属；已有内部/外部报告和本地新文件分别核验。</li>
+    <li>有新文件使用 multipart 接口，原始文件名统一携带；失败回滚数据库更新并清理本次新增物理文件。</li>
+</ul>
+</article>
+</div>
+</section>
+<section class="panel" id="tables"><h2>涉及表、用途与触发场景</h2>
+<p class="sub">读写口径包含页面初始化、主业务接口及其正常后续流程；只读查询与提交后的审批落地区分说明。</p>
+<div class="table-wrap"><table>
+<thead><tr><th>表名</th><th>用途</th><th>读写</th><th>触发场景</th></tr></thead>
+<tbody>
+    <tr><td><span class="name">rrs_stockinfo</span></td><td>股票主档、行情、行业、市场和上市状态。</td><td><span class="tag r">查询</span></td><td>列表/详情、提交留痕、加锁复核与终审。</td></tr>
+    <tr><td><span class="name">dict_security_type</span></td><td>股票品种字典；固定 category_type=stock。</td><td><span class="tag r">查询</span></td><td>核实主档属于股票品种，提供实际类型选项。</td></tr>
+    <tr><td><span class="name">rrs_stock_rating</span></td><td>股票研究评级历史。</td><td><span class="tag r">查询</span></td><td>最近两次评级展示、最新评级准入与提交留痕。</td></tr>
+    <tr><td><span class="name">ip_investment_pool</span></td><td>池层级、启用/锁定、市场品种、容量、行业评级、报告与流程配置。</td><td><span class="tag r">查询</span></td><td>池列表、全路径、调整校验、提交及终审；锁池保护并发容量。</td></tr>
+    <tr><td><span class="name">ip_pool_permission</span></td><td>用户及角色的池操作权限。</td><td><span class="tag r">查询</span></td><td>可调整池过滤、提交与终审权限复核；Excel 额外检查导入权限。</td></tr>
+    <tr><td><span class="name">ip_pool_relation</span></td><td>来源池、联动、互斥、硬性限制及弹性限制关系。</td><td><span class="tag r">查询</span></td><td>展开关系项、来源 OR 校验、限制阻断与警告。</td></tr>
+    <tr><td><span class="name">ip_pool_open_day</span></td><td>投资池开放日区间。</td><td><span class="tag r">查询</span></td><td>启用开放日限制时，校验当前日期是否允许调整。</td></tr>
+    <tr><td><span class="name">ip_pool_status_stock</span></td><td>股票当前生效成员；只认 audit_status=20 且未删除。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag d">逻辑删除</span></td><td>当前所在池、有效数量、来源/冻结期；审批通过后入池或出池。</td></tr>
+    <tr><td><span class="name">ip_adjust_log_stock</span></td><td>STOCK 批次、每池调整明细、原因建议及提交时名称/行业/评级。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag u">更新</span></td><td>提交申请、在途防重、同批审批状态更新及历史追溯。</td></tr>
+    <tr><td><span class="name">ip_adjust_step_stock</span></td><td>股票审批运行步骤与处理意见。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag u">更新</span></td><td>开始/提交、人工待办、会签抢占、驳回修改和结束节点。</td></tr>
+    <tr><td><span class="name">wf_flow_definition / wf_flow_version</span></td><td>流程定义、启用状态及发布版本。</td><td><span class="tag r">查询</span></td><td>校验可选流程、提交选定一般或快速流程。</td></tr>
+    <tr><td><span class="name">wf_flow_node / wf_flow_edge</span></td><td>发布版本节点、动作路由及结束分支。</td><td><span class="tag r">查询</span></td><td>初始化步骤、审批沿当前步骤所属版本流转。</td></tr>
+    <tr><td><span class="name">wf_node_approval_config / wf_node_approval_handler</span></td><td>审批策略、发起人语义与指定处理人配置。</td><td><span class="tag r">查询</span></td><td>创建人工待办、会签或抢占、修改后重提。</td></tr>
+    <tr><td><span class="name">ais_inv_analysis.t_sys_user / t_sys_role / t_sys_user_role</span></td><td>启用用户、角色及人员归属。</td><td><span class="tag r">查询</span></td><td>池权限与审批处理人解析。</td></tr>
+    <tr><td><span class="name">rrs_report_in / rrs_report_out</span></td><td>内部、外部报告目录及股票报告归属。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span></td><td>报告弹窗筛选、按股票代码核实引用；通过后按既有服务归集内部报告，外部报告仅查询。</td></tr>
+    <tr><td><span class="name">sys_attachment</span></td><td>股票报告/材料、原始文件名及日志绑定。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag d">逻辑删除</span></td><td>报告材料查询、来源复制、下载及审批报告复核；驳回待修改重提时按授权新增或逻辑删除附件，关联主表固定 ip_adjust_log_stock。</td></tr>
+</tbody>
+</table></div>
+</section>
+<section class="panel" id="boundaries"><h2>关键规则与边界</h2>
+<p class="sub">与债券审核保持同类说明结构，同时保留股票独立的数据、权限和流程约束。</p>
+<div class="logic">
+<article class="card"><h3>乐观并发与处理人</h3>
+<ul>
+    <li>步骤必须仍待处理，条件更新只允许一次有效处理；整组业务复核和推进受股票锁保护。</li>
+    <li>管理员例外由公共管理员判断解析，业务入口角色控制不能替代待办归属判断。</li>
+</ul>
+</article>
+<article class="card"><h3>审核状态机</h3>
+<ul>
+    <li><code>-1</code> 无效 / <code>00</code> 流程中 / <code>11</code> 驳回待修改 / <code>20</code> 审批通过 / <code>21</code> 审批驳回 / <code>32</code> 自动处理预留 / <code>99</code> 发起人已撤回；仅 <code>20</code> 更新当前池状态。</li>
+    <li>11 是待修改状态，不是已出池或已入池；32 仅预留，不能当作审批通过。</li>
+</ul>
+</article>
+<article class="card"><h3>固定版本与原子提交</h3>
+<ul>
+    <li>审批沿运行步骤所属版本，发布新版本不重建在途流程；附件、日志、步骤及最终池状态保持事务一致。</li>
+    <li>最终落池必须再次检查当前规则和整组关系，不能只复用申请时检查结果。</li>
+</ul>
+</article>
+<article class="card"><h3>详情入口与返回</h3>
+<ul>
+    <li>股票查询使用来源日志 adjustLogId；历史使用真实日志 id，禁止将当前池状态主键当日志 ID。</li>
+    <li>工作台按股票业务、股票代码及日志/批次/池复用详情页签，与债券、基金隔离；返回关闭当前详情页签并回到来源。</li>
+</ul>
+</article>
+</div>
+</section>
+<section class="panel" id="scope"><h2>业务入口与处理范围</h2>
+<p class="sub">审核入口、只读详情与申请入口职责清楚，避免把详情查看等同于可执行调库。</p>
+<div class="logic">
+<article class="card"><h3>审核入口</h3>
+<ul>
+    <li>从我的事宜进入当前股票待办；工作台直接入口按用户和角色配置展示，服务端仍复核实际待办及管理员权限。</li>
+    <li>处理普通人工审批、会签/抢占、驳回与修改后重提；单笔、批量和 Excel 申请共用股票审核链路。</li>
+</ul>
+</article>
+<article class="card"><h3>详情与申请边界</h3>
+<ul>
+    <li>查询/历史可打开 <code>pages/stock_pool_adjust_detail.html</code> 查看完整批次，下载附件并导出 PDF，不显示审批提交或申请选池操作。</li>
+    <li>新申请在单笔、批量或 Excel 页面发起；详情和审核不提供债券发行主体财务数据，使用股票实时基础信息。</li>
+</ul>
+</article>
+</div>
+</section>
+<section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
+<p class="sub">与当前股票业务实现一致的状态、权限及数据边界。</p>
+<ul class="notes">
+    <li>股票表、业务域与附件绑定必须完整匹配；与其他业务同编号的日志、步骤或附件不得串用。</li>
+    <li>分管关系只服务查询筛选，不是审核授权；个人自选不改变正式池状态，也不参与当前待办处理人判断。</li>
+    <li>股票 SQL 在后端 <code>sql/stock/</code>，结构与 Demo 成对维护；前端业务文档和业务页面均不执行初始化或清库。</li>
+</ul>
+<div class="note">本页依据 <code>StockPoolAdjustFlowController / StockPoolAdjustFlowService / StockMyMattersService</code>、审核/详情页及需求 [44]、对应需求文档和前端调用链整理；后续代码规则变化时应同步维护。</div>
+</section>
+    <p><a class="back" href="stock-pool-excel-import.html">股票池Excel导入</a>　<a class="back" href="module-tables-index.html">返回业务文档总览</a></p>
+</main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
+</body>
+</html>

@@ -2,44 +2,470 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>股票池 Excel 导入｜表与业务逻辑</title>
     <style>
-        #stock_excel_import_doc, #stock_excel_import_doc * { box-sizing: border-box; }
-        body { margin: 0; background: #F7F8FA; }
-        #stock_excel_import_doc { max-width: 1180px; margin: 0 auto; padding: 24px; color: #3F485A; font: 13px/1.7 "Microsoft YaHei", Arial, sans-serif; }
-        #stock_excel_import_doc h1 { margin: 0 0 8px; color: #242933; font-size: 20px; }
-        #stock_excel_import_doc h2 { margin: 0 0 12px; color: #2743A4; font-size: 16px; }
-        #stock_excel_import_doc section { margin-top: 16px; padding: 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 4px; }
-        #stock_excel_import_doc p { margin: 8px 0; }
-        #stock_excel_import_doc ul { padding-left: 20px; }
-        #stock_excel_import_doc table { width: 100%; border-collapse: collapse; }
-        #stock_excel_import_doc th, #stock_excel_import_doc td { padding: 8px 12px; text-align: left; border: 1px solid #E5E5E5; vertical-align: top; }
-        #stock_excel_import_doc th { background: #F7F8FA; color: #242933; }
-        #stock_excel_import_doc code { color: #2743A4; word-break: break-word; }
-        #stock_excel_import_doc a { color: #2743A4; }
+        #stock_excel_import_doc {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        #stock_excel_import_doc, #stock_excel_import_doc * {
+            box-sizing: border-box
+        }
+
+        #stock_excel_import_doc {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        #stock_excel_import_doc .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        #stock_excel_import_doc header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        #stock_excel_import_doc .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        #stock_excel_import_doc h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        #stock_excel_import_doc header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        #stock_excel_import_doc .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        #stock_excel_import_doc .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        #stock_excel_import_doc main {
+            padding: 28px 0 56px
+        }
+
+        #stock_excel_import_doc .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        #stock_excel_import_doc .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        #stock_excel_import_doc .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #stock_excel_import_doc .panel {
+            overflow-wrap: anywhere;
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        #stock_excel_import_doc h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        #stock_excel_import_doc .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        #stock_excel_import_doc .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        #stock_excel_import_doc .step {
+            min-height: 150px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #stock_excel_import_doc .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        #stock_excel_import_doc .step span {
+            color: var(--regular)
+        }
+
+        #stock_excel_import_doc .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        #stock_excel_import_doc .card {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #stock_excel_import_doc .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        #stock_excel_import_doc .card ul,#stock_excel_import_doc .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #stock_excel_import_doc .card li + li {
+            margin-top: 6px
+        }
+
+        #stock_excel_import_doc .api {
+            overflow-wrap: anywhere;
+            max-width: 100%;
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            font: 13px Consolas, monospace
+        }
+
+        #stock_excel_import_doc .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        #stock_excel_import_doc table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        #stock_excel_import_doc th,#stock_excel_import_doc td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        #stock_excel_import_doc th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        #stock_excel_import_doc tr:last-child td {
+            border-bottom: 0
+        }
+
+        #stock_excel_import_doc tbody tr:hover {
+            background: #f8fbff
+        }
+
+        #stock_excel_import_doc code,#stock_excel_import_doc .name {
+            font-family: Consolas, monospace
+        }
+
+        #stock_excel_import_doc .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        #stock_excel_import_doc .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        #stock_excel_import_doc .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #stock_excel_import_doc .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        #stock_excel_import_doc .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        #stock_excel_import_doc .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        #stock_excel_import_doc .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        #stock_excel_import_doc .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #stock_excel_import_doc .notes li + li {
+            margin-top: 5px
+        }
+
+        #stock_excel_import_doc .panel a, #stock_excel_import_doc .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        #stock_excel_import_doc footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            #stock_excel_import_doc .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            #stock_excel_import_doc .flow,#stock_excel_import_doc .logic {
+                grid-template-columns: 1fr
+            }
+
+            #stock_excel_import_doc .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            #stock_excel_import_doc .wrap {
+                width: calc(100% - 24px)
+            }
+
+            #stock_excel_import_doc header {
+                padding: 24px 0 20px
+            }
+
+            #stock_excel_import_doc .stats {
+                grid-template-columns: 1fr
+            }
+
+            #stock_excel_import_doc .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            #stock_excel_import_doc .nav {
+                display: none
+            }
+
+            #stock_excel_import_doc .panel {
+                break-inside: avoid
+            }
+        }
     </style>
 </head>
-<body>
-<main id="stock_excel_import_doc">
-<h1>股票池 Excel 导入</h1><p>股票研究 · 四列模板 → 导入明细 → 调库校验 → 选择一般流程 → 提交审批申请。</p>
-<p>模板统一楷体 11 磅、浅蓝加粗表头、行高 20 磅、列宽 18；股票代码使用文本格式，保留示例及填写说明。</p>
-<section><h2>模板与页面参数</h2><table><thead><tr><th>列名</th><th>填写要求</th></tr></thead><tbody>
-<tr><td>父池名称 / 子池名称</td><td>按直接父池及子池名称解析支持股票的启用叶子池；多匹配明确失败。</td></tr>
-<tr><td>股票名称 / 股票代码</td><td>代码使用文本格式，保留前导零及市场后缀；名称以主档为准，评级读取已有评级记录。</td></tr>
-</tbody></table><p>支持 xls/xlsx、5MB、首表最多2000个非空数据行。明细保留Excel真实行号，名称及代码可筛选分页。模板下载编码为 <code>stock_pool_import</code>，第二表附填写说明。</p>
-<p>模板内置5条Demo示例：正常A股调入、正常港股调入、市场不匹配、已退市、已在目标池。第二表标注真实行号及预期结果；以已加载公共池、股票基础与股票调库Demo、具备目标池双权限、选择调入并关闭清空为前提，实际结果随当前配置及数据变化。正式导入前请删除这5行并填写实际数据。</p>
-<p>默认调入、关闭清空、开启联动互斥。上传后固定方向、清空和关系选项；调整原因及意见可在提交前修改（各最多1000字）。更改固定选项须清空页面重新上传。</p></section>
-<section><h2>校验、清空与审批</h2><ul>
-<li>复用股票状态、市场、品种、行业、评级、容量、在途、来源池、开放日、冻结期及限制池规则，并检查调整与Excel导入双权限。</li>
-<li>仅允许目标池配置的已发布一般人工审批流程。快速、批量、自动一般流程不可用于导入；不提供报告材料入口，要求报告的主项明确失败。</li>
-<li>关闭联动互斥时只提交主项，开启时提交通过的关系项；失败主项阻断本组，失败关系保留原因。不同来源组同股票同池冲突时全部相关组失败。</li>
-<li>清空仅适用调入：目标池有效成员减去可识别导入名单，跳过在途成员；失败但可识别的导入行仍保留。先保存清空调出申请，再保存导入申请，不提前释放容量。</li>
-<li>允许提交部分通过来源组。客户端只选择服务端候选流程；提交复核最新规则及关系集合，任一复核或写入失败整批回滚。</li>
-<li>每个来源行独立STOCK批次，主项类型为Excel导入或Excel清空，关系项保留联动、互斥类型。提交状态为00，终审通过20才落池；终审及驳回修改继续复核报告和评级。</li>
-</ul></section>
-<section><h2>批次与接口</h2><p>沿用证券及基金导入的上传取消顺序、失败现场保留、重校验及已提交批次防重。重选合法文件前先取消旧批次，取消失败保留原结果。已提交批次的清空仅重置页面。</p>
-<p>全部POST，前缀 <code>/api/v1/stockPoolExcelImport</code>：uploadExcel、queryTask、queryItemPage、checkImport、submitImport、cancelImport。上传使用multipart的request JSON、file及originalFileNameListJson。</p>
-<table><thead><tr><th>表</th><th>用途</th></tr></thead><tbody><tr><td>sys_imp_tmp / sys_imp_tmp_detl</td><td>stock_pool_excel业务隔离、固定选项、原始四列、解析池及服务端快照；原因意见使用TEXT槽fld011/012。</td></tr><tr><td>ip_adjust_log_stock / ip_adjust_step_stock</td><td>独立股票申请及审批步骤，服务端重算并整批锁定写入。</td></tr><tr><td>ip_pool_status_stock</td><td>仅终审通过才更新有效股票成员。</td></tr></tbody></table>
-<p>关联业务：<a href="stock-pool-adjust-tables.html">股票池单笔调整</a>、<a href="stock-pool-adjust-approve-tables.html">股票调库审核与详情</a>。</p></section>
-</main></body></html>
+<body id="stock_excel_import_doc" class="docs-page">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>股票池 Excel 导入</h1>
+        <p class="desc">按四列模板上传股票名单，解析父池与子池后暂存批次，校验通过再选择一般人工流程提交；清空目标池生成审批申请，仅 20 落池。</p>
+        <div class="stats"><span class="stat">17 项表/表组</span><span class="stat">7 个主要接口</span><span class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav" aria-label="章节导航"><a href="#overview">业务流程总览</a><a href="#logic-1">导入参数与上传</a><a href="#logic-2">校验与提交</a><a href="#tables">涉及表、用途与触发场景</a><a href="#notes">关键规则与当前实现说明</a><a href="module-tables-index.html">文档目录</a></nav>
+<section class="panel" id="overview"><h2>业务流程总览</h2>
+<p class="sub">前端 pages/stock_pool_excel_import.html：双参数面板与“导入明细 / 调库校验”双页签；目标池由 Excel 解析。</p>
+<div class="flow">
+    <div class="step"><b>1. 导入参数</b><span>选择调入/调出、清空及联动互斥，填写整批原因意见。</span></div>
+    <div class="step"><b>2. 下载并上传</b><span>按四列模板上传 xls/xlsx，保存股票导入暂存批次。</span></div>
+    <div class="step"><b>3. 导入明细</b><span>查看真实行号、名称代码、父子池与筛选分页。</span></div>
+    <div class="step"><b>4. 调库校验</b><span>复用股票规则，展开清空与关系项并显示失败原因。</span></div>
+    <div class="step"><b>5. 选流程提交</b><span>选择一般人工流程，整批复核写申请，审批通过后生效。</span></div>
+</div>
+</section>
+<section class="panel" id="logic-1"><h2>导入参数与上传</h2>
+<p class="sub">上传后方向、清空和关系选项固定；原因意见可在提交前继续修改。</p>
+<span class="api">POST /api/v1/commonFile/downloadTemplate</span>
+<span class="api">POST /api/v1/stockPoolExcelImport/uploadExcel</span>
+<div class="logic">
+<article class="card"><h3>导入类型与选项</h3>
+<ul>
+    <li>股票独立入口，方向 <code>in/out</code>；默认 <code>in</code>、<code>clearTarget=false</code>、<code>allowLinkMutex=true</code>，不需要证券/主体类型切换。</li>
+    <li>页面不手选目标池；以直接父池名称 + 子池名称解析启用、支持股票的叶子池，多匹配明确失败。</li>
+    <li>首先清空目标池仅适用于调入；联动互斥开关决定提交主项及通过关系项，硬性来源/限制规则仍保留。</li>
+    <li>上传后固定选项锁定，更改须清空后重新上传；原因与意见整批共享、选填，各最多 1000 字，保存到主表 TEXT 槽 <code>fld011/012</code>。</li>
+</ul>
+</article>
+<article class="card"><h3>模板与上传</h3>
+<ul>
+    <li>固定四列：父池名称、子池名称、股票名称、股票代码；代码使用文本格式保留前导零及市场后缀，名称以真实主档为准，评级读取已有记录。</li>
+    <li>下载 <code>/api/v1/commonFile/downloadTemplate</code>，<code>templateCode=stock_pool_import</code>；楷体 11 磅、浅蓝加粗表头、行高 20 磅、列宽 18，第二表附填写说明。</li>
+    <li>内置 5 条 Demo：正常 A 股、正常港股、市场不匹配、已退市、已在目标池；以已加载公共池/股票基础/股票调库 Demo、具备双权限、调入且关闭清空为前提，实际结果随配置数据变化。正式导入前删除 5 行。</li>
+    <li>仅解析首表，支持 <code>xls/xlsx</code>、5MB、最多 2000 个非空数据行，保留真实行号；各列内容超过 200 字明确失败。</li>
+    <li><code>uploadExcel</code> multipart 为 <code>request</code> JSON、<code>file</code>、<code>originalFileNameListJson</code>；重选合法文件先取消旧未提交批次，取消失败保留现场，非法文件不取消旧批次。</li>
+</ul>
+</article>
+</div>
+</section>
+<section class="panel" id="logic-2"><h2>校验与提交</h2>
+<p class="sub">股票 Excel 使用服务器暂存数据和校验快照，只接受目标池已发布且含实际人工审批的一般流程。</p>
+<span class="api">POST /api/v1/stockPoolExcelImport/queryItemPage</span>
+<span class="api">POST /api/v1/stockPoolExcelImport/queryTask</span>
+<span class="api">POST /api/v1/stockPoolExcelImport/checkImport</span>
+<span class="api">POST /api/v1/stockPoolExcelImport/submitImport</span>
+<span class="api">POST /api/v1/stockPoolExcelImport/cancelImport</span>
+<div class="logic">
+<article class="card"><h3>导入明细与调库校验</h3>
+<ul>
+    <li><code>queryItemPage</code> 按 <code>impId</code>、代码/名称关键字 <code>keyword</code>、校验结果 <code>chkRslt</code> 及分页查询原始行；<code>queryTask</code> 返回批次摘要与展开校验快照，刷新摘要保留当前分页和流程选择。</li>
+    <li><code>checkImport</code> 重新解析股票/目标池，检查 <code>excel_importable + adjustable</code> 双权限；复用状态、市场、品种、行业、评级、容量、在途、来源、开放日、冻结期和限制池规则。</li>
+    <li>主项失败阻断该来源整组，其附属项不可单独提交；失败关系保留原因，关闭关系仅提交主项，开启则提交通过的关系项。同股票同池跨来源冲突阻断全部相关组。</li>
+    <li>清空差集为目标池当前有效成员减去全部可识别导入代码，包括失败但可识别行；跳过在途成员。先生成清空调出申请，再生成导入申请，不立即出池或预释放容量。</li>
+    <li>重校验失败清除旧可提交快照；来源行以 <code>sourceItemId</code> 独立分组，避免同股票不同来源行混用结果。</li>
+</ul>
+</article>
+<article class="card"><h3>提交、流程与权限</h3>
+<ul>
+    <li>选择流程弹窗显示服务端候选；仅目标池 <code>normalInbound / normalOutbound</code>，且已发布并含实际人工审批。快速、批量专用和全自动一般流程不可用。</li>
+    <li>不提供报告材料入口，要求报告的主项明确失败；不能照搬债券 Excel 的 batch 推荐策略。</li>
+    <li><code>submitImport</code> 以 <code>impId</code> 读取持久化来源、固定选项与 <code>result_json</code>，客户端只回传已有候选流程选择及本批原因意见，不信任其股票、池、方向等业务字段。</li>
+    <li>允许提交部分通过来源组；服务端锁定批次，核对完整有效关系集合，再稳定顺序锁整批股票及目标池，所有复核通过后写日志、步骤；任一失败整批回滚。</li>
+    <li>每来源独立 STOCK 批次；主项“Excel导入/Excel清空”，关系项沿用联动/互斥。提交为 00，必须进入人工审批，终审 20 才落池。</li>
+    <li><code>cancelImport</code> 仅取消未提交批次；已提交防重，页面清空只重置界面。提交结果、日志 ID 与批次列表保存在服务端快照；管理员展示批次号。</li>
+</ul>
+</article>
+</div>
+</section>
+<section class="panel" id="tables"><h2>涉及表、用途与触发场景</h2>
+<p class="sub">读写口径包含页面初始化、主业务接口及其正常后续流程；只读查询与提交后的审批落地区分说明。</p>
+<div class="table-wrap"><table>
+<thead><tr><th>表名</th><th>用途</th><th>读写</th><th>触发场景</th></tr></thead>
+<tbody>
+    <tr><td><span class="name">sys_imp_tmp</span></td><td>导入批次，biz_type=stock_pool_excel；fld001 方向，fld011/012 原因意见，option_json 固定选项，result_json 服务端快照。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag u">更新</span> <span class="tag d">逻辑删除</span></td><td>上传、批次恢复、校验摘要、提交标记、取消；各操作共用批次锁。</td></tr>
+    <tr><td><span class="name">sys_imp_tmp_detl</span></td><td>原始四列、真实 Excel 行号、代码/名称 fld001/002、父子池 fld003/004、解析目标池 fld009/010 及逐行结果。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag u">更新</span> <span class="tag d">逻辑删除</span></td><td>解析首表、导入明细分页、行级校验与提交结果回写、取消。</td></tr>
+    <tr><td><span class="name">rrs_stockinfo</span></td><td>股票主档、行情、行业、市场和上市状态。</td><td><span class="tag r">查询</span></td><td>列表/详情、提交留痕、加锁复核与终审。</td></tr>
+    <tr><td><span class="name">dict_security_type</span></td><td>股票品种字典；固定 category_type=stock。</td><td><span class="tag r">查询</span></td><td>核实主档属于股票品种，提供实际类型选项。</td></tr>
+    <tr><td><span class="name">rrs_stock_rating</span></td><td>股票研究评级历史。</td><td><span class="tag r">查询</span></td><td>最近两次评级展示、最新评级准入与提交留痕。</td></tr>
+    <tr><td><span class="name">ip_investment_pool</span></td><td>池层级、启用/锁定、市场品种、容量、行业评级、报告与流程配置。</td><td><span class="tag r">查询</span></td><td>池列表、全路径、调整校验、提交及终审；锁池保护并发容量。</td></tr>
+    <tr><td><span class="name">ip_pool_permission</span></td><td>用户及角色的池操作权限。</td><td><span class="tag r">查询</span></td><td>可调整池过滤、提交与终审权限复核；Excel 额外检查导入权限。</td></tr>
+    <tr><td><span class="name">ip_pool_relation</span></td><td>来源池、联动、互斥、硬性限制及弹性限制关系。</td><td><span class="tag r">查询</span></td><td>展开关系项、来源 OR 校验、限制阻断与警告。</td></tr>
+    <tr><td><span class="name">ip_pool_open_day</span></td><td>投资池开放日区间。</td><td><span class="tag r">查询</span></td><td>启用开放日限制时，校验当前日期是否允许调整。</td></tr>
+    <tr><td><span class="name">ip_pool_status_stock</span></td><td>股票当前生效成员；只认 audit_status=20 且未删除。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag d">逻辑删除</span></td><td>当前所在池、有效数量、来源/冻结期；审批通过后入池或出池。</td></tr>
+    <tr><td><span class="name">ip_adjust_log_stock</span></td><td>STOCK 批次、每池调整明细、原因建议及提交时名称/行业/评级。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag u">更新</span></td><td>提交申请、在途防重、同批审批状态更新及历史追溯。</td></tr>
+    <tr><td><span class="name">ip_adjust_step_stock</span></td><td>股票审批运行步骤与处理意见。</td><td><span class="tag r">查询</span> <span class="tag w">新增</span> <span class="tag u">更新</span></td><td>开始/提交、人工待办、会签抢占、驳回修改和结束节点。</td></tr>
+    <tr><td><span class="name">wf_flow_definition / wf_flow_version</span></td><td>流程定义、启用状态及发布版本。</td><td><span class="tag r">查询</span></td><td>校验可选流程、提交选定一般或快速流程。</td></tr>
+    <tr><td><span class="name">wf_flow_node / wf_flow_edge</span></td><td>发布版本节点、动作路由及结束分支。</td><td><span class="tag r">查询</span></td><td>初始化步骤、审批沿当前步骤所属版本流转。</td></tr>
+    <tr><td><span class="name">wf_node_approval_config / wf_node_approval_handler</span></td><td>审批策略、发起人语义与指定处理人配置。</td><td><span class="tag r">查询</span></td><td>创建人工待办、会签或抢占、修改后重提。</td></tr>
+    <tr><td><span class="name">ais_inv_analysis.t_sys_user / t_sys_role / t_sys_user_role</span></td><td>启用用户、角色及人员归属。</td><td><span class="tag r">查询</span></td><td>池权限与审批处理人解析。</td></tr>
+    <tr><td><span class="name">sys_attachment</span></td><td>股票调库日志绑定的报告附件。</td><td><span class="tag r">查询</span></td><td>提交后进入人工审批，在终审或驳回修改重提时复核最新报告要求；上传的 Excel 文件不作为调库报告。</td></tr>
+</tbody>
+</table></div>
+</section>
+<section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
+<p class="sub">与当前股票业务实现一致的状态、权限及数据边界。</p>
+<ul class="notes">
+    <li>使用公共暂存表，以 <code>biz_type=stock_pool_excel</code> 隔离；不新增股票专属导入表，模板为资源文件，不在前端执行清库或初始化。</li>
+    <li>清空仅生成调出审批申请，不能因生成清空项而提前释放容量；失败但能识别的导入股票仍从清空差集中排除。</li>
+    <li>部分通过来源组可以提交，但同次提交是原子事务；失败来源组、孤立关系项及冲突来源组不能通过修改客户端快照绕过。</li>
+    <li>上传取消、校验、提交共用批次锁及业务隔离；已提交批次不允许再次上传、提交或取消，失败时保留可检查现场。</li>
+    <li>Excel 导入/清空主项在终审和驳回修改重新提交时继续复核最新报告要求；即使未变更附件也不能绕过规则变化。评级与权限同样复核。</li>
+    <li><code>-1</code> 无效 / <code>00</code> 流程中 / <code>11</code> 驳回待修改 / <code>20</code> 审批通过 / <code>21</code> 审批驳回 / <code>32</code> 自动处理预留 / <code>99</code> 发起人已撤回；仅 <code>20</code> 更新当前池状态。</li>
+</ul>
+<div class="note">本页依据 <code>StockPoolExcelImportController / StockPoolExcelImportService / StockPoolExcelImportMapper.xml</code>、股票单笔 Excel 提交入口及需求 [46]、对应需求文档和前端调用链整理；后续代码规则变化时应同步维护。</div>
+</section>
+    <p><a class="back" href="stock-pool-adjust-tables.html">股票池单笔调整</a>　<a class="back" href="stock-pool-adjust-approve-tables.html">股票调库审核与详情</a>　<a class="back" href="module-tables-index.html">返回业务文档总览</a></p>
+</main>
+<footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
+</body>
+</html>
