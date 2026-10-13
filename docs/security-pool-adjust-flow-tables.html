@@ -690,6 +690,7 @@
 
         <section id="list-query" class="section">
             <h2 class="section-title">主页面证券查询逻辑</h2>
+            <p>“是否特征”支持“是否标准信用债”（<code>bondYesFlags</code> 选项 <code>stdCredit</code>），勾选仅筛选证券主档 <code>std_credit_flag=1</code>，多选按 AND；不勾选不限制。对应表格追加 <code>stdCreditFlag</code> 列，沿用 <code>isYesFlag</code> 先转布尔值：1 显示“是”Tag，其他值（含 NULL）显示“否”Tag；接口与其他标识一样返回原始数值。只使用上游原始标志，不根据其他特征或 <code>std_clause_flag</code> 推断；CRMW 使用标的证券字段。</p>
             <p class="section-subtitle">主页面先定位需要调库的证券，再进入详情页加载池状态、可调池和历史流程。</p>
             <div class="logic-header">
                 <strong>接口</strong>
@@ -713,7 +714,7 @@
                     <ul>
                         <li>主表为 <code>rrs_securityinfo</code>。</li>
                         <li>国际证券识别码 <code>isin_code</code> 位于 <code>wind_code</code> 前，类型为 <code>VARCHAR(100) DEFAULT NULL</code>，返回字段为 <code>isinCode</code>。Demo 全部 45 条记录（含临时代码）在原始 INSERT 中填写不同的 12 位模拟 ISIN，格式为 CNDEMO 前缀 + 5 位顺序号 + 1 位校验位，仅用于演示，不是真实证券登记编号。</li>
-                        <li>主档包含标准条款判定 <code>std_clause_flag</code>（返回 <code>stdClauseFlag</code>：1=条款合格 / 0=条款不合格 / NULL=未判定）和标准信用债标识 <code>std_credit_flag</code>（返回 <code>stdCreditFlag</code>：1=标准信用债 / 0=非标准信用债 / NULL=未判定）。两列均为 <code>INT DEFAULT NULL</code>，保留原始值；简易流程的独立方法 <code>isStandardCreditBond</code> 仅判断 <code>std_credit_flag==1</code>，标准信用债定义由上游维护，<code>std_clause_flag</code> 和其他标志不参与该方法。不新增页面展示。</li>
+                        <li>主档包含标准条款判定 <code>std_clause_flag</code>（返回 <code>stdClauseFlag</code>：1=条款合格 / 0=条款不合格 / NULL=未判定）和标准信用债标识 <code>std_credit_flag</code>（返回 <code>stdCreditFlag</code>：1=标准信用债 / 0=非标准信用债 / NULL=未判定）。两列均为 <code>INT DEFAULT NULL</code>，保留原始值；简易流程的独立方法 <code>isStandardCreditBond</code> 仅判断 <code>std_credit_flag==1</code>，标准信用债定义由上游维护，<code>std_clause_flag</code> 和其他标志不参与该方法。标准条款字段不新增页面展示；标准信用债字段在主列表展示并支持筛选。</li>
                         <li>Demo 全部 45 条证券显式填写两列：XYB001～XYB003、普通公司债/中票/短融/担保债为 1/1；私募债和定向工具为 1/0；永续/次级/含权及 XYB004 条款不合格样本为 0/0；ABS/资产证券化/CRMW/存单/国债/Govt债/可转债为 NULL/0；XYB005 未判定信用债、Corp债和临时代码为 NULL/NULL。这些是演示场景，不是系统按类型自动判定的规则，也不按评级高低判定。</li>
                         <li>内连接 <code>dict_security_type</code> 取名称，并限制 <code>category_type=bond</code>（本页仅债券；股/基等走其它入口）。</li>
                         <li>证券代码、简称、发行人均使用包含式模糊匹配：<code>LIKE %条件%</code>；证券类型为精确匹配 <code>si.security_type = #{securityType}</code>。</li>
@@ -721,7 +722,7 @@
                         <li>固定排除 <code>security_type = 'crmw'</code>（凭证字典大类为 bond，须单独挡）；主体 <code>company</code> 已由大类过滤。</li>
                         <li>固定排除退市：<code>si.security_status != 'D'</code>（上市状态 <code>SecurityStatus</code>：<code>L</code>上市中 / <code>N</code>待上市 / <code>D</code>退市 / <code>U</code>未知；仅排除 <code>D</code>，<code>U</code> 可查；勿留 <code>NULL</code>，否则三值逻辑滤行）。</li>
                         <li>与禁投池「旗下债券数量」主数据统计同口径；对比时证券池侧按<strong>发行人名称</strong>模糊筛，禁投侧按<strong>主体代码 issuer_code</strong>精确关联。</li>
-                        <li>主列表在操作列前由前端展示是否类字段（后端 <code>SELECT si.*</code> 已带回原始标志，不做中文映射）：是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」，对齐 <code>isPrivateBond</code>）、是否ABS（<code>absFlag=1</code> 或证券类型 <code>abs</code>；<code>abs_all</code> 不算）、是否次级（<code>cjFlag=1</code>）。展示「是/否」Tag；详情页证券基本信息不增加这些字段。</li>
+                        <li>主列表在操作列前由前端展示是否类字段（后端 <code>SELECT si.*</code> 已带回原始标志，不做中文映射）：是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」，对齐 <code>isPrivateBond</code>）、是否ABS（<code>absFlag=1</code> 或证券类型 <code>abs</code>；<code>abs_all</code> 不算）、是否次级（<code>cjFlag=1</code>）、是否标准信用债（<code>stdCreditFlag=1</code> 为是，0 与 NULL 均按现有标识展示为否）。展示「是/否」Tag；详情页证券基本信息不增加这些字段。</li>
                         <li>证券基本信息的「剩余期限(天)」隐藏保留（源码用 <code>v-if="false"</code>；<code>el-descriptions-item</code> 对 <code>v-show</code> 无效，天数仍在 <code>bondDetail.dateExists</code> 与提交透传中）；紧挨其后新增只读「证券期限」，展示 <code>date_exists_str</code>（<code>dateExistsStr</code>），空值显示空白。主列表列由「剩余期限」改为「证券期限」，直接展示 <code>dateExistsStr</code>，不再前端按天数换算中文时长。禁投池 ABS、CRMW 调库的同类字段与列表列一致。</li>
                         <li>证券基本信息中的 <code>promptReason</code> 展示名称为“观察事项”；<code>analysis</code>（证券分析）最大输入长度为 5000 字，输入框随内容自动增高（最少 3 行、最多 20 行），超过 20 行时内部滚动。接口字段和存量数据列名保持兼容。</li>
                     </ul>
