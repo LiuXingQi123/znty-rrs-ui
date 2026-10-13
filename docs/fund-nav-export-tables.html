@@ -2,45 +2,455 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>基金净值导出｜业务说明</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>基金净值导出｜表与业务逻辑</title>
     <style>
-        body { margin: 0; background: #f7f8fa; color: #3f485a; font: 14px/1.7 "Microsoft YaHei", Arial, sans-serif; }
-        header { padding: 28px 7%; color: #fff; background: #2743a4; }
-        main { max-width: 1120px; margin: 22px auto; padding: 0 18px 40px; }
-        section { margin-bottom: 16px; padding: 20px 22px; border: 1px solid #e5e5e5; border-radius: 4px; background: #fff; }
-        h1, h2 { margin-top: 0; color: #242933; } header h1 { color: #fff; }
-        h2 { font-size: 18px; } table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 9px 11px; border: 1px solid #e5e5e5; text-align: left; vertical-align: top; }
-        th { background: #f7f8fa; } code { color: #2743a4; }
-        a { color: #2743a4; }
+        body#fund-nav-export-tables-doc {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body#fund-nav-export-tables-doc, body#fund-nav-export-tables-doc * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body#fund-nav-export-tables-doc {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        #fund-nav-export-tables-doc .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        #fund-nav-export-tables-doc header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        #fund-nav-export-tables-doc .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        #fund-nav-export-tables-doc h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        #fund-nav-export-tables-doc header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        #fund-nav-export-tables-doc .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        #fund-nav-export-tables-doc .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        #fund-nav-export-tables-doc main {
+            padding: 28px 0 56px
+        }
+
+        #fund-nav-export-tables-doc .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        #fund-nav-export-tables-doc .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        #fund-nav-export-tables-doc .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #fund-nav-export-tables-doc .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        #fund-nav-export-tables-doc h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        #fund-nav-export-tables-doc .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        #fund-nav-export-tables-doc .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        #fund-nav-export-tables-doc .step {
+            min-height: 150px;
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #fund-nav-export-tables-doc .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        #fund-nav-export-tables-doc .step span {
+            color: var(--regular)
+        }
+
+        #fund-nav-export-tables-doc .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        #fund-nav-export-tables-doc .card {
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #fund-nav-export-tables-doc .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        #fund-nav-export-tables-doc .card ul,#fund-nav-export-tables-doc .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #fund-nav-export-tables-doc .card li + li {
+            margin-top: 6px
+        }
+
+        #fund-nav-export-tables-doc .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            overflow-wrap: anywhere;
+            font: 13px Consolas, monospace
+        }
+
+        #fund-nav-export-tables-doc .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        #fund-nav-export-tables-doc table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        #fund-nav-export-tables-doc th,#fund-nav-export-tables-doc td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        #fund-nav-export-tables-doc th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        #fund-nav-export-tables-doc tr:last-child td {
+            border-bottom: 0
+        }
+
+        #fund-nav-export-tables-doc tbody tr:hover {
+            background: #f8fbff
+        }
+
+        #fund-nav-export-tables-doc code,#fund-nav-export-tables-doc .name {
+            overflow-wrap: anywhere;
+            font-family: Consolas, monospace
+        }
+
+        #fund-nav-export-tables-doc .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        #fund-nav-export-tables-doc .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        #fund-nav-export-tables-doc .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #fund-nav-export-tables-doc .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        #fund-nav-export-tables-doc .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        #fund-nav-export-tables-doc .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        #fund-nav-export-tables-doc .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        #fund-nav-export-tables-doc .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #fund-nav-export-tables-doc .notes li + li {
+            margin-top: 5px
+        }
+
+        #fund-nav-export-tables-doc .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        #fund-nav-export-tables-doc footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            #fund-nav-export-tables-doc .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            #fund-nav-export-tables-doc .flow,#fund-nav-export-tables-doc .logic {
+                grid-template-columns: 1fr
+            }
+
+            #fund-nav-export-tables-doc .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            #fund-nav-export-tables-doc .wrap {
+                width: calc(100% - 24px)
+            }
+
+            #fund-nav-export-tables-doc header {
+                padding: 24px 0 20px
+            }
+
+            #fund-nav-export-tables-doc .stats {
+                grid-template-columns: 1fr
+            }
+
+            #fund-nav-export-tables-doc .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            #fund-nav-export-tables-doc .nav {
+                display: none
+            }
+
+            #fund-nav-export-tables-doc .panel {
+                break-inside: avoid
+            }
+        }
     </style>
 </head>
-<body>
-<header><h1>基金净值导出</h1><p>基金研究 · 按基金与日期范围导出逐日单位净值</p></header>
-<main>
-    <section>
-        <h2>查询范围</h2>
-        <p>基金基础信息来自 <code>rrs_fundinfo</code>，过滤逻辑删除记录。按基金名称（全称或简称）、基金代码模糊查询，市场编码支持多选。</p>
-        <p>净值记录来自 <code>rrs_fund_nav</code>，按基金代码关联，使用交易日期和单位净值字段。</p>
+<body id="fund-nav-export-tables-doc" class="docs-page">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>基金净值导出</h1>
+        <p class="desc">按基金名称、代码和市场查询基金，跨页勾选后按日期区间导出逐日单位净值，每只基金独立一个工作表。</p>
+        <div class="stats"><span class="stat">2 项表/表组</span><span class="stat">2 个模块接口</span><span class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav" aria-label="文档章节">
+        <a href="#overview">业务流程总览</a>
+        <a href="#logic-1">基金分页查询</a>
+        <a href="#logic-2">净值区间查询与 Excel 导出</a>
+        <a href="#tables">涉及表与场景</a>
+        <a href="#notes">关键规则</a>
+    </nav>
+    <section class="panel" id="overview">
+        <h2>业务流程总览</h2>
+        <p class="sub">按基金名称、代码和市场查询基金，跨页勾选后按日期区间导出逐日单位净值，每只基金独立一个工作表。</p>
+        <div class="flow">
+            <div class="step"><b>1. 查询基金</b><span>按名称、代码、市场筛选有效基金主档。</span></div>
+            <div class="step"><b>2. 跨页勾选</b><span>累计选择需要导出净值的基金。</span></div>
+            <div class="step"><b>3. 选择日期</b><span>填写净值起止日期，包含区间两端。</span></div>
+            <div class="step"><b>4. 校验数据</b><span>重读所选主档，校验日期与每日净值唯一性。</span></div>
+            <div class="step"><b>5. 生成 Excel</b><span>每只基金独立 Sheet，按日期升序输出单位净值。</span></div>
+        </div>
     </section>
-    <section>
-        <h2>表格与导出</h2>
-        <p>表格展示证券名称、证券代码和市场，并支持跨页多选。查询或重置条件时清除已选项。</p>
-        <p>点击“导出净值”后选择必填的日期范围。导出仅包含已勾选基金，开始和结束日期均包含在内。每只基金生成一个工作表，第一行是“日期 / 基金净值”，A 列日期格式为 <code>yyyyMMdd</code>，B 列为单位净值。</p>
-        <p>名称重复或超过工作表名称长度时，名称会附加基金代码以区分；日期范围内没有净值数据的基金仍保留空工作表及表头。</p>
+    <section class="panel" id="logic-1">
+        <h2>基金分页查询</h2>
+        <p class="sub">选择导出对象时查询基金基础信息，不以基金当前是否在池为条件。</p>
+        <span class="api">POST /api/v1/fundNavExport/queryFundNavFundPage</span>
+        <div class="logic">
+            <article class="card"><h3>查询主线</h3>
+                <ul>
+                    <li>主表 <code>rrs_fundinfo</code>，只读取未删除记录。</li>
+                    <li>列表展示基金名称、基金代码和市场；按 <code>fund_name, fund_code, id</code> 升序排列。</li>
+                    <li>支持跨页勾选；发起新查询或重置条件时清空已有勾选，避免混用不同筛选结果。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>筛选条件</h3>
+                <ul>
+                    <li><code>fundName</code>：基金全称或简称模糊匹配。</li>
+                    <li><code>fundCode</code>：基金代码模糊匹配；<code>marketCodes</code>：市场多选。</li>
+                    <li><code>pageIndex / pageSize</code> 控制基金列表分页；日期范围在导出弹窗填写，不参与基金列表筛选。</li>
+                </ul>
+            </article>
+        </div>
     </section>
-    <section>
-        <h2>接口</h2>
-        <table>
-            <thead><tr><th>接口</th><th>用途</th></tr></thead>
+    <section class="panel" id="logic-2">
+        <h2>净值区间查询与 Excel 导出</h2>
+        <p class="sub">服务以勾选代码和日期区间重新读取数据，每个基金独立输出。</p>
+        <span class="api">POST /api/v1/fundNavExport/exportFundNavExcel</span>
+        <div class="logic">
+            <article class="card"><h3>校验与净值查询</h3>
+                <ul>
+                    <li><code>fundCodes</code> 必须非空；服务去除空白代码并去重，然后校验所选基金仍有效且主档唯一。</li>
+                    <li><code>navDateStart / navDateEnd</code> 必填，格式 <code>yyyy-MM-dd</code>，开始日期不得晚于结束日期。</li>
+                    <li>查询 <code>rrs_fund_nav</code>，关联有效基金主档；只读取未删除净值，交易日期包含起止两端。</li>
+                    <li>按 <code>fund_code, trade_date, id</code> 升序；同一基金同一日期存在多条记录时明确报错，不静默覆盖。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>工作簿与数据格式</h3>
+                <ul>
+                    <li>生成 <code>基金净值_时间戳.xlsx</code>；每只基金一个 Sheet，默认使用基金名称，并处理非法字符、超长和重名。</li>
+                    <li>固定两列表头“日期 / 基金净值”；日期为 <code>yyyyMMdd</code> 文本，净值取 <code>unit_nav</code>，使用数值单元格并显示六位小数。</li>
+                    <li>表头加粗，日期列宽14、净值列宽16；所选基金在日期区间内无净值时仍保留只有表头的工作表。</li>
+                    <li>下载文件由服务返回文件名、内容类型、大小和 Base64 内容，前端按文件响应下载。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables">
+        <h2>涉及表、用途与触发场景</h2>
+        <p class="sub">按本模块实际执行阶段标注读写；表组内具体表的作用见用途与触发场景。</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>表名</th><th>用途</th><th>读写</th><th>触发场景</th></tr></thead>
             <tbody>
-                <tr><td><code>POST /api/v1/fundNavExport/queryFundNavFundPage</code></td><td>按名称、代码和市场分页查询基金信息</td></tr>
-                <tr><td><code>POST /api/v1/fundNavExport/exportFundNavExcel</code></td><td>按勾选基金及日期范围生成 Excel</td></tr>
+            <tr><td class="name">rrs_fundinfo</td><td>导出候选基金与所选基金有效性、名称、市场。</td><td><span class="tag r">查询</span></td><td>基金分页查询、导出前重读所选基金及构造工作表名称。</td></tr>
+            <tr><td class="name">rrs_fund_nav</td><td>基金逐日单位净值与交易日期。</td><td><span class="tag r">查询</span></td><td>按所选基金和日期区间查询、检查同日重复并输出净值。</td></tr>
             </tbody>
-        </table>
+        </table></div>
     </section>
-    <p><a href="module-tables-index.html">← 返回模块文档目录</a></p>
+    <section class="panel" id="notes">
+        <h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>本模块只读基金主档和净值表，不读取或改动基金调库日志、流程步骤和当前池状态。</li>
+            <li>导出对象以勾选基金为准，导出期间以净值日期区间为准；基金列表的分页不截断净值记录。</li>
+            <li>空净值保持空单元格；无数据基金保留工作表，便于区分“所选基金无区间数据”和“未选择”。</li>
+        </ul>
+        <div class="note">净值导出采用与债券文档一致的“查询主线 / 筛选条件 / 处理逻辑 / 表与场景 / 关键规则”组织方式，内容对应基金专有功能。</div>
+    </section>
 </main>
+<footer class="wrap"><a class="back" href="module-tables-index.html">返回业务文档索引</a> · 基金研究 · 表与业务逻辑</footer>
 </body>
 </html>

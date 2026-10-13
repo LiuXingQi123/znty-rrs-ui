@@ -2,27 +2,458 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>基金池查询｜表与业务逻辑</title>
     <style>
-        body { margin: 0; background: #f7f8fa; color: #3f485a; font: 14px/1.7 "Microsoft YaHei", Arial, sans-serif; }
-        header { padding: 28px 7%; color: #fff; background: #2743a4; }
-        main { max-width: 1120px; margin: 22px auto; padding: 0 18px 40px; }
-        section { margin-bottom: 16px; padding: 20px 22px; border: 1px solid #e5e5e5; border-radius: 4px; background: #fff; }
-        h1, h2 { margin-top: 0; color: #242933; } header h1 { color: #fff; }
-        h2 { font-size: 18px; } table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 9px 11px; border: 1px solid #e5e5e5; text-align: left; vertical-align: top; }
-        th { background: #f7f8fa; } code { color: #2743a4; } .note { padding: 12px 14px; border-left: 4px solid #2743a4; background: #e9ecf6; }
-        a { color: #2743a4; }
+        body#fund-pool-query-tables-doc {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body#fund-pool-query-tables-doc, body#fund-pool-query-tables-doc * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body#fund-pool-query-tables-doc {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        #fund-pool-query-tables-doc .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        #fund-pool-query-tables-doc header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        #fund-pool-query-tables-doc .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        #fund-pool-query-tables-doc h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        #fund-pool-query-tables-doc header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        #fund-pool-query-tables-doc .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        #fund-pool-query-tables-doc .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        #fund-pool-query-tables-doc main {
+            padding: 28px 0 56px
+        }
+
+        #fund-pool-query-tables-doc .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        #fund-pool-query-tables-doc .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        #fund-pool-query-tables-doc .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #fund-pool-query-tables-doc .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        #fund-pool-query-tables-doc h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        #fund-pool-query-tables-doc .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        #fund-pool-query-tables-doc .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        #fund-pool-query-tables-doc .step {
+            min-height: 150px;
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #fund-pool-query-tables-doc .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        #fund-pool-query-tables-doc .step span {
+            color: var(--regular)
+        }
+
+        #fund-pool-query-tables-doc .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        #fund-pool-query-tables-doc .card {
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #fund-pool-query-tables-doc .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        #fund-pool-query-tables-doc .card ul,#fund-pool-query-tables-doc .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #fund-pool-query-tables-doc .card li + li {
+            margin-top: 6px
+        }
+
+        #fund-pool-query-tables-doc .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            overflow-wrap: anywhere;
+            font: 13px Consolas, monospace
+        }
+
+        #fund-pool-query-tables-doc .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        #fund-pool-query-tables-doc table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        #fund-pool-query-tables-doc th,#fund-pool-query-tables-doc td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        #fund-pool-query-tables-doc th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        #fund-pool-query-tables-doc tr:last-child td {
+            border-bottom: 0
+        }
+
+        #fund-pool-query-tables-doc tbody tr:hover {
+            background: #f8fbff
+        }
+
+        #fund-pool-query-tables-doc code,#fund-pool-query-tables-doc .name {
+            overflow-wrap: anywhere;
+            font-family: Consolas, monospace
+        }
+
+        #fund-pool-query-tables-doc .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        #fund-pool-query-tables-doc .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        #fund-pool-query-tables-doc .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #fund-pool-query-tables-doc .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        #fund-pool-query-tables-doc .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        #fund-pool-query-tables-doc .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        #fund-pool-query-tables-doc .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        #fund-pool-query-tables-doc .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #fund-pool-query-tables-doc .notes li + li {
+            margin-top: 5px
+        }
+
+        #fund-pool-query-tables-doc .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        #fund-pool-query-tables-doc footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            #fund-pool-query-tables-doc .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            #fund-pool-query-tables-doc .flow,#fund-pool-query-tables-doc .logic {
+                grid-template-columns: 1fr
+            }
+
+            #fund-pool-query-tables-doc .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            #fund-pool-query-tables-doc .wrap {
+                width: calc(100% - 24px)
+            }
+
+            #fund-pool-query-tables-doc header {
+                padding: 24px 0 20px
+            }
+
+            #fund-pool-query-tables-doc .stats {
+                grid-template-columns: 1fr
+            }
+
+            #fund-pool-query-tables-doc .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            #fund-pool-query-tables-doc .nav {
+                display: none
+            }
+
+            #fund-pool-query-tables-doc .panel {
+                break-inside: avoid
+            }
+        }
     </style>
 </head>
-<body>
-<header><h1>基金池查询</h1><p>基金研究 · 当前生效池状态查询 · 条件筛选、分页与 Excel 导出</p></header>
-<main>
-    <section><h2>查询范围</h2><p>主表为 <code>ip_pool_status_fund</code>，固定过滤 <code>audit_status='20'</code> 与未逻辑删除记录。关联 <code>rrs_fundinfo</code> 展示净值、规模及收益字段，关联 <code>dict_security_type</code> 取得基金类型名称，并由服务层回填投资池完整路径。</p><div class="note">基金名称和基金代码可点击，样式及工作台页签跳转方式与证券池查询一致，进入对应基金池调库详情；不提供收藏操作。</div></section>
-    <section><h2>筛选与接口</h2><table><tr><th>接口</th><th>用途</th></tr><tr><td><code>POST /api/v1/common/queryPoolTreeList</code></td><td>加载投资品种为 <code>fund</code> 的基金池树</td></tr><tr><td><code>POST /api/v1/fundPoolQuery/queryFundPoolPage</code></td><td>按池、基金代码/名称、类型、入池时间和调整人分页查询</td></tr><tr><td><code>POST /api/v1/fundPoolQuery/queryFundTypeList</code></td><td>加载当前基金池中出现的基金类型</td></tr><tr><td><code>POST /api/v1/fundPoolQuery/exportFundPoolExcel</code></td><td>按当前全部筛选条件导出，不受当前页限制；使用同证券池查询格式的模板，表头带底色并使用楷体，首行及数据行行高均为 20 磅、列宽为 15 个字符</td></tr></table></section>
-    <section><h2>列表字段</h2><p>基金名称、基金代码、投资池、调整人、入池时间、基金类型、基金经理、基金管理人、基金托管人、成立日期、发行期限（年）、最新净值、累计净值、日万份收益、7日年化收益率、最新规模、昨收盘、折/溢价。基金类型按接口返回的类型编码固定着色：封闭式基金红色、开放式基金灰蓝色、QDII 基金品牌蓝色、LOF 基金琥珀色、ETF 基金绿色；未知类型使用默认灰蓝色，类型名称变化不影响颜色。</p></section>
-    <p><a href="module-tables-index.html">← 返回模块文档目录</a></p>
+<body id="fund-pool-query-tables-doc" class="docs-page">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>基金池查询</h1>
+        <p class="desc">查询审批通过的基金当前池状态，关联基金资料、投资池层级和品种字典，支持条件筛选、详情查看与 Excel 导出。</p>
+        <div class="stats"><span class="stat">4 项表/表组</span><span class="stat">3 个模块接口</span><span class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav" aria-label="文档章节">
+        <a href="#overview">业务流程总览</a>
+        <a href="#logic-1">基金池分页查询</a>
+        <a href="#logic-2">基金详情与 Excel 导出</a>
+        <a href="#tables">涉及表与场景</a>
+        <a href="#notes">关键规则</a>
+    </nav>
+    <section class="panel" id="overview">
+        <h2>业务流程总览</h2>
+        <p class="sub">查询审批通过的基金当前池状态，关联基金资料、投资池层级和品种字典，支持条件筛选、详情查看与 Excel 导出。</p>
+        <div class="flow">
+            <div class="step"><b>1. 加载查询选项</b><span>加载基金池树及当前有效池状态中的基金品种。</span></div>
+            <div class="step"><b>2. 设置筛选条件</b><span>选择投资池、基金、品种、入池时间和调整人。</span></div>
+            <div class="step"><b>3. 查询当前状态</b><span>分页查询已生效且未删除的基金在池记录。</span></div>
+            <div class="step"><b>4. 查看基金详情</b><span>点击基金名称或代码，携带日志、批次和目标池参数打开详情。</span></div>
+            <div class="step"><b>5. 导出筛选结果</b><span>复用当前全部筛选条件导出 Excel，不受当前分页限制。</span></div>
+        </div>
+    </section>
+    <section class="panel" id="logic-1">
+        <h2>基金池分页查询</h2>
+        <p class="sub">主查询以基金当前池状态为准；基金主档用于补充名称和基础资料。</p>
+        <span class="api">POST /api/v1/fundPoolQuery/queryFundPoolPage · queryFundTypeList</span>
+        <div class="logic">
+            <article class="card"><h3>查询主线</h3>
+                <ul>
+                    <li>主表 <code>ip_pool_status_fund ips</code>，固定筛选 <code>ips.audit_status=20</code>、<code>ips.is_deleted=0</code>。</li>
+                    <li>左连接未删除的 <code>ip_investment_pool</code> 与 <code>rrs_fundinfo</code>；内连接有效基金大类 <code>dict_security_type</code>。</li>
+                    <li>名称优先取基金主档，缺失时取池状态：<code>COALESCE(fi.fund_name, ips.fund_name)</code>；由服务补齐投资池完整路径。</li>
+                    <li>按 <code>entry_time DESC, id DESC</code> 排序；品种下拉从有效在池记录中去重，并按字典顺序展示。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>筛选条件</h3>
+                <ul>
+                    <li><code>poolIds</code>：投资池多选；池树由 <code>POST /api/v1/common/queryPoolTreeList</code> 加载，限定 <code>includeVarietyCodes=[fund]</code>。</li>
+                    <li><code>fundCode</code>：基金代码模糊查询；<code>fundName</code>：基金全称或简称模糊查询；<code>securityType</code>：品种精确匹配。</li>
+                    <li><code>entryTimeStart / entryTimeEnd</code>：入池时间上下界；<code>adjusterName</code>：调整人模糊查询。</li>
+                    <li><code>pageIndex / pageSize</code>：分页参数；重置后按默认条件重新查询。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-2">
+        <h2>基金详情与 Excel 导出</h2>
+        <p class="sub">查看在池基金的关联调库详情，或导出当前筛选下的全部有效记录。</p>
+        <span class="api">POST /api/v1/fundPoolQuery/exportFundPoolExcel</span>
+        <div class="logic">
+            <article class="card"><h3>详情入口与展示</h3>
+                <ul>
+                    <li>基金名称和代码均可打开 <code>fund_pool_adjust_detail.html</code>，携带 <code>fundCode / adjustLogId / adjustBatchNo / targetPoolId</code>。</li>
+                    <li>列表包括名称、代码、投资池、调整人、入池时间、品种，以及基金经理、管理人、托管人、成立日、发行期限等资料。</li>
+                    <li>净值资料包括单位净值、累计净值、万份收益、七日年化收益、规模、前收盘价及折溢价。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>导出规则</h3>
+                <ul>
+                    <li>导出复用列表筛选；服务查询全部匹配记录，不导出当前页的局部数据。</li>
+                    <li>输出 <code>.xlsx</code>，18 列业务字段与列表口径一致；基金类型在前端按字典名称展示。</li>
+                    <li>模板沿用债券查询导出样式：楷体、20 磅行高、15 字符列宽及统一表头。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables">
+        <h2>涉及表、用途与触发场景</h2>
+        <p class="sub">按本模块实际执行阶段标注读写；表组内具体表的作用见用途与触发场景。</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>表名</th><th>用途</th><th>读写</th><th>触发场景</th></tr></thead>
+            <tbody>
+            <tr><td class="name">ip_pool_status_fund</td><td>当前审批通过、未删除的基金在池记录。</td><td><span class="tag r">查询</span></td><td>分页查询、基金品种去重、全量条件导出。</td></tr>
+            <tr><td class="name">rrs_fundinfo</td><td>基金名称及经理、管理人、托管人、净值等基础资料。</td><td><span class="tag r">查询</span></td><td>分页查询与导出时左连接主档，名称缺失时回退池状态快照。</td></tr>
+            <tr><td class="name">ip_investment_pool</td><td>池名称、层级路径和基金投资池树。</td><td><span class="tag r">查询</span></td><td>加载基金池树，查询与导出时关联池名称、补齐完整路径。</td></tr>
+            <tr><td class="name">dict_security_type</td><td>有效基金品种及显示名称、排序。</td><td><span class="tag r">查询</span></td><td>主查询限定基金大类；从当前有效池状态中生成品种下拉。</td></tr>
+            </tbody>
+        </table></div>
+    </section>
+    <section class="panel" id="notes">
+        <h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>本模块只读，不生成调整日志、不修改基金池状态，也不提供“我的证券池”收藏功能。</li>
+            <li>当前池查询只展示审核通过的状态；全状态申请流水应进入 <a class="back" href="fund-pool-adjust-history-tables.html">基金池调整历史</a>。</li>
+            <li>基金类型标签统一按字典展示：closed_fund 危险色、open_fund 信息色、qdii 主色、lof 警告色、etf 成功色；空值留空。</li>
+            <li>基金审核与详情的加载及处理规则见 <a class="back" href="fund-pool-adjust-approve-tables.html">基金池调库审核与详情</a>。</li>
+        </ul>
+        <div class="note">查询主线、筛选条件、表读写与导出规则均按实际基金实现说明；章节组织与债券“证券池查询”对应。</div>
+    </section>
 </main>
+<footer class="wrap"><a class="back" href="module-tables-index.html">返回业务文档索引</a> · 基金研究 · 表与业务逻辑</footer>
 </body>
 </html>

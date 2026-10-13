@@ -2,74 +2,494 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>基金池 Excel 导入｜表与业务逻辑</title>
     <style>
-        #fund_excel_import_doc, #fund_excel_import_doc * { box-sizing: border-box; }
-        body { margin: 0; background: #F7F8FA; }
-        #fund_excel_import_doc { max-width: 1180px; margin: 0 auto; padding: 24px; color: #3F485A; font: 13px/1.7 "Microsoft YaHei", Arial, sans-serif; }
-        #fund_excel_import_doc h1 { margin: 0 0 8px; color: #242933; font-size: 20px; }
-        #fund_excel_import_doc h2 { margin: 0 0 12px; color: #2743A4; font-size: 16px; }
-        #fund_excel_import_doc section { margin-top: 16px; padding: 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 4px; }
-        #fund_excel_import_doc p { margin: 8px 0; }
-        #fund_excel_import_doc ul { padding-left: 20px; }
-        #fund_excel_import_doc table { width: 100%; border-collapse: collapse; }
-        #fund_excel_import_doc th, #fund_excel_import_doc td { padding: 8px 12px; text-align: left; border: 1px solid #E5E5E5; vertical-align: top; }
-        #fund_excel_import_doc th { background: #F7F8FA; color: #242933; }
-        #fund_excel_import_doc code { color: #2743A4; word-break: break-word; }
-        #fund_excel_import_doc a { color: #2743A4; }
+        body#fund-pool-excel-import-doc {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body#fund-pool-excel-import-doc, body#fund-pool-excel-import-doc * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body#fund-pool-excel-import-doc {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        #fund-pool-excel-import-doc .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        #fund-pool-excel-import-doc header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        #fund-pool-excel-import-doc .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        #fund-pool-excel-import-doc h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        #fund-pool-excel-import-doc header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        #fund-pool-excel-import-doc .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        #fund-pool-excel-import-doc .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        #fund-pool-excel-import-doc main {
+            padding: 28px 0 56px
+        }
+
+        #fund-pool-excel-import-doc .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        #fund-pool-excel-import-doc .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        #fund-pool-excel-import-doc .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #fund-pool-excel-import-doc .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        #fund-pool-excel-import-doc h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        #fund-pool-excel-import-doc .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        #fund-pool-excel-import-doc .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        #fund-pool-excel-import-doc .step {
+            min-height: 150px;
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #fund-pool-excel-import-doc .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        #fund-pool-excel-import-doc .step span {
+            color: var(--regular)
+        }
+
+        #fund-pool-excel-import-doc .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        #fund-pool-excel-import-doc .card {
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #fund-pool-excel-import-doc .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        #fund-pool-excel-import-doc .card ul,#fund-pool-excel-import-doc .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #fund-pool-excel-import-doc .card li + li {
+            margin-top: 6px
+        }
+
+        #fund-pool-excel-import-doc .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            overflow-wrap: anywhere;
+            font: 13px Consolas, monospace
+        }
+
+        #fund-pool-excel-import-doc .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        #fund-pool-excel-import-doc table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        #fund-pool-excel-import-doc th,#fund-pool-excel-import-doc td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        #fund-pool-excel-import-doc th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        #fund-pool-excel-import-doc tr:last-child td {
+            border-bottom: 0
+        }
+
+        #fund-pool-excel-import-doc tbody tr:hover {
+            background: #f8fbff
+        }
+
+        #fund-pool-excel-import-doc code,#fund-pool-excel-import-doc .name {
+            overflow-wrap: anywhere;
+            font-family: Consolas, monospace
+        }
+
+        #fund-pool-excel-import-doc .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        #fund-pool-excel-import-doc .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        #fund-pool-excel-import-doc .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #fund-pool-excel-import-doc .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        #fund-pool-excel-import-doc .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        #fund-pool-excel-import-doc .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        #fund-pool-excel-import-doc .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        #fund-pool-excel-import-doc .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #fund-pool-excel-import-doc .notes li + li {
+            margin-top: 5px
+        }
+
+        #fund-pool-excel-import-doc .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        #fund-pool-excel-import-doc footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            #fund-pool-excel-import-doc .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            #fund-pool-excel-import-doc .flow,#fund-pool-excel-import-doc .logic {
+                grid-template-columns: 1fr
+            }
+
+            #fund-pool-excel-import-doc .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            #fund-pool-excel-import-doc .wrap {
+                width: calc(100% - 24px)
+            }
+
+            #fund-pool-excel-import-doc header {
+                padding: 24px 0 20px
+            }
+
+            #fund-pool-excel-import-doc .stats {
+                grid-template-columns: 1fr
+            }
+
+            #fund-pool-excel-import-doc .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            #fund-pool-excel-import-doc .nav {
+                display: none
+            }
+
+            #fund-pool-excel-import-doc .panel {
+                break-inside: avoid
+            }
+        }
     </style>
 </head>
-<body>
-<main id="fund_excel_import_doc">
-    <h1>基金池 Excel 导入</h1>
-    <p>基金研究 · 七列模板导入 → 只读预览 → 基金调库校验 → 选择一般流程 → 提交申请。页面结构、上传交互、双 Tab 和流程弹窗沿用证券池 Excel 导入。</p>
-    <section>
-        <h2>模板与参数</h2>
-        <p>模板统一楷体 11 磅、浅蓝加粗表头、行高 20 磅、列宽 18；基金代码使用文本格式，保留示例、填写说明及下拉校验。</p>
-        <table><thead><tr><th>顺序</th><th>列名</th><th>填写方式</th></tr></thead><tbody>
-            <tr><td>1 / 2</td><td>父池名称 / 子池名称</td><td>服务端根据父子池名称解析目标基金池；页面不手动选择目标池。</td></tr>
-            <tr><td>3 / 4</td><td>基金名称 / 基金代码</td><td>代码匹配基金主数据，名称用于名单核对；代码应按文本填写并保留前导零和市场后缀。</td></tr>
-            <tr><td>5</td><td>基金评分</td><td>每行必填合法数字，不增加业务评分范围限制；现有字段最多保存六位整数、四位小数，超出存储精度明确提示失败。</td></tr>
-            <tr><td>6</td><td>基金投资类型</td><td>每行必填内部编码：<code>stock</code> 股票型、<code>equity_hybrid</code> 偏股混合型、<code>money_market</code> 货币型、<code>bond_hybrid</code> 偏债混合型、<code>other</code> 其余类型。</td></tr>
-            <tr><td>7</td><td>风管领导审批</td><td>每行必填 <code>0</code>（否）或 <code>1</code>（是），<code>0</code> 为有效值。</td></tr>
-        </tbody></table>
-        <p>方向和选项作用于整批；允许联动与互斥默认勾选。仅调入可勾选“首先清空目标池”，勾选后必填清空评分、清空投资类型、清空领导审批；这些统一值只用于目标池差集自动生成的清空出库项，Excel 行仍使用各自七列数据。</p>
-        <p>上传后锁定方向、联动选项、清空选项及清空三字段。修改参数需要清空后重新上传。原因、意见为整批选填字段，可在提交前修改。</p>
-        <p>评分、投资类型、审批列为数字单元格时读取实际数值；不会因 Excel 显示格式舍入而隐藏非法审批值或超精度评分。</p>
+<body id="fund-pool-excel-import-doc" class="docs-page">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>基金池 Excel 导入</h1>
+        <p class="desc">上传七列基金模板，由服务解析目标池、校验原始行、扩展关联调整并选择一般流程提交；支持导入前清空目标池。</p>
+        <div class="stats"><span class="stat">15 项表/表组</span><span class="stat">6 个模块接口</span><span class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap" id="fund_excel_import_doc">
+    <nav class="nav" aria-label="文档章节">
+        <a href="#overview">业务流程总览</a>
+        <a href="#logic-1">导入参数与上传</a>
+        <a href="#logic-2">校验与提交</a>
+        <a href="#logic-3">清空目标池与任务存储</a>
+        <a href="#tables">涉及表与场景</a>
+        <a href="#notes">关键规则</a>
+    </nav>
+    <section class="panel" id="overview">
+        <h2>业务流程总览</h2>
+        <p class="sub">上传七列基金模板，由服务解析目标池、校验原始行、扩展关联调整并选择一般流程提交；支持导入前清空目标池。</p>
+        <div class="flow">
+            <div class="step"><b>1. 设置导入参数</b><span>选择调入调出、关联调整、清空目标池和共用原因建议。</span></div>
+            <div class="step"><b>2. 下载并上传模板</b><span>填写七列模板，上传 xls/xlsx，保留原始单元格和行号。</span></div>
+            <div class="step"><b>3. 校验导入任务</b><span>校验原始行、池权限、基金规则和跨行冲突，生成清空差额。</span></div>
+            <div class="step"><b>4. 确认一般流程</b><span>查看整组结果，为通过项选择服务允许的一般流程。</span></div>
+            <div class="step"><b>5. 提交审批申请</b><span>先提交清空组再提交导入组；最终审批通过后才改变池状态。</span></div>
+        </div>
     </section>
-    <section>
-        <h2>上传、明细与校验</h2>
-        <ul>
-            <li>模板下载使用 <code>templateCode=fund_pool_import</code>。支持 <code>.xls/.xlsx</code>，文件不超过 5 MB、首表最多 2000 个非空数据行；上传后暂存至通用导入表。</li>
-            <li>再次选择文件先取消旧的未提交批次，再上传新文件；取消失败时保留旧批次。已提交批次需先清空页面才能再次上传。</li>
-            <li>导入明细只读展示七列值、Excel物理行号、校验结果与说明，基金名称使用主档名称；提供基金代码查询、全部/待校验/通过/失败筛选及分页。投资类型和领导审批以中文标签显示，非法编码仍显示原值；数据错误需要修正 Excel 后重传。校验结果同样显示来源行号，自动清空项行号为空。</li>
-            <li>基金校验复用独立基金单笔调库链路，包含基金品种与市场、权限、在池状态、容量、在途、池关系、冻结期及开放日等规则；目标池还需具备 Excel 导入权限。</li>
-            <li>不提供报告选择或附件上传入口；需要报告的手工项和清空项校验失败，不绕过既有基金报告规则。</li>
-            <li>同一基金导入不同池时，每行通过 <code>sourceItemId</code> 保持独立；某行主项失败时，其联动/互斥项不得单独提交，不影响其他通过行。</li>
-            <li>重新校验清除旧结果及流程选择。允许部分通过项提交；全失败或没有可提交主项时禁用提交。</li>
+    <section class="panel" id="logic-1">
+        <h2>导入参数与上传</h2>
+        <p class="sub">模板结构、上传参数及服务端原始行存储与债券导入文档采用相同说明层次。</p>
+        <span class="api">POST /api/v1/fundPoolExcelImport/uploadExcel</span>
+        <div class="logic">
+            <article class="card"><h3>导入类型与选项</h3>
+                <ul>
+                    <li>支持调入 / 调出；可选择是否包含联动互斥项，“清空目标池”只允许调入时勾选。</li>
+                    <li>调整原因和建议各最多1000字；启用清空需另填清空出池共用的基金评分、投资类型和领导审批三项。</li>
+                    <li>上传后方向、选项和清空资料锁定；导入行只读。需要改变参数时重置任务并重新上传。</li>
+                    <li>模板下载 <code>POST /api/v1/commonFile/downloadTemplate</code>，<code>templateCode=fund_pool_import</code>。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>模板与上传</h3>
+                <ul>
+                    <li>七列依次为父投资池、子投资池、基金名称、基金代码、基金评分、基金投资类型、分管领导审批；第二页为填写说明及下拉提示。</li>
+                    <li>只解析首个工作表，支持 <code>.xls / .xlsx</code>，文件不超过5MB、非空数据不超过2000行，保留真实 Excel 行号。</li>
+                    <li>父子池须直接对应启用基金叶子池；匹配多个目标池时明确失败，不自动选择。基金代码及名称按权威主档校验。</li>
+                    <li>非法原值仍保留；数值单元格使用真实值，不按显示格式四舍五入后通过评分精度校验。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-2">
+        <h2>校验与提交</h2>
+        <p class="sub">服务端任务与校验快照是提交依据，客户端仅回传一般流程选择。</p>
+        <span class="api">POST /api/v1/fundPoolExcelImport/queryItemPage · checkImport · queryTask · submitImport · cancelImport</span>
+        <div class="logic">
+            <article class="card"><h3>导入明细与调库校验</h3>
+                <ul>
+                    <li>复用 <code>FundPoolAdjustService.checkExcelImportAdjust</code> 的基金通用规则，并同时校验 <code>excel_importable</code> 与 <code>adjustable</code> 池权限。</li>
+                    <li>三项基金调库字段逐行校验；单个源行的手工项与关联项整组通过或失败，未勾关联选项时仅保留主项。</li>
+                    <li>不同源行涉及同基金、同池即产生跨源冲突，方向相反也失败；所有相关组标记失败，不静默合并。冲突提示最多列5个来源并显示总数。</li>
+                    <li>页面摘要 <code>chk_dscr</code> 最多500字，完整原因保存在服务快照；本页无报告上传，手工项需要报告时在校验阶段失败。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>提交、流程与权限</h3>
+                <ul>
+                    <li>申请标记“Excel导入 / Excel清空”，主项使用目标池对应的一般流程，关联项沿用主项流程，不注入快速或批量流程。</li>
+                    <li>提交依据服务端保存的任务、原始行和校验结果；客户端选择 <code>selectedFlowId</code> 及其关联键、类型，共用原因建议允许在提交时更新。</li>
+                    <li>每个源行独立 <code>FUND</code> 申请批次；先清空组后导入组，所有申请先复核再创建流程。</li>
+                    <li>允许只提交通过组或仅提交清空组；提交过程中任一失败整体事务回滚。任务加锁，已提交任务不能重复校验、取消或提交。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-3">
+        <h2>清空目标池与任务存储</h2>
+        <p class="sub">清空由有效池状态与模板保留集合求差额，产生出池申请，不直接删除池成员。</p>
+        <div class="logic">
+            <article class="card"><h3>清空差额与保留集合</h3>
+                <ul>
+                    <li>保留集合使用全部“已解析到目标池且代码非空”的原始行；即使三项调库字段无效，仍保留对应代码，避免误清。</li>
+                    <li>对 <code>audit_status=20</code>、未删除的目标池成员求差，跳过目标池已有在途申请的基金。</li>
+                    <li>每个清空组使用共用三项资料并执行完整出池校验；清空出池不会立即释放容量，导入仍按实际有效成员数校验。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>任务主从表与字段</h3>
+                <ul>
+                    <li><code>sys_imp_tmp.biz_type=fund_pool_excel</code>，保存模板、方向、选项、共用文本和完整校验、提交结果。</li>
+                    <li>主表 <code>fld001</code> 存方向，<code>fld011 / fld012</code> 存原因建议，<code>option_json</code> 存锁定选项，<code>result_json</code> 存完整快照。</li>
+                    <li>明细 <code>fld001～fld007</code> 存基金代码、权威名称、父池、子池、原始评分、类型和领导审批值；<code>fld009 / fld010</code> 存解析池ID、类型。</li>
+                    <li><code>sourceItemId</code> 标识源行分组；无效原值保留，提交禁止以客户端拼装数据覆盖服务快照。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables">
+        <h2>涉及表、用途与触发场景</h2>
+        <p class="sub">按本模块实际执行阶段标注读写；表组内具体表的作用见用途与触发场景。</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>表名</th><th>用途</th><th>读写</th><th>触发场景</th></tr></thead>
+            <tbody>
+            <tr><td class="name">sys_imp_tmp</td><td>基金 Excel 导入任务、锁定选项、共用资料及校验提交快照。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>上传创建；查询、校验、提交和取消时加锁读取并更新任务状态。</td></tr>
+            <tr><td class="name">sys_imp_tmp_detl</td><td>原始行、真实行号、解析基金和目标池、校验摘要。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>上传解析生成，分页展示；校验更新解析和结果字段，保留非法原值。</td></tr>
+            <tr><td class="name">rrs_fundinfo</td><td>基金主档、名称、类型与只读基础信息。</td><td><span class="tag r">查询</span></td><td>查询候选基金、打开详情、校验和提交时重新读取权威主档。</td></tr>
+            <tr><td class="name">dict_security_type</td><td>基金品种字典；限定 category_type=fund 且未删除。</td><td><span class="tag r">查询</span></td><td>品种下拉、基金大类校验与品种名称展示。</td></tr>
+            <tr><td class="name">ip_investment_pool</td><td>投资池层级、基金范围、容量、锁池、报告限制及一般流程配置。</td><td><span class="tag r">查询</span></td><td>加载池树或目标池、回填完整池路径、执行调入调出校验。</td></tr>
+            <tr><td class="name">ip_pool_permission</td><td>用户及角色的可调库、可 Excel 导入权限。</td><td><span class="tag r">查询</span></td><td>查询可操作池和提交申请时校验池权限；导入另校验 excel_importable。</td></tr>
+            <tr><td class="name">ip_pool_relation</td><td>池联动、互斥关系。</td><td><span class="tag r">查询</span></td><td>校验时扩展关联调整项，提交时核验完整调整组。</td></tr>
+            <tr><td class="name">ip_pool_open_day</td><td>投资池开放日区间。</td><td><span class="tag r">查询</span></td><td>基金调入受开放日限制的投资池时校验。</td></tr>
+            <tr><td class="name">ip_pool_status_fund</td><td>基金当前有效在池状态及入池时间。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>申请阶段读取 audit_status=20、is_deleted=0；最终审批通过后新增调入状态或软删除调出状态。</td></tr>
+            <tr><td class="name">ip_adjust_log_fund</td><td>手工及关联调整日志、基金调库字段、批次与一般流程信息。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>提交生成 FUND 批次、状态 00；审批更新状态；驳回修改阶段更新调整原因和建议。</td></tr>
+            <tr><td class="name">ip_adjust_step_fund</td><td>基金批次节点、处理人及处理记录。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>提交建立开始、发起和待处理步骤；审批推进、会签、驳回与重提时读写。</td></tr>
+            <tr><td class="name">wf_flow_definition / wf_flow_version / wf_flow_node / wf_flow_edge</td><td>一般流程定义、已发布版本、节点与连线。</td><td><span class="tag r">查询</span></td><td>选择一般流程并生成申请流程快照；本模块不提供快速或批量流程选项。</td></tr>
+            <tr><td class="name">wf_node_approval_config / wf_node_approval_handler</td><td>一般审批节点策略与配置处理人。</td><td><span class="tag r">查询</span></td><td>读取发布版本的审批配置和处理人，识别人工、自动及 O32 策略，生成或推进步骤。</td></tr>
+            <tr><td class="name">ais_inv_analysis.t_sys_user / t_sys_role / t_sys_user_role</td><td>AIS 用户、角色与用户角色关系。</td><td><span class="tag r">查询</span></td><td>解析池权限和节点处理人。表名省略同组后两表的库名前缀。</td></tr>
+            <tr><td class="name">rrs_temp_fund_code</td><td>基金临时代码登记。</td><td><span class="tag r">查询</span></td><td>按 temporary 状态识别临时基金，将其 O32 节点转人工待处理。</td></tr>
+            </tbody>
+        </table></div>
+    </section>
+    <section class="panel" id="notes">
+        <h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>基金导入与证券导入共用任务主从表，通过 biz_type 隔离；申请仍只写基金日志和步骤表。</li>
+            <li>管理员1的导入权限口径与证券导入保持一致；服务仍复核池状态和基金业务规则。</li>
+            <li>提交仅创建00申请；清空和导入均须基金最终审批通过后才改变池状态。</li>
+            <li>任务取消与审批终止是不同操作：已提交任务不能以取消导入方式撤销审批申请。</li>
+            <li>三字段精度、枚举和基金通用规则见 <a class="back" href="fund-pool-adjust-tables.html">基金池调整申请</a>。</li>
         </ul>
+        <div class="note">模板保留集合、跨源冲突和提交快照均由服务计算，防止无效行引起误清或客户端绕过校验。</div>
     </section>
-    <section>
-        <h2>流程与提交</h2>
-        <p>校验结果显示基金代码/简称、目标池全路径、方向、渠道调整类型、三项基金调库信息、失败原因与警告。通过的手工 <code>manual</code> 和清空 <code>clear</code> 项各自选择基金单笔的一般流程；不注入证券 Excel 的批量流程。联动、互斥项跟随来源主项。</p>
-        <p>提交先打开“选择调库流程”弹窗；每个主项仅可选择服务端快照已有且可选的候选。页面回传 <code>selectedFlowId/selectedFlowKey/selectedFlowType</code>，不允许修改基金、池或方向。清空出库先于导入提交，调整类型分别标记 <code>Excel清空</code>、<code>Excel导入</code>。</p>
-        <p>提交写入基金日志与步骤，调库批次号使用 <code>FUND</code> 前缀；仅最终审批通过 <code>audit_status=20</code> 后落基金池状态。成功反馈为“基金池调库申请已提交”及实际数量；提交后禁用上传、校验及重复提交。导入批次号仅管理员可见。</p>
-    </section>
-    <section>
-        <h2>接口与暂存表</h2>
-        <table><thead><tr><th>POST 接口</th><th>用途及主要数据</th></tr></thead><tbody>
-            <tr><td><code>/api/v1/commonFile/downloadTemplate</code></td><td>按模板编码返回 Base64 模板文件。</td></tr>
-            <tr><td><code>/api/v1/fundPoolExcelImport/uploadExcel</code></td><td>multipart：<code>request</code> JSON、<code>file</code> Excel、<code>originalFileNameListJson</code>。参数为方向、清空/联动选项、清空三字段、原因/意见和操作人。</td></tr>
-            <tr><td><code>/api/v1/fundPoolExcelImport/queryItemPage</code></td><td><code>impId/chkRslt/keyword/pageIndex/pageSize</code> 查询七列原始值和行级状态。</td></tr>
-            <tr><td><code>/api/v1/fundPoolExcelImport/queryTask</code></td><td>按 <code>impId</code> 查询统计、校验快照及提交状态。</td></tr>
-            <tr><td><code>/api/v1/fundPoolExcelImport/checkImport</code></td><td>按批次及操作人执行基金校验，返回校验项、流程候选和通过/失败统计。</td></tr>
-            <tr><td><code>/api/v1/fundPoolExcelImport/submitImport</code></td><td>提交批次、原因/意见、操作人及已选流程，返回状态、<code>adjustBatchNoList</code> 和 <code>logIds</code>。</td></tr>
-            <tr><td><code>/api/v1/fundPoolExcelImport/cancelImport</code></td><td>按 <code>impId</code> 取消未提交暂存批次。</td></tr>
-        </tbody></table>
-        <p>复用 <code>sys_imp_tmp/sys_imp_tmp_detl</code>，与证券导入通过业务类型区分。基金申请及审批继续使用 <code>ip_adjust_log_fund/ip_adjust_step_fund</code>，有效池状态使用 <code>ip_pool_status_fund</code>，不写证券业务表。</p>
-    </section>
-    <p><a href="fund-pool-adjust-tables.html">基金池调整</a> · <a href="fund-pool-adjust-approve-tables.html">基金审批与详情</a> · <a href="security-pool-excel-import.html">证券导入基准</a> · <a href="module-tables-index.html">模块总览</a></p>
 </main>
+<footer class="wrap"><a class="back" href="module-tables-index.html">返回业务文档索引</a> · 基金研究 · 表与业务逻辑</footer>
 </body>
 </html>

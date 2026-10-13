@@ -1,26 +1,493 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>基金池调库审核与详情</title><link rel="stylesheet" href="../css/common.css"></head>
-<body>
-<main style="max-width:1200px;margin:24px auto;padding:24px;background:#fff;color:#3F485A;font:13px/1.7 'Microsoft YaHei',sans-serif">
-    <h1 style="font-size:20px;color:#242933">基金池调库审核与详情</h1>
-    <p>基金调库审核和详情逐块沿用证券池调库审核、详情的页面结构与样式：顶部栏、可折叠信息卡片、当前池摘要及展开表格、调库记录、原因和建议、当前流程状态，以及固定底部操作栏。仅将证券业务字段替换为基金字段，基金报告和其他材料仍支持下载。</p>
-    <h2 style="font-size:16px;color:#242933">页面功能</h2>
-    <p>「审核审批」标题右侧同行显示「当前步骤：步骤名称」，复用「流程名称」的 <code>el-tag size="mini" type="info"</code> 标签样式；内容区全宽展示处理意见。没有当前用户待处理步骤时，标题旁不显示步骤名称。</p>
-    <ul><li>审核页展示基金基础信息、当前所在池、调库记录、原因和建议、当前流程状态及审核审批区。审核页和详情页的调库记录字段顺序统一为：基金代码、投资池名称、调整类型、调整方向、调整原因、基金报告、其他材料、提交时间、审批流程、审核状态，不展示序号和申请人。</li><li>审核页和详情页的当前流程状态均与证券池调库详情一致，表格字段顺序为：步骤名称、步骤结果、开始时间、处理人、处理结果、处理时间、处理意见，并保留节点合并、当前处理人强调及行状态样式。</li><li>审核审批区展示当前步骤和处理意见，去掉处理结果/审核结果单选项。固定底栏保留导出 PDF、返回，并通过独立操作按钮决定方向：修改阶段为「提交」（approve）和「终止流程」（reject），普通审核阶段为「通过」和「驳回」。驳回或终止流程必须填写意见并二次确认，取消确认不提交；处理期间两个操作按钮均禁用。</li><li>详情页在原因和建议后展示当前流程状态，提供相同业务上下文的只读展示。固定底栏右侧提供导出 PDF 和返回操作，导出范围及打印后恢复折叠状态的方式与证券池调库详情保持一致。</li><li>页面以 fundCode 和 adjustLogId 或 adjustBatchNo 定位业务记录；缺少入口参数时通过 Element UI 顶部警告消息提示从业务页面进入。</li></ul>
-    <h2 style="font-size:16px;color:#242933">接口</h2>
-    <p>申请处于驳回待修改（<code>audit_status=11</code>），且当前用户可处理发起人修改待办（<code>pending</code>、<code>initiator</code>）时，调整原因和意见可编辑；重新提交时携带 <code>adjustReason</code>、<code>adjustAdvice</code>。后端校验修改节点路由、驳回状态和原发起人身份，管理员沿用代办权限，并只更新当前待办所属批次。未传字段保持原值，空字符串允许清空；普通审批、只读详情和终止流程不保存这两项修改。</p>
-    <table style="width:100%;border-collapse:collapse"><thead><tr style="background:#F7F8FA"><th style="text-align:left;padding:8px;border:1px solid #E5E5E5">接口</th><th style="text-align:left;padding:8px;border:1px solid #E5E5E5">说明</th></tr></thead><tbody>
-    <tr><td style="padding:8px;border:1px solid #E5E5E5">/api/v1/fundPoolAdjust/queryFundDetail</td><td style="padding:8px;border:1px solid #E5E5E5">基金只读基础信息</td></tr>
-    <tr><td style="padding:8px;border:1px solid #E5E5E5">/api/v1/fundPoolAdjust/queryFundPoolStatus</td><td style="padding:8px;border:1px solid #E5E5E5">当前有效基金池状态</td></tr>
-    <tr><td style="padding:8px;border:1px solid #E5E5E5">/api/v1/fundPoolAdjust/queryAdjustLogList</td><td style="padding:8px;border:1px solid #E5E5E5">批次调库记录</td></tr>
-    <tr><td style="padding:8px;border:1px solid #E5E5E5">/api/v1/fundPoolAdjust/queryAdjustStepList</td><td style="padding:8px;border:1px solid #E5E5E5">审批步骤列表</td></tr>
-    <tr><td style="padding:8px;border:1px solid #E5E5E5">/api/v1/fundPoolAdjust/submitAdjustAudit</td><td style="padding:8px;border:1px solid #E5E5E5">审批处理与流程推进</td></tr>
-    </tbody></table>
-    <h2 style="font-size:16px;color:#242933">临时代码与 O32</h2>
-    <p>基金调库 O32 节点按 <code>rrs_temp_fund_code.temp_fund_code</code> 与 <code>status=temporary</code> 识别临时基金；命中时转人工待处理（<code>pending</code>），由有处理资格的用户审批，不自动通过。人工转正式时只替换审核状态为 <code>00/11</code> 的在途基金日志代码和正式快照，保留原步骤与附件关联；终态历史日志保持原代码。取消发行会停用临时基金主档，已有业务引用不会自动移除，可能阻塞后续处理。具体转正与删除规则见 <a href="temp-fund-code-tables.html">基金临时代码管理</a>。</p>
-    <h2 style="font-size:16px;color:#242933">状态落库</h2><p>只有最终审批通过的批次状态为 20 并写入基金当前池状态表 <code>ip_pool_status_fund</code>。其他审核状态仅保存在基金日志和步骤表中。</p>
-<section class="panel"><h2>业务入口与处理范围</h2><p>本页所属业务为 <code>fund</code>。附件列表由页面明确发送 <code>businessDomain=fund</code> 和 <code>adjustLogIds</code>，附件下载只发送 <code>id</code>；公共 <code>apiPost</code> 原样发送参数。我的事宜仅在新页面 mounted 时读取业务入口；本页直接读取详情、批次记录、步骤和附件，后端业务查询及审批不校验入口名单。普通用户仅处理本人待办，不能处理他人或无处理人的步骤；后端 <code>AdminUserIdUtil</code> 统一识别管理员（ID 为 1 或整数 10000～10100），管理员可接管待办并优先处理本人步骤。审核页使用相同 ID 规则展示操作：优先定位本人待办，无本人待办时管理员展示首个待办，其他人不启用审批操作；实际提交根据真实步骤校验处理资格。各业务审批状态、会签及驳回修改逻辑保留；投资池权限独立。工作台事项页签键带业务代码，返回我的事宜只刷新数据，不重新读取入口。<a href="my-matters-tables.html#business-permission">业务入口说明</a></p></section>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>基金池调库审核与详情｜表与业务逻辑</title>
+    <style>
+        body#fund-pool-adjust-approve-tables-doc {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body#fund-pool-adjust-approve-tables-doc, body#fund-pool-adjust-approve-tables-doc * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body#fund-pool-adjust-approve-tables-doc {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        #fund-pool-adjust-approve-tables-doc .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        #fund-pool-adjust-approve-tables-doc header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        #fund-pool-adjust-approve-tables-doc .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        #fund-pool-adjust-approve-tables-doc h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        #fund-pool-adjust-approve-tables-doc header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        #fund-pool-adjust-approve-tables-doc main {
+            padding: 28px 0 56px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        #fund-pool-adjust-approve-tables-doc .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #fund-pool-adjust-approve-tables-doc .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        #fund-pool-adjust-approve-tables-doc h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .step {
+            min-height: 150px;
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #fund-pool-adjust-approve-tables-doc .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .step span {
+            color: var(--regular)
+        }
+
+        #fund-pool-adjust-approve-tables-doc .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .card {
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #fund-pool-adjust-approve-tables-doc .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .card ul,#fund-pool-adjust-approve-tables-doc .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .card li + li {
+            margin-top: 6px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            overflow-wrap: anywhere;
+            font: 13px Consolas, monospace
+        }
+
+        #fund-pool-adjust-approve-tables-doc .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        #fund-pool-adjust-approve-tables-doc table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        #fund-pool-adjust-approve-tables-doc th,#fund-pool-adjust-approve-tables-doc td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        #fund-pool-adjust-approve-tables-doc th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        #fund-pool-adjust-approve-tables-doc tr:last-child td {
+            border-bottom: 0
+        }
+
+        #fund-pool-adjust-approve-tables-doc tbody tr:hover {
+            background: #f8fbff
+        }
+
+        #fund-pool-adjust-approve-tables-doc code,#fund-pool-adjust-approve-tables-doc .name {
+            overflow-wrap: anywhere;
+            font-family: Consolas, monospace
+        }
+
+        #fund-pool-adjust-approve-tables-doc .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        #fund-pool-adjust-approve-tables-doc .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        #fund-pool-adjust-approve-tables-doc .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #fund-pool-adjust-approve-tables-doc .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        #fund-pool-adjust-approve-tables-doc .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        #fund-pool-adjust-approve-tables-doc .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        #fund-pool-adjust-approve-tables-doc .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        #fund-pool-adjust-approve-tables-doc .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .notes li + li {
+            margin-top: 5px
+        }
+
+        #fund-pool-adjust-approve-tables-doc .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        #fund-pool-adjust-approve-tables-doc footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            #fund-pool-adjust-approve-tables-doc .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            #fund-pool-adjust-approve-tables-doc .flow,#fund-pool-adjust-approve-tables-doc .logic {
+                grid-template-columns: 1fr
+            }
+
+            #fund-pool-adjust-approve-tables-doc .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            #fund-pool-adjust-approve-tables-doc .wrap {
+                width: calc(100% - 24px)
+            }
+
+            #fund-pool-adjust-approve-tables-doc header {
+                padding: 24px 0 20px
+            }
+
+            #fund-pool-adjust-approve-tables-doc .stats {
+                grid-template-columns: 1fr
+            }
+
+            #fund-pool-adjust-approve-tables-doc .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            #fund-pool-adjust-approve-tables-doc .nav {
+                display: none
+            }
+
+            #fund-pool-adjust-approve-tables-doc .panel {
+                break-inside: avoid
+            }
+        }
+    </style>
+</head>
+<body id="fund-pool-adjust-approve-tables-doc" class="docs-page">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>基金池调库审核与详情</h1>
+        <p class="desc">基金审核页与只读详情共用批次、步骤和附件视图，按处理权限推进一般流程；最终审批通过后写入基金当前池状态。</p>
+        <div class="stats"><span class="stat">12 项表/表组</span><span class="stat">5 个模块接口</span><span class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav" aria-label="文档章节">
+        <a href="#overview">业务流程总览</a>
+        <a href="#logic-1">查询、校验与操作逻辑</a>
+        <a href="#logic-2">业务入口与处理范围</a>
+        <a href="#tables">涉及表与场景</a>
+        <a href="#notes">关键规则</a>
+    </nav>
+    <section class="panel" id="overview">
+        <h2>业务流程总览</h2>
+        <p class="sub">基金审核页与只读详情共用批次、步骤和附件视图，按处理权限推进一般流程；最终审批通过后写入基金当前池状态。</p>
+        <div class="flow">
+            <div class="step"><b>1. 定位基金批次</b><span>按基金代码、日志ID或批次号打开审核或详情。</span></div>
+            <div class="step"><b>2. 加载申请资料</b><span>读取主档、当前池、批次日志、步骤和附件。</span></div>
+            <div class="step"><b>3. 核验权限与状态</b><span>识别本人待处理步骤、管理员接管和驳回修改阶段。</span></div>
+            <div class="step"><b>4. 审批或修改重提</b><span>通过、驳回，或修改阶段提交、终止流程。</span></div>
+            <div class="step"><b>5. 更新并返回</b><span>事务推进步骤和状态，最终20落池并刷新来源页面。</span></div>
+        </div>
+    </section>
+    <section class="panel" id="logic-1">
+        <h2>查询、校验与操作逻辑</h2>
+        <p class="sub">页面显示与业务权限分开校验；详情只读，审核按当前有效步骤提供操作。</p>
+        <span class="api">POST /api/v1/fundPoolAdjust/queryFundDetail · queryFundPoolStatus · queryAdjustLogList · queryAdjustStepList · submitAdjustAudit</span>
+        <div class="logic">
+            <article class="card"><h3>页面加载 / 查看模式</h3>
+                <ul>
+                    <li><code>fundCode</code> 定位基金，可携带 <code>adjustLogId / adjustBatchNo / targetPoolId</code> 定位本次申请；不传批次的日志查询仅取流程中记录。</li>
+                    <li>分别读取基金只读主档、有效当前池、批次日志、审批步骤及材料；只读详情不提供审批动作。</li>
+                    <li>调整记录展示基金代码、池、类型、方向、原因、基金报告、材料、提交时间、流程和状态；不增加序号、申请人列。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>并发与权限</h3>
+                <ul>
+                    <li>普通用户只能处理本人有效 pending 步骤；服务核验日志、批次、步骤、处理人和当前状态，防止过期或重复处理。</li>
+                    <li>管理员ID为1或10000～10100，可接管处理，优先使用本人步骤；入口可见名单不替代审批权限。</li>
+                    <li>按钮提交期间两项动作均禁用，仅点击项显示加载；处理成功返回业务页签并刷新来源页。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>会签与抢占</h3>
+                <ul>
+                    <li>按快照保留一般流程的会签、抢占等处理机制；抢占完成后其他同节点待处理步骤按规则跳过。</li>
+                    <li>步骤表展示节点名称、步骤结果、开始时间、处理人、处理结果、处理时间和意见，合并节点信息并突出当前处理人。</li>
+                    <li>当前步骤标签放在审批标题旁；不设置“结果”单选框，使用明确的通过/驳回动作。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>修改后重提</h3>
+                <ul>
+                    <li>审核状态11或步骤名称含“修改”时进入修改阶段；按钮显示“提交 / 终止流程”，其他审批显示“通过 / 驳回”。</li>
+                    <li>只有原发起人或管理员且具有当前修改待办时可编辑本批次原因、建议，每项最多1000字。</li>
+                    <li>重提发送修改文本；未传字段保持原值，传空字符串清空。终止不保存未提交文本；文本与流程更新同事务。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>流程结束与状态落库</h3>
+                <ul>
+                    <li>请求包含 <code>adjustLogId / adjustBatchNo / stepId / processAction / processComment / handlerId / handlerName</code>；动作使用 approve 或 reject。</li>
+                    <li>驳回或终止需填写处理意见并确认；服务按流程配置决定退回修改或结束。</li>
+                    <li>最终审批通过状态20才新增调入状态或软删除调出状态；11/21/99仅更新日志和步骤，不改当前池。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>附件、报告与 PDF</h3>
+                <ul>
+                    <li>附件列表指定 <code>businessDomain=fund</code> 及 <code>adjustLogIds</code>，按附件ID下载；基金报告、其他材料分别展示。</li>
+                    <li>材料关联 <code>ip_adjust_log_fund</code>，保留手工/内部/外部的基金专属分类。</li>
+                    <li>PDF 复用通用导出，排除页面操作控件、基金调库输入项、调整原因和建议；只读资料与审批轨迹用于留档。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-2">
+        <h2>业务入口与处理范围</h2>
+        <p class="sub">审核、详情和我的事宜使用同一基金业务上下文，临时代码规则影响节点处理方式。</p>
+        <div class="logic">
+            <article class="card"><h3>入口与业务域</h3>
+                <ul>
+                    <li><code>fund_pool_adjust_approve.html</code> 承担当前步骤办理；<code>fund_pool_adjust_detail.html</code> 展示只读详情。</li>
+                    <li>我的事宜已接入 fund 业务；业务入口名单只决定首次页面加载时是否显示入口，不作为后端审批授权。</li>
+                    <li>基金池查询和历史名称、代码链接携带对应日志、批次、目标池参数打开详情。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>临时基金与 O32</h3>
+                <ul>
+                    <li>有效 temporary 登记命中的基金 O32 节点转人工 pending；普通正式基金的 O32 自动或常规处理保持配置行为。</li>
+                    <li>人工转正只改00/11在途日志中的基金代码和正式资料，保留原步骤、批次和附件，终态日志不改。</li>
+                    <li>取消发行停用临时主档但不自动清理业务引用，后续审批可能受阻；完整分支见 <a class="back" href="temp-fund-code-tables.html">基金临时代码管理</a>。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables">
+        <h2>涉及表、用途与触发场景</h2>
+        <p class="sub">按本模块实际执行阶段标注读写；表组内具体表的作用见用途与触发场景。</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>表名</th><th>用途</th><th>读写</th><th>触发场景</th></tr></thead>
+            <tbody>
+            <tr><td class="name">rrs_fundinfo</td><td>基金主档、名称、类型与只读基础信息。</td><td><span class="tag r">查询</span></td><td>查询候选基金、打开详情、校验和提交时重新读取权威主档。</td></tr>
+            <tr><td class="name">ip_investment_pool</td><td>投资池层级、基金范围、容量、锁池、报告限制及一般流程配置。</td><td><span class="tag r">查询</span></td><td>加载池树或目标池、回填完整池路径、执行调入调出校验。</td></tr>
+            <tr><td class="name">ip_pool_status_fund</td><td>基金当前池及最终审批结果。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>页面只读有效状态；最终审批20时执行调入新增或调出软删除。</td></tr>
+            <tr><td class="name">ip_adjust_log_fund</td><td>当前批次申请资料、流程信息及审核状态。</td><td><span class="tag r">查询</span><span class="tag u">更新</span></td><td>加载批次，驳回修改时更新原因建议，审批推进时更新审核状态。</td></tr>
+            <tr><td class="name">ip_adjust_step_fund</td><td>基金批次节点、处理人及处理记录。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>提交建立开始、发起和待处理步骤；审批推进、会签、驳回与重提时读写。</td></tr>
+            <tr><td class="name">wf_flow_definition / wf_flow_version / wf_flow_node / wf_flow_edge</td><td>一般流程定义、已发布版本、节点与连线。</td><td><span class="tag r">查询</span></td><td>选择一般流程并生成申请流程快照；本模块不提供快速或批量流程选项。</td></tr>
+            <tr><td class="name">wf_node_approval_config / wf_node_approval_handler</td><td>一般审批节点策略与配置处理人。</td><td><span class="tag r">查询</span></td><td>读取发布版本的审批配置和处理人，识别人工、自动及 O32 策略，生成或推进步骤。</td></tr>
+            <tr><td class="name">ais_inv_analysis.t_sys_user / t_sys_role / t_sys_user_role</td><td>AIS 用户、角色与用户角色关系。</td><td><span class="tag r">查询</span></td><td>解析池权限和节点处理人。表名省略同组后两表的库名前缀。</td></tr>
+            <tr><td class="name">sys_attachment</td><td>基金报告和其他材料的附件关联。</td><td><span class="tag r">查询</span><span class="tag w">新增</span></td><td>上传或复制材料并绑定 ip_adjust_log_fund；审核详情查询、下载附件。</td></tr>
+            <tr><td class="name">rrs_temp_fund_code</td><td>基金临时代码登记。</td><td><span class="tag r">查询</span></td><td>按 temporary 状态识别临时基金，将其 O32 节点转人工待处理。</td></tr>
+            <tr><td class="name">ip_pool_relation</td><td>池联动、互斥关系。</td><td><span class="tag r">查询</span></td><td>校验时扩展关联调整项，提交时核验完整调整组。</td></tr>
+            <tr><td class="name">ip_pool_open_day</td><td>投资池开放日区间。</td><td><span class="tag r">查询</span></td><td>基金调入受开放日限制的投资池时校验。</td></tr>
+            </tbody>
+        </table></div>
+    </section>
+    <section class="panel" id="notes">
+        <h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>最终审批通过是池状态生效条件；详情展示的历史申请状态不等于基金当前仍在该池。</li>
+            <li>最终通过落池前锁定基金主档，重新校验基金有效性、当前池状态、容量、池关系、开放日和冻结期；在途检查排除当前批次，校验失败不落池。</li>
+            <li>审批动作必须以服务端当前步骤和处理权限为准，前端隐藏按钮不能代替服务校验。</li>
+            <li>驳回待修改的资料更新、审批日志和步骤推进同事务，任何失败均回滚。</li>
+            <li>基金申请规则见 <a class="back" href="fund-pool-adjust-tables.html">基金池调整申请</a>；批量和 Excel 申请进入同一基金审批链路。</li>
+        </ul>
+        <div class="note">审核与详情共用资料展示，处理动作只对当前具有资格的待处理步骤开放。</div>
+    </section>
 </main>
+<footer class="wrap"><a class="back" href="module-tables-index.html">返回业务文档索引</a> · 基金研究 · 表与业务逻辑</footer>
 </body>
 </html>

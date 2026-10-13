@@ -2,95 +2,496 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>基金临时代码管理｜表与业务逻辑</title>
     <style>
-        /* 文档基础布局；body 仅设置本独立文档的页面背景与默认外边距。 */
-        #temp_fund_code_doc, #temp_fund_code_doc * { box-sizing: border-box; }
-        body { margin: 0; background: #F7F8FA; }
-        #temp_fund_code_doc { max-width: 1180px; margin: 0 auto; padding: 24px; color: #3F485A; font: 13px/1.7 "Microsoft YaHei", Arial, sans-serif; }
-        #temp_fund_code_doc h1 { margin: 0 0 8px; color: #242933; font-size: 20px; }
-        #temp_fund_code_doc h2 { margin: 0 0 12px; color: #2743A4; font-size: 16px; }
-        #temp_fund_code_doc section { margin-top: 16px; padding: 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 4px; }
-        #temp_fund_code_doc p { margin: 8px 0; }
-        #temp_fund_code_doc ul { padding-left: 20px; }
-        /* 接口和表结构说明的表格样式，横向溢出时保留滚动查看。 */
-        #temp_fund_code_doc .table-wrap { overflow-x: auto; }
-        #temp_fund_code_doc table { width: 100%; border-collapse: collapse; }
-        #temp_fund_code_doc th, #temp_fund_code_doc td { padding: 8px 12px; text-align: left; border: 1px solid #E5E5E5; vertical-align: top; }
-        #temp_fund_code_doc th { background: #F7F8FA; color: #242933; }
-        #temp_fund_code_doc code { color: #2743A4; word-break: break-word; }
-        #temp_fund_code_doc a { color: #2743A4; }
+        body#temp-fund-code-tables-doc {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body#temp-fund-code-tables-doc, body#temp-fund-code-tables-doc * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body#temp-fund-code-tables-doc {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        #temp-fund-code-tables-doc .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        #temp-fund-code-tables-doc header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        #temp-fund-code-tables-doc .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        #temp-fund-code-tables-doc h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        #temp-fund-code-tables-doc header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        #temp-fund-code-tables-doc .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        #temp-fund-code-tables-doc .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        #temp-fund-code-tables-doc main {
+            padding: 28px 0 56px
+        }
+
+        #temp-fund-code-tables-doc .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        #temp-fund-code-tables-doc .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        #temp-fund-code-tables-doc .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #temp-fund-code-tables-doc .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        #temp-fund-code-tables-doc h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        #temp-fund-code-tables-doc .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        #temp-fund-code-tables-doc .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        #temp-fund-code-tables-doc .step {
+            min-height: 150px;
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #temp-fund-code-tables-doc .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        #temp-fund-code-tables-doc .step span {
+            color: var(--regular)
+        }
+
+        #temp-fund-code-tables-doc .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        #temp-fund-code-tables-doc .card {
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #temp-fund-code-tables-doc .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        #temp-fund-code-tables-doc .card ul,#temp-fund-code-tables-doc .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #temp-fund-code-tables-doc .card li + li {
+            margin-top: 6px
+        }
+
+        #temp-fund-code-tables-doc .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            overflow-wrap: anywhere;
+            font: 13px Consolas, monospace
+        }
+
+        #temp-fund-code-tables-doc .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        #temp-fund-code-tables-doc table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        #temp-fund-code-tables-doc th,#temp-fund-code-tables-doc td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        #temp-fund-code-tables-doc th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        #temp-fund-code-tables-doc tr:last-child td {
+            border-bottom: 0
+        }
+
+        #temp-fund-code-tables-doc tbody tr:hover {
+            background: #f8fbff
+        }
+
+        #temp-fund-code-tables-doc code,#temp-fund-code-tables-doc .name {
+            overflow-wrap: anywhere;
+            font-family: Consolas, monospace
+        }
+
+        #temp-fund-code-tables-doc .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        #temp-fund-code-tables-doc .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        #temp-fund-code-tables-doc .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #temp-fund-code-tables-doc .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        #temp-fund-code-tables-doc .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        #temp-fund-code-tables-doc .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        #temp-fund-code-tables-doc .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        #temp-fund-code-tables-doc .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #temp-fund-code-tables-doc .notes li + li {
+            margin-top: 5px
+        }
+
+        #temp-fund-code-tables-doc .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        #temp-fund-code-tables-doc footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            #temp-fund-code-tables-doc .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            #temp-fund-code-tables-doc .flow,#temp-fund-code-tables-doc .logic {
+                grid-template-columns: 1fr
+            }
+
+            #temp-fund-code-tables-doc .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            #temp-fund-code-tables-doc .wrap {
+                width: calc(100% - 24px)
+            }
+
+            #temp-fund-code-tables-doc header {
+                padding: 24px 0 20px
+            }
+
+            #temp-fund-code-tables-doc .stats {
+                grid-template-columns: 1fr
+            }
+
+            #temp-fund-code-tables-doc .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            #temp-fund-code-tables-doc .nav {
+                display: none
+            }
+
+            #temp-fund-code-tables-doc .panel {
+                break-inside: avoid
+            }
+        }
     </style>
 </head>
-<body>
-<main id="temp_fund_code_doc">
-    <h1>基金临时代码管理</h1>
-    <p>基金研究 · 查询临时代码 → 新增基金占位 → 人工转正式 / 取消发行 / 删除映射。查询区、列表、分页及弹窗沿用债券临时代码管理，基金页使用独立的 <code>css/temp_fund_code.css</code>，债券页使用 <code>css/temp_security_code.css</code>，两页保持相同布局与风格。</p>
-    <section>
-        <h2>页面字段与选项</h2>
-        <ul>
-            <li>查询支持临时基金代码、基金简称模糊检索，状态与操作来源多选。默认来源为人工（<code>manual</code>），重置恢复该默认并回到第一页。</li>
-            <li>状态为 <code>temporary</code> 临时、<code>updated</code> 已更新、<code>cancelled</code> 已取消、<code>deleted</code> 已删除；只有临时状态显示更新、取消发行、删除按钮。列表保留软删除映射，可按已删除状态检索。</li>
-            <li>新增四项必填：<code>tempFundCode</code> 临时代码、<code>tempFundShortName</code> 基金简称、<code>tempMarketCode</code> 市场、<code>tempSecurityType</code> 产品类型。基金全称与简称一致；不填写债券发行主体、日期或 CRMW 等字段。</li>
-            <li>市场采用既有基金页面的 11 项 MarketCode：SSE、SZSE、CIBM、BSE、COMPANY、OTC、HKEX、QDII、JWCW、UNKNOWN、OTHER。实际调库仍执行投资池支持市场规则。</li>
-            <li>产品类型由后端字典返回：<code>closed_fund</code> 封闭式基金、<code>open_fund</code> 开放式基金、<code>qdii_fund</code> QDII基金类型、<code>lof_fund</code> LOF基金类型、<code>etf_fund</code> ETF基金类型。该字段不同于基金调库的投资类型。</li>
-            <li>转正式弹窗显示四项只读临时信息；正式基金按代码、简称或全称远程搜索，选择后带出代码、市场和产品类型。正式信息初始为空，不允许手工改写正式快照。</li>
+<body id="temp-fund-code-tables-doc" class="docs-page">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>基金临时代码管理</h1>
+        <p class="desc">维护临时基金登记与占位主档，人工选择正式基金转换，或办理取消发行、删除登记，并记录操作事件和替换明细。</p>
+        <div class="stats"><span class="stat">8 项表/表组</span><span class="stat">7 个模块接口</span><span class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap" id="temp_fund_code_doc">
+    <nav class="nav" aria-label="文档章节">
+        <a href="#overview">业务流程总览</a>
+        <a href="#logic-1">查询与下拉选项</a>
+        <a href="#logic-2">新增、转正式、取消与删除</a>
+        <a href="#logic-3">转正时调库日志与池状态处理</a>
+        <a href="#tables">涉及表与场景</a>
+        <a href="#notes">关键规则</a>
+    </nav>
+    <section class="panel" id="overview">
+        <h2>业务流程总览</h2>
+        <p class="sub">维护临时基金登记与占位主档，人工选择正式基金转换，或办理取消发行、删除登记，并记录操作事件和替换明细。</p>
+        <div class="flow">
+            <div class="step"><b>1. 查询登记</b><span>按临时代码、简称、状态和操作来源筛选。</span></div>
+            <div class="step"><b>2. 新增临时基金</b><span>填写四项基础信息，创建临时登记与 L 状态占位主档。</span></div>
+            <div class="step"><b>3. 人工转正式</b><span>选择已有正式基金，锁定主档并替换在途代码和有效在池关系。</span></div>
+            <div class="step"><b>4. 取消或删除</b><span>按状态和业务引用限制办理取消发行或删除登记。</span></div>
+            <div class="step"><b>5. 保留追溯</b><span>保存生命周期事件、转正明细及终态业务历史。</span></div>
+        </div>
+    </section>
+    <section class="panel" id="logic-1">
+        <h2>查询与下拉选项</h2>
+        <p class="sub">登记列表展示生命周期状态；正式选项只能选系统已有有效基金。</p>
+        <span class="api">POST /api/v1/tempFundCode/queryTempFundCodePage · queryTempFundCodeOptions · queryFormalFundOptionList</span>
+        <div class="logic">
+            <article class="card"><h3>列表查询与筛选条件</h3>
+                <ul>
+                    <li>主表 <code>rrs_temp_fund_code</code>，列表允许展示软删除映射，便于检索 deleted 状态。</li>
+                    <li><code>tempFundCode / tempFundShortName</code> 模糊匹配；<code>statusList / oprtSourceList</code> 多选，页面默认来源为人工。</li>
+                    <li>按 temporary、updated、cancelled、deleted 的状态顺序，再按更新时间、创建时间、ID倒序排列；状态名称由前端字典展示。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>选项与正式选基金</h3>
+                <ul>
+                    <li>基金品种选项直接读取有效基金大类字典，不依赖主档已有品种；市场选项用于新增临时主档。</li>
+                    <li>正式候选读取已有、有效、非临时基金；名称、代码、类型和市场以服务端主档为准。</li>
+                    <li>状态 temporary 才展示转正式、取消发行、删除操作；操作人使用当前登录 <code>operatorId</code>。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-2">
+        <h2>新增、转正式、取消与删除</h2>
+        <p class="sub">操作使用独立基金临时代码服务，不安排定时自动转正。</p>
+        <span class="api">POST /api/v1/tempFundCode/addTempFundCode · editTempFundCodeToUpdated · editTempFundCodeToCancelled · deleteTempFundCode</span>
+        <div class="logic">
+            <article class="card"><h3>新增</h3>
+                <ul>
+                    <li>必填 <code>tempFundCode / tempFundShortName / tempMarketCode / tempSecurityType</code> 四项；不采集主体、担保或财务字段。</li>
+                    <li>校验映射和主档代码未被占用，新增登记 temporary、人工来源，并创建未删除的基金占位主档。</li>
+                    <li>主档全称等于简称，<code>security_status=L</code>；新增事件保存完整 INSERT 快照。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>转正式（核心）</h3>
+                <ul>
+                    <li>只允许 temporary 映射；临时与正式代码必须不同，正式基金必须仍有效。按主档 ID 顺序加锁后锁映射并重新校验。</li>
+                    <li>映射保存正式主档资料，不覆盖正式基金主档。替换未删除且审核00/11的在途日志代码、名称和品种，保留批次、步骤、附件及调库资料。</li>
+                    <li>处理有效在池关系后将映射改 updated、临时主档停用为D，并写 UPDATE 事件与成功替换明细；任一失败整体回滚，不留失败技术明细。</li>
+                    <li>正式代码存在同池在途申请不阻止转换；后续审批落池时仍执行最终状态校验。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>取消发行</h3>
+                <ul>
+                    <li>只允许 temporary；允许已有业务引用时取消，映射改 cancelled，临时主档改D并记录事件。</li>
+                    <li>已有申请、步骤和池状态保持原记录；不自动驳回、清理或恢复申请，后续处理可能因主档停用而受阻。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>删除登记</h3>
+                <ul>
+                    <li>只允许 temporary，且不得存在任何未删除的基金日志或基金池状态引用，终态日志也计入引用检查。</li>
+                    <li>映射改 deleted 并软删除，记录 DELETE 事件；不删除或停用占位主档，主档仍为L。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-3">
+        <h2>转正时调库日志与池状态处理</h2>
+        <p class="sub">在途申请改码，有效在池成员按池执行“临时出 / 正式入”，已结束业务保留原样。</p>
+        <div class="logic">
+            <article class="card"><h3>在途申请替换</h3>
+                <ul>
+                    <li>仅处理00/11日志；保留原审核状态、流程节点、处理人、三项基金字段、原因建议和附件关联。</li>
+                    <li>不迁移终态历史、已提交 Excel 历史、净值历史、报告中的全局基金代码及其他业务。</li>
+                    <li>已有 O32 人工 pending 步骤不会因转正自动处理；新正式基金申请按正式代码规则执行。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>有效在池转换分支</h3>
+                <ul>
+                    <li>逐池读取 <code>audit_status=20</code>、未删除的临时代码状态，生成临时出池审计日志并软删除该状态。</li>
+                    <li>正式代码尚未在同池时，创建正式入池日志和有效状态，继承原池信息，复制所需附件；不另起新的审批流程。</li>
+                    <li>正式代码已在同池时仅处理临时出池，不重复建立正式池状态；终态原日志保持原代码。</li>
+                    <li>每次成功替换写 <code>rrs_temp_fund_code_update_log</code>，与映射、主档、日志及状态变更同事务。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables">
+        <h2>涉及表、用途与触发场景</h2>
+        <p class="sub">按本模块实际执行阶段标注读写；表组内具体表的作用见用途与触发场景。</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>表名</th><th>用途</th><th>读写</th><th>触发场景</th></tr></thead>
+            <tbody>
+            <tr><td class="name">rrs_temp_fund_code</td><td>临时四字段、正式资料快照和生命周期映射。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>登记查询、占用检查、新增、转正、取消和软删除。</td></tr>
+            <tr><td class="name">rrs_temp_fund_code_evt</td><td>登记操作完整快照与操作审计。</td><td><span class="tag w">新增</span></td><td>新增 INSERT、转正/取消 UPDATE、删除 DELETE 事件。</td></tr>
+            <tr><td class="name">rrs_temp_fund_code_update_log</td><td>成功转正的在途代码和池状态替换明细。</td><td><span class="tag w">新增</span></td><td>转正事务内记录成功替换；失败整体回滚。</td></tr>
+            <tr><td class="name">rrs_fundinfo</td><td>临时占位主档、正式候选与停用状态。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>新增占位L；转正或取消改临时主档D；删除登记保持主档L。</td></tr>
+            <tr><td class="name">dict_security_type</td><td>基金品种字典；限定 category_type=fund 且未删除。</td><td><span class="tag r">查询</span></td><td>品种下拉、基金大类校验与品种名称展示。</td></tr>
+            <tr><td class="name">ip_adjust_log_fund</td><td>在途申请代码和有效在池转换审计。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>00/11日志改码；在池转换建立已生效出入池日志；删除前检查全部未删除引用。</td></tr>
+            <tr><td class="name">ip_pool_status_fund</td><td>当前有效基金池状态。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>转正逐池软删除临时状态，必要时新增正式状态；删除前检查引用。</td></tr>
+            <tr><td class="name">sys_attachment</td><td>基金日志材料附件关联。</td><td><span class="tag r">查询</span><span class="tag w">新增</span></td><td>有效在池转正式且需新增正式日志时复制所需关联，保留原材料分类；在途改码保留已有附件。</td></tr>
+            </tbody>
+        </table></div>
+    </section>
+    <section class="panel" id="notes">
+        <h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>本模块只提供人工生命周期操作，不提供定时自动转换；临时基金判定为有效登记且 status=temporary。</li>
+            <li>临时基金 O32 节点转人工 pending；人工转正不会自动通过已有 pending 步骤。</li>
+            <li>取消发行允许引用、会停用主档；删除登记禁止引用、保留主档L，两者业务后果不同。</li>
+            <li><code>sql/fund/rrs_temp_fund_code_schema.sql</code> 初始化先 DROP 再重建登记、事件、替换明细三表，会清除原数据；不提供动态 SQL 升级入口。</li>
+            <li>基金当前池与终态历史分别见 <a class="back" href="fund-pool-query-tables.html">基金池查询</a>、<a class="back" href="fund-pool-adjust-history-tables.html">基金池调整历史</a>。</li>
         </ul>
+        <div class="note">转正不是全库代码替换：只迁移明确支持的在途基金申请和有效基金池关系，原历史仍可追溯。</div>
     </section>
-    <section>
-        <h2>新增与人工转正式</h2>
-        <ul>
-            <li>新增状态固定为 <code>temporary</code>，写入临时映射与基金占位主档：<code>source_system=temporary</code>、<code>security_status=L</code>、<code>is_deleted=0</code>。已有代码不得重复新增。</li>
-            <li>正式基金必须来自已有有效主档，排除临时占位、停用和删除数据；正式代码不能与临时代码相同。本期不增加自动替换定时任务。</li>
-            <li>转正式只提交 <code>id/fundCode/operatorId</code>，后端重新读取正式基金全称、简称、市场与产品类型，写入映射快照并记为 <code>updated</code>。</li>
-            <li>在途日志（<code>audit_status=00/11</code>）只替换基金代码、全称、简称和产品类型，保留批次、流程快照、原步骤、原附件关联及三个调库参数；终态历史日志保持原码。</li>
-            <li>已在池状态（<code>audit_status=20</code>）逐池写临时代码调出日志并软删除临时池状态；正式代码尚未在同池时再写正式调入日志并建立正式池状态。正式已在同池时只办理临时调出。</li>
-            <li>新入池日志复制原基金日志附件关联，保留基金报告和原文件分类。原基金评分、投资类型、风管领导审批等业务信息按原记录继承。</li>
-            <li>转正式停用临时占位主档：<code>security_status=D</code>，更新 <code>updt_time</code>；主档 <code>is_deleted</code> 保持 0，不额外写退市日期。</li>
-            <li>正式基金同池已有在途申请时仍允许替换，冲突交给后续基金审批校验。转正中的执行异常使本次操作整体回滚。</li>
-            <li>转正、基金提交和审批共同按主档 ID 顺序加锁，取得锁后重新读取业务状态；审批等待期间代码被替换时提示刷新。</li>
-            <li>Excel 原始行、校验快照及已提交历史保留。旧临时代码转正或取消后，未提交批次在任何日志写入前整体拒绝，提示重置重传。</li>
-        </ul>
-    </section>
-    <section>
-        <h2>取消、删除与 O32</h2>
-        <ul>
-            <li>取消发行仅允许 <code>temporary → cancelled</code>：停用基金占位主档（<code>security_status=D</code>、更新 <code>updt_time</code>），主档 <code>is_deleted=0</code>。已有调库和池引用不自动移除，可能阻塞后续业务；页面二次确认会明确提示该影响。</li>
-            <li>删除仅允许 <code>temporary → deleted</code>，且任何未删除的基金调库日志或池状态引用均会阻止删除，终态历史日志也包含在内。通过校验后只将映射 <code>is_deleted</code> 置为 1，保留占位主档当前状态；页面二次确认说明删除范围。</li>
-            <li><code>updated/cancelled/deleted</code> 均不再提供更新、取消或删除操作。取消确认时不发业务请求。</li>
-            <li>申请初始步骤及后续审批均按未删除登记的 <code>status=temporary</code> 识别有效临时基金；O32 转人工待处理（<code>pending</code>）。普通 auto 节点与正式基金 O32 保持现有处理方式。</li>
-            <li>操作人从当前登录上下文读取 <code>operatorId</code>。操作来源保留 <code>manual/job/other</code> 字典，但本期没有基金自动替换任务。</li>
-        </ul>
-    </section>
-    <section>
-        <h2>接口</h2>
-        <p>以下均为 POST，接口前缀 <code>/api/v1/tempFundCode/</code>。</p>
-        <div class="table-wrap"><table><thead><tr><th>接口后缀</th><th>请求及响应</th></tr></thead><tbody>
-            <tr><td><code>queryTempFundCodePage</code></td><td><code>tempFundCode/tempFundShortName/statusList/oprtSourceList/pageIndex/pageSize</code>；响应 <code>records/total</code>，包含临时四字段、正式基金快照、状态、来源和更新时间。</td></tr>
-            <tr><td><code>queryTempFundCodeOptions</code></td><td>空对象；响应 <code>{securityTypes:[{securityType,securityTypeName}]}</code>。</td></tr>
-            <tr><td><code>queryFormalFundOptionList</code></td><td><code>fundKeyword</code>；响应正式基金选项，含 <code>fundCode/fundName/fundShortName/marketCode/securityType/securityTypeName</code>。</td></tr>
-            <tr><td><code>addTempFundCode</code></td><td>临时四字段与 <code>operatorId</code>；新增映射和占位主档。</td></tr>
-            <tr><td><code>editTempFundCodeToUpdated</code></td><td><code>id/fundCode/operatorId</code>；人工转正式。</td></tr>
-            <tr><td><code>editTempFundCodeToCancelled</code></td><td><code>id/operatorId</code>；取消发行。</td></tr>
-            <tr><td><code>deleteTempFundCode</code></td><td><code>id/operatorId</code>；软删除临时映射。</td></tr>
-        </tbody></table></div>
-    </section>
-    <section>
-        <h2>涉及表</h2>
-        <div class="table-wrap"><table><thead><tr><th>表</th><th>用途</th></tr></thead><tbody>
-            <tr><td><code>rrs_temp_fund_code</code></td><td>临时四字段、正式快照及生命周期映射；查询与状态变更。</td></tr>
-            <tr><td><code>rrs_temp_fund_code_evt</code></td><td>新增、转正式、取消和删除操作事件。</td></tr>
-            <tr><td><code>rrs_temp_fund_code_update_log</code></td><td>转正时在途代码替换和池状态迁移的技术明细。</td></tr>
-            <tr><td><code>rrs_fundinfo</code></td><td>基金占位主档、正式选项及停用状态。</td></tr>
-            <tr><td><code>dict_security_type</code></td><td>基金产品类型选项和类型名称。</td></tr>
-            <tr><td><code>ip_adjust_log_fund / ip_adjust_step_fund</code></td><td>基金调库日志与审批步骤；在途日志改码，已在池转正办理出入。</td></tr>
-            <tr><td><code>ip_pool_status_fund</code></td><td>有效在池状态；软删除临时状态，正式未在同池时建立状态。</td></tr>
-            <tr><td><code>sys_attachment</code></td><td>基金日志报告和原文件关联；转正时沿用分类并复制新日志所需关联。</td></tr>
-        </tbody></table></div>
-        <p><code>sql/fund/rrs_temp_fund_code_schema.sql</code> 先用 <code>DROP TABLE IF EXISTS</code> 删除登记审计表、替换明细日志和登记主表，再用 <code>CREATE TABLE IF NOT EXISTS</code> 完整重建三表。执行会清除三表原有数据；本模块不提供动态 SQL 升级入口。</p>
-    </section>
-    <p><a href="fund-pool-adjust-tables.html">基金池调整</a> · <a href="fund-pool-adjust-approve-tables.html">基金审核与详情</a> · <a href="temp-security-code-tables.html">债券临时代码基准</a> · <a href="module-tables-index.html">模块总览</a></p>
 </main>
+<footer class="wrap"><a class="back" href="module-tables-index.html">返回业务文档索引</a> · 基金研究 · 表与业务逻辑</footer>
 </body>
 </html>

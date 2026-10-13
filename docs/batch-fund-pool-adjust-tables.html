@@ -2,89 +2,491 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>基金池批量调整｜表与业务逻辑</title>
     <style>
-        #batch_fund_pool_adjust_doc, #batch_fund_pool_adjust_doc * { box-sizing: border-box; }
-        body { margin: 0; background: #F7F8FA; }
-        #batch_fund_pool_adjust_doc { max-width: 1180px; margin: 0 auto; padding: 24px; color: #3F485A; font: 13px/1.7 "PingFang SC", "Microsoft YaHei", Arial, sans-serif; }
-        #batch_fund_pool_adjust_doc h1 { margin: 0 0 8px; color: #242933; font-size: 20px; }
-        #batch_fund_pool_adjust_doc h2 { margin: 0 0 12px; color: #2743A4; font-size: 16px; }
-        #batch_fund_pool_adjust_doc section { margin-top: 16px; padding: 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 4px; }
-        #batch_fund_pool_adjust_doc p { margin: 8px 0; }
-        #batch_fund_pool_adjust_doc ul { padding-left: 20px; }
-        #batch_fund_pool_adjust_doc .table-wrap { overflow-x: auto; }
-        #batch_fund_pool_adjust_doc table { width: 100%; border-collapse: collapse; }
-        #batch_fund_pool_adjust_doc th, #batch_fund_pool_adjust_doc td { padding: 8px 12px; text-align: left; border: 1px solid #E5E5E5; vertical-align: top; }
-        #batch_fund_pool_adjust_doc th { background: #F7F8FA; color: #242933; }
-        #batch_fund_pool_adjust_doc code { color: #2743A4; word-break: break-word; }
-        #batch_fund_pool_adjust_doc a { color: #2743A4; }
+        body#batch-fund-pool-adjust-tables-doc {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body#batch-fund-pool-adjust-tables-doc, body#batch-fund-pool-adjust-tables-doc * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body#batch-fund-pool-adjust-tables-doc {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        #batch-fund-pool-adjust-tables-doc .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        #batch-fund-pool-adjust-tables-doc header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        #batch-fund-pool-adjust-tables-doc .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        #batch-fund-pool-adjust-tables-doc h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        #batch-fund-pool-adjust-tables-doc header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        #batch-fund-pool-adjust-tables-doc main {
+            padding: 28px 0 56px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        #batch-fund-pool-adjust-tables-doc .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #batch-fund-pool-adjust-tables-doc .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        #batch-fund-pool-adjust-tables-doc h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .step {
+            min-height: 150px;
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #batch-fund-pool-adjust-tables-doc .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .step span {
+            color: var(--regular)
+        }
+
+        #batch-fund-pool-adjust-tables-doc .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .card {
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #batch-fund-pool-adjust-tables-doc .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .card ul,#batch-fund-pool-adjust-tables-doc .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .card li + li {
+            margin-top: 6px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            overflow-wrap: anywhere;
+            font: 13px Consolas, monospace
+        }
+
+        #batch-fund-pool-adjust-tables-doc .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        #batch-fund-pool-adjust-tables-doc table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        #batch-fund-pool-adjust-tables-doc th,#batch-fund-pool-adjust-tables-doc td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        #batch-fund-pool-adjust-tables-doc th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        #batch-fund-pool-adjust-tables-doc tr:last-child td {
+            border-bottom: 0
+        }
+
+        #batch-fund-pool-adjust-tables-doc tbody tr:hover {
+            background: #f8fbff
+        }
+
+        #batch-fund-pool-adjust-tables-doc code,#batch-fund-pool-adjust-tables-doc .name {
+            overflow-wrap: anywhere;
+            font-family: Consolas, monospace
+        }
+
+        #batch-fund-pool-adjust-tables-doc .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        #batch-fund-pool-adjust-tables-doc .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        #batch-fund-pool-adjust-tables-doc .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #batch-fund-pool-adjust-tables-doc .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        #batch-fund-pool-adjust-tables-doc .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        #batch-fund-pool-adjust-tables-doc .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        #batch-fund-pool-adjust-tables-doc .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        #batch-fund-pool-adjust-tables-doc .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .notes li + li {
+            margin-top: 5px
+        }
+
+        #batch-fund-pool-adjust-tables-doc .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        #batch-fund-pool-adjust-tables-doc footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            #batch-fund-pool-adjust-tables-doc .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            #batch-fund-pool-adjust-tables-doc .flow,#batch-fund-pool-adjust-tables-doc .logic {
+                grid-template-columns: 1fr
+            }
+
+            #batch-fund-pool-adjust-tables-doc .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            #batch-fund-pool-adjust-tables-doc .wrap {
+                width: calc(100% - 24px)
+            }
+
+            #batch-fund-pool-adjust-tables-doc header {
+                padding: 24px 0 20px
+            }
+
+            #batch-fund-pool-adjust-tables-doc .stats {
+                grid-template-columns: 1fr
+            }
+
+            #batch-fund-pool-adjust-tables-doc .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            #batch-fund-pool-adjust-tables-doc .nav {
+                display: none
+            }
+
+            #batch-fund-pool-adjust-tables-doc .panel {
+                break-inside: avoid
+            }
+        }
     </style>
 </head>
-<body>
-<main id="batch_fund_pool_adjust_doc">
-    <h1>基金池批量调整</h1>
-    <p>基金研究 · 投资池列表 → 选择调入/调出 → 跨页勾选基金与共享材料 → 逐基金校验 → 确认一般流程 → 提交申请。批量相当于一次发起多只基金的单笔调库，申请及审批继续基金独立链路。</p>
-    <section>
-        <h2>投资池与候选基金</h2>
-        <ul>
-            <li>工作台“基金池批量调整”位于“基金池调整”之后、“基金池Excel导入”之前；业务文档菜单同位。</li>
-            <li>只查询当前用户有调整权限、支持 <code>fund</code> 品种的启用叶子池，展示投资池全路径、配置及有效在池基金数量。</li>
-            <li>调入排除目标池的有效成员；调出只含目标池有效成员，均以 <code>ip_pool_status_fund.audit_status='20'</code> 且未删除为准。</li>
-            <li>候选列表沿用基金单笔的代码、简称、基金产品类型、基金管理人筛选及基础信息字段，终止、退市基金不作为候选。</li>
-            <li>跨页保留勾选，支持移除单只与清空。两步工作台沿用证券批量页面，固定底栏为分页与末尾内容预留空间。</li>
+<body id="batch-fund-pool-adjust-tables-doc" class="docs-page">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>基金池批量调整</h1>
+        <p class="desc">先选目标投资池，再选多只基金，统一填写调库资料并逐基金校验，使用一般流程提交独立基金批次。</p>
+        <div class="stats"><span class="stat">15 项表/表组</span><span class="stat">5 个模块接口</span><span class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap" id="batch_fund_pool_adjust_doc">
+    <nav class="nav" aria-label="文档章节">
+        <a href="#overview">业务流程总览</a>
+        <a href="#logic-1">目标池与候选基金查询</a>
+        <a href="#logic-2">批量校验与提交</a>
+        <a href="#logic-3">共用资料与附件绑定</a>
+        <a href="#tables">涉及表与场景</a>
+        <a href="#notes">关键规则</a>
+    </nav>
+    <section class="panel" id="overview">
+        <h2>业务流程总览</h2>
+        <p class="sub">先选目标投资池，再选多只基金，统一填写调库资料并逐基金校验，使用一般流程提交独立基金批次。</p>
+        <div class="flow">
+            <div class="step"><b>1. 选择目标池</b><span>查询当前用户可调整的启用基金叶子池，选择调入或调出。</span></div>
+            <div class="step"><b>2. 勾选多只基金</b><span>按代码、简称、品种和管理人筛选并跨页选择。</span></div>
+            <div class="step"><b>3. 填写共用资料</b><span>统一填写基金评分、投资类型、分管领导审批及附件。</span></div>
+            <div class="step"><b>4. 逐基金校验</b><span>扩展关联项，展示整组通过或失败及可选一般流程。</span></div>
+            <div class="step"><b>5. 提交并审批</b><span>有效组整批事务提交；最终审批通过才更新基金池状态。</span></div>
+        </div>
+    </section>
+    <section class="panel" id="logic-1">
+        <h2>目标池与候选基金查询</h2>
+        <p class="sub">目标池选择范围与候选基金查询均受基金业务和当前用户权限约束。</p>
+        <span class="api">POST /api/v1/batchFundPoolAdjust/queryPoolPage · queryFundPage</span>
+        <div class="logic">
+            <article class="card"><h3>目标池查询</h3>
+                <ul>
+                    <li>读取启用、未删除、基金范围的叶子投资池，并限制为当前用户具有调整权限的池。</li>
+                    <li>展示投资池层级、名称、配置和当前基金数量；数量只统计未删除且 <code>audit_status=20</code> 的基金池状态。</li>
+                    <li>选定池后选择 <code>in / out</code> 方向；服务转换为内部“调入 / 调出”值。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>候选基金查询与筛选</h3>
+                <ul>
+                    <li>候选主表为 <code>rrs_fundinfo</code>，关联有效基金品种字典，排除已终止或退市基金。</li>
+                    <li><code>fundCode / fundShortName</code> 模糊查询，<code>securityType</code> 品种匹配，<code>fundAdministrator</code> 管理人筛选。</li>
+                    <li>调入候选排除已在目标池基金；调出候选只包含目标池内有效基金。</li>
+                    <li>支持分页和跨页勾选；列表与单笔基金申请的基金基础字段保持一致。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-2">
+        <h2>批量校验与提交</h2>
+        <p class="sub">复用单基金调库校验，基金手工项与其关联项组成不可拆分的校验组。</p>
+        <span class="api">POST /api/v1/batchFundPoolAdjust/checkAdjust · addAdjustLog · addAdjustLogWithFiles</span>
+        <div class="logic">
+            <article class="card"><h3>逐基金校验与页面展示</h3>
+                <ul>
+                    <li>评分 <code>fundScore</code>、投资类型 <code>fundInvestmentType</code>、分管领导审批 <code>needRiskLeaderApproval</code> 为所有勾选基金共用的必填资料。</li>
+                    <li>资料可在选择和确认步骤编辑，返回上一步保留已填值；页面不提供“放开规则”。</li>
+                    <li>逐只调用基金通用调库校验，检查主档、权限、锁池、当前状态、容量、在途申请、重复、开放日、冻结期及报告要求。</li>
+                    <li>一只基金的手工项或任一关联项失败时整组失败；允许只提交其余有效基金组，互斥产生的反向项保持原方向。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>提交和审批</h3>
+                <ul>
+                    <li>仅接受服务返回的完整关联组，以及该组允许的一般流程；不注入快速或批量流程。</li>
+                    <li>按主档 ID 顺序加锁，所有组先完成复核，再创建流程，避免本次新申请相互阻塞。</li>
+                    <li>每只基金独立一个 <code>FUND</code> 批次，手工项与关联项共批次；<code>fundCount</code> 为基金数，<code>submitCount</code> 为日志项数。</li>
+                    <li>所有有效组使用外层事务；任一提交失败整体回滚。提交仅生成状态00日志及步骤，最终20才落池。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="logic-3">
+        <h2>共用资料与附件绑定</h2>
+        <p class="sub">共用输入按每只基金生成申请资料，材料文件按各手工主日志关联。</p>
+        <div class="logic">
+            <article class="card"><h3>必填字段与文本</h3>
+                <ul>
+                    <li>基金评分为数值，0有效；数据库 <code>DECIMAL(10,4)</code>，最多6位整数、4位小数。</li>
+                    <li>投资类型为 <code>stock / equity_hybrid / money_market / bond_hybrid / other</code>；领导审批为 <code>0 / 1</code>。</li>
+                    <li>三字段只采集，不参与入池规则和流程节点判断；复制到手工及关联日志。调整原因和建议为可选，页面各限500字。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>报告与其他材料</h3>
+                <ul>
+                    <li>按目标池报告限制上传或选择报告，基金分类与单笔申请一致。</li>
+                    <li>共享文件物理上传一次，分别绑定各基金手工主日志，关联日志不重复绑定共享材料。</li>
+                    <li>提交的原始文件名列表必须与文件顺序、数量一致；不一致明确失败。</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+    <section class="panel" id="tables">
+        <h2>涉及表、用途与触发场景</h2>
+        <p class="sub">按本模块实际执行阶段标注读写；表组内具体表的作用见用途与触发场景。</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>表名</th><th>用途</th><th>读写</th><th>触发场景</th></tr></thead>
+            <tbody>
+            <tr><td class="name">ip_investment_pool</td><td>投资池层级、基金范围、容量、锁池、报告限制及一般流程配置。</td><td><span class="tag r">查询</span></td><td>加载池树或目标池、回填完整池路径、执行调入调出校验。</td></tr>
+            <tr><td class="name">ip_pool_permission</td><td>用户及角色的可调库、可 Excel 导入权限。</td><td><span class="tag r">查询</span></td><td>查询可操作池和提交申请时校验池权限；导入另校验 excel_importable。</td></tr>
+            <tr><td class="name">rrs_fundinfo</td><td>基金主档、名称、类型与只读基础信息。</td><td><span class="tag r">查询</span></td><td>查询候选基金、打开详情、校验和提交时重新读取权威主档。</td></tr>
+            <tr><td class="name">dict_security_type</td><td>基金品种字典；限定 category_type=fund 且未删除。</td><td><span class="tag r">查询</span></td><td>品种下拉、基金大类校验与品种名称展示。</td></tr>
+            <tr><td class="name">ip_pool_status_fund</td><td>基金当前有效在池状态及入池时间。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>申请阶段读取 audit_status=20、is_deleted=0；最终审批通过后新增调入状态或软删除调出状态。</td></tr>
+            <tr><td class="name">ip_pool_relation</td><td>池联动、互斥关系。</td><td><span class="tag r">查询</span></td><td>校验时扩展关联调整项，提交时核验完整调整组。</td></tr>
+            <tr><td class="name">ip_pool_open_day</td><td>投资池开放日区间。</td><td><span class="tag r">查询</span></td><td>基金调入受开放日限制的投资池时校验。</td></tr>
+            <tr><td class="name">ip_adjust_log_fund</td><td>手工及关联调整日志、基金调库字段、批次与一般流程信息。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>提交生成 FUND 批次、状态 00；审批更新状态；驳回修改阶段更新调整原因和建议。</td></tr>
+            <tr><td class="name">ip_adjust_step_fund</td><td>基金批次节点、处理人及处理记录。</td><td><span class="tag r">查询</span><span class="tag w">新增</span><span class="tag u">更新</span></td><td>提交建立开始、发起和待处理步骤；审批推进、会签、驳回与重提时读写。</td></tr>
+            <tr><td class="name">wf_flow_definition / wf_flow_version / wf_flow_node / wf_flow_edge</td><td>一般流程定义、已发布版本、节点与连线。</td><td><span class="tag r">查询</span></td><td>选择一般流程并生成申请流程快照；本模块不提供快速或批量流程选项。</td></tr>
+            <tr><td class="name">wf_node_approval_config / wf_node_approval_handler</td><td>一般审批节点策略与配置处理人。</td><td><span class="tag r">查询</span></td><td>读取发布版本的审批配置和处理人，识别人工、自动及 O32 策略，生成或推进步骤。</td></tr>
+            <tr><td class="name">ais_inv_analysis.t_sys_user / t_sys_role / t_sys_user_role</td><td>AIS 用户、角色与用户角色关系。</td><td><span class="tag r">查询</span></td><td>解析池权限和节点处理人。表名省略同组后两表的库名前缀。</td></tr>
+            <tr><td class="name">sys_attachment</td><td>基金报告和其他材料的附件关联。</td><td><span class="tag r">查询</span><span class="tag w">新增</span></td><td>上传或复制材料并绑定 ip_adjust_log_fund；审核详情查询、下载附件。</td></tr>
+            <tr><td class="name">rrs_report_in / rrs_report_out</td><td>内部、外部报告资料。</td><td><span class="tag r">查询</span></td><td>申请时选择报告来源并按投资池报告限制校验。</td></tr>
+            <tr><td class="name">rrs_temp_fund_code</td><td>基金临时代码登记。</td><td><span class="tag r">查询</span></td><td>按 temporary 状态识别临时基金，将其 O32 节点转人工待处理。</td></tr>
+            </tbody>
+        </table></div>
+    </section>
+    <section class="panel" id="notes">
+        <h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>每只基金独立审批批次，整批提交的事务原子性不意味着所有基金共用一个流程。</li>
+            <li>来源/调入/调出/弹性等限制沿用基金单笔校验；不引入债券到期、主体评级、担保人或基金评分区间规则。</li>
+            <li>共同材料只绑定手工主日志；基金专属报告和材料分类见 <a class="back" href="fund-pool-adjust-tables.html">基金池调整申请</a>。</li>
+            <li>临时基金 O32 节点转人工待处理；后续转换为正式代码不会自动办结已有步骤。</li>
         </ul>
+        <div class="note">批量校验允许剔除失败的基金组；提交阶段任一运行错误都会回滚本次全部有效组。</div>
     </section>
-    <section>
-        <h2>整批基金调库信息</h2>
-        <p>“基金调库信息”位于工作台公共区域、可选基金之前，第一步和第二步均可填写，第二步仍可编辑。点击“下一步”先验证基金评分、基金类型和分管领导审批三个必填字段；评分和审批值 <code>0</code> 均有效，返回上一步保留三个字段。</p>
-        <p>整批统一填写以下三个字段，复制到全部提交基金的手工、联动和互斥日志；三个字段仅采集保存，不改变准入或一般流程，也不新增审批节点。页面没有“是否放开规则”。</p>
-        <div class="table-wrap"><table><thead><tr><th>字段</th><th>编码</th><th>填写规则</th></tr></thead><tbody>
-            <tr><td>基金评分</td><td><code>fundScore</code></td><td>必填数字，允许 <code>0</code>；既有 <code>DECIMAL(10,4)</code> 最多六位整数、四位小数，超出存储精度明确失败，不增加评分准入范围。</td></tr>
-            <tr><td>基金类型</td><td><code>fundInvestmentType</code></td><td>必填：<code>stock</code> 股票型、<code>equity_hybrid</code> 偏股混合型、<code>money_market</code> 货币型、<code>bond_hybrid</code> 偏债混合型、<code>other</code> 其余类型。</td></tr>
-            <tr><td>分管领导审批</td><td><code>needRiskLeaderApproval</code></td><td>必选“是 / 否”，<code>1=是 / 0=否</code>；<code>0</code> 有效，仅记录，不据此增加审批节点。</td></tr>
-        </tbody></table></div>
-        <p>“基金类型”是内部投资分类，与基金主档“基金产品类型” <code>securityType</code> 区分。原因和建议为整批选填，页面输入各最多 500 字，保存到全部提交日志。</p>
-    </section>
-    <section>
-        <h2>逐基金校验、流程与提交</h2>
-        <ul>
-            <li>每只基金调用 <code>FundPoolAdjustService.checkAdjust</code>，复用品种、市场、状态、权限、池状态、容量、在途、来源、限制、联动互斥和冻结期、开放日规则；报告要求在提交阶段按单笔规则复核。</li>
-            <li>校验结果展示完整手工、联动、互斥项，以及阻断原因、警告和可选的一般流程。每组主项选择服务端提供的一般流程，关系项跟随主项；不注入快速或批量流程，流程下拉可完整展开查看候选。</li>
-            <li>校验失败基金组不提交，可提交其他校验通过的完整组。主项及所有关系项必须完整，包含与主方向相反的互斥调整；失败主项的关系项不能单独提交。</li>
-            <li>提交时顺序锁定基金，统一复核全部组后逐组保存；基金名称和产品类型重新读取主档。任一复核、日志、步骤或附件绑定失败，整批事务回滚。</li>
-            <li>同一基金的主项和关系项共用一个 <code>FUND</code> 批次号，不同基金各自独立批次；结果区分基金数量和日志数量，关系项计入日志数量。</li>
-            <li>提交日志初始 <code>audit_status='00'</code>，后续复用基金审批服务；仅最终审批通过 <code>20</code> 更新基金池状态。</li>
-            <li>返回上一步保留基金、材料和三个基金调库字段，重新校验刷新结果与流程。提交中禁用重复点击，成功返回投资池列表并刷新；基金现有在途和短时间重复提交规则继续适用。</li>
-        </ul>
-    </section>
-    <section>
-        <h2>报告、材料与接口</h2>
-        <p>报告选择保留内部/外部双页签、类型和关键字筛选、日期范围、分页、附件下载与已选汇总；本地上传报告和其他材料在整批共享。目标池 <code>none/any/internal</code> 报告要求在提交阶段按基金单笔规则复核。</p>
-        <p>基金附件使用 <code>fund_report_hand/fund_report_in/fund_report_out/fund_material_hand/fund_material_in/fund_material_out</code>，绑定 <code>table_name='ip_adjust_log_fund'</code>。共享上传文件只保存一份物理文件，按各基金的手工主项日志分别绑定，关系项不另绑材料；原始文件名数组按文件顺序传递以保留中文名称。</p>
-        <div class="table-wrap"><table><thead><tr><th>POST 接口</th><th>主要数据</th></tr></thead><tbody>
-            <tr><td><code>/api/v1/batchFundPoolAdjust/queryPoolPage</code></td><td><code>currentUserId/poolIds/pageIndex/pageSize</code>，返回可调整基金池分页及有效在池数量。</td></tr>
-            <tr><td><code>/api/v1/batchFundPoolAdjust/queryFundPage</code></td><td><code>currentUserId/poolId/direction/fundCode/fundShortName/securityType/fundAdministrator/pageIndex/pageSize</code>，返回方向过滤后的候选基金分页。</td></tr>
-            <tr><td><code>/api/v1/batchFundPoolAdjust/checkAdjust</code></td><td><code>currentUserId/poolId/direction/funds:[{fundCode}]</code>，返回单笔基金结构的完整 <code>items</code>、分组键和一般流程候选。</td></tr>
-            <tr><td><code>/api/v1/batchFundPoolAdjust/addAdjustLog</code></td><td>JSON：池、方向、操作人、整批三个基金字段、原因建议及完整已选流程明细；返回 <code>fundCount/submitCount/logIds/adjustBatchNos</code>。</td></tr>
-            <tr><td><code>/api/v1/batchFundPoolAdjust/addAdjustLogWithFiles</code></td><td>multipart：<code>request</code> JSON、<code>files</code>、<code>originalFileNameListJson</code>，返回同上；原始名称数量不匹配时拒绝。</td></tr>
-        </tbody></table></div>
-        <p>批量根参数 <code>direction</code> 使用 <code>in/out</code>，进入单笔服务时转换为 <code>AdjustMode</code> 的 <code>调入/调出</code>；返回校验及提交明细 <code>adjustMode</code> 保持单笔中文 code。主项回传 <code>flowId/flowKey/flowType</code>；材料沿用 <code>reportFileIndexes/materialFileIndexes/reportSourceAttachmentIds/materialSourceAttachmentIds</code>。</p>
-    </section>
-    <section>
-        <h2>涉及表与验证</h2>
-        <div class="table-wrap"><table><thead><tr><th>表或表组</th><th>用途</th></tr></thead><tbody>
-            <tr><td><code>rrs_fundinfo</code></td><td>候选基金及提交时权威基础信息。</td></tr>
-            <tr><td><code>ip_investment_pool/ip_pool_permission/ip_pool_relation/ip_pool_open_day</code></td><td>叶子池、调整权限、关系展开和开放日。</td></tr>
-            <tr><td><code>ip_pool_status_fund</code></td><td>有效在池数量、候选过滤及最终审批落池。</td></tr>
-            <tr><td><code>ip_adjust_log_fund/ip_adjust_step_fund</code></td><td>每只基金每池的日志、整批三字段、独立批次及审批步骤。</td></tr>
-            <tr><td><code>wf_flow_*</code>、审批配置、AIS用户角色</td><td>已发布一般流程快照、审批策略与处理人。</td></tr>
-            <tr><td><code>rrs_report_in/rrs_report_out/sys_attachment</code></td><td>报告选择、原始文件名、共享上传与各基金手工主项日志附件绑定。</td></tr>
-        </tbody></table></div>
-        <p>复用现有基金业务表，无新增表、数据库迁移或 SQL 脚本。批量通用提交入口与 Excel 导入复用，Excel 的导入权限、清空、报告和服务器暂存快照限制保持原有规则。</p>
-        <p>接口与服务测试覆盖权限、候选方向、三字段有效值、完整关系组、反向互斥、一般流程、报告、中文附件、独立批次、防重复和整批回滚；前端测试覆盖跨页选择与有效组提交。工作台 iframe 检查两步布局、报告弹窗及固定底栏。</p>
-    </section>
-    <p><a href="fund-pool-adjust-tables.html">基金池调整</a> · <a href="fund-pool-adjust-approve-tables.html">基金审批与详情</a> · <a href="fund-pool-excel-import.html">基金Excel导入</a> · <a href="batch-security-pool-adjust-tables.html">证券批量基准</a> · <a href="module-tables-index.html">模块总览</a></p>
 </main>
+<footer class="wrap"><a class="back" href="module-tables-index.html">返回业务文档索引</a> · 基金研究 · 表与业务逻辑</footer>
 </body>
 </html>

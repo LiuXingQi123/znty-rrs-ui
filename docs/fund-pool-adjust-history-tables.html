@@ -2,44 +2,457 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>基金池调整历史｜表与业务逻辑</title>
     <style>
-        body { margin: 0; background: #f7f8fa; color: #3f485a; font: 14px/1.7 "Microsoft YaHei", Arial, sans-serif; }
-        header { padding: 28px 7%; color: #fff; background: #2743a4; }
-        main { max-width: 1120px; margin: 22px auto; padding: 0 18px 40px; }
-        section { margin-bottom: 16px; padding: 20px 22px; border: 1px solid #e5e5e5; border-radius: 4px; background: #fff; }
-        h1, h2 { margin-top: 0; color: #242933; } header h1 { color: #fff; }
-        h2 { font-size: 18px; } table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 9px 11px; border: 1px solid #e5e5e5; text-align: left; vertical-align: top; }
-        th { background: #f7f8fa; } code, a { color: #2743a4; }
-        .note { padding: 12px 14px; border-left: 4px solid #2743a4; background: #e9ecf6; }
+        body#fund-pool-adjust-history-tables-doc {
+            --primary: #2743A4;
+            --primary-light: #E9ECF6;
+            --bg: #f4f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --regular: #475467;
+            --muted: #64748b;
+            --line: #dbe4ef;
+            --success: #15803d;
+            --success-bg: #eaf8ef;
+            --warn: #b45309;
+            --warn-bg: #fff4df;
+            --danger: #b42318;
+            --danger-bg: #fff0ee;
+            --shadow: 0 12px 32px rgba(31, 42, 68, 0.08)
+        }
+
+        body#fund-pool-adjust-history-tables-doc, body#fund-pool-adjust-history-tables-doc * {
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body#fund-pool-adjust-history-tables-doc {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.65 "Microsoft YaHei", "PingFang SC", Arial, sans-serif
+        }
+
+        #fund-pool-adjust-history-tables-doc .wrap {
+            width: min(1760px, calc(100% - 32px));
+            margin: 0 auto
+        }
+
+        #fund-pool-adjust-history-tables-doc header {
+            padding: 28px 0 24px;
+            color: #fff;
+            background: linear-gradient(125deg, #1F3683 0%, #2743A4 58%, #4D6CA0 100%);
+            border: 0
+        }
+
+        #fund-pool-adjust-history-tables-doc .kicker {
+            margin: 0 0 4px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            opacity: .82
+        }
+
+        #fund-pool-adjust-history-tables-doc h1 {
+            margin: 0;
+            font-size: clamp(26px, 3vw, 36px);
+            line-height: 1.25
+        }
+
+        #fund-pool-adjust-history-tables-doc header p.desc {
+            max-width: 900px;
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, .86);
+            font-size: 14px
+        }
+
+        #fund-pool-adjust-history-tables-doc .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            max-width: 760px;
+            margin-top: 16px
+        }
+
+        #fund-pool-adjust-history-tables-doc .stat {
+            padding: 10px 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .1);
+            font-weight: 700;
+            backdrop-filter: blur(8px)
+        }
+
+        #fund-pool-adjust-history-tables-doc main {
+            padding: 28px 0 56px
+        }
+
+        #fund-pool-adjust-history-tables-doc .nav {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 10px;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(31, 42, 68, .07)
+        }
+
+        #fund-pool-adjust-history-tables-doc .nav a {
+            flex: none;
+            padding: 7px 12px;
+            color: #344054;
+            text-decoration: none;
+            border-radius: 8px
+        }
+
+        #fund-pool-adjust-history-tables-doc .nav a:hover {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #fund-pool-adjust-history-tables-doc .panel {
+            margin-bottom: 24px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            scroll-margin-top: 78px
+        }
+
+        #fund-pool-adjust-history-tables-doc h2 {
+            margin: 0 0 6px;
+            font-size: 22px
+        }
+
+        #fund-pool-adjust-history-tables-doc .sub {
+            margin: 0 0 20px;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        #fund-pool-adjust-history-tables-doc .flow {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 30px
+        }
+
+        #fund-pool-adjust-history-tables-doc .step {
+            min-height: 150px;
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #fund-pool-adjust-history-tables-doc .step b {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-size: 15px
+        }
+
+        #fund-pool-adjust-history-tables-doc .step span {
+            color: var(--regular)
+        }
+
+        #fund-pool-adjust-history-tables-doc .logic {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px
+        }
+
+        #fund-pool-adjust-history-tables-doc .card {
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #f8fafc
+        }
+
+        #fund-pool-adjust-history-tables-doc .card h3 {
+            margin: 0 0 10px;
+            color: #123d83;
+            font-size: 16px
+        }
+
+        #fund-pool-adjust-history-tables-doc .card ul,#fund-pool-adjust-history-tables-doc .card ol {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #fund-pool-adjust-history-tables-doc .card li + li {
+            margin-top: 6px
+        }
+
+        #fund-pool-adjust-history-tables-doc .api {
+            display: inline-block;
+            margin: 0 0 16px;
+            padding: 5px 9px;
+            color: #0f4cba;
+            background: var(--primary-light);
+            border: 1px solid #c7d7f5;
+            border-radius: 4px;
+            overflow-wrap: anywhere;
+            font: 13px Consolas, monospace
+        }
+
+        #fund-pool-adjust-history-tables-doc .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px
+        }
+
+        #fund-pool-adjust-history-tables-doc table {
+            width: 100%;
+            min-width: 960px;
+            border-collapse: collapse
+        }
+
+        #fund-pool-adjust-history-tables-doc th,#fund-pool-adjust-history-tables-doc td {
+            padding: 13px 14px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top
+        }
+
+        #fund-pool-adjust-history-tables-doc th {
+            background: #f1f5f9;
+            color: var(--regular);
+            font-size: 13px;
+            white-space: nowrap
+        }
+
+        #fund-pool-adjust-history-tables-doc tr:last-child td {
+            border-bottom: 0
+        }
+
+        #fund-pool-adjust-history-tables-doc tbody tr:hover {
+            background: #f8fbff
+        }
+
+        #fund-pool-adjust-history-tables-doc code,#fund-pool-adjust-history-tables-doc .name {
+            overflow-wrap: anywhere;
+            font-family: Consolas, monospace
+        }
+
+        #fund-pool-adjust-history-tables-doc .name {
+            color: #183A83;
+            font-weight: 700
+        }
+
+        #fund-pool-adjust-history-tables-doc .tag {
+            display: inline-block;
+            margin: 1px 3px 1px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap
+        }
+
+        #fund-pool-adjust-history-tables-doc .r {
+            color: var(--primary);
+            background: var(--primary-light)
+        }
+
+        #fund-pool-adjust-history-tables-doc .w {
+            color: var(--success);
+            background: var(--success-bg)
+        }
+
+        #fund-pool-adjust-history-tables-doc .u {
+            color: var(--warn);
+            background: var(--warn-bg)
+        }
+
+        #fund-pool-adjust-history-tables-doc .d {
+            color: var(--danger);
+            background: var(--danger-bg)
+        }
+
+        #fund-pool-adjust-history-tables-doc .note {
+            margin-top: 18px;
+            padding: 14px 16px;
+            color: #5c4508;
+            border: 1px solid #f1d58b;
+            border-left: 4px solid #d1a777;
+            border-radius: 8px;
+            background: #fff9e8
+        }
+
+        #fund-pool-adjust-history-tables-doc .notes {
+            margin: 0;
+            padding-left: 20px
+        }
+
+        #fund-pool-adjust-history-tables-doc .notes li + li {
+            margin-top: 5px
+        }
+
+        #fund-pool-adjust-history-tables-doc .back {
+            color: var(--primary);
+            text-decoration: none
+        }
+
+        #fund-pool-adjust-history-tables-doc footer {
+            padding: 0 0 28px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        @media (max-width: 1050px) {
+            #fund-pool-adjust-history-tables-doc .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr))
+            }
+
+            #fund-pool-adjust-history-tables-doc .flow,#fund-pool-adjust-history-tables-doc .logic {
+                grid-template-columns: 1fr
+            }
+
+            #fund-pool-adjust-history-tables-doc .step {
+                min-height: 0
+            }
+        }
+
+        @media (max-width: 680px) {
+            #fund-pool-adjust-history-tables-doc .wrap {
+                width: calc(100% - 24px)
+            }
+
+            #fund-pool-adjust-history-tables-doc header {
+                padding: 24px 0 20px
+            }
+
+            #fund-pool-adjust-history-tables-doc .stats {
+                grid-template-columns: 1fr
+            }
+
+            #fund-pool-adjust-history-tables-doc .panel {
+                padding: 19px;
+                border-radius: 12px
+            }
+        }
+
+        @media print {
+            #fund-pool-adjust-history-tables-doc .nav {
+                display: none
+            }
+
+            #fund-pool-adjust-history-tables-doc .panel {
+                break-inside: avoid
+            }
+        }
     </style>
 </head>
-<body>
-<header><h1>基金池调整历史</h1><p>基金研究 · 基金调库全状态流水 · 条件筛选、分页与 Excel 导出</p></header>
-<main>
-    <section>
-        <h2>查询范围</h2>
-        <p>主表为 <code>ip_adjust_log_fund</code>，查询全部未逻辑删除的基金调库记录，不限制审核状态。关联 <code>dict_security_type</code> 取得基金类型名称，并由服务层回填投资池完整路径。</p>
-        <div class="note">点击基金名称或基金代码可固定打开“基金池调库详情”页签，并定位到对应的调库记录；页面不提供单独的操作列。</div>
+<body id="fund-pool-adjust-history-tables-doc" class="docs-page">
+<header>
+    <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
+        <h1>基金池调整历史</h1>
+        <p class="desc">以基金调库申请日志为主线查询全状态历史，支持条件筛选、分页、关联详情与 Excel 导出。</p>
+        <div class="stats"><span class="stat">3 项表/表组</span><span class="stat">3 个模块接口</span><span class="stat">依据当前代码实现</span></div>
+    </div>
+</header>
+<main class="wrap">
+    <nav class="nav" aria-label="文档章节">
+        <a href="#overview">业务流程总览</a>
+        <a href="#logic-1">历史分页查询</a>
+        <a href="#logic-2">历史详情与导出</a>
+        <a href="#tables">涉及表与场景</a>
+        <a href="#notes">关键规则</a>
+    </nav>
+    <section class="panel" id="overview">
+        <h2>业务流程总览</h2>
+        <p class="sub">以基金调库申请日志为主线查询全状态历史，支持条件筛选、分页、关联详情与 Excel 导出。</p>
+        <div class="flow">
+            <div class="step"><b>1. 加载历史选项</b><span>加载基金投资池树和日志中的基金品种。</span></div>
+            <div class="step"><b>2. 设置历史条件</b><span>按基金、投资池、提交时间、调整类型和审核状态筛选。</span></div>
+            <div class="step"><b>3. 分页查询流水</b><span>读取未删除的基金调库日志，包含全部审核状态。</span></div>
+            <div class="step"><b>4. 查看关联详情</b><span>点击基金名称或代码查看该次申请、步骤和附件。</span></div>
+            <div class="step"><b>5. 导出历史结果</b><span>导出当前筛选匹配的全部日志，不含页面序号。</span></div>
+        </div>
     </section>
-    <section>
-        <h2>筛选与接口</h2>
-        <table>
-            <tr><th>接口</th><th>用途</th></tr>
-            <tr><td><code>POST /api/v1/common/queryPoolTreeList</code></td><td>加载投资品种为 <code>fund</code> 的基金池树</td></tr>
-            <tr><td><code>POST /api/v1/fundPoolAdjustHistory/queryFundPoolAdjustHistoryPage</code></td><td>按投资池、基金代码/名称/类型、提交时间、调整人、调整方向和审核状态分页查询</td></tr>
-            <tr><td><code>POST /api/v1/fundPoolAdjustHistory/queryFundTypeList</code></td><td>加载调整历史中出现的基金类型</td></tr>
-            <tr><td><code>POST /api/v1/fundPoolAdjustHistory/exportFundPoolAdjustHistoryExcel</code></td><td>按当前全部筛选条件导出，不受当前页限制；使用证券池调整历史同款 Excel 模板</td></tr>
-        </table>
+    <section class="panel" id="logic-1">
+        <h2>历史分页查询</h2>
+        <p class="sub">历史来源是申请日志，不是当前池状态；未通过的申请也保留在历史中。</p>
+        <span class="api">POST /api/v1/fundPoolAdjustHistory/queryFundPoolAdjustHistoryPage · queryFundTypeList · exportFundPoolAdjustHistoryExcel</span>
+        <div class="logic">
+            <article class="card"><h3>主查询</h3>
+                <ul>
+                    <li>主表 <code>ip_adjust_log_fund al</code>，固定 <code>al.is_deleted=0</code>，不限定 <code>audit_status=20</code>。</li>
+                    <li>左连接有效投资池，内连接有效基金品种字典；基金名称取日志快照 <code>COALESCE(al.fund_name, al.fund_short_name)</code>。</li>
+                    <li>按 <code>submit_time DESC, adjust_batch_no DESC, id DESC</code> 排序；品种选项从历史日志中去重。</li>
+                    <li>列表展示分页连续序号、调整人、提交时间、基金名称、代码、品种、调整类型、方向、投资池和审核状态。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>筛选与派生</h3>
+                <ul>
+                    <li><code>poolIds</code> 多选；<code>fundCode / fundName</code> 分别模糊匹配代码、全称或简称；<code>securityType</code> 精确匹配。</li>
+                    <li><code>adjustTimeStart / adjustTimeEnd</code> 控制提交时间范围，结束日期拼接 <code>23:59:59</code>，包含当日数据。</li>
+                    <li><code>adjusterName</code> 模糊查询；<code>adjustMode / auditStatus</code> 按选中枚举筛选。</li>
+                    <li>池树调用 <code>POST /api/v1/common/queryPoolTreeList</code>，限定基金大类；服务补齐池层级路径。</li>
+                </ul>
+            </article>
+        </div>
     </section>
-    <section>
-        <h2>列表与导出字段</h2>
-        <p>页面表格字段依次为序号、调整人、提交时间、基金名称、基金代码、基金类型、调整类型、调整方向、投资池、审核状态；不提供操作列。点击基金名称或代码固定打开基金池调库详情。序号按分页连续计算，基金类型显示查询结果中的基金类型名称，并按类型编码固定着色：封闭式基金红色、开放式基金灰蓝色、QDII 基金品牌蓝色、LOF 基金琥珀色、ETF 基金绿色。Excel 导出字段为调整人、提交时间、基金名称、基金代码、基金类型、调整类型、调整方向、投资池、审核状态（不含序号）。</p>
-        <p>Excel 表头采用带底色的楷体加粗文字，数据行采用楷体；首行和数据行均为 20 磅行高、15 字符列宽、垂直居中、无底边框，并保留工作表网格线。</p>
+    <section class="panel" id="logic-2">
+        <h2>历史详情与导出</h2>
+        <p class="sub">详情关联本次历史记录，导出保持同一筛选口径。</p>
+        <span class="api">POST /api/v1/fundPoolAdjustHistory/exportFundPoolAdjustHistoryExcel</span>
+        <div class="logic">
+            <article class="card"><h3>详情入口</h3>
+                <ul>
+                    <li>本页不设置独立操作列；点击名称或代码打开基金调库详情。</li>
+                    <li>传递基金代码、调整日志 ID、批次号及目标池 ID，定位对应批次与池。</li>
+                    <li>终态日志保留提交时的基金名称和代码；临时代码转正不覆盖已结束历史。</li>
+                </ul>
+            </article>
+            <article class="card"><h3>导出格式</h3>
+                <ul>
+                    <li>输出所有匹配日志；不导出页面序号，其余业务字段与列表一致。</li>
+                    <li>使用 <code>.xlsx</code>，沿用债券历史模板、楷体、20 磅行高与15字符列宽。</li>
+                    <li>数据区保留网格显示，不额外设置底边框；枚举导出为对应业务中文。</li>
+                </ul>
+            </article>
+        </div>
     </section>
-    <p><a href="module-tables-index.html">← 返回模块文档目录</a></p>
+    <section class="panel" id="tables">
+        <h2>涉及表、用途与触发场景</h2>
+        <p class="sub">按本模块实际执行阶段标注读写；表组内具体表的作用见用途与触发场景。</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>表名</th><th>用途</th><th>读写</th><th>触发场景</th></tr></thead>
+            <tbody>
+            <tr><td class="name">ip_adjust_log_fund</td><td>基金调库全状态历史、批次和提交快照。</td><td><span class="tag r">查询</span></td><td>分页历史查询、品种选项去重与筛选结果导出。</td></tr>
+            <tr><td class="name">ip_investment_pool</td><td>历史日志目标池及池层级路径。</td><td><span class="tag r">查询</span></td><td>历史查询与导出时关联目标池；加载基金池树、补齐池路径。</td></tr>
+            <tr><td class="name">dict_security_type</td><td>历史日志品种名称和基金大类过滤。</td><td><span class="tag r">查询</span></td><td>关联日志品种；从未删除历史日志生成品种选项。</td></tr>
+            </tbody>
+        </table></div>
+    </section>
+    <section class="panel" id="notes">
+        <h2>关键规则与当前实现说明</h2>
+        <ul class="notes">
+            <li>历史日志与当前有效池状态是不同口径；当前在池记录见 <a class="back" href="fund-pool-query-tables.html">基金池查询</a>。</li>
+            <li>审核状态包含 -1 无效、00 流程中、11 驳回待修改、20 审批通过、21 审批驳回、32 O32 自动审批预留、99 发起人已撤回。</li>
+            <li>调入、调出和调整类型使用日志值；字典名称和状态颜色由前端统一转换，空值留空。</li>
+            <li>本页只读；审批、重提或终止在基金调库审核页办理。</li>
+        </ul>
+        <div class="note">只有最终审批通过才改变基金池状态；历史查询保留各状态下的申请轨迹。</div>
+    </section>
 </main>
+<footer class="wrap"><a class="back" href="module-tables-index.html">返回业务文档索引</a> · 基金研究 · 表与业务逻辑</footer>
 </body>
 </html>

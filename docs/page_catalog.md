@@ -228,14 +228,14 @@
 | `docs/stock-pool-query-tables.html` | 股票池查询文档 | HTML 内联样式 |
 | `docs/stock-pool-adjust-history-tables.html` | 股票池调整历史查询文档 | HTML 内联样式 |
 | `docs/stock-pool-adjust-approve-tables.html` | 股票池调库审核与详情文档 | HTML 内联样式 |
-| `docs/fund-pool-adjust-tables.html` | 基金池调整申请文档 | HTML 内联样式 |
-| `docs/batch-fund-pool-adjust-tables.html` | 基金池批量调整文档 | HTML 内联样式 |
-| `docs/fund-pool-excel-import.html` | 基金池 Excel 导入文档 | HTML 内联样式 |
-| `docs/fund-pool-adjust-approve-tables.html` | 基金池调库审核与详情文档 | HTML 内联样式 |
-| `docs/fund-pool-adjust-history-tables.html` | 基金池调整历史文档 | HTML 内联样式 |
-| `docs/fund-pool-query-tables.html` | 基金池查询文档 | HTML 内联样式 |
-| `docs/fund-nav-export-tables.html` | 基金净值导出文档 | HTML 内联样式 |
-| `docs/temp-fund-code-tables.html` | 基金临时代码管理文档 | HTML 内联样式 |
+| `docs/fund-pool-adjust-tables.html` | 基金池调整申请文档 | HTML 内联样式（章节结构、逻辑卡片、表与触发场景对齐债券研究文档） |
+| `docs/batch-fund-pool-adjust-tables.html` | 基金池批量调整文档 | HTML 内联样式（章节结构、逻辑卡片、表与触发场景对齐债券研究文档） |
+| `docs/fund-pool-excel-import.html` | 基金池 Excel 导入文档 | HTML 内联样式（章节结构、逻辑卡片、表与触发场景对齐债券研究文档） |
+| `docs/fund-pool-adjust-approve-tables.html` | 基金池调库审核与详情文档 | HTML 内联样式（章节结构、逻辑卡片、表与触发场景对齐债券研究文档） |
+| `docs/fund-pool-adjust-history-tables.html` | 基金池调整历史文档 | HTML 内联样式（章节结构、逻辑卡片、表与触发场景对齐债券研究文档） |
+| `docs/fund-pool-query-tables.html` | 基金池查询文档 | HTML 内联样式（章节结构、逻辑卡片、表与触发场景对齐债券研究文档） |
+| `docs/fund-nav-export-tables.html` | 基金净值导出文档 | HTML 内联样式（章节结构、逻辑卡片、表与触发场景对齐债券研究文档） |
+| `docs/temp-fund-code-tables.html` | 基金临时代码管理文档 | HTML 内联样式（章节结构、逻辑卡片、表与触发场景对齐债券研究文档） |
 | `docs/rule-manager-tables.html` | 规则管理中心文档 | HTML 内联样式 |
 | `docs/credit-bond-grade-rule-tables.html` | 主体内评分档规则文档 | HTML 内联样式 |
 | `docs/scheduled-task-tables.html` | 定时任务管理文档 | HTML 内联样式 |
