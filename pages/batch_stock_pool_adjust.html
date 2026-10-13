@@ -700,19 +700,20 @@
 <script>
     new Vue({
         el: '#batch_stock_pool_adjust',
+        // 初始化股票研究页面的查询条件、业务数据和操作状态
         data() {
             return {
                 moment: moment, // 日期处理工具
                 today: moment().format('YYYY年MM月DD日'), // 顶栏日期
                 pageMode: 'poolList',                    // 当前视图：poolList / adjustWorkbench
-                loading: false,                          // 投资池列表加载状态
-                tableData: [],                           // 当前页投资池列表
+                loading: false, // 投资池列表加载状态
+                tableData: [], // 当前页列表数据
                 poolTreeData: [],                        // 投资池筛选树
                 poolTreeVisible: false,                  // 投资池选择弹层
                 poolTreeKeyword: '',                     // 投资池树搜索词
                 selectedPoolTags: [],                    // 已选投资池标签
-                currentUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
-                currentUserName: window.RrsAuth.getCurrentUser().userName, // 当前登录用户名称
+                currentUserId: window.RrsAuth.getCurrentUser().userId, // 当前操作人 ID
+                currentUserName: window.RrsAuth.getCurrentUser().userName, // 当前操作人姓名
                 currentPool: {},                         // 当前调库投资池
                 direction: 'in',                         // 当前调整方向
                 adjustStep: 1,                           // 调库步骤
@@ -720,21 +721,35 @@
                 checkLoading: false,                     // 下一步校验加载状态
                 checkSeq: 0,                             // 校验请求序号，忽略退出工作台后的旧响应
                 submitLoading: false,                    // 提交加载状态
-                flowDialogVisible: false,                // 调库流程确认弹窗显示状态
+                flowDialogVisible: false, // 审批流程确认弹窗显示状态
                 searchForm: { poolIds: [] },             // 投资池筛选条件
-                pagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 投资池分页
+                pagination: { // 当前列表分页参数
+                pageIndex: 1, // 当前页码
+                pageSize: 10, // 每页条数
+                total: 0 // 总记录数
+            },
                 treeProps: { // 投资池树字段配置
-                    children: 'children',
-                    label: 'poolName',
+                    children: 'children', // 子节点字段名
+                    label: 'poolName', // 节点名称字段名
+                    // 禁用非叶子节点，只允许选择叶子投资池
                     disabled(data) {
                         return data.children && data.children.length > 0
                     }
                 },
-                stockSearchForm: { stockCode: '', stockShortName: '', industryCode: '', marketCode: '' }, // 股票查询条件
+                stockSearchForm: { // 候选股票查询条件
+                stockCode: '', // 股票代码关键词
+                stockShortName: '', // 股票简称关键词
+                industryCode: '', // 行业编码筛选条件
+                marketCode: '' // 交易市场编码筛选条件
+            },
                 stockTableData: [],                   // 当前页候选股票
                 stockLoading: false,                  // 候选股票加载状态
                 stockListSeq: 0,                      // 候选请求序号，忽略切池及翻页后的旧响应
-                stockPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 候选股票分页
+                stockPagination: { // 候选股票分页参数
+                pageIndex: 1, // 当前页码
+                pageSize: 10, // 每页条数
+                total: 0 // 总记录数
+            },
                 selectedStockMap: {},                 // 跨页已选股票映射
                 selectionSyncing: false,                 // 恢复勾选状态标记
                 selectedCreditReports: [],               // 已确认股票报告
@@ -751,16 +766,37 @@
                 reportDialogColumn: 'credit',            // 报告弹窗类型
                 reportActiveTab: 'internal',             // 报告来源标签
                 internalReportData: [],                  // 内部报告数据
-                internalReportFilters: { title: '', securityCode: '', reportType: '', writeDateRange: null }, // 内部报告筛选条件
-                internalReportPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 内部报告分页
+                internalReportFilters: { // 内部报告查询条件
+                title: '', // 报告标题关键词
+                securityCode: '', // 证券代码关键词
+                reportType: '', // 报告类型编码
+                writeDateRange: null // 报告撰写日期范围
+            },
+                internalReportPagination: { // 内部报告分页参数
+                pageIndex: 1, // 当前页码
+                pageSize: 10, // 每页条数
+                total: 0 // 总记录数
+            },
                 internalReportLoading: false,            // 内部报告加载状态
                 externalReportData: [],                  // 外部报告数据
-                externalReportFilters: { title: '', securityCode: '', reportType: '', writeDateRange: null }, // 外部报告筛选条件
-                externalReportPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 外部报告分页
+                externalReportFilters: { // 外部报告查询条件
+                title: '', // 报告标题关键词
+                securityCode: '', // 证券代码关键词
+                reportType: '', // 报告类型编码
+                writeDateRange: null // 报告撰写日期范围
+            },
+                externalReportPagination: { // 外部报告分页参数
+                pageIndex: 1, // 当前页码
+                pageSize: 10, // 每页条数
+                total: 0 // 总记录数
+            },
                 externalReportLoading: false,            // 外部报告加载状态
-                reportRequestIds: { internal: 0, external: 0 }, // 报告查询序号，忽略旧响应
+                reportRequestIds: { // 内部和外部报告查询序号，忽略迟到响应
+                internal: 0, // 内部报告查询序号
+                external: 0 // 外部报告查询序号
+            },
                 restoringReportSelection: false,         // 报告选中状态恢复标记
-                reportTypeDict: { // 报告类型字典
+                reportTypeDict: { // 报告类型展示字典
                     bond_in_report: '债券入库报告',
                     bond_out_report: '债券出库报告',
                     fund_in_report: '基金入库报告',
@@ -769,14 +805,17 @@
                     stock_out_report: '股票出库报告',
                     other_report: '其他报告'
                 },
-                reportSecurityTypeDict: { // 报告证券类型字典
+                reportSecurityTypeDict: { // 报告证券类型展示字典
                     bond: '债券',
                     fund: '基金',
                     stock: '股票',
                     company: '主体',
                     other: '其他'
                 },
-                dataSourceDict: { migrated: '迁移数据', uploaded: '系统上传数据' }, // 数据来源字典
+                dataSourceDict: { // 报告数据来源展示字典
+                migrated: '迁移数据',
+                uploaded: '系统上传数据'
+            },
                 // 投资品种：value=dict_security_type.category_type（与字典演示数据大类一致）
                 varietyOptions: [ // 投资品种
                     { value: 'bond', label: '债券' },
@@ -900,6 +939,7 @@
                 return this.reportDialogColumn === 'material' ? '选择其他附件' : '选择股票报告'
             }
         },
+        // 挂载后加载页面数据并绑定表格布局监听
         mounted() {
             this.initPage()
             this.handleWindowResize = () => {
@@ -911,6 +951,7 @@
             }
             window.addEventListener('resize', this.handleWindowResize)
         },
+        // 销毁页面前清理已绑定的监听和待执行任务
         beforeDestroy() {
             window.removeEventListener('resize', this.handleWindowResize)
             window.clearTimeout(this.resizeLayoutTimer)
@@ -954,7 +995,9 @@
                     this.industryOptions = industryList || []
                     // 加载用户有权限的股票叶子池。
                     await this.loadPoolPage()
-                } finally { this.loading = false }
+                } finally {
+                this.loading = false
+            }
             },
 
             // 构建投资池筛选树
@@ -1162,7 +1205,9 @@
                     this.stockPagination.total = 0
                     this.selectionSyncing = false
                     this.$message.error(e.message || '候选股票查询失败')
-                } finally { if (requestSeq === this.stockListSeq) this.stockLoading = false }
+                } finally {
+                if (requestSeq === this.stockListSeq) this.stockLoading = false
+            }
                 this.$nextTick(() => {
                     // 恢复跨页股票勾选并重新计算固定列。
                     this.restoreCurrentPageSelection()
@@ -1173,12 +1218,17 @@
             // 恢复当前页已选状态
             restoreCurrentPageSelection() {
                 const tableRef = this.$refs.stockTableRef
-                if (!tableRef) { this.selectionSyncing = false; return }
+                if (!tableRef) {
+                this.selectionSyncing = false;
+                return
+            }
                 this.selectionSyncing = true
                 this.stockTableData.forEach(row => {
                     tableRef.toggleRowSelection(row, !!this.selectedStockMap[row.stockCode])
                 })
-                this.$nextTick(() => { this.selectionSyncing = false })
+                this.$nextTick(() => {
+                this.selectionSyncing = false
+            })
             },
 
             // 同步当前页股票勾选到跨页选择映射
@@ -1254,10 +1304,16 @@
             // 逐股票校验目标池调整，并保留完整手工、联动和互斥结果。
             async goToStep2() {
                 if (this.checkLoading) return
-                if (!this.selectedStocks.length) { this.$message.warning('请至少选择一只股票'); return }
+                if (!this.selectedStocks.length) {
+                this.$message.warning('请至少选择一只股票');
+                return
+            }
                 // 股票报告引用仅分配给对应的已选股票。
                 const reportError = this.validateStockReports(this.selectedCreditReports)
-                if (reportError) { this.$message.warning(reportError); return }
+                if (reportError) {
+                this.$message.warning(reportError);
+                return
+            }
                 this.checkLoading = true
                 this.adjustReviewList = []
                 this.flowDialogVisible = false
@@ -1273,8 +1329,11 @@
                     // 转换股票结果并按完整调库组着色。
                     this.adjustReviewList = this.applyAdjustGroupColors((data.items || []).map((item, index) => this.buildReviewRow(item, index)))
                     this.adjustStep = 2
-                } catch (e) { this.$message.error(e.message || '操作失败') }
-                finally { if (currentSeq === this.checkSeq) this.checkLoading = false }
+                } catch (e) {
+                this.$message.error(e.message || '操作失败')
+            } finally {
+                if (currentSeq === this.checkSeq) this.checkLoading = false
+            }
                 // 同步校验结果表固定列布局。
                 this.refreshTableLayout('adjustReviewTableRef')
             },
@@ -1363,9 +1422,18 @@
                 if (this.submitLoading) return
                 // 提交前重新核对报告所属股票。
                 const message = this.validateStockReports(this.selectedCreditReports)
-                if (message) { this.$message.warning(message); return }
-                if (!this.validManualAdjustReviewList.length) { this.$message.warning('没有可提交的股票调库申请，请检查校验结果'); return }
-                if (!this.allValidRowsHaveFlow) { this.$message.warning('请为所有可提交的手工调整项选择审批流程'); return }
+                if (message) {
+                this.$message.warning(message);
+                return
+            }
+                if (!this.validManualAdjustReviewList.length) {
+                this.$message.warning('没有可提交的股票调库申请，请检查校验结果');
+                return
+            }
+                if (!this.allValidRowsHaveFlow) {
+                this.$message.warning('请为所有可提交的手工调整项选择审批流程');
+                return
+            }
                 this.flowDialogVisible = true
             },
 
@@ -1374,8 +1442,14 @@
                 if (this.submitLoading) return
                 // 确认时再次检查股票报告归属和一般流程。
                 const message = this.validateStockReports(this.selectedCreditReports)
-                if (message) { this.$message.warning(message); return }
-                if (!this.allValidRowsHaveFlow) { this.$message.warning('请为所有可提交的手工调整项选择审批流程'); return }
+                if (message) {
+                this.$message.warning(message);
+                return
+            }
+                if (!this.allValidRowsHaveFlow) {
+                this.$message.warning('请为所有可提交的手工调整项选择审批流程');
+                return
+            }
                 this.flowDialogVisible = false
                 this.submitLoading = true
                 try {
@@ -1386,13 +1460,22 @@
                     // 返回列表并刷新可调整投资池。
                     this.backToPoolList()
                     await this.initPage()
-                } catch (e) { this.$message.error(e.message || '操作失败') }
-                finally { this.submitLoading = false }
+                } catch (e) {
+                this.$message.error(e.message || '操作失败')
+            } finally {
+                this.submitLoading = false
+            }
             },
 
             // 股票评级沿用单笔申请的字典。
             ratingLabel(code) {
-                return { buy: '买入', overweight: '增持', neutral: '中性', underweight: '减持', sell: '卖出' }[code] || code || ''
+                return {
+                    buy: '买入',
+                    overweight: '增持',
+                    neutral: '中性',
+                    underweight: '减持',
+                    sell: '卖出'
+                }[code] || code || ''
             },
 
             // 股票评级统一使用既有证券评级成功色。
@@ -1459,7 +1542,12 @@
 
             // 构建调库校验结果的调整说明（失败原因表格分条展示；此处生成落库文本）
             buildAdjustNote(item, failReasons, warning) {
-                const map = { manual: '手工', linkage: '联动', mutex: '互斥', related: '关联' }
+                const map = {
+                    manual: '手工',
+                    linkage: '联动',
+                    mutex: '互斥',
+                    related: '关联'
+                }
                 const typeLabel = (map[item.itemTag] || '手工') + item.adjustMode
                 const reasons = Array.isArray(failReasons) ? failReasons : (failReasons ? [failReasons] : [])
                 if (reasons.length > 0) {
@@ -1471,13 +1559,19 @@
 
             // 流程类型展示文案
             flowTypeLabel(type) {
-                const map = { normalInbound: '默认调入', normalOutbound: '调出' }
+                const map = {
+                    normalInbound: '默认调入',
+                    normalOutbound: '调出'
+                }
                 return map[type] || '标准'
             },
 
             // 流程类型样式分类
             flowTypeClass(type) {
-                const map = { normalInbound: 'normal', normalOutbound: 'outbound' }
+                const map = {
+                    normalInbound: 'normal',
+                    normalOutbound: 'outbound'
+                }
                 return map[type] || 'standard'
             },
 
@@ -1505,7 +1599,9 @@
             // 关系项不单独选流程，始终使用同股同组手工主项的流程。
             inheritGroupFlows(rows) {
                 const manualMap = {}
-                rows.forEach(row => { if (row.itemTag === 'manual') manualMap[this.reviewGroupKey(row)] = row })
+                rows.forEach(row => {
+                if (row.itemTag === 'manual') manualMap[this.reviewGroupKey(row)] = row
+            })
                 rows.forEach(row => {
                     if (row.itemTag === 'manual') return
                     const manual = manualMap[this.reviewGroupKey(row)]
@@ -1650,7 +1746,11 @@
                 // 股票报告选择立即提示归属、品种或附件问题。
                 if (this.reportDialogColumn === 'credit') {
                     const message = this.validateStockReports(rows)
-                    if (message) { this.$message.warning(message); this.$nextTick(() => this.restoreInternalReportSelection()); return }
+                    if (message) {
+                    this.$message.warning(message);
+                    this.$nextTick(() => this.restoreInternalReportSelection());
+                    return
+                }
                 }
                 const visibleIds = this.internalReportPageData.map(item => item.id)
                 const mergeMap = {}
@@ -1677,7 +1777,11 @@
                 // 股票报告选择立即提示归属、品种或附件问题。
                 if (this.reportDialogColumn === 'credit') {
                     const message = this.validateStockReports(rows)
-                    if (message) { this.$message.warning(message); this.$nextTick(() => this.restoreExternalReportSelection()); return }
+                    if (message) {
+                    this.$message.warning(message);
+                    this.$nextTick(() => this.restoreExternalReportSelection());
+                    return
+                }
                 }
                 const visibleIds = this.externalReportPageData.map(item => item.id)
                 const mergeMap = {}
@@ -1711,7 +1815,9 @@
                     const isSelected = this.selectedInternalReports.some(item => item.id === row.id)
                     if (isSelected) tableRef.toggleRowSelection(row, true)
                 })
-                this.$nextTick(() => { this.restoringReportSelection = false })
+                this.$nextTick(() => {
+                this.restoringReportSelection = false
+            })
             },
 
             // 恢复外部报告选中状态
@@ -1727,7 +1833,9 @@
                     const isSelected = this.selectedExternalReports.some(item => item.id === row.id)
                     if (isSelected) tableRef.toggleRowSelection(row, true)
                 })
-                this.$nextTick(() => { this.restoringReportSelection = false })
+                this.$nextTick(() => {
+                this.restoringReportSelection = false
+            })
             },
 
             // 切换报告 Tab 后恢复选中状态
@@ -1873,7 +1981,10 @@
                 if (this.reportDialogColumn === 'credit') {
                     // 确认前完整检查跨页报告选择。
                     const message = this.validateStockReports(selectedReports)
-                    if (message) { this.$message.warning(message); return }
+                    if (message) {
+                    this.$message.warning(message);
+                    return
+                }
                 }
                 if (this.reportDialogColumn === 'material') {
                     this.selectedMaterialReports = selectedReports

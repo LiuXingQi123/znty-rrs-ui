@@ -733,6 +733,7 @@
 <script>
 new Vue({
     el: '#stock_pool_adjust',
+    // 初始化股票研究页面的查询条件、业务数据和操作状态
     data() {
         const user = window.RrsAuth.getCurrentUser()
         return {
@@ -741,11 +742,22 @@ new Vue({
             listLoading: false,           // 股票列表加载状态
             detailLoading: false,         // 股票调库详情加载状态
             adjustCheckLoading: false,    // 下一步校验接口加载状态
-            listRequestId: 0, detailRequestId: 0, adjustCheckSeq: 0,            // 校验请求序号，避免旧响应覆盖新结果
+            listRequestId: 0, // 列表请求序号，忽略迟到响应
+            detailRequestId: 0, // 详情请求序号，忽略迟到响应
+            adjustCheckSeq: 0, // 调库校验序号，忽略迟到响应
             submitLoading: false,         // 调库提交防重复点击状态
             adjustStep: 1,                // 调库步骤：1=选择池 / 2=校验确认
-            searchForm: { stockCode: '', stockShortName: '', industryCode: '', marketCode: '' }, // 列表查询条件
-            pagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 股票列表分页
+            searchForm: { // 列表查询条件
+                stockCode: '', // 股票代码关键词
+                stockShortName: '', // 股票简称关键词
+                industryCode: '', // 行业编码筛选条件
+                marketCode: '' // 交易市场编码筛选条件
+            },
+            pagination: { // 当前列表分页参数
+                pageIndex: 1, // 当前页码
+                pageSize: 20, // 每页条数
+                total: 0 // 总记录数
+            },
             stockList: [],                 // 股票列表数据
             industryOptions: [],           // 股票所属行业选项
             stockDetail: {},               // 当前股票只读详情
@@ -756,33 +768,57 @@ new Vue({
             selectedInPools: [],          // 第一步已选择的调入池
             selectedOutPools: [],         // 第一步已选择的调出池
             adjustReviewList: [],         // 第二步调库校验结果
-            sectionExpanded: {            // 详情区块展开状态
-                stockInfo: true,
-                currentPools: true,
-                adjustOp: true,
-                adjustReview: true,
-                reasonAdvice: true
+            sectionExpanded: { // 详情区块展开状态
+                stockInfo: true, // 股票基础信息区展开状态
+                currentPools: true, // 当前所在池区展开状态
+                adjustOp: true, // 调库操作区展开状态
+                adjustReview: true, // 调库校验区展开状态
+                reasonAdvice: true // 调整原因和建议区展开状态
             },
-            submitForm: { adjustReason: '', adjustAdvice: '' }, // 提交页股票信息、原因和建议
-            flowDialogVisible: false,      // 调库流程选择弹窗显示状态
-            reportRequestIds: { internal: 0, external: 0 },
+            submitForm: { // 本次调整原因和建议
+                adjustReason: '', // 本次调整原因
+                adjustAdvice: '' // 本次调整建议
+            },
+            flowDialogVisible: false, // 审批流程确认弹窗显示状态
+            reportRequestIds: { // 内部和外部报告查询序号，忽略迟到响应
+                internal: 0, // 内部报告查询序号
+                external: 0 // 外部报告查询序号
+            },
             reportDialogVisible: false,    // 报告选择弹窗显示状态
             reportDialogDirection: '',     // 当前报告所属方向：in / out
             reportDialogPoolId: null,      // 当前报告所属池 ID
             reportDialogColumn: '',        // 当前报告目标列：credit / material
             reportActiveTab: 'internal',   // 报告弹窗当前 Tab
             internalReportData: [],        // 内部报告当前页数据
-            internalReportFilters: { title: '', securityCode: '', reportType: '', writeDateRange: null }, // 内部报告查询条件
-            internalReportPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 内部报告分页
+            internalReportFilters: { // 内部报告查询条件
+                title: '', // 报告标题关键词
+                securityCode: '', // 证券代码关键词
+                reportType: '', // 报告类型编码
+                writeDateRange: null // 报告撰写日期范围
+            },
+            internalReportPagination: { // 内部报告分页参数
+                pageIndex: 1, // 当前页码
+                pageSize: 10, // 每页条数
+                total: 0 // 总记录数
+            },
             internalReportLoading: false,  // 内部报告加载状态
             selectedInternalReports: [],   // 弹窗会话内已选内部报告
             externalReportData: [],        // 外部报告当前页数据
-            externalReportFilters: { title: '', securityCode: '', reportType: '', writeDateRange: null }, // 外部报告查询条件
-            externalReportPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 外部报告分页
+            externalReportFilters: { // 外部报告查询条件
+                title: '', // 报告标题关键词
+                securityCode: '', // 证券代码关键词
+                reportType: '', // 报告类型编码
+                writeDateRange: null // 报告撰写日期范围
+            },
+            externalReportPagination: { // 外部报告分页参数
+                pageIndex: 1, // 当前页码
+                pageSize: 10, // 每页条数
+                total: 0 // 总记录数
+            },
             externalReportLoading: false,  // 外部报告加载状态
             selectedExternalReports: [],   // 弹窗会话内已选外部报告
             restoringReportSelection: false, // 恢复报告勾选状态标志
-            reportTypeDict: {
+            reportTypeDict: { // 报告类型展示字典
                 bond_in_report: '债券入库报告',
                 bond_out_report: '债券出库报告',
                 fund_in_report: '基金入库报告',
@@ -791,7 +827,13 @@ new Vue({
                 stock_out_report: '股票出库报告',
                 other_report: '其他报告'
             },
-            reportSecurityTypeDict: { bond: '债券', fund: '基金', stock: '股票', company: '主体', other: '其他' }, // 报告证券类型字典
+            reportSecurityTypeDict: { // 报告证券类型展示字典
+                bond: '债券',
+                fund: '基金',
+                stock: '股票',
+                company: '主体',
+                other: '其他'
+            },
             creditReportSelections: {},    // 各方向、目标池已选股票报告
             otherMaterialSelections: {},   // 各方向、目标池已选其他材料
             attachmentFiles: {},           // 各方向、目标池股票报告上传文件
@@ -799,60 +841,96 @@ new Vue({
         }
     },
     computed: {
+        // 筛选校验通过的调库明细
         validAdjustReviewList() {
             return this.adjustReviewList.filter(item => item.canAdjust)
         },
+        // 筛选需要选择审批流程的有效手工主项
         validManualAdjustReviewList() {
             return this.adjustReviewList.filter(item => item.canAdjust && item.itemTag === 'manual')
         },
+        // 检查所有有效手工主项是否已选择可用审批流程
         allValidRowsHaveFlow() {
             return this.validManualAdjustReviewList.length > 0
                 && this.validManualAdjustReviewList.every(row => !!this.selectedRowFlowOption(row))
         },
+        // 统计校验通过的调库明细数量
         validItemCount() {
             return this.validAdjustReviewList.length
         },
+        // 返回内部报告当前页数据
         internalReportPageData() {
             return this.internalReportData
         },
+        // 返回外部报告当前页数据
         externalReportPageData() {
             return this.externalReportData
         },
+        // 从报告类型字典生成筛选选项
         reportTypeOptions() {
             return Object.keys(this.reportTypeDict)
         },
+        // 返回内部报告类型筛选选项
         internalReportTypeOptions() {
             return this.reportTypeOptions
         },
+        // 返回外部报告类型筛选选项
         externalReportTypeOptions() {
             return this.reportTypeOptions
         },
+        // 统计弹窗内已选择的内部和外部报告数量
         totalSelectedReports() {
             return this.selectedInternalReports.length + this.selectedExternalReports.length
         },
+        // 根据材料类别生成报告选择弹窗标题
         reportDialogTitle() {
             return this.reportDialogColumn === 'material' ? '选择其他材料' : '选择股票报告'
         }
     },
+    // 初始化股票行业选项和股票分页列表
     created() {
         this.loadIndustries()
         this.loadStockList()
     },
     methods: {
         // 可空数值保持空白，零值仍显示为 0。
-        emptyNumber(value) { return value == null ? '' : value; },
+        emptyNumber(value) {
+            return value == null ? '' : value;
+        },
         // 按原始百分数值显示换手率。
-        formatPercent(value) { return value == null || value === '' ? '' : value + '%'; },
+        formatPercent(value) {
+            return value == null || value === '' ? '' : value + '%';
+        },
         // 交易市场由前端字典显示中文。
-        marketLabel(code) { return { SSE: '上海证券交易所', SZSE: '深圳证券交易所', HKEX: '香港交易所' }[code] || code || ''; },
+        marketLabel(code) {
+            return {
+                SSE: '上海证券交易所',
+                SZSE: '深圳证券交易所',
+                HKEX: '香港交易所'
+            }[code] || code || '';
+        },
         // 股票研究评级编码转展示文案。
-        ratingLabel(code) { return { buy: '买入', overweight: '增持', neutral: '中性', underweight: '减持', sell: '卖出' }[code] || code || ''; },
+        ratingLabel(code) {
+            return {
+                buy: '买入',
+                overweight: '增持',
+                neutral: '中性',
+                underweight: '减持',
+                sell: '卖出'
+            }[code] || code || '';
+        },
         // 股票评级沿用证券评级标签配色。
-        ratingTagType() { return 'success'; },
+        ratingTagType() {
+            return 'success';
+        },
 
         // 加载已有股票行业选项。
         async loadIndustries() {
-            try { this.industryOptions = await this.apiPost('/api/v1/stockPoolAdjust/queryIndustryList', {}) || []; } catch (e) { this.industryOptions = []; }
+            try {
+                this.industryOptions = await this.apiPost('/api/v1/stockPoolAdjust/queryIndustryList', {}) || [];
+            } catch (e) {
+                this.industryOptions = [];
+            }
         },
         // 按当前查询条件加载股票分页列表。
         async loadStockList() {
@@ -863,17 +941,35 @@ new Vue({
                 if (requestId !== this.listRequestId) return
                 this.stockList = data.records || []
                 this.pagination.total = data.total || 0
-            } catch (e) { if (requestId === this.listRequestId) { this.stockList = []; this.pagination.total = 0 } }
+            } catch (e) {
+                if (requestId === this.listRequestId) {
+                    this.stockList = [];
+                    this.pagination.total = 0
+                }
+            }
             if (requestId === this.listRequestId) this.listLoading = false
         },
         // 从第一页执行股票查询。
-        handleSearch() { this.pagination.pageIndex = 1; this.loadStockList() },
+        handleSearch() {
+            this.pagination.pageIndex = 1;
+            this.loadStockList()
+        },
         // 清空股票查询条件并重新查询。
-        handleReset() { this.searchForm = { stockCode: '', stockShortName: '', industryCode: '', marketCode: '' }; this.handleSearch() },
+        handleReset() {
+            this.searchForm = { stockCode: '', stockShortName: '', industryCode: '', marketCode: '' };
+            this.handleSearch()
+        },
         // 切换股票列表页码。
-        changePage(page) { this.pagination.pageIndex = page; this.loadStockList() },
+        changePage(page) {
+            this.pagination.pageIndex = page;
+            this.loadStockList()
+        },
         // 切换股票列表每页条数。
-        changeSize(size) { this.pagination.pageSize = size; this.pagination.pageIndex = 1; this.loadStockList() },
+        changeSize(size) {
+            this.pagination.pageSize = size;
+            this.pagination.pageIndex = 1;
+            this.loadStockList()
+        },
         // 进入股票池调整详情并加载股票、当前池和可调整池。
         async openAdjust(row) {
             this.currentPage = 'detail'
@@ -937,7 +1033,10 @@ new Vue({
         // 将投资池平铺数据转换成树形结构。
         buildPoolTree(list) {
             const map = {}
-            ;(list || []).forEach(item => { map[item.id] = Object.assign({}, item, { children: [] }) })
+            ;
+            (list || []).forEach(item => {
+                map[item.id] = Object.assign({}, item, { children: [] })
+            })
             const roots = []
             Object.keys(map).forEach(key => {
                 const item = map[key]
@@ -952,11 +1051,14 @@ new Vue({
             return trim(roots)
         },
         // 仅允许选择投资池叶子节点。
-        poolRowSelectable(row) { return !row.children || row.children.length === 0 },
+        poolRowSelectable(row) {
+            return !row.children || row.children.length === 0
+        },
         // 清理重复项并只保留投资池叶子节点。
         normalizeSelectedPools(selection) {
             const map = {}
-            ;(selection || []).forEach(row => {
+            ;
+            (selection || []).forEach(row => {
                 if (row && this.poolRowSelectable(row)) map[row.id] = row
             })
             return Object.keys(map).map(id => map[id])
@@ -965,7 +1067,8 @@ new Vue({
         flattenPoolTree(tree) {
             const result = []
             const walk = nodes => {
-                ;(nodes || []).forEach(node => {
+                ;
+                (nodes || []).forEach(node => {
                     if (node.children && node.children.length) walk(node.children)
                     else result.push(node)
                 })
@@ -1036,9 +1139,13 @@ new Vue({
             })
         },
         // 格式化投资池容量展示文本。
-        capacityText(row) { return (row.currentCount == null ? 0 : row.currentCount) + ' / ' + (row.maxCapacity == null ? '不限' : row.maxCapacity) },
+        capacityText(row) {
+            return (row.currentCount == null ? 0 : row.currentCount) + ' / ' + (row.maxCapacity == null ? '不限' : row.maxCapacity)
+        },
         // 生成方向与目标池对应的材料选择键。
-        materialKey(direction, poolId) { return direction + '-' + poolId },
+        materialKey(direction, poolId) {
+            return direction + '-' + poolId
+        },
         // 获取指定池的股票报告选择。
         getCreditReportSelections(direction, poolId) {
             const key = this.materialKey(direction, poolId)
@@ -1199,9 +1306,13 @@ new Vue({
             })
         },
         // 查询内部报告。
-        queryInternalReports() { return this.queryReportListPage('internal') },
+        queryInternalReports() {
+            return this.queryReportListPage('internal')
+        },
         // 查询外部报告。
-        queryExternalReports() { return this.queryReportListPage('external') },
+        queryExternalReports() {
+            return this.queryReportListPage('external')
+        },
         // 合并内部报告当前页勾选与其他页已选项。
         handleInternalReportSelectionChange(rows) {
             if (this.restoringReportSelection) return
@@ -1210,8 +1321,15 @@ new Vue({
             this.selectedInternalReports.forEach(report => {
                 if (!visibleIds.includes(report.id)) map[report.id] = report
             })
-            ;(rows || []).forEach(report => {
-                map[report.id] = { id: report.id, title: report.title, reportType: report.reportType, source: 'internal', attachments: report.attachments || [] }
+            ;
+            (rows || []).forEach(report => {
+                map[report.id] = {
+                    id: report.id,
+                    title: report.title,
+                    reportType: report.reportType,
+                    source: 'internal',
+                    attachments: report.attachments || []
+                }
             })
             this.selectedInternalReports = Object.keys(map).map(key => map[key])
         },
@@ -1223,28 +1341,45 @@ new Vue({
             this.selectedExternalReports.forEach(report => {
                 if (!visibleIds.includes(report.id)) map[report.id] = report
             })
-            ;(rows || []).forEach(report => {
-                map[report.id] = { id: report.id, title: report.title, reportType: report.reportType, source: 'external', attachments: report.attachments || [] }
+            ;
+            (rows || []).forEach(report => {
+                map[report.id] = {
+                    id: report.id,
+                    title: report.title,
+                    reportType: report.reportType,
+                    source: 'external',
+                    attachments: report.attachments || []
+                }
             })
             this.selectedExternalReports = Object.keys(map).map(key => map[key])
         },
         // 恢复内部报告当前页勾选状态。
         restoreInternalReportSelection() {
             const table = this.$refs.internalReportTableRef
-            if (!table) { this.restoringReportSelection = false; return }
+            if (!table) {
+                this.restoringReportSelection = false;
+                return
+            }
             this.restoringReportSelection = true
             table.clearSelection()
             this.internalReportPageData.forEach(row => table.toggleRowSelection(row, this.selectedInternalReports.some(report => report.id === row.id)))
-            this.$nextTick(() => { this.restoringReportSelection = false })
+            this.$nextTick(() => {
+                this.restoringReportSelection = false
+            })
         },
         // 恢复外部报告当前页勾选状态。
         restoreExternalReportSelection() {
             const table = this.$refs.externalReportTableRef
-            if (!table) { this.restoringReportSelection = false; return }
+            if (!table) {
+                this.restoringReportSelection = false;
+                return
+            }
             this.restoringReportSelection = true
             table.clearSelection()
             this.externalReportPageData.forEach(row => table.toggleRowSelection(row, this.selectedExternalReports.some(report => report.id === row.id)))
-            this.$nextTick(() => { this.restoringReportSelection = false })
+            this.$nextTick(() => {
+                this.restoringReportSelection = false
+            })
         },
         // 切换报告来源 Tab 后恢复当前页勾选状态。
         handleReportTabClick() {
@@ -1306,9 +1441,13 @@ new Vue({
             this.$nextTick(() => this.restoreExternalReportSelection())
         },
         // 返回报告类型名称。
-        reportTypeLabel(code) { return this.reportTypeDict[code] || code || '' },
+        reportTypeLabel(code) {
+            return this.reportTypeDict[code] || code || ''
+        },
         // 返回报告证券类型名称。
-        reportSecurityTypeLabel(code) { return this.reportSecurityTypeDict[code] || code || '' },
+        reportSecurityTypeLabel(code) {
+            return this.reportSecurityTypeDict[code] || code || ''
+        },
         // 返回报告类型样式分组。
         getReportTypeClass(type) {
             const map = {
@@ -1470,15 +1609,29 @@ new Vue({
             return 'info'
         },
         // 返回流程选择卡片的分组颜色类。
-        getFlowRowColorClass(index) { return 'flow-row-color-' + (index % 5) },
+        getFlowRowColorClass(index) {
+            return 'flow-row-color-' + (index % 5)
+        },
         // 返回调库明细来源标签名称。
-        itemTagLabel(tag) { return { manual: '手工', linkage: '联动', mutex: '互斥' }[tag] || tag || '' },
+        itemTagLabel(tag) {
+            return {
+                manual: '手工',
+                linkage: '联动',
+                mutex: '互斥'
+            }[tag] || tag || ''
+        },
         // 返回调库明细调整类型名称。
-        adjustTypeLabel(tag) { return this.itemTagLabel(tag) ? this.itemTagLabel(tag) + '调整' : '' },
+        adjustTypeLabel(tag) {
+            return this.itemTagLabel(tag) ? this.itemTagLabel(tag) + '调整' : ''
+        },
         // 返回调库明细来源标签样式。
-        itemTagType(tag) { return tag === 'mutex' ? 'danger' : (tag === 'linkage' ? 'warning' : 'info') },
+        itemTagType(tag) {
+            return tag === 'mutex' ? 'danger' : (tag === 'linkage' ? 'warning' : 'info')
+        },
         // 返回调库明细默认一般流程名称。
-        flowName(row) { return row.flowName || (row.flowOptions && row.flowOptions.length ? row.flowOptions[0].flowName : '') },
+        flowName(row) {
+            return row.flowName || (row.flowOptions && row.flowOptions.length ? row.flowOptions[0].flowName : '')
+        },
         // 返回投资池类型中文名称。
         poolTypeLabel(poolType) {
             const map = {
@@ -1509,7 +1662,10 @@ new Vue({
         // 收集系统报告所关联的源附件 ID。
         collectSourceAttachmentIds(reports) {
             const ids = []
-            ;(reports || []).forEach(report => (report.attachments || []).forEach(file => { if (file.id != null && ids.indexOf(file.id) < 0) ids.push(file.id) }))
+            ;
+            (reports || []).forEach(report => (report.attachments || []).forEach(file => {
+                if (file.id != null && ids.indexOf(file.id) < 0) ids.push(file.id)
+            }))
             return ids
         },
         // 组装提交参数、本地附件及其原始文件名。
@@ -1519,8 +1675,18 @@ new Vue({
             const items = this.validAdjustReviewList.map(item => {
                 const reportFileIndexes = []
                 const materialFileIndexes = []
-                ;(item.attachmentFiles || []).forEach(file => { reportFileIndexes.push(files.length); files.push(file.raw); originalNames.push(file.name) })
-                ;(item.materialFiles || []).forEach(file => { materialFileIndexes.push(files.length); files.push(file.raw); originalNames.push(file.name) })
+                ;
+                (item.attachmentFiles || []).forEach(file => {
+                    reportFileIndexes.push(files.length);
+                    files.push(file.raw);
+                    originalNames.push(file.name)
+                })
+                ;
+                (item.materialFiles || []).forEach(file => {
+                    materialFileIndexes.push(files.length);
+                    files.push(file.raw);
+                    originalNames.push(file.name)
+                })
                 return {
                     targetPoolId: item.targetPoolId, targetPoolName: item.poolName, poolType: item.poolType,
                     adjustMode: item.adjustMode, itemTag: item.itemTag, adjustGroupKey: item.adjustGroupKey,

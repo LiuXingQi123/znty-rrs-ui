@@ -97,28 +97,108 @@
 <script>
 new Vue({
     el: '#stockPoolAdjustDetail',
-    data() { return { loading: false, pageError: '', stock: {}, poolStatuses: [], adjustLogs: [], flowStepList: [], attachments: [], activeLog: {}, adjustLogId: null, adjustBatchNo: '', targetPoolId: null, detailRequestId: 0, poolExpanded: false, currentLoginUserId: window.RrsAuth.getCurrentUser().userId, sectionExpanded: { stockInfo: true, currentPools: true, adjustLog: true, reasonAdvice: true, flowStatus: true } }; },
-    async created() { const params = new URLSearchParams(window.location.search); this.adjustLogId = params.get('adjustLogId'); this.adjustBatchNo = params.get('adjustBatchNo') || ''; this.targetPoolId = params.get('targetPoolId'); const stockCode = params.get('stockCode') || ''; if (!stockCode) { this.$message.warning('缺少股票信息，请从业务页面进入'); return; } await this.loadDetail(stockCode); },
-    beforeDestroy() { window.RrsPrintExport.unbind(); },
+    // 初始化股票研究页面的查询条件、业务数据和操作状态
+    data() {
+        return {
+            loading: false, // 股票调库详情加载状态
+            pageError: '', // 详情加载失败提示
+            stock: {}, // 当前股票实时基础信息
+            poolStatuses: [], // 当前股票已生效的投资池记录
+            adjustLogs: [], // 当前上下文的调库日志
+            flowStepList: [], // 当前批次审批步骤
+            attachments: [], // 已保存的报告和材料附件
+            activeLog: {}, // 当前查看或处理的调库日志
+            adjustLogId: null, // 入口调库日志 ID
+            adjustBatchNo: '', // 入口调库批次号
+            targetPoolId: null, // 入口目标投资池 ID
+            detailRequestId: 0, // 详情请求序号，忽略迟到响应
+            poolExpanded: false, // 当前所在池明细展开状态
+            currentLoginUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
+            sectionExpanded: { // 详情区块展开状态
+                stockInfo: true, // 股票基础信息区展开状态
+                currentPools: true, // 当前所在池区展开状态
+                adjustLog: true, // 调库日志区展开状态
+                reasonAdvice: true, // 调整原因和建议区展开状态
+                flowStatus: true // 流程状态区展开状态
+            }
+        };
+    },
+    // 读取页面入口参数并加载初始业务数据
+    async created() {
+        const params = new URLSearchParams(window.location.search);
+        this.adjustLogId = params.get('adjustLogId');
+        this.adjustBatchNo = params.get('adjustBatchNo') || '';
+        this.targetPoolId = params.get('targetPoolId');
+        const stockCode = params.get('stockCode') || '';
+        if (!stockCode) {
+            this.$message.warning('缺少股票信息，请从业务页面进入');
+            return;
+        }
+        await this.loadDetail(stockCode);
+    },
+    // 销毁页面前解除 PDF 打印事件绑定
+    beforeDestroy() {
+        window.RrsPrintExport.unbind();
+    },
     methods: {
         // 投资池类型按前端字典显示。
-        poolTypeLabel(code) { return { stock: '股票', stock_product: '股票产品', forbidden: '禁止库', observe: '观察池', whitelist: '白名单', blacklist: '黑名单', restricted: '限制名单', other: '其他' }[code] || code || ''; },
+        poolTypeLabel(code) {
+            return {
+                stock: '股票',
+                stock_product: '股票产品',
+                forbidden: '禁止库',
+                observe: '观察池',
+                whitelist: '白名单',
+                blacklist: '黑名单',
+                restricted: '限制名单',
+                other: '其他'
+            }[code] || code || '';
+        },
         // 联动、互斥与手工调整使用统一标签颜色。
-        adjustTypeTagType(type) { return type === '互斥调整' ? 'danger' : type === '联动调整' ? 'warning' : 'info'; },
+        adjustTypeTagType(type) {
+            return type === '互斥调整' ? 'danger' : type === '联动调整' ? 'warning' : 'info';
+        },
         // 可空数值保持空白，零值仍显示为 0。
-        emptyNumber(value) { return value == null ? '' : value; },
+        emptyNumber(value) {
+            return value == null ? '' : value;
+        },
         // 按原始百分数值显示换手率。
-        formatPercent(value) { return value == null || value === '' ? '' : value + '%'; },
+        formatPercent(value) {
+            return value == null || value === '' ? '' : value + '%';
+        },
         // 交易市场由前端字典显示中文。
-        marketLabel(code) { return { SSE: '上海证券交易所', SZSE: '深圳证券交易所', HKEX: '香港交易所' }[code] || code || ''; },
+        marketLabel(code) {
+            return {
+                SSE: '上海证券交易所',
+                SZSE: '深圳证券交易所',
+                HKEX: '香港交易所'
+            }[code] || code || '';
+        },
         // 股票研究评级编码转展示文案。
-        ratingLabel(code) { return { buy: '买入', overweight: '增持', neutral: '中性', underweight: '减持', sell: '卖出' }[code] || code || ''; },
+        ratingLabel(code) {
+            return {
+                buy: '买入',
+                overweight: '增持',
+                neutral: '中性',
+                underweight: '减持',
+                sell: '卖出'
+            }[code] || code || '';
+        },
         // 股票评级沿用证券评级标签配色。
-        ratingTagType() { return 'success'; },
+        ratingTagType() {
+            return 'success';
+        },
 
-        toggleSection(name) { this.$set(this.sectionExpanded, name, !this.sectionExpanded[name]); },
+        // 切换详情区块的展开状态
+        toggleSection(name) {
+            this.$set(this.sectionExpanded, name, !this.sectionExpanded[name]);
+        },
+        // 展开详情内容并导出 PDF，完成后恢复展开状态
         handleExportPdf() {
-            if (this.loading) { this.$message.warning('股票信息加载中，请稍后'); return; }
+            if (this.loading) {
+                this.$message.warning('股票信息加载中，请稍后');
+                return;
+            }
             window.RrsPrintExport.print({
                 fileTitle: ['股票池调库详情', this.stock.stockCode, this.stock.stockShortName || this.stock.stockName],
                 nextTick: fn => this.$nextTick(fn),
@@ -134,97 +214,173 @@ new Vue({
                 }
             });
         },
-        adjustModeLabel(value) { return value === 'in' || value === '调入' ? '调入' : value === 'out' || value === '调出' ? '调出' : value || ''; },
-        auditStatusLabel(value) { const labels = { '-1': '无效调整', '00': '流程中', '11': '驳回待修改', '20': '审批通过', '21': '审批驳回', '32': 'O32自动审批', '99': '发起人已撤回' }; return labels[String(value)] || value || ''; },
-        auditStatusType(value) { const types = { '-1': 'danger', '00': 'warning', '11': 'warning', '20': 'success', '21': 'danger', '32': 'success', '99': 'info' }; return types[String(value)] || 'info'; },
-        stepStatusLabel(value) { const labels = { pending: '待处理', approve: '通过', reject: '驳回', submit: '提交', auto_process: '自动处理', canceled: '已撤回' }; return labels[value] || value || ''; },
-        stepStatusType(value) { return value === 'approve' ? 'success' : value === 'reject' ? 'danger' : value === 'pending' ? 'warning' : 'info'; },
-            // 当前流程状态表格行合并：前三列按各自业务含义分别合并
-            flowStepSpanMethod({ rowIndex, columnIndex }) {
-                if (columnIndex > 2) return { rowspan: 1, colspan: 1 };
-                const span = this.getFlowStepMergeSpan(rowIndex, columnIndex);
-                return { rowspan: span, colspan: span === 0 ? 0 : 1 };
-            },
+        // 将调整方向编码转换为展示文案
+        adjustModeLabel(value) {
+            return value === 'in' || value === '调入' ? '调入' : value === 'out' || value === '调出' ? '调出' : value || '';
+        },
+        // 将审核状态编码转换为展示文案
+        auditStatusLabel(value) {
+            const labels = {
+                '-1': '无效调整',
+                '00': '流程中',
+                '11': '驳回待修改',
+                '20': '审批通过',
+                '21': '审批驳回',
+                '32': 'O32自动审批',
+                '99': '发起人已撤回'
+            };
+            return labels[String(value)] || value || '';
+        },
+        // 根据审核状态返回统一标签配色
+        auditStatusType(value) {
+            const types = {
+                '-1': 'danger',
+                '00': 'warning',
+                '11': 'warning',
+                '20': 'success',
+                '21': 'danger',
+                '32': 'success',
+                '99': 'info'
+            };
+            return types[String(value)] || 'info';
+        },
+        // 将流程步骤状态转换为展示文案
+        stepStatusLabel(value) {
+            const labels = {
+                pending: '待处理',
+                approve: '通过',
+                reject: '驳回',
+                submit: '提交',
+                auto_process: '自动处理',
+                canceled: '已撤回'
+            };
+            return labels[value] || value || '';
+        },
+        // 根据流程步骤状态返回标签配色
+        stepStatusType(value) {
+            return value === 'approve' ? 'success' : value === 'reject' ? 'danger' : value === 'pending' ? 'warning' : 'info';
+        },
+        // 当前流程状态表格行合并：前三列按各自业务含义分别合并
+        flowStepSpanMethod({ rowIndex, columnIndex }) {
+            if (columnIndex > 2) return { rowspan: 1, colspan: 1 };
+            const span = this.getFlowStepMergeSpan(rowIndex, columnIndex);
+            return { rowspan: span, colspan: span === 0 ? 0 : 1 };
+        },
 
-            // 计算当前行在连续相同流程步骤组中的合并行数
-            getFlowStepMergeSpan(rowIndex, columnIndex) {
-                const list = this.flowStepList || [];
-                const row = list[rowIndex];
-                if (!row) return 1;
-                const currentKey = this.getFlowStepMergeKey(row, columnIndex);
-                const prevRow = list[rowIndex - 1];
-                if (prevRow && this.getFlowStepMergeKey(prevRow, columnIndex) === currentKey) return 0;
-                let span = 1;
-                for (let i = rowIndex + 1; i < list.length; i++) {
-                    if (this.getFlowStepMergeKey(list[i], columnIndex) !== currentKey) break;
-                    span++;
-                }
-                return span;
-            },
+        // 计算当前行在连续相同流程步骤组中的合并行数
+        getFlowStepMergeSpan(rowIndex, columnIndex) {
+            const list = this.flowStepList || [];
+            const row = list[rowIndex];
+            if (!row) return 1;
+            const currentKey = this.getFlowStepMergeKey(row, columnIndex);
+            const prevRow = list[rowIndex - 1];
+            if (prevRow && this.getFlowStepMergeKey(prevRow, columnIndex) === currentKey) return 0;
+            let span = 1;
+            for (let i = rowIndex + 1; i < list.length; i++) {
+                if (this.getFlowStepMergeKey(list[i], columnIndex) !== currentKey) break;
+                span++;
+            }
+            return span;
+        },
 
-            // 按列生成合并键：名称按节点，结果按节点+结果，开始时间按节点+结果+时间
-            getFlowStepMergeKey(row, columnIndex) {
-                if (!row) return '';
-                if (columnIndex === 0) return row.nodeLabel || '';
-                if (columnIndex === 1) return [row.nodeLabel || '', row.stepStatus || ''].join('|');
-                return [row.nodeLabel || '', row.stepStatus || '', row.startTime || ''].join('|');
-            },
+        // 按列生成合并键：名称按节点，结果按节点+结果，开始时间按节点+结果+时间
+        getFlowStepMergeKey(row, columnIndex) {
+            if (!row) return '';
+            if (columnIndex === 0) return row.nodeLabel || '';
+            if (columnIndex === 1) return [row.nodeLabel || '', row.stepStatus || ''].join('|');
+            return [row.nodeLabel || '', row.stepStatus || '', row.startTime || ''].join('|');
+        },
 
-            // 流程步骤行样式：节点背景按角色区分，处理状态按边框和强调层区分
-            getFlowStepRowClass({ row }) {
-                if (!row) return '';
-                const classList = [this.getFlowStepNodeClass(row)];
-                if (row.stepStatus === 'pending') {
-                    classList.push(this.isCurrentHandler(row)
-                        ? 'flow-row-pending-current'
-                        : 'flow-row-pending-other');
-                    return classList.join(' ');
-                }
-                if (row.stepStatus === 'auto_process') classList.push('flow-row-auto');
-                if (row.stepStatus === 'reject') classList.push('flow-row-rejected');
-                if (row.stepStatus === 'approve' || row.stepStatus === 'submit') classList.push('flow-row-approved');
-                if (row.stepStatus === 'canceled') classList.push('flow-row-ended');
+        // 流程步骤行样式：节点背景按角色区分，处理状态按边框和强调层区分
+        getFlowStepRowClass({ row }) {
+            if (!row) return '';
+            const classList = [this.getFlowStepNodeClass(row)];
+            if (row.stepStatus === 'pending') {
+                classList.push(this.isCurrentHandler(row)
+                    ? 'flow-row-pending-current'
+                    : 'flow-row-pending-other');
                 return classList.join(' ');
-            },
+            }
+            if (row.stepStatus === 'auto_process') classList.push('flow-row-auto');
+            if (row.stepStatus === 'reject') classList.push('flow-row-rejected');
+            if (row.stepStatus === 'approve' || row.stepStatus === 'submit') classList.push('flow-row-approved');
+            if (row.stepStatus === 'canceled') classList.push('flow-row-ended');
+            return classList.join(' ');
+        },
 
-            // 根据节点类型和名称识别流程节点角色
-            getFlowStepNodeClass(row) {
-                const nodeType = String(row.nodeType || '').toLowerCase();
-                const text = [row.nodeLabel, row.nodeCode, row.nodeType].filter(Boolean).join(' ');
-                if (nodeType === 'start' || nodeType === 'end' || text.indexOf('开始') >= 0 || text.indexOf('结束') >= 0) {
-                    return 'flow-node-terminal';
-                }
-                if (nodeType === 'auto' || text.indexOf('自动审批') >= 0 || text.toLowerCase().indexOf('o32') >= 0) {
-                    return 'flow-node-auto';
-                }
-                if (text.indexOf('发起') >= 0 || text.indexOf('提交') >= 0) {
-                    return 'flow-node-initiator';
-                }
-                if (text.indexOf('复核') >= 0 || text.indexOf('复合') >= 0) {
-                    return 'flow-node-review';
-                }
-                if (text.indexOf('修改') >= 0) {
-                    return 'flow-node-modify';
-                }
-                if (text.indexOf('审批') >= 0) {
-                    return 'flow-node-approve';
-                }
-                return 'flow-node-default';
-            },
+        // 根据节点类型和名称识别流程节点角色
+        getFlowStepNodeClass(row) {
+            const nodeType = String(row.nodeType || '').toLowerCase();
+            const text = [row.nodeLabel, row.nodeCode, row.nodeType].filter(Boolean).join(' ');
+            if (nodeType === 'start' || nodeType === 'end' || text.indexOf('开始') >= 0 || text.indexOf('结束') >= 0) {
+                return 'flow-node-terminal';
+            }
+            if (nodeType === 'auto' || text.indexOf('自动审批') >= 0 || text.toLowerCase().indexOf('o32') >= 0) {
+                return 'flow-node-auto';
+            }
+            if (text.indexOf('发起') >= 0 || text.indexOf('提交') >= 0) {
+                return 'flow-node-initiator';
+            }
+            if (text.indexOf('复核') >= 0 || text.indexOf('复合') >= 0) {
+                return 'flow-node-review';
+            }
+            if (text.indexOf('修改') >= 0) {
+                return 'flow-node-modify';
+            }
+            if (text.indexOf('审批') >= 0) {
+                return 'flow-node-approve';
+            }
+            return 'flow-node-default';
+        },
 
-            // 判断流程步骤处理人是否为当前登录人
-            isCurrentHandler(row) {
-                return row && String(row.handlerId || '') === String(this.currentLoginUserId);
-            },
+        // 判断流程步骤处理人是否为当前登录人
+        isCurrentHandler(row) {
+            return row && String(row.handlerId || '') === String(this.currentLoginUserId);
+        },
 
-            stepStatusTagType(code) {
-                const map = { pending: "info", approve: "success", reject: "danger", submit: "info", auto_process: "success", canceled: "info" };
-                return map[code] || "info";
-            },
+        // 返回流程状态表格使用的步骤标签配色
+        stepStatusTagType(code) {
+            const map = {
+                pending: "info",
+                approve: "success",
+                reject: "danger",
+                submit: "info",
+                auto_process: "success",
+                canceled: "info"
+            };
+            return map[code] || "info";
+        },
 
-        processActionLabel(value) { const labels = { approve: '通过', reject: '驳回', submit: '提交', auto_process: '自动处理', skipped: '被跳过' }; return labels[value] || value || ''; },
-        attachmentsByLog(logId, prefix) { return this.attachments.filter(file => String(file.mainId) === String(logId) && String(file.attachmentCategory || '').indexOf(prefix) === 0); },
-        async downloadAttachment(file) { try { const base64 = await this.apiPost('/api/v1/attachments/downloadAttachment', { id: file.id }); const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0)); const blob = new Blob([bytes], { type: file.contentType || 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = file.originalFileName || '附件'; link.click(); URL.revokeObjectURL(link.href); } catch (e) { this.$message.error(e.message || '附件下载失败'); } },
+        // 将流程处理动作转换为展示文案
+        processActionLabel(value) {
+            const labels = {
+                approve: '通过',
+                reject: '驳回',
+                submit: '提交',
+                auto_process: '自动处理',
+                skipped: '被跳过'
+            };
+            return labels[value] || value || '';
+        },
+        // 按调库日志和附件分类筛选已保存的附件
+        attachmentsByLog(logId, prefix) {
+            return this.attachments.filter(file => String(file.mainId) === String(logId) && String(file.attachmentCategory || '').indexOf(prefix) === 0);
+        },
+        // 下载已保存的附件并保留原始文件名
+        async downloadAttachment(file) {
+            try {
+                const base64 = await this.apiPost('/api/v1/attachments/downloadAttachment', { id: file.id });
+                const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+                const blob = new Blob([bytes], { type: file.contentType || 'application/octet-stream' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = file.originalFileName || '附件';
+                link.click();
+                URL.revokeObjectURL(link.href);
+            } catch (e) {
+                this.$message.error(e.message || '附件下载失败');
+            }
+        },
         // 实时加载基础信息，日志保留申请时的行业和评级。
         async loadDetail(stockCode) {
             this.loading = true;
@@ -247,13 +403,25 @@ new Vue({
                     adjustLogId || adjustBatchNo ? this.apiPost('/api/v1/stockPoolAdjust/queryAdjustStepList', { adjustLogId, adjustBatchNo }) : []
                 ]);
                 if (requestId !== this.detailRequestId) return;
-                this.stock = stock || {}; this.poolStatuses = pools || []; this.adjustLogs = records;
-                this.attachments = attachments || []; this.activeLog = activeLog;
-                this.adjustLogId = adjustLogId; this.adjustBatchNo = adjustBatchNo; this.flowStepList = steps || [];
-            } catch (e) { if (requestId === this.detailRequestId) this.pageError = e.message || '股票调库详情加载失败'; }
-            finally { if (requestId === this.detailRequestId) this.loading = false; }
+                this.stock = stock || {};
+                this.poolStatuses = pools || [];
+                this.adjustLogs = records;
+                this.attachments = attachments || [];
+                this.activeLog = activeLog;
+                this.adjustLogId = adjustLogId;
+                this.adjustBatchNo = adjustBatchNo;
+                this.flowStepList = steps || [];
+            } catch (e) {
+                if (requestId === this.detailRequestId) this.pageError = e.message || '股票调库详情加载失败';
+            } finally {
+                if (requestId === this.detailRequestId) this.loading = false;
+            }
         },
-        backToList() { if (window.RrsWorkbench.closeActiveTab()) return; window.history.back(); }
+        // 关闭当前工作台页签，独立打开时返回上一页
+        backToList() {
+            if (window.RrsWorkbench.closeActiveTab()) return;
+            window.history.back();
+        }
     }
 });
 </script>

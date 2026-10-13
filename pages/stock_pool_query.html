@@ -179,33 +179,38 @@ new Vue({
                 stockPoolAdjustDetail: 'stock_pool_adjust_detail.html', // 股票池调库详情页
             },
             today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
-            searchForm: { // 搜索表单
-                poolIds: [],           // 选中的池ID列表（多选）
-                stockCode: '',          // 股票代码关键词
+            searchForm: { // 列表查询条件
+                poolIds: [], // 选中的投资池 ID 列表
+                stockCode: '', // 股票代码关键词
                 entryTimeRange: null,  // 入池时间范围 [startDate, endDate]
-                adjusterName: '', myManagedStocks: false, myStocks: false, currentUserId: window.RrsAuth.getCurrentUser().userId,      // 调整人姓名关键词
+                adjusterName: '', // 调整人姓名关键词
+                myManagedStocks: false, // 仅查询当前用户分管股票
+                myStocks: false, // 仅查询当前用户自选股票
+                currentUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
             },
             // 投资池树相关
             poolTreeData: [],          // 树形结构数据（由扁平列表构建）
             poolTreeVisible: false,    // 投资池选择弹出层显隐状态
             poolTreeKeyword: '',       // 投资池树搜索词
             selectedPoolTags: [],      // 已选池标签列表 [{id, poolName}]，用于标签行展示
-            treeProps: {              // 投资池树字段配置
-                children: 'children',  // 子节点字段名
-                label: 'poolName',     // 节点显示文字字段名
+            treeProps: { // 投资池树字段配置
+                children: 'children', // 子节点字段名
+                label: 'poolName', // 节点名称字段名
                 // 禁止选择有子节点的投资池
                 disabled(data) {
                     return data.children && data.children.length > 0;
                 }
             },
             // 表格与分页
-            tableData: [],             // 当前页表格数据
-            loading: false,            // 表格加载状态
-            listRequestId: 0, favoriteLoading: {}, exporting: false,          // 导出文件处理中状态
-            pagination: {             // 分页参数
-                pageIndex: 1,          // 当前页码
-                pageSize: 20,          // 每页条数
-                total: 0,              // 总记录数
+            tableData: [], // 当前页列表数据
+            loading: false, // 股票池列表加载状态
+            listRequestId: 0, // 列表请求序号，忽略迟到响应
+            favoriteLoading: {}, // 按股票代码记录自选操作加载状态
+            exporting: false, // 文件导出处理中状态
+            pagination: { // 当前列表分页参数
+                pageIndex: 1, // 当前页码
+                pageSize: 20, // 每页条数
+                total: 0, // 总记录数
             },
         };
     },
@@ -213,8 +218,6 @@ new Vue({
     mounted() {
         // 加载股票品种投资池树
         this.loadPoolTree();
-        // 加载股票类型下拉选项
-
         // 加载当前页股票池记录
         this.loadList();
         // 窗口尺寸变化时延迟重算表格布局
@@ -234,7 +237,9 @@ new Vue({
     },
     methods: {
         // 当前用户的自选状态来自股票查询结果。
-        isFavorited(row) { return row.myStockPoolId != null; },
+        isFavorited(row) {
+            return row.myStockPoolId != null;
+        },
         // 添加自选，或确认后移除，同一代码所有池记录同步展示。
         async toggleFavorite(row) {
             const code = row.stockCode;
@@ -248,19 +253,42 @@ new Vue({
                 this.tableData.filter(item => item.stockCode === code).forEach(item => this.$set(item, 'myStockPoolId', id));
                 this.$message.success(removing ? '已从我的股票池移除' : '已添加到我的股票池');
                 if (removing && this.searchForm.myStocks) await this.loadList();
-            } catch (e) { if (e !== 'cancel' && e !== 'close') this.$message.error(e.message || '操作失败'); }
-            finally { this.$set(this.favoriteLoading, code, false); }
+            } catch (e) {
+                if (e !== 'cancel' && e !== 'close') this.$message.error(e.message || '操作失败');
+            } finally {
+                this.$set(this.favoriteLoading, code, false);
+            }
         },
         // 可空数值保持空白，零值仍显示为 0。
-        emptyNumber(value) { return value == null ? '' : value; },
+        emptyNumber(value) {
+            return value == null ? '' : value;
+        },
         // 按原始百分数值显示换手率。
-        formatPercent(value) { return value == null || value === '' ? '' : value + '%'; },
+        formatPercent(value) {
+            return value == null || value === '' ? '' : value + '%';
+        },
         // 交易市场由前端字典显示中文。
-        marketLabel(code) { return { SSE: '上海证券交易所', SZSE: '深圳证券交易所', HKEX: '香港交易所' }[code] || code || ''; },
+        marketLabel(code) {
+            return {
+                SSE: '上海证券交易所',
+                SZSE: '深圳证券交易所',
+                HKEX: '香港交易所'
+            }[code] || code || '';
+        },
         // 股票研究评级编码转展示文案。
-        ratingLabel(code) { return { buy: '买入', overweight: '增持', neutral: '中性', underweight: '减持', sell: '卖出' }[code] || code || ''; },
+        ratingLabel(code) {
+            return {
+                buy: '买入',
+                overweight: '增持',
+                neutral: '中性',
+                underweight: '减持',
+                sell: '卖出'
+            }[code] || code || '';
+        },
         // 股票评级沿用证券评级标签配色。
-        ratingTagType() { return 'success'; },
+        ratingTagType() {
+            return 'success';
+        },
         // 在工作台打开对应股票的调库详情页。
         openStockAdjustDetail(row) {
             const code = row.stockCode || '';

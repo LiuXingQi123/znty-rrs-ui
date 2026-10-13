@@ -203,11 +203,12 @@ new Vue({
                 stockPoolAdjustDetail: 'stock_pool_adjust_detail.html', // 股票调库详情页
             },
             today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
-            searchForm: { // 搜索条件
-                poolIds: [],              // 选中的池 ID 列表
-                stockCode: '', industryCode: '',             // 股票代码关键词
+            searchForm: { // 列表查询条件
+                poolIds: [], // 选中的投资池 ID 列表
+                stockCode: '', // 股票代码关键词
+                industryCode: '', // 行业编码筛选条件
                 adjustTimeRange: null,    // 调整时间范围
-                adjusterName: '',         // 调整人关键词
+                adjusterName: '', // 调整人姓名关键词
                 adjustMode: '',           // 调整方向
                 auditStatus: '',          // 审核状态码
             },
@@ -230,20 +231,21 @@ new Vue({
             poolTreeKeyword: '',    // 投资池树搜索词
             selectedPoolTags: [],   // 已选投资池标签
             treeProps: { // 投资池树字段配置
-                children: 'children', // 子节点字段
-                label: 'poolName',     // 节点名称字段
+                children: 'children', // 子节点字段名
+                label: 'poolName', // 节点名称字段名
                 // 禁用非叶子节点，只允许选择叶子投资池。
                 disabled(data) {
                     return data.children && data.children.length > 0;
                 },
             },
-            tableData: [],    // 当前页表格数据
-            loading: false,   // 表格加载状态
-            listRequestId: 0, exporting: false, // 导出处理中状态
-            pagination: { // 分页参数
-                pageIndex: 1, // 当前页码（后端字段 pageIndex）
+            tableData: [], // 当前页列表数据
+            loading: false, // 股票池调整历史列表加载状态
+            listRequestId: 0, // 列表请求序号，忽略迟到响应
+            exporting: false, // 文件导出处理中状态
+            pagination: { // 当前列表分页参数
+                pageIndex: 1, // 当前页码
                 pageSize: 20, // 每页条数
-                total: 0,     // 总条数
+                total: 0, // 总记录数
             },
         };
     },
@@ -311,7 +313,11 @@ new Vue({
 
         // 行业选项来自历史日志中的实际行业。
         async loadIndustries() {
-            try { this.industryOptions = await this.apiPost('/api/v1/stockPoolAdjustHistory/queryIndustryList', {}) || []; } catch (e) { this.industryOptions = []; }
+            try {
+                this.industryOptions = await this.apiPost('/api/v1/stockPoolAdjustHistory/queryIndustryList', {}) || [];
+            } catch (e) {
+                this.industryOptions = [];
+            }
         },
 
         // 将扁平投资池列表转换为树结构。
