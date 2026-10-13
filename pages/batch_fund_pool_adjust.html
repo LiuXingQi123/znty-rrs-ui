@@ -718,6 +718,7 @@
 <script>
     new Vue({
         el: '#batch_fund_pool_adjust',
+        // 初始化页面数据和交互状态
         data() {
             return {
                 moment: moment, // 日期处理工具
@@ -762,12 +763,18 @@
                 materialFiles: [],                       // 整批其他附件上传附件
                 fundTypeOptions: [],                     // 基金产品类型查询选项
                 fundAdjustForm: { fundScore: '', fundInvestmentType: '', needRiskLeaderApproval: '' }, // 整批共享基金调库信息
-                fundAdjustRules: {
-                    fundScore: [{ validator: (rule, value, callback) => { const message = this.fundScoreError(value); callback(message ? new Error(message) : undefined) }, trigger: 'blur' }],
+                fundAdjustRules: { // 批量基金信息校验规则
+                    fundScore: [{
+                        validator: (rule, value, callback) => {
+                            const message = this.fundScoreError(value);
+                            callback(message ? new Error(message) : undefined)
+                        },
+                        trigger: 'blur'
+                    }],
                     fundInvestmentType: [{ required: true, message: '请选择基金投资类型', trigger: 'change' }],
                     needRiskLeaderApproval: [{ required: true, message: '请选择分管领导审批', trigger: 'change' }]
                 },
-                investmentTypeOptions: [
+                investmentTypeOptions: [ // 基金投资类型选项
                     { value: 'stock', label: '股票型' },
                     { value: 'equity_hybrid', label: '偏股混合型' },
                     { value: 'money_market', label: '货币型' },
@@ -929,6 +936,7 @@
                 return this.reportDialogColumn === 'material' ? '选择其他附件' : '选择基金报告'
             }
         },
+        // 初始化投资池和筛选选项并监听窗口尺寸变化
         mounted() {
             this.initPage()
             this.handleWindowResize = () => {
@@ -940,6 +948,7 @@
             }
             window.addEventListener('resize', this.handleWindowResize)
         },
+        // 页面销毁时移除窗口监听并清理布局定时器
         beforeDestroy() {
             window.removeEventListener('resize', this.handleWindowResize)
             window.clearTimeout(this.resizeLayoutTimer)
@@ -1250,7 +1259,10 @@
             // 逐基金校验目标池调整，并保留完整手工、联动和互斥结果。
             async goToStep2() {
                 if (this.checkLoading) return
-                if (!this.selectedFunds.length) { this.$message.warning('请至少选择一只基金'); return }
+                if (!this.selectedFunds.length) {
+                    this.$message.warning('请至少选择一只基金');
+                    return
+                }
                 // 进入校验结果前确认整批基金调库信息已经填写完整。
                 const infoError = this.validateFundAdjustInfo()
                 if (infoError) {
@@ -1360,9 +1372,18 @@
                 if (this.$refs.fundAdjustForm) this.$refs.fundAdjustForm.validate(() => {})
                 // 三项字段对整批基金统一生效，0 分和否均为有效值。
                 const message = this.validateFundAdjustInfo()
-                if (message) { this.$message.warning(message); return }
-                if (!this.validManualAdjustReviewList.length) { this.$message.warning('没有可提交的基金调库申请，请检查校验结果'); return }
-                if (!this.allValidRowsHaveFlow) { this.$message.warning('请为所有可提交的手工调整项选择审批流程'); return }
+                if (message) {
+                    this.$message.warning(message);
+                    return
+                }
+                if (!this.validManualAdjustReviewList.length) {
+                    this.$message.warning('没有可提交的基金调库申请，请检查校验结果');
+                    return
+                }
+                if (!this.allValidRowsHaveFlow) {
+                    this.$message.warning('请为所有可提交的手工调整项选择审批流程');
+                    return
+                }
                 this.flowDialogVisible = true
             },
 
@@ -1371,8 +1392,14 @@
                 if (this.submitLoading) return
                 // 确认时再次检查共享基金字段和流程。
                 const message = this.validateFundAdjustInfo()
-                if (message) { this.$message.warning(message); return }
-                if (!this.allValidRowsHaveFlow) { this.$message.warning('请为所有可提交的手工调整项选择审批流程'); return }
+                if (message) {
+                    this.$message.warning(message);
+                    return
+                }
+                if (!this.allValidRowsHaveFlow) {
+                    this.$message.warning('请为所有可提交的手工调整项选择审批流程');
+                    return
+                }
                 this.flowDialogVisible = false
                 this.submitLoading = true
                 try {

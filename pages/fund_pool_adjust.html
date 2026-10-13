@@ -781,10 +781,15 @@
 <script>
 new Vue({
     el: '#fund_pool_adjust',
+    // 初始化页面数据和交互状态
     data() {
         const numberValidator = (rule, value, callback) => {
-            if (value === '' || value == null) return callback(new Error('请输入基金评分'))
-            if (!Number.isFinite(Number(value))) return callback(new Error('基金评分必须为合法数字'))
+            if (value === '' || value == null) {
+                return callback(new Error('请输入基金评分'))
+            }
+            if (!Number.isFinite(Number(value))) {
+                return callback(new Error('基金评分必须为合法数字'))
+            }
             callback()
         }
         const user = window.RrsAuth.getCurrentUser()
@@ -797,8 +802,17 @@ new Vue({
             adjustCheckSeq: 0,            // 校验请求序号，避免旧响应覆盖新结果
             submitLoading: false,         // 调库提交防重复点击状态
             adjustStep: 1,                // 调库步骤：1=选择池 / 2=校验确认
-            searchForm: { fundCode: '', fundShortName: '', securityType: '', fundAdministrator: '' }, // 列表查询条件
-            pagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 基金列表分页
+            searchForm: {
+                fundCode: '',
+                fundShortName: '',
+                securityType: '',
+                fundAdministrator: ''
+            }, // 列表查询条件
+            pagination: {
+                pageIndex: 1,
+                pageSize: 20,
+                total: 0
+            }, // 基金列表分页
             fundList: [],                 // 基金列表数据
             fundTypeOptions: [],          // 基金产品类型选项
             fundDetail: {},               // 当前基金只读详情
@@ -817,13 +831,19 @@ new Vue({
                 fundAdjustInfo: true,
                 reasonAdvice: true
             },
-            submitForm: { fundScore: '', fundInvestmentType: '', needRiskLeaderApproval: '', adjustReason: '', adjustAdvice: '' }, // 提交页基金信息、原因和建议
-            submitRules: {
+            submitForm: {
+                fundScore: '',
+                fundInvestmentType: '',
+                needRiskLeaderApproval: '',
+                adjustReason: '',
+                adjustAdvice: ''
+            }, // 提交页基金信息、原因和建议
+            submitRules: { // 基金信息提交校验规则
                 fundScore: [{ validator: numberValidator, trigger: 'blur' }],
                 fundInvestmentType: [{ required: true, message: '请选择基金投资类型', trigger: 'change' }],
                 needRiskLeaderApproval: [{ required: true, message: '请选择风管领导审批', trigger: 'change' }]
             },
-            investmentTypeOptions: [
+            investmentTypeOptions: [ // 基金投资类型选项
                 { value: 'stock', label: '股票型' },
                 { value: 'equity_hybrid', label: '偏股混合型' },
                 { value: 'money_market', label: '货币型' },
@@ -837,17 +857,35 @@ new Vue({
             reportDialogColumn: '',        // 当前报告目标列：credit / material
             reportActiveTab: 'internal',   // 报告弹窗当前 Tab
             internalReportData: [],        // 内部报告当前页数据
-            internalReportFilters: { title: '', securityCode: '', reportType: '', writeDateRange: null }, // 内部报告查询条件
-            internalReportPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 内部报告分页
+            internalReportFilters: {
+                title: '',
+                securityCode: '',
+                reportType: '',
+                writeDateRange: null
+            }, // 内部报告查询条件
+            internalReportPagination: {
+                pageIndex: 1,
+                pageSize: 10,
+                total: 0
+            }, // 内部报告分页
             internalReportLoading: false,  // 内部报告加载状态
             selectedInternalReports: [],   // 弹窗会话内已选内部报告
             externalReportData: [],        // 外部报告当前页数据
-            externalReportFilters: { title: '', securityCode: '', reportType: '', writeDateRange: null }, // 外部报告查询条件
-            externalReportPagination: { pageIndex: 1, pageSize: 10, total: 0 }, // 外部报告分页
+            externalReportFilters: {
+                title: '',
+                securityCode: '',
+                reportType: '',
+                writeDateRange: null
+            }, // 外部报告查询条件
+            externalReportPagination: {
+                pageIndex: 1,
+                pageSize: 10,
+                total: 0
+            }, // 外部报告分页
             externalReportLoading: false,  // 外部报告加载状态
             selectedExternalReports: [],   // 弹窗会话内已选外部报告
             restoringReportSelection: false, // 恢复报告勾选状态标志
-            reportTypeDict: {
+            reportTypeDict: { // 报告类型编码与中文名称
                 bond_in_report: '债券入库报告',
                 bond_out_report: '债券出库报告',
                 fund_in_report: '基金入库报告',
@@ -856,7 +894,13 @@ new Vue({
                 stock_out_report: '股票出库报告',
                 other_report: '其他报告'
             },
-            reportSecurityTypeDict: { bond: '债券', fund: '基金', stock: '股票', company: '主体', other: '其他' }, // 报告证券类型字典
+            reportSecurityTypeDict: {
+                bond: '债券',
+                fund: '基金',
+                stock: '股票',
+                company: '主体',
+                other: '其他'
+            }, // 报告证券类型字典
             creditReportSelections: {},    // 各方向、目标池已选基金报告
             otherMaterialSelections: {},   // 各方向、目标池已选其他材料
             attachmentFiles: {},           // 各方向、目标池基金报告上传文件
@@ -864,48 +908,62 @@ new Vue({
         }
     },
     computed: {
+        // 筛选可提交的调库校验明细
         validAdjustReviewList() {
             return this.adjustReviewList.filter(item => item.canAdjust)
         },
+        // 筛选可提交的手工调整明细
         validManualAdjustReviewList() {
             return this.adjustReviewList.filter(item => item.canAdjust && item.itemTag === 'manual')
         },
+        // 判断所有可提交的手工调整项是否已选择流程
         allValidRowsHaveFlow() {
             return this.validManualAdjustReviewList.length > 0
                 && this.validManualAdjustReviewList.every(row => !!this.selectedRowFlowOption(row))
         },
+        // 统计可提交的调库明细数量
         validItemCount() {
             return this.validAdjustReviewList.length
         },
+        // 获取内部报告当前页数据
         internalReportPageData() {
             return this.internalReportData
         },
+        // 获取外部报告当前页数据
         externalReportPageData() {
             return this.externalReportData
         },
+        // 获取报告类型编码选项
         reportTypeOptions() {
             return Object.keys(this.reportTypeDict)
         },
+        // 获取内部报告类型筛选选项
         internalReportTypeOptions() {
             return this.reportTypeOptions
         },
+        // 获取外部报告类型筛选选项
         externalReportTypeOptions() {
             return this.reportTypeOptions
         },
+        // 统计当前已选的内部和外部报告数量
         totalSelectedReports() {
             return this.selectedInternalReports.length + this.selectedExternalReports.length
         },
+        // 根据材料类别生成报告选择弹窗标题
         reportDialogTitle() {
             return this.reportDialogColumn === 'material' ? '选择其他材料' : '选择基金报告'
         }
     },
+    // 初始化基金类型选项和分页列表
     created() {
         this.loadFundTypes()
         this.loadFundList()
     },
     methods: {
         // 将可空数值转换为只读区域所需的空白展示。
-        emptyNumber(value) { return value == null ? '' : value },
+        emptyNumber(value) {
+            return value == null ? '' : value
+        },
         // 按基金池查询页面的编码映射基金类型标签颜色。
         fundTypeTagType(code) {
             const map = {
@@ -919,7 +977,11 @@ new Vue({
         },
         // 查询有效基金产品类型选项。
         async loadFundTypes() {
-            try { this.fundTypeOptions = await this.apiPost('/api/v1/fundPoolAdjust/queryFundTypeList', {}) || [] } catch (e) { this.fundTypeOptions = [] }
+            try {
+                this.fundTypeOptions = await this.apiPost('/api/v1/fundPoolAdjust/queryFundTypeList', {}) || []
+            } catch (e) {
+                this.fundTypeOptions = []
+            }
         },
         // 按当前查询条件加载基金分页列表。
         async loadFundList() {
@@ -928,17 +990,38 @@ new Vue({
                 const data = await this.apiPost('/api/v1/fundPoolAdjust/queryFundPage', Object.assign({}, this.searchForm, this.pagination))
                 this.fundList = data.records || []
                 this.pagination.total = data.total || 0
-            } catch (e) { this.fundList = []; this.pagination.total = 0 }
+            } catch (e) {
+                this.fundList = [];
+                this.pagination.total = 0
+            }
             this.listLoading = false
         },
         // 从第一页执行基金查询。
-        handleSearch() { this.pagination.pageIndex = 1; this.loadFundList() },
+        handleSearch() {
+            this.pagination.pageIndex = 1;
+            this.loadFundList()
+        },
         // 清空基金查询条件并重新查询。
-        handleReset() { this.searchForm = { fundCode: '', fundShortName: '', securityType: '', fundAdministrator: '' }; this.handleSearch() },
+        handleReset() {
+            this.searchForm = {
+                fundCode: '',
+                fundShortName: '',
+                securityType: '',
+                fundAdministrator: ''
+            };
+            this.handleSearch()
+        },
         // 切换基金列表页码。
-        changePage(page) { this.pagination.pageIndex = page; this.loadFundList() },
+        changePage(page) {
+            this.pagination.pageIndex = page;
+            this.loadFundList()
+        },
         // 切换基金列表每页条数。
-        changeSize(size) { this.pagination.pageSize = size; this.pagination.pageIndex = 1; this.loadFundList() },
+        changeSize(size) {
+            this.pagination.pageSize = size;
+            this.pagination.pageIndex = 1;
+            this.loadFundList()
+        },
         // 进入基金池调整详情并加载基金、当前池和可调整池。
         async openAdjust(row) {
             this.currentPage = 'detail'
@@ -953,7 +1036,13 @@ new Vue({
             this.otherMaterialSelections = {}
             this.attachmentFiles = {}
             this.materialFiles = {}
-            this.submitForm = { fundScore: '', fundInvestmentType: '', needRiskLeaderApproval: '', adjustReason: '', adjustAdvice: '' }
+            this.submitForm = {
+                fundScore: '',
+                fundInvestmentType: '',
+                needRiskLeaderApproval: '',
+                adjustReason: '',
+                adjustAdvice: ''
+            }
             try {
                 const req = { fundCode: row.fundCode }
                 const poolReq = { fundCode: row.fundCode, currentUserId: this.currentUser.userId }
@@ -994,27 +1083,41 @@ new Vue({
         // 将投资池平铺数据转换成树形结构。
         buildPoolTree(list) {
             const map = {}
-            ;(list || []).forEach(item => { map[item.id] = Object.assign({}, item, { children: [] }) })
+            ;
+            (list || []).forEach(item => {
+                map[item.id] = Object.assign({}, item, { children: [] })
+            })
             const roots = []
             Object.keys(map).forEach(key => {
                 const item = map[key]
-                if (item.parentId != null && map[item.parentId]) map[item.parentId].children.push(item)
-                else roots.push(item)
+                if (item.parentId != null && map[item.parentId]) {
+                    map[item.parentId].children.push(item)
+                } else {
+                    roots.push(item)
+                }
             })
             const trim = rows => rows.map(row => {
-                if (row.children.length) row.children = trim(row.children)
-                else delete row.children
+                if (row.children.length) {
+                    row.children = trim(row.children)
+                } else {
+                    delete row.children
+                }
                 return row
             })
             return trim(roots)
         },
         // 仅允许选择投资池叶子节点。
-        poolRowSelectable(row) { return !row.children || row.children.length === 0 },
+        poolRowSelectable(row) {
+            return !row.children || row.children.length === 0
+        },
         // 清理重复项并只保留投资池叶子节点。
         normalizeSelectedPools(selection) {
             const map = {}
-            ;(selection || []).forEach(row => {
-                if (row && this.poolRowSelectable(row)) map[row.id] = row
+            ;
+            (selection || []).forEach(row => {
+                if (row && this.poolRowSelectable(row)) {
+                    map[row.id] = row
+                }
             })
             return Object.keys(map).map(id => map[id])
         },
@@ -1022,9 +1125,13 @@ new Vue({
         flattenPoolTree(tree) {
             const result = []
             const walk = nodes => {
-                ;(nodes || []).forEach(node => {
-                    if (node.children && node.children.length) walk(node.children)
-                    else result.push(node)
+                ;
+                (nodes || []).forEach(node => {
+                    if (node.children && node.children.length) {
+                        walk(node.children)
+                    } else {
+                        result.push(node)
+                    }
                 })
             }
             walk(tree)
@@ -1056,9 +1163,13 @@ new Vue({
             const selectedCount = rows.filter(row => this.selectedInPools.some(item => item.id === row.id)).length
             const selectAll = selectedCount < rows.length
             rows.forEach(row => {
-                if (this.$refs.inTableRef) this.$refs.inTableRef.toggleRowSelection(row, selectAll)
+                if (this.$refs.inTableRef) {
+                    this.$refs.inTableRef.toggleRowSelection(row, selectAll)
+                }
                 const selected = this.selectedInPools.some(item => item.id === row.id)
-                if (selectAll !== selected) this.handleInPoolSelect(selectAll ? [row] : [], row)
+                if (selectAll !== selected) {
+                    this.handleInPoolSelect(selectAll ? [row] : [], row)
+                }
             })
         },
         // 处理调出池单项勾选，并自动取消互斥池选择。
@@ -1087,15 +1198,23 @@ new Vue({
             const selectedCount = rows.filter(row => this.selectedOutPools.some(item => item.id === row.id)).length
             const selectAll = selectedCount < rows.length
             rows.forEach(row => {
-                if (this.$refs.outTableRef) this.$refs.outTableRef.toggleRowSelection(row, selectAll)
+                if (this.$refs.outTableRef) {
+                    this.$refs.outTableRef.toggleRowSelection(row, selectAll)
+                }
                 const selected = this.selectedOutPools.some(item => item.id === row.id)
-                if (selectAll !== selected) this.handleOutPoolSelect(selectAll ? [row] : [], row)
+                if (selectAll !== selected) {
+                    this.handleOutPoolSelect(selectAll ? [row] : [], row)
+                }
             })
         },
         // 格式化投资池容量展示文本。
-        capacityText(row) { return (row.currentCount == null ? 0 : row.currentCount) + ' / ' + (row.maxCapacity == null ? '不限' : row.maxCapacity) },
+        capacityText(row) {
+            return (row.currentCount == null ? 0 : row.currentCount) + ' / ' + (row.maxCapacity == null ? '不限' : row.maxCapacity)
+        },
         // 生成方向与目标池对应的材料选择键。
-        materialKey(direction, poolId) { return direction + '-' + poolId },
+        materialKey(direction, poolId) {
+            return direction + '-' + poolId
+        },
         // 获取指定池的基金报告选择。
         getCreditReportSelections(direction, poolId) {
             const key = this.materialKey(direction, poolId)
@@ -1117,14 +1236,18 @@ new Vue({
         handleAttachmentChange(direction, poolId, file, fileList) {
             const key = this.materialKey(direction, poolId)
             const current = this.getAttachmentFiles(direction, poolId)
-            if (!file.raw || current.some(item => item.name === file.name)) return
+            if (!file.raw || current.some(item => item.name === file.name)) {
+                return
+            }
             this.$set(this.attachmentFiles, key, [...current, file])
         },
         // 保存其他材料本地上传文件。
         handleMaterialChange(direction, poolId, file, fileList) {
             const key = this.materialKey(direction, poolId)
             const current = this.getMaterialFiles(direction, poolId)
-            if (!file.raw || current.some(item => item.name === file.name)) return
+            if (!file.raw || current.some(item => item.name === file.name)) {
+                return
+            }
             this.$set(this.materialFiles, key, [...current, file])
         },
         // 删除指定池的基金报告本地文件。
@@ -1157,7 +1280,9 @@ new Vue({
         },
         // 下载当前页面手工选择的本地附件。
         downloadLocalFile(file) {
-            if (!file || !file.raw) return
+            if (!file || !file.raw) {
+                return
+            }
             const url = URL.createObjectURL(file.raw)
             const link = document.createElement('a')
             link.href = url
@@ -1204,8 +1329,11 @@ new Vue({
             const internal = source === 'internal'
             const filters = internal ? this.internalReportFilters : this.externalReportFilters
             const pagination = internal ? this.internalReportPagination : this.externalReportPagination
-            if (internal) this.internalReportLoading = true
-            else this.externalReportLoading = true
+            if (internal) {
+                this.internalReportLoading = true
+            } else {
+                this.externalReportLoading = true
+            }
             this.restoringReportSelection = true
             try {
                 const range = filters.writeDateRange || []
@@ -1221,20 +1349,32 @@ new Vue({
                 })
                 const records = ((data && data.records) || []).map(item => this.normalizeReportRecord(item, source))
                 pagination.total = (data && data.total) || 0
-                if (internal) this.internalReportData = records
-                else this.externalReportData = records
+                if (internal) {
+                    this.internalReportData = records
+                } else {
+                    this.externalReportData = records
+                }
                 this.$nextTick(() => {
-                    if (internal) this.restoreInternalReportSelection()
-                    else this.restoreExternalReportSelection()
+                    if (internal) {
+                        this.restoreInternalReportSelection()
+                    } else {
+                        this.restoreExternalReportSelection()
+                    }
                 })
             } catch (e) {
                 pagination.total = 0
-                if (internal) this.internalReportData = []
-                else this.externalReportData = []
+                if (internal) {
+                    this.internalReportData = []
+                } else {
+                    this.externalReportData = []
+                }
                 this.restoringReportSelection = false
             } finally {
-                if (internal) this.internalReportLoading = false
-                else this.externalReportLoading = false
+                if (internal) {
+                    this.internalReportLoading = false
+                } else {
+                    this.externalReportLoading = false
+                }
             }
         },
         // 转换报告接口字段为弹窗展示字段。
@@ -1248,79 +1388,138 @@ new Vue({
             })
         },
         // 查询内部报告。
-        queryInternalReports() { return this.queryReportListPage('internal') },
+        queryInternalReports() {
+            return this.queryReportListPage('internal')
+        },
         // 查询外部报告。
-        queryExternalReports() { return this.queryReportListPage('external') },
+        queryExternalReports() {
+            return this.queryReportListPage('external')
+        },
         // 合并内部报告当前页勾选与其他页已选项。
         handleInternalReportSelectionChange(rows) {
-            if (this.restoringReportSelection) return
+            if (this.restoringReportSelection) {
+                return
+            }
             const visibleIds = this.internalReportPageData.map(report => report.id)
             const map = {}
             this.selectedInternalReports.forEach(report => {
-                if (!visibleIds.includes(report.id)) map[report.id] = report
+                if (!visibleIds.includes(report.id)) {
+                    map[report.id] = report
+                }
             })
-            ;(rows || []).forEach(report => {
-                map[report.id] = { id: report.id, title: report.title, reportType: report.reportType, source: 'internal', attachments: report.attachments || [] }
+            ;
+            (rows || []).forEach(report => {
+                map[report.id] = {
+                    id: report.id,
+                    title: report.title,
+                    reportType: report.reportType,
+                    source: 'internal',
+                    attachments: report.attachments || []
+                }
             })
             this.selectedInternalReports = Object.keys(map).map(key => map[key])
         },
         // 合并外部报告当前页勾选与其他页已选项。
         handleExternalReportSelectionChange(rows) {
-            if (this.restoringReportSelection) return
+            if (this.restoringReportSelection) {
+                return
+            }
             const visibleIds = this.externalReportPageData.map(report => report.id)
             const map = {}
             this.selectedExternalReports.forEach(report => {
-                if (!visibleIds.includes(report.id)) map[report.id] = report
+                if (!visibleIds.includes(report.id)) {
+                    map[report.id] = report
+                }
             })
-            ;(rows || []).forEach(report => {
-                map[report.id] = { id: report.id, title: report.title, reportType: report.reportType, source: 'external', attachments: report.attachments || [] }
+            ;
+            (rows || []).forEach(report => {
+                map[report.id] = {
+                    id: report.id,
+                    title: report.title,
+                    reportType: report.reportType,
+                    source: 'external',
+                    attachments: report.attachments || []
+                }
             })
             this.selectedExternalReports = Object.keys(map).map(key => map[key])
         },
         // 恢复内部报告当前页勾选状态。
         restoreInternalReportSelection() {
             const table = this.$refs.internalReportTableRef
-            if (!table) { this.restoringReportSelection = false; return }
+            if (!table) {
+                this.restoringReportSelection = false;
+                return
+            }
             this.restoringReportSelection = true
             table.clearSelection()
             this.internalReportPageData.forEach(row => table.toggleRowSelection(row, this.selectedInternalReports.some(report => report.id === row.id)))
-            this.$nextTick(() => { this.restoringReportSelection = false })
+            this.$nextTick(() => {
+                this.restoringReportSelection = false
+            })
         },
         // 恢复外部报告当前页勾选状态。
         restoreExternalReportSelection() {
             const table = this.$refs.externalReportTableRef
-            if (!table) { this.restoringReportSelection = false; return }
+            if (!table) {
+                this.restoringReportSelection = false;
+                return
+            }
             this.restoringReportSelection = true
             table.clearSelection()
             this.externalReportPageData.forEach(row => table.toggleRowSelection(row, this.selectedExternalReports.some(report => report.id === row.id)))
-            this.$nextTick(() => { this.restoringReportSelection = false })
+            this.$nextTick(() => {
+                this.restoringReportSelection = false
+            })
         },
         // 切换报告来源 Tab 后恢复当前页勾选状态。
         handleReportTabClick() {
             this.$nextTick(() => {
-                if (this.reportActiveTab === 'internal') this.restoreInternalReportSelection()
-                else this.restoreExternalReportSelection()
+                if (this.reportActiveTab === 'internal') {
+                    this.restoreInternalReportSelection()
+                } else {
+                    this.restoreExternalReportSelection()
+                }
             })
         },
         // 重置并查询内部报告。
         resetInternalReportFilters() {
-            this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+            this.internalReportFilters = {
+                title: '',
+                securityCode: '',
+                reportType: '',
+                writeDateRange: null
+            }
             this.internalReportPagination.pageIndex = 1
             this.queryInternalReports()
         },
         // 静默重置内部报告查询条件。
         resetInternalReportFiltersSilent() {
-            this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+            this.internalReportFilters = {
+                title: '',
+                securityCode: '',
+                reportType: '',
+                writeDateRange: null
+            }
         },
         // 重置并查询外部报告。
         resetExternalReportFilters() {
-            this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+            this.externalReportFilters = {
+                title: '',
+                securityCode: '',
+                reportType: '',
+                writeDateRange: null
+            }
             this.externalReportPagination.pageIndex = 1
             this.queryExternalReports()
         },
         // 静默重置外部报告查询条件。
         resetExternalReportFiltersSilent() {
-            this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+            this.externalReportFilters = {
+                title: '',
+                securityCode: '',
+                reportType: '',
+                writeDateRange: null
+            }
         },
         // 设置内部报告类型快捷筛选。
         setInternalReportTypeFilter(type) {
@@ -1355,32 +1554,49 @@ new Vue({
             this.$nextTick(() => this.restoreExternalReportSelection())
         },
         // 返回报告类型名称。
-        reportTypeLabel(code) { return this.reportTypeDict[code] || code || '' },
+        reportTypeLabel(code) {
+            return this.reportTypeDict[code] || code || ''
+        },
         // 返回报告证券类型名称。
-        reportSecurityTypeLabel(code) { return this.reportSecurityTypeDict[code] || code || '' },
+        reportSecurityTypeLabel(code) {
+            return this.reportSecurityTypeDict[code] || code || ''
+        },
         // 返回报告类型样式分组。
         getReportTypeClass(type) {
             const map = {
-                bond_in_report: 'type-rating', bond_out_report: 'type-risk',
-                fund_in_report: 'type-research', fund_out_report: 'type-risk',
-                stock_in_report: 'type-rating', stock_out_report: 'type-risk', other_report: 'type-default'
+                bond_in_report: 'type-rating',
+                bond_out_report: 'type-risk',
+                fund_in_report: 'type-research',
+                fund_out_report: 'type-risk',
+                stock_in_report: 'type-rating',
+                stock_out_report: 'type-risk',
+                other_report: 'type-default'
             }
             return map[type] || 'type-default'
         },
         // 返回报告类型标签样式。
         reportTypeTagType(type) {
             const value = this.getReportTypeClass(type)
-            if (value === 'type-rating') return 'success'
-            if (value === 'type-risk') return 'danger'
-            if (value === 'type-research') return 'warning'
+            if (value === 'type-rating') {
+                return 'success'
+            }
+            if (value === 'type-risk') {
+                return 'danger'
+            }
+            if (value === 'type-research') {
+                return 'warning'
+            }
             return 'info'
         },
         // 确认本次基金报告或其他材料选择。
         handleConfirmReportDialog() {
             const reports = this.selectedInternalReports.concat(this.selectedExternalReports)
             const key = this.materialKey(this.reportDialogDirection, this.reportDialogPoolId)
-            if (this.reportDialogColumn === 'credit') this.$set(this.creditReportSelections, key, reports.slice())
-            else this.$set(this.otherMaterialSelections, key, reports.slice())
+            if (this.reportDialogColumn === 'credit') {
+                this.$set(this.creditReportSelections, key, reports.slice())
+            } else {
+                this.$set(this.otherMaterialSelections, key, reports.slice())
+            }
             this.reportDialogVisible = false
         },
         // 下载报告库附件。
@@ -1396,8 +1612,18 @@ new Vue({
         async goToStep2() {
             this.selectedInPools = this.normalizeSelectedPools(this.selectedInPools)
             this.selectedOutPools = this.normalizeSelectedPools(this.selectedOutPools)
-            const items = this.selectedInPools.map(pool => ({ targetPoolId: pool.id, targetPoolName: pool.poolName, poolType: pool.poolType, adjustMode: '调入' }))
-                .concat(this.selectedOutPools.map(pool => ({ targetPoolId: pool.id, targetPoolName: pool.poolName, poolType: pool.poolType, adjustMode: '调出' })))
+            const items = this.selectedInPools.map(pool => ({
+                targetPoolId: pool.id,
+                targetPoolName: pool.poolName,
+                poolType: pool.poolType,
+                adjustMode: '调入'
+            }))
+                .concat(this.selectedOutPools.map(pool => ({
+                    targetPoolId: pool.id,
+                    targetPoolName: pool.poolName,
+                    poolType: pool.poolType,
+                    adjustMode: '调出'
+                })))
             if (!items.length) {
                 this.$message.warning('请至少选择一个调入或调出投资池')
                 return
@@ -1408,7 +1634,9 @@ new Vue({
             const currentSeq = ++this.adjustCheckSeq
             try {
                 const data = await this.apiPost('/api/v1/fundPoolAdjust/checkAdjust', { fundCode: this.fundDetail.fundCode, items: items })
-                if (currentSeq !== this.adjustCheckSeq) return
+                if (currentSeq !== this.adjustCheckSeq) {
+                    return
+                }
                 const reviewList = (data.items || []).map((item, rowIndex) => {
                     const flowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex)
                     const flow = flowOptions.find(option => option.recommended && option.selectable)
@@ -1435,7 +1663,9 @@ new Vue({
                 this.adjustReviewList = []
                 this.$message.error(e.message || '操作失败')
             } finally {
-                if (currentSeq === this.adjustCheckSeq) this.adjustCheckLoading = false
+                if (currentSeq === this.adjustCheckSeq) {
+                    this.adjustCheckLoading = false
+                }
             }
         },
         // 返回步骤1并保留已选择的投资池和材料。
@@ -1449,7 +1679,9 @@ new Vue({
             let nextIndex = 0
             return (rows || []).map(row => {
                 const key = row.adjustGroupKey || (row.targetPoolId + '_' + row.adjustMode)
-                if (groupIndexes[key] == null) groupIndexes[key] = nextIndex++
+                if (groupIndexes[key] == null) {
+                    groupIndexes[key] = nextIndex++
+                }
                 return Object.assign({}, row, { groupColorIndex: groupIndexes[key] })
             })
         },
@@ -1475,7 +1707,9 @@ new Vue({
         },
         // 返回调库项当前选择的流程。
         selectedRowFlowOption(row) {
-            if (!row || !row.selectedFlowKey) return null
+            if (!row || !row.selectedFlowKey) {
+                return null
+            }
             return (row.flowOptions || []).find(option => option.optionKey === row.selectedFlowKey) || null
         },
         // 流程变化时同步基金提交字段。
@@ -1489,53 +1723,101 @@ new Vue({
         // 返回流程类型展示名称。
         flowTypeLabel(type) {
             const map = {
-                whitelistInbound: '白名单', simpleInbound: '简易', normalInbound: '默认调入',
-                specialInbound: '特殊审批', upgradeInbound: '上调', downgradeInbound: '下调',
+                whitelistInbound: '白名单',
+                simpleInbound: '简易',
+                normalInbound: '默认调入',
+                specialInbound: '特殊审批',
+                upgradeInbound: '上调',
+                downgradeInbound: '下调',
                 normalOutbound: '调出'
             }
             return map[type] || '标准'
         },
         // 返回流程类型标签样式。
         flowTypeTagType(type) {
-            if (type === 'whitelistInbound' || type === 'simpleInbound') return 'success'
-            if (type === 'specialInbound' || type === 'downgradeInbound') return 'warning'
-            if (type === 'normalOutbound') return 'danger'
+            if (type === 'whitelistInbound' || type === 'simpleInbound') {
+                return 'success'
+            }
+            if (type === 'specialInbound' || type === 'downgradeInbound') {
+                return 'warning'
+            }
+            if (type === 'normalOutbound') {
+                return 'danger'
+            }
             return 'info'
         },
         // 返回流程下拉的类型样式类。
         flowTypeClass(type) {
             const map = {
-                whitelistInbound: 'whitelist', simpleInbound: 'simple', normalInbound: 'normal',
-                specialInbound: 'special', upgradeInbound: 'upgrade', downgradeInbound: 'downgrade',
+                whitelistInbound: 'whitelist',
+                simpleInbound: 'simple',
+                normalInbound: 'normal',
+                specialInbound: 'special',
+                upgradeInbound: 'upgrade',
+                downgradeInbound: 'downgrade',
                 normalOutbound: 'outbound'
             }
             return map[type] || 'standard'
         },
         // 返回流程候选标签样式。
         getFlowOptionTagType(option) {
-            if (!option) return 'info'
-            if (option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound') return 'success'
-            if (option.flowType === 'specialInbound' || option.flowType === 'downgradeInbound') return 'warning'
+            if (!option) {
+                return 'info'
+            }
+            if (option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound') {
+                return 'success'
+            }
+            if (option.flowType === 'specialInbound' || option.flowType === 'downgradeInbound') {
+                return 'warning'
+            }
             return 'info'
         },
         // 返回流程选择卡片的分组颜色类。
-        getFlowRowColorClass(index) { return 'flow-row-color-' + (index % 5) },
+        getFlowRowColorClass(index) {
+            return 'flow-row-color-' + (index % 5)
+        },
         // 返回调库明细来源标签名称。
-        itemTagLabel(tag) { return { manual: '手工', linkage: '联动', mutex: '互斥' }[tag] || tag || '' },
+        itemTagLabel(tag) {
+            return {
+                manual: '手工',
+                linkage: '联动',
+                mutex: '互斥'
+            }[tag] || tag || ''
+        },
         // 返回调库明细调整类型名称。
-        adjustTypeLabel(tag) { return this.itemTagLabel(tag) ? this.itemTagLabel(tag) + '调整' : '' },
+        adjustTypeLabel(tag) {
+            return this.itemTagLabel(tag) ? this.itemTagLabel(tag) + '调整' : ''
+        },
         // 返回调库明细来源标签样式。
-        itemTagType(tag) { return tag === 'mutex' ? 'danger' : (tag === 'linkage' ? 'warning' : 'info') },
+        itemTagType(tag) {
+            return tag === 'mutex'
+                ? 'danger'
+                : (tag === 'linkage'
+                    ? 'warning'
+                    : 'info')
+        },
         // 返回调库明细默认一般流程名称。
-        flowName(row) { return row.flowName || (row.flowOptions && row.flowOptions.length ? row.flowOptions[0].flowName : '') },
+        flowName(row) {
+            return row.flowName || (row.flowOptions && row.flowOptions.length ? row.flowOptions[0].flowName : '')
+        },
         // 返回投资池类型中文名称。
         poolTypeLabel(poolType) {
             const map = {
-                credit_bond: '信用债', offshore_bond: '境外债', convertible_bond: '转债',
-                bond_product: '债券产品', special_account: '专户', stock: '股票',
-                stock_product: '股票产品', fund: '基金', forbidden: '禁止库',
-                observe: '观察池', blacklist: '黑名单', restricted: '限制名单',
-                whitelist: '白名单', crmw: 'CRMW库', other: '其他'
+                credit_bond: '信用债',
+                offshore_bond: '境外债',
+                convertible_bond: '转债',
+                bond_product: '债券产品',
+                special_account: '专户',
+                stock: '股票',
+                stock_product: '股票产品',
+                fund: '基金',
+                forbidden: '禁止库',
+                observe: '观察池',
+                blacklist: '黑名单',
+                restricted: '限制名单',
+                whitelist: '白名单',
+                crmw: 'CRMW库',
+                other: '其他'
             }
             return map[poolType] || poolType || ''
         },
@@ -1547,18 +1829,27 @@ new Vue({
         },
         // 返回校验结果状态文案。
         checkStatusLabel(row) {
-            if (!row.canAdjust) return '不可调整'
+            if (!row.canAdjust) {
+                return '不可调整'
+            }
             return (row.warnings || []).length ? '可调整(警告)' : '可调整'
         },
         // 返回校验结果状态颜色类名。
         checkStatusClass(row) {
-            if (!row.canAdjust) return 'check-status-text is-danger'
+            if (!row.canAdjust) {
+                return 'check-status-text is-danger'
+            }
             return (row.warnings || []).length ? 'check-status-text is-warning' : 'check-status-text is-success'
         },
         // 收集系统报告所关联的源附件 ID。
         collectSourceAttachmentIds(reports) {
             const ids = []
-            ;(reports || []).forEach(report => (report.attachments || []).forEach(file => { if (file.id != null && ids.indexOf(file.id) < 0) ids.push(file.id) }))
+            ;
+            (reports || []).forEach(report => (report.attachments || []).forEach(file => {
+                if (file.id != null && ids.indexOf(file.id) < 0) {
+                    ids.push(file.id)
+                }
+            }))
             return ids
         },
         // 组装提交参数、本地附件及其原始文件名。
@@ -1568,38 +1859,65 @@ new Vue({
             const items = this.validAdjustReviewList.map(item => {
                 const reportFileIndexes = []
                 const materialFileIndexes = []
-                ;(item.attachmentFiles || []).forEach(file => { reportFileIndexes.push(files.length); files.push(file.raw); originalNames.push(file.name) })
-                ;(item.materialFiles || []).forEach(file => { materialFileIndexes.push(files.length); files.push(file.raw); originalNames.push(file.name) })
+                ;
+                (item.attachmentFiles || []).forEach(file => {
+                    reportFileIndexes.push(files.length);
+                    files.push(file.raw);
+                    originalNames.push(file.name)
+                })
+                ;
+                (item.materialFiles || []).forEach(file => {
+                    materialFileIndexes.push(files.length);
+                    files.push(file.raw);
+                    originalNames.push(file.name)
+                })
                 return {
-                    targetPoolId: item.targetPoolId, targetPoolName: item.poolName, poolType: item.poolType,
-                    adjustMode: item.adjustMode, itemTag: item.itemTag, adjustGroupKey: item.adjustGroupKey,
-                    flowId: item.flowId, flowKey: item.flowKey, flowType: item.flowType,
+                    targetPoolId: item.targetPoolId,
+                    targetPoolName: item.poolName,
+                    poolType: item.poolType,
+                    adjustMode: item.adjustMode,
+                    itemTag: item.itemTag,
+                    adjustGroupKey: item.adjustGroupKey,
+                    flowId: item.flowId,
+                    flowKey: item.flowKey,
+                    flowType: item.flowType,
                     adjustmentNote: this.adjustResultNote(item),
-                    reportFileIndexes: reportFileIndexes, materialFileIndexes: materialFileIndexes,
+                    reportFileIndexes: reportFileIndexes,
+                    materialFileIndexes: materialFileIndexes,
                     reportSourceAttachmentIds: this.collectSourceAttachmentIds(item.creditReports),
                     materialSourceAttachmentIds: this.collectSourceAttachmentIds(item.otherMaterials)
                 }
             })
             return {
                 payload: {
-                    fundCode: this.fundDetail.fundCode, fundScore: Number(this.submitForm.fundScore),
+                    fundCode: this.fundDetail.fundCode,
+                    fundScore: Number(this.submitForm.fundScore),
                     fundInvestmentType: this.submitForm.fundInvestmentType,
                     needRiskLeaderApproval: this.submitForm.needRiskLeaderApproval,
-                    adjustType: '手工调整', adjustReason: this.submitForm.adjustReason,
-                    adjustAdvice: this.submitForm.adjustAdvice, adjusterId: this.currentUser.userId,
-                    adjusterName: this.currentUser.userName, items: items
-                }, files: files, originalNames: originalNames
+                    adjustType: '手工调整',
+                    adjustReason: this.submitForm.adjustReason,
+                    adjustAdvice: this.submitForm.adjustAdvice,
+                    adjusterId: this.currentUser.userId,
+                    adjusterName: this.currentUser.userName,
+                    items: items
+                },
+                files: files,
+                originalNames: originalNames
             }
         },
         // 校验提交页输入并打开调库流程选择弹窗。
         handleSubmit() {
-            if (this.submitLoading) return
+            if (this.submitLoading) {
+                return
+            }
             if (this.validItemCount === 0) {
                 this.$message.warning('没有可提交的调库申请，请检查校验结果')
                 return
             }
             this.$refs.submitForm.validate(valid => {
-                if (!valid) return
+                if (!valid) {
+                    return
+                }
                 if (!this.allValidRowsHaveFlow) {
                     this.$message.warning('请为所有可提交调库项选择审批流程')
                     return
@@ -1609,7 +1927,9 @@ new Vue({
         },
         // 确认调库流程选择并正式提交申请。
         async confirmFlowSelection() {
-            if (this.submitLoading) return
+            if (this.submitLoading) {
+                return
+            }
             if (!this.allValidRowsHaveFlow) {
                 this.$message.warning('请为所有可提交调库项选择审批流程')
                 return
@@ -1619,7 +1939,9 @@ new Vue({
         },
         // 执行基金池调整申请提交。
         async submitAdjustLog() {
-            if (this.submitLoading) return
+            if (this.submitLoading) {
+                return
+            }
             this.submitLoading = true
             try {
                 const data = this.buildSubmitPayloadAndFiles()
