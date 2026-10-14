@@ -305,6 +305,15 @@
     </div>
 </header>
 <main class="wrap">
+    <section class="panel" id="related-bond-codes">
+        <h2>标的债券一券多码调库</h2>
+        <p>CRMW 凭证自身只有一个代码。本功能只按标的债券的 Wind 非空 ISIN 查询同券代码，排除自身、去重、不递归；空 ISIN 和临时代码不关联。</p>
+        <p>校验在手工、联动、互斥项后追加 <code>itemTag=related</code> 关联调整项。每个代码按自身市场、凭证与标的组合在池状态、活动池组、冻结期及原规则独立校验，同池调入累计容量。主项失败阻断关联项；关联项失败单独展示，仅提交通过项，与证券池一致。</p>
+        <p>关联项沿用原凭证、主项分组、流程和批次，仅手工项创建步骤，报告要求由同组手工项承担。提交 <code>items[]</code> 携带实际 <code>securityCode/securityShortName/securityType</code>，日志、快照和池状态均保留实际标的代码；直通即时生效，人工审批最终通过后同批生效。出池按原凭证、实际标的及目标池精确处理，保留其他凭证的组合。</p>
+        <p>批量及 Excel 导入复用相同逻辑，同批多个同券主行展开的重复组合按凭证、标的、目标池、方向去重，显式手工项优先；Excel 关联项全称、市场和类型按自身主档展示。活动流程通过同批任一组合定位，关联码审批中不能重复申请同池组。</p>
+        <p><code>queryCrmwAdjustLogList</code> 展示当前组合全部历史及同批关联项，不按请求批次或终态过滤，返回项增加实际标的代码和名称；校验表及审核、详情记录表展示这些字段。自动到期调出继续按实际在池组合逐条处理。本次不变更表结构或迁移历史数据。</p>
+    </section>
+
     <nav class="nav"><a href="#overview">流程总览</a><a href="#logic">业务逻辑</a><a href="#tables">涉及表</a><a
             href="#rules">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
     <section id="overview" class="panel">
@@ -337,7 +346,7 @@
         <p class="sub">按当前前后端实现归纳主要触发场景。</p>
         <div class="logic-grid">
             <article class="logic-card"><h3>页面加载</h3>
-                <p>URL <strong>须同时带</strong> <code>crmwScode</code> + <code>securityCode</code>（组合键），以及 <code>adjustBatchNo</code>/<code>adjustLogId</code>；常见 <code>entryMode=process|next</code>。批次和日志 ID 用于申请快照、步骤与附件定位；调库记录仅按当前标的证券、CRMW 凭证及凭证类型（<code>pool_type=crmw</code>）查询全部历史，不按批次或状态过滤，按提交时间倒序展示调整原因和提交时间；当前 URL 批次的记录以浅蓝底色高亮。标的证券基本信息共 29 项且顺序与证券池调库页一致，「剩余期限(天)」隐藏保留，新增只读「证券期限」展示 <code>date_exists_str</code>，<code>promptReason</code> 展示为“观察事项”，<code>analysis</code>（证券分析）最大输入长度为 5000 字，输入框随内容自动增高（最少 3 行、最多 20 行），超过 20 行时内部滚动；在展望评级后只读展示申请快照中的担保人，担保人主体内评分为提交时联动保存的 AIS 评分；可调入库默认仅展开「信用债大库(new)」，其他根节点默认收起（CRMW 池树不含该节点时即默认全部收起），可调出库默认全部展开；附件按全部日志 ID 去重后一次批量查询，并按返回的 <code>mainId</code> 回填；申请快照 ≠ 当前在池事实。</p>
+                <p>URL <strong>须同时带</strong> <code>crmwScode</code> + <code>securityCode</code>（组合键），以及 <code>adjustBatchNo</code>/<code>adjustLogId</code>；常见 <code>entryMode=process|next</code>。批次和日志 ID 用于申请快照、步骤与附件定位；调库记录按当前标的证券、CRMW 凭证及凭证类型（<code>pool_type=crmw</code>）查询全部历史及同批关联项，不按传入批次或状态过滤，按提交时间倒序展示调整原因和提交时间；当前 URL 批次的记录以浅蓝底色高亮。标的证券基本信息共 29 项且顺序与证券池调库页一致，「剩余期限(天)」隐藏保留，新增只读「证券期限」展示 <code>date_exists_str</code>，<code>promptReason</code> 展示为“观察事项”，<code>analysis</code>（证券分析）最大输入长度为 5000 字，输入框随内容自动增高（最少 3 行、最多 20 行），超过 20 行时内部滚动；在展望评级后只读展示申请快照中的担保人，担保人主体内评分为提交时联动保存的 AIS 评分；可调入库默认仅展开「信用债大库(new)」，其他根节点默认收起（CRMW 池树不含该节点时即默认全部收起），可调出库默认全部展开；附件按全部日志 ID 去重后一次批量查询，并按返回的 <code>mainId</code> 回填；申请快照 ≠ 当前在池事实。</p>
                 <p>调库记录表格列顺序为：序号、CRMW凭证、投资池名称、调整类型、调整方向、调整原因、信评报告、其他材料、提交时间、审批流程、审核状态。</p>
             </article>
             <article class="logic-card"><h3>发行主体财务数据</h3><p>证券基本信息下方调用 <code>queryIssuerFinancialList</code>，直接只读展示返回的四期。按中国标准时间的当前自然年确定四期：默认前三列为前三年年报，第四列为数据库最新一期；最新一期恰好为上一年年报，或主体完全没有财报时，显示前四年年报。缺失期保留报告日期，指标为空，不以季报或其他年份替代。城投债/产业债按钮仅切换指标口径，不提供报告期编辑或保存，不参与审批提交。</p></article>
