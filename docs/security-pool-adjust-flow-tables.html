@@ -249,6 +249,46 @@
             min-width: 860px;
         }
 
+        /* 查询过滤与简易匹配复用表格概览，详细实现默认收起。 */
+        #security-pool-adjust-doc .logic-summary-table {
+            border: 0;
+            border-radius: 0;
+        }
+
+        #security-pool-adjust-doc .logic-summary-table table {
+            min-width: 0;
+            table-layout: fixed;
+            color: #3F485A;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        #security-pool-adjust-doc .logic-summary-table th {
+            color: #242933;
+            background: #F7F8FA;
+            font-weight: 600;
+            white-space: normal;
+        }
+
+        #security-pool-adjust-doc .logic-summary-table th,
+        #security-pool-adjust-doc .logic-summary-table td {
+            padding: 12px;
+            border-bottom: 1px solid #E5E5E5;
+            overflow-wrap: break-word;
+        }
+
+        #security-pool-adjust-doc .logic-details {
+            margin-top: 20px;
+            padding-top: 12px;
+            border-top: 1px solid #E5E5E5;
+        }
+
+        #security-pool-adjust-doc .logic-details summary {
+            color: #2743A4;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
         .docs-page-security-pool-adjust-flow-tables .filter-heading {
             margin: 18px 0 8px;
             color: #1f3683;
@@ -652,6 +692,7 @@
             <a href="#pool-status">当前所在池</a>
             <a href="#adjustable-pools">可调入/调出池</a>
             <a href="#validation">调库校验</a>
+            <a href="#simple-inbound">简易入库匹配</a>
             <a href="#submit-approval">提交与审批</a>
             <a href="#tables">完整表清单</a>
             <a href="#relations">核心关系</a>
@@ -803,140 +844,202 @@
         </section>
 
         <section id="adjustable-pools" class="section">
-            <h2 class="section-title">可调入 / 可调出库查询逻辑</h2>
-            <p class="section-subtitle">对应详情页左右两栏「可调入库」「可调出库」。整段以 <code>queryAdjustPoolList</code> 为准：先查、再滤、前端再按是否已在池筛成两边。下面按代码执行顺序写。</p>
-            <div class="logic-header">
-                <strong>接口</strong>
-                <span class="api-path">POST /api/v1/securityPoolAdjust/queryAdjustPoolList</span>
-                <span class="method-name">SecurityPoolAdjustService.queryAdjustPoolList</span>
-            </div>
-
-            <h3 class="filter-heading">1. 页面怎么看、何时查</h3>
-            <div class="logic-card">
-                <ol>
-                    <li>进入某只证券的调库详情后，左右两栏分别是可调入库、可调出库。列：投资池名称、上限数量、现有数量；可调入库末级池还可选信评报告 / 其他材料。</li>
-                    <li>可调入库默认仅展开「信用债大库(new)」，其余节点默认收起；可调出库默认全部收起。接口只返回投资品种包含债券的池及其上级。</li>
-                    <li>只有<strong>末级池</strong>能勾选（有下级的节点不能勾）。勾选时若与已选池互斥，自动取消先选的冲突项并提示。</li>
-                    <li>每次进入证券调库详情（包括同券重新进入、切换证券及 URL 直达）时，先将「是否放开规则」恢复为「否」，再发起查询。两次选池请求分别为 <code>adjustDirection=in</code>（首次使用 <code>releaseRules=false</code>）和 <code>adjustDirection=out</code>。同时查证券详情、当前所在池、调库记录。同一次申请从校验确认返回上一步时，保留当前「是否放开规则」选择。</li>
-                    <li>页面上切换「是否放开规则」后，只重查 <code>in</code> 这一次；已勾但不在新结果里的调入项会被清掉。</li>
-                    <li>可调入库结果出来后，若其中含信用债 1～5 级，会按池预填近 6 个月审批通过调入的信评报告（该级尚无手工选择时才填）。先查当前券，再查同主体；同一日志内按手工信评附件、内部库、外部库的顺序选择（分别赋值 3/2/1，按 <code>CASE ... END DESC</code> 排序），同类附件按 <code>id DESC</code> 取 ID 最大的一份；其他材料不参与回填。手工信评附件 <code>credit_report_hand</code> 通过相同 <code>file_name</code> 反查内部报告的 <code>report_in</code> 库附件，返回报告库附件 ID 供再次提交。选定历史记录后，若查不到有效报告或库附件则不回填，不再尝试更早记录。报告库附件分类仍为 <code>report_in</code>，原有/新增报告由 <code>data_source</code> 区分。</li>
-                </ol>
-            </div>
-
-            <h3 class="filter-heading">2. 请求参数</h3>
-            <div class="table-wrap filter-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 180px;">字段</th>
-                            <th>含义</th>
-                        </tr>
-                    </thead>
+            <h2 class="section-title">可调入库查询与过滤逻辑</h2>
+            <p class="section-subtitle">先查当前用户可操作的投资池，再按信用债准入规则过滤，最后去掉证券已经所在的池，形成左侧“可调入库”。</p>
+            <h3 class="filter-heading">查询主流程</h3>
+            <div class="table-wrap logic-summary-table">
+                <table aria-label="可调入库查询主流程">
+                    <colgroup><col style="width:9%"><col style="width:26%"><col style="width:65%"></colgroup>
+                    <thead><tr><th scope="col">顺序</th><th scope="col">处理步骤</th><th scope="col">具体口径</th></tr></thead>
                     <tbody>
-                        <tr>
-                            <td><code>securityCode</code></td>
-                            <td>当前证券代码。调入过滤信用债 1～5 级时必用；为空则不做信用债 1～5 级那套过滤。</td>
-                        </tr>
-                        <tr>
-                            <td><code>adjustDirection</code></td>
-                            <td><code>in</code> = 可调入库（会过滤信用债 1～5 级）；<code>out</code> = 可调出库（不做信用债 1～5 级过滤）。</td>
-                        </tr>
-                        <tr>
-                            <td><code>currentUserId</code></td>
-                            <td>当前登录用户。空或不合法直接报错。值为 <code>1</code> 视为管理员，不做人员权限过滤。</td>
-                        </tr>
-                        <tr>
-                            <td><code>releaseRules</code></td>
-                            <td>是否放开规则。页面「是」传 <code>true</code>：调入时跳过信用债 1～5 级矩阵过滤。仅 <code>in</code> 有意义。</td>
-                        </tr>
+                        <tr><td>1</td><td>查询投资池</td><td>读取<strong>未删除</strong>的投资池，按配置顺序返回；本接口不额外按“启用”状态筛选。</td></tr>
+                        <tr><td>2</td><td>按人员权限过滤</td><td>管理员（用户ID为1）保留全量；普通用户只保留本人或所属启用角色有<strong>可调整权限</strong>的池，并保留这些池的上级。无权限时返回空列表。</td></tr>
+                        <tr><td>3</td><td>按池类型与品种过滤</td><td>排除<strong>CRMW池</strong>，只保留投资品种包含<strong>债券</strong>的池及其上级。禁投池、观察池、黑名单等不因池类型被直接排除。</td></tr>
+                        <tr><td>4</td><td>应用信用债准入规则</td><td>仅“调入”方向执行信用债大库1～5级过滤，见下表；非信用债池不套用这套矩阵规则。</td></tr>
+                        <tr><td>5</td><td>补充展示信息</td><td>查询调入／调出互斥关系和各池当前有效在池数量，连同上限数量、池名称、上级ID等一起返回。</td></tr>
+                        <tr><td>6</td><td>前端排除已在池项</td><td>根据证券当前有效在池记录，去掉<strong>已经所在的池</strong>；父节点的直接子项全部已在池时，也不再显示该父节点。</td></tr>
+                        <tr><td>7</td><td>组装树形列表</td><td>按上级关系展示，只有<strong>末级池</strong>可以勾选；默认仅展开“信用债大库(new)”，勾选时处理同栏和跨栏互斥。</td></tr>
                     </tbody>
                 </table>
             </div>
-
-            <h3 class="filter-heading">3. 后端主流程（按执行顺序）</h3>
-            <div class="callout">具体主体的结果字段展示为“主体内评分”；准入矩阵的分类字典及档位比较仍称“内评分档”，评分取值和档位编码保持不变。页面通过 <code>queryRelatedRatingCompanyList</code> 查询当前证券在 <code>ais_inv_ods.wind_cbondissuer</code> 中的四类关系主体：<code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115202000=债务主体</code>、<code>115201000=原始权益人</code>；与公共担保人查询一致，不按 <code>used</code> 过滤，主体内评左关联，无内评主体仍可作为候选且评分为空。同一主体兼多类关系时按类型分别返回，仅对同证券、同主体、同类型去重；四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条，用户可改选。非 ABS 页面将其作为“担保人”候选，ABS 页面将其作为“权益人”候选。ABS 还可通过 <code>querySelfSelectedRightsHolderPage</code> 从 <code>ais_inv_analysis.t_inv_company</code> 以 <code>wind_code</code> 分页查询自选权益人，名称优先取 <code>full_name</code>、为空时取 <code>short_names</code>，默认每页 20 条，可切换 10/20/30/50 条，分页包含总数、页码和跳转，并显示跨页连续序号；单选列位于序号列左侧，编码/名称支持模糊查询。ABS 的“担保人主体内评分”优先显示自选权益人内评；没有自选时显示当前权益人内评，切换或清除选择后即时刷新。选择变化会清空原调入选择并重新查询可调入池。校验和提交阶段后端重新查询主体，防止伪造编码、名称或内评。自选权益人弹窗采用带标签的主体编码/名称查询区；点击行或单选框选择主体，选中行高亮，最新内评以标签展示；底部显示已选主体名称和编码。确认前仅暂存选择，取消保留原值。主体编码、主体名称和内评列按弹窗可用宽度自适应分配。</div>
-            <div class="callout">方法：<code>queryAdjustPoolList</code>。任一步滤空则返回空列表。</div>
-            <div class="logic-card" style="margin-top: 12px;">
-                <ol>
-                    <li>查 <code>ip_investment_pool</code>，条件仅 <code>is_deleted=0</code>，按 <code>outer_sort</code> / <code>parent_id</code> / <code>inner_sort</code> 排序。本接口<strong>不按</strong> <code>status=enabled</code> 再筛一层。</li>
-                    <li><strong>人员权限</strong>：管理员 <code>currentUserId=1</code> 不过滤。普通用户查「可调整」权限（<code>ip_pool_permission.permission_type=adjustable</code>）：处理人是本人，或处理人是其启用角色。命中的池及其全部上级都保留，方便页面按层级展示。一个权限都没有则返回空。</li>
-                    <li><strong>排除 CRMW 池</strong>：<code>pool_type=crmw</code> 的入、出都去掉（CRMW 走独立链路）。禁投池、观察池、黑名单、重点观察名单等<strong>不在这一步排除</strong>，单券仍可调这些池。</li>
-                    <li><strong>仅 <code>adjustDirection=in</code></strong>：再走第 4 节「调入过滤信用债 1～5 级」。<code>out</code> 跳过。</li>
-                    <li>查全部调入互斥（<code>in_mutex</code>）、调出互斥（<code>out_mutex</code>），按池 ID 挂到返回对象上。</li>
-                    <li>汇总各池当前有效在池数量（<code>ip_pool_status</code> 审批通过且未删除），写入 <code>currentCount</code>；<code>maxCapacity</code> 取池配置。</li>
-                    <li>转成 <code>PoolDto</code> 列表返回（扁平，带 <code>parentId</code>）。</li>
-                </ol>
-            </div>
-
-            <h3 class="filter-heading">4. 调入过滤信用债 1～5 级（按执行顺序）</h3>
-            <div class="callout">方法：<code>filterInboundByGradeRule</code>。只改 <code>pool_type=credit_bond</code> 那棵树（大库根 + 1～5 级叶子）。其它池原样留下。调出不走本节。境外债不套这套规则。</div>
-            <div class="logic-card" style="margin-top: 12px;">
-                <ol>
-                    <li><code>releaseRules=true</code> 或没有证券代码：不过滤，信用债池原样返回（结束）。</li>
-                    <li>当前列表里没有任何 <code>pool_type=credit_bond</code> 的池：结束。</li>
-                    <li>按证券代码查不到证券主数据：结束（列表原样返回）。</li>
-                    <li>证券类型是<strong>可转债 / 可交换债 / 可分离转债 / CRMW</strong>：整棵信用债树不显示（结束）。</li>
-                    <li><strong>重点观察名单</strong>（券或主体在 <code>restricted</code>）：非 ABS 强担保债（有担保且担保人内评 1 档）可豁免；ABS 权益人内评不属于强担保，不豁免。未在信用债 1～5 级则整棵信用债树不显示；已在 1～4 级只留五级；已在五级不可上调。</li>
-                    <li>取<strong>查矩阵用的内评档</strong>：非 ABS 非担保债只用发债主体内评；非 ABS 担保债取发债主体与所选担保人内评较优值；ABS 直接用自选权益人（优先）或普通权益人内评，不与债务主体或担保人孰高。ABS 最终权益人无内评时提示“所选权益人无内评分”，不以债务主体兜底。</li>
-                    <li>匹配期限档：普通债及<strong>含权债</strong>赎回侧解析 <code>date_exists_str</code>（兼容“月/个月”“天/日”；年原值保留、月÷12、日÷365），不再用 <code>date_exists</code> 总天数÷365；含权债回售侧按 <code>date_inright_exists</code>/<code>date_repurchase_exists</code>（年），两侧都有取更短；<code>date_call_exists</code> 仅展示/落库，不参与匹配。期限文本无法解析时默认最长档（期限>5 / <code>GT_5</code>）。无可用期限档、年数落不进任何档、或矩阵未配置允许池：后面信用债 1～5 级全部不显示（档位规则也算不出起始档）。</li>
-                    <li>用第 6 步内评档 × 第 7 步期限档查矩阵，得到允许的信用债级别，并算出标准最好档。</li>
-                    <li>按券类型决定准入方式（先命中先走）。口径：<strong>只能调入一级库</strong>=仅一级；<strong>下调一级</strong>=按内评×期限矩阵最好档再降一档且只留那一档；<strong>至少下调一级</strong>=从该降一档开到五级（x～5）。
-                        <ul>
-                            <li><strong>ABS</strong>（<code>absFlag=1</code> 或类型 <code>abs</code>；<code>abs_all</code> 不算）不走覆盖链，始终走 ABS：“1 档”只看最终权益人内评。权益人内评 1 档只能调入一级库；非 1 档在矩阵最好档上至少下调一级。</li>
-                            <li>非 ABS：多种类型只留一个标签，后写覆盖先写：私募 → 次级 → 永续 → 担保（永续+担保按担保）。「1 档」只看发债主体内评 <code>innerIssuerRating</code>。</li>
-                            <li>覆盖后仍是<strong>私募</strong>：发债主体内评 1 档只能调入一级库，其余至少下调一级。</li>
-                            <li>覆盖后仍是<strong>永续</strong>：发债主体内评 1 档下调一级（只留那一档），其余至少下调一级。</li>
-                            <li>覆盖后仍是<strong>次级</strong>：发债主体内评 1 档只能调入一级库；2+/2/2- 下调一级（只留那一档）；其余至少下调一级。</li>
-                            <li>覆盖后是<strong>担保债</strong>，或券/主体已在<strong>观察池</strong>：不得高于矩阵最好档，从该档开到五级。第 6 步的孰高只影响查哪一格，不把发债主体非 1 档当成 1 档。</li>
-                            <li><strong>普通债</strong>：矩阵给哪几级就留哪几级。匹配 2、3 只显示 2、3。</li>
-                        </ul>
-                    </li>
-                    <li>逐个信用债 1～5 级叶子按上面口径（含重点观察名单已在库限制）决定是否保留；非信用债叶子全部保留。某级留下时，其上级（如信用债大库）一并保留，便于按层级展示。</li>
-                </ol>
-            </div>
-
-            <h3 class="filter-heading">5. 返回字段</h3>
-            <div class="table-wrap filter-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 180px;">字段</th>
-                            <th>含义</th>
-                        </tr>
-                    </thead>
+            <h3 class="filter-heading">信用债大库1～5级的过滤条件</h3>
+            <div class="table-wrap logic-summary-table">
+                <table aria-label="信用债分级库过滤条件">
+                    <colgroup><col style="width:9%"><col style="width:26%"><col style="width:65%"></colgroup>
+                    <thead><tr><th scope="col">顺序</th><th scope="col">条件</th><th scope="col">处理结果</th></tr></thead>
                     <tbody>
-                        <tr>
-                            <td><code>id</code> / <code>parentId</code> / <code>poolName</code> / <code>poolCode</code></td>
-                            <td>池主键、上级、名称、编码。前端靠 <code>parentId</code> 拼层级。</td>
-                        </tr>
-                        <tr>
-                            <td><code>poolType</code> / <code>poolLevel</code></td>
-                            <td>池类型、层级。</td>
-                        </tr>
-                        <tr>
-                            <td><code>maxCapacity</code> / <code>currentCount</code></td>
-                            <td>上限数量、现有数量。页面只在末级池展示。</td>
-                        </tr>
-                        <tr>
-                            <td><code>inMutexPoolIds</code> / <code>outMutexPoolIds</code></td>
-                            <td>调入互斥、调出互斥的对方池 ID。勾选时用来自动取消冲突项。</td>
-                        </tr>
+                        <tr><td>1</td><td>是否放开规则</td><td>选择“是”时，跳过本表的信用债准入过滤；<strong>权限、池类型、债券品种及前端已在池过滤仍然执行</strong>。</td></tr>
+                        <tr><td>2</td><td>是否具备过滤数据</td><td>未传证券代码、当前候选中没有信用债池，或查不到证券主数据时，结束这一步过滤，保留当前列表。</td></tr>
+                        <tr><td>3</td><td>是否属于排除品种</td><td><strong>可转债、可交换债、可分离转债、CRMW</strong>不适用信用债1～5级，移除整棵信用债池树。</td></tr>
+                        <tr><td>4</td><td>是否在重点观察名单</td><td>证券或主体任一命中时：未在分级库不得新增；已在1～4级只能去五级；已在五级不可上调。非ABS强担保债（担保人内评1档）可豁免，ABS权益人内评不享受该豁免。</td></tr>
+                        <tr><td>5</td><td>确定查矩阵的内评</td><td>非ABS普通债用<strong>发债主体内评</strong>；非ABS担保债取主体与所选担保人内评较优值；ABS用<strong>自选权益人优先、否则普通权益人</strong>的内评。非ABS临时代码缺内评时默认4档，ABS不按此兜底；最终无可用内评则移除信用债树。</td></tr>
+                        <tr><td>6</td><td>确定期限档</td><td>普通债按证券期限文本换算成年；含权债按现有回售／赎回口径取更短期限。<strong>期限无法解析时按最长档继续匹配</strong>；没有可匹配期限档时，信用债1～5级不保留。</td></tr>
+                        <tr><td>7</td><td>查询标准矩阵</td><td>按“<strong>内评分档×期限档</strong>”查询允许池，确定标准最佳层级；矩阵未配置允许池时，信用债1～5级不保留。</td></tr>
+                        <tr><td>8</td><td>叠加债券类型规则</td><td>在标准矩阵基础上，按ABS、私募、永续、次级、担保或观察名单等规则确定最终允许层级，见下表。</td></tr>
+                        <tr><td>9</td><td>保留叶子及上级</td><td>逐个分级库叶子检查准入范围及重点观察限制；保留符合规则的叶子和全部上级。非信用债叶子保留，父级随可用子级保留。</td></tr>
                     </tbody>
                 </table>
             </div>
-
-            <h3 class="filter-heading">6. 前端再筛成可调入库 / 可调出库</h3>
-            <div class="logic-card">
-                <ol>
-                    <li>先用 <code>querySecurityPoolStatus</code> 得到该券当前有效在池 ID（<code>audit_status=20</code> 且未删除的末级池）。</li>
-                    <li><strong>可调出库</strong>：在 <code>out</code> 结果里，只留「当前已在」的池，以及这些池的上级。没有在池记录则右栏为空。</li>
-                    <li><strong>可调入库</strong>：在 <code>in</code> 结果里去掉「当前已在」的末级池，避免重复调入；某个上级若全部下级都已在池，该上级也不再显示。</li>
-                    <li>按 <code>parentId</code> 组装成带下级的列表给表格展示；可调入库仅默认展开「信用债大库(new)」，其他节点收起。只有没有下级的行能勾选。</li>
-                    <li>调入、调出两边的互斥 ID 合并后，勾选时跨栏也会互斥替换。</li>
-                </ol>
+            <h3 class="filter-heading">不同债券类型允许哪些层级</h3>
+            <p class="section-subtitle">ABS始终按ABS处理；非ABS多种属性并存时，按“私募→次级→永续→担保”后者覆盖前者，选定一种准入方式。此处与简易匹配中“多个标志分别检查”的附加条件不同。</p>
+            <div class="table-wrap logic-summary-table">
+                <table aria-label="债券类型准入层级">
+                    <colgroup><col style="width:25%"><col style="width:25%"><col style="width:50%"></colgroup>
+                    <thead><tr><th scope="col">类型</th><th scope="col">内评条件</th><th scope="col">允许层级</th></tr></thead>
+                    <tbody>
+                        <tr><td>ABS</td><td>最终权益人1档</td><td>仅一级库。</td></tr>
+                        <tr><td>ABS</td><td>最终权益人非1档</td><td>在标准矩阵最佳层级上至少下调一级。</td></tr>
+                        <tr><td>私募债</td><td>发债主体1档</td><td>仅一级库。</td></tr>
+                        <tr><td>私募债</td><td>发债主体其他档</td><td>至少下调一级。</td></tr>
+                        <tr><td>永续债</td><td>发债主体1档</td><td>恰好下调一级，只保留下调后的那一级。</td></tr>
+                        <tr><td>永续债</td><td>发债主体其他档</td><td>至少下调一级。</td></tr>
+                        <tr><td>次级债</td><td>发债主体1档</td><td>仅一级库。</td></tr>
+                        <tr><td>次级债</td><td>发债主体2+、2、2-档</td><td>恰好下调一级，只保留下调后的那一级。</td></tr>
+                        <tr><td>次级债</td><td>发债主体其他档</td><td>至少下调一级。</td></tr>
+                        <tr><td>担保债／在观察池</td><td>未命中前面的特殊债分支</td><td>保留标准矩阵最佳层级及更差层级，一直到五级。</td></tr>
+                        <tr><td>普通债</td><td>未命中上述分支</td><td>只保留矩阵明确允许的池，不自动增加更差层级。例如矩阵允许二级、三级，就只保留这两级。</td></tr>
+                    </tbody>
+                </table>
             </div>
-            <div class="implementation-note">选池第 4 节与提交时的 <code>inCheckMainGradeRule</code> 同一套口径：选不中的信用债 1～5 级，校验也不该过。</div>
-            <div class="data-strip"><code>ip_investment_pool：读</code><code>ip_pool_permission：读</code><code>ip_pool_relation：读</code><code>ip_pool_status：读</code><code>rrs_securityinfo：读</code><code>credit_bond_*：读（仅调入）</code><code>t_sys_user_role：读</code><code>t_sys_role：读</code></div>
+            <p class="section-subtitle">“下调一级”指标准矩阵最佳层级数字加一；“至少下调一级”允许从下调后的层级一直到五级，计算结果不超过五级。上述层级规则仍需同时满足重点观察名单限制。</p>
+            <p class="section-subtitle"><strong>可调出库的区别：</strong>共用权限、池类型和债券品种筛选，跳过信用债调入矩阵；前端仅保留证券当前已在的池及对应父节点。</p>
+            <p class="section-subtitle"><strong>选池可见只是候选：</strong>点击“下一步”还会检查锁池、容量、开放日、到期及池间限制等条件；信用债准入过滤也不等于已满足简易入库资格。</p>
+            <details class="logic-details">
+                <summary>详细查询参数、过滤实现与页面交互</summary>
+                <div class="logic-header">
+                    <strong>接口</strong>
+                    <span class="api-path">POST /api/v1/securityPoolAdjust/queryAdjustPoolList</span>
+                    <span class="method-name">SecurityPoolAdjustService.queryAdjustPoolList</span>
+                </div>
+
+                <h3 class="filter-heading">1. 页面怎么看、何时查</h3>
+                <div class="logic-card">
+                    <ol>
+                        <li>进入某只证券的调库详情后，左右两栏分别是可调入库、可调出库。列：投资池名称、上限数量、现有数量；可调入库末级池还可选信评报告 / 其他材料。</li>
+                        <li>可调入库默认仅展开「信用债大库(new)」，其余节点默认收起；可调出库默认全部收起。接口只返回投资品种包含债券的池及其上级。</li>
+                        <li>只有<strong>末级池</strong>能勾选（有下级的节点不能勾）。勾选时若与已选池互斥，自动取消先选的冲突项并提示。</li>
+                        <li>每次进入证券调库详情（包括同券重新进入、切换证券及 URL 直达）时，先将「是否放开规则」恢复为「否」，再发起查询。两次选池请求分别为 <code>adjustDirection=in</code>（首次使用 <code>releaseRules=false</code>）和 <code>adjustDirection=out</code>。同时查证券详情、当前所在池、调库记录。同一次申请从校验确认返回上一步时，保留当前「是否放开规则」选择。</li>
+                        <li>页面上切换「是否放开规则」后，只重查 <code>in</code> 这一次；已勾但不在新结果里的调入项会被清掉。</li>
+                        <li>可调入库结果出来后，若其中含信用债 1～5 级，会按池预填近 6 个月审批通过调入的信评报告（该级尚无手工选择时才填）。先查当前券，再查同主体；同一日志内按手工信评附件、内部库、外部库的顺序选择（分别赋值 3/2/1，按 <code>CASE ... END DESC</code> 排序），同类附件按 <code>id DESC</code> 取 ID 最大的一份；其他材料不参与回填。手工信评附件 <code>credit_report_hand</code> 通过相同 <code>file_name</code> 反查内部报告的 <code>report_in</code> 库附件，返回报告库附件 ID 供再次提交。选定历史记录后，若查不到有效报告或库附件则不回填，不再尝试更早记录。报告库附件分类仍为 <code>report_in</code>，原有/新增报告由 <code>data_source</code> 区分。</li>
+                    </ol>
+                </div>
+
+                <h3 class="filter-heading">2. 请求参数</h3>
+                <div class="table-wrap filter-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 180px;">字段</th>
+                                <th>含义</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>securityCode</code></td>
+                                <td>当前证券代码。调入过滤信用债 1～5 级时必用；为空则不做信用债 1～5 级那套过滤。</td>
+                            </tr>
+                            <tr>
+                                <td><code>adjustDirection</code></td>
+                                <td><code>in</code> = 可调入库（会过滤信用债 1～5 级）；<code>out</code> = 可调出库（不做信用债 1～5 级过滤）。</td>
+                            </tr>
+                            <tr>
+                                <td><code>currentUserId</code></td>
+                                <td>当前登录用户。空或不合法直接报错。值为 <code>1</code> 视为管理员，不做人员权限过滤。</td>
+                            </tr>
+                            <tr>
+                                <td><code>releaseRules</code></td>
+                                <td>是否放开规则。页面「是」传 <code>true</code>：调入时跳过信用债 1～5 级矩阵过滤。仅 <code>in</code> 有意义。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 class="filter-heading">3. 后端主流程（按执行顺序）</h3>
+                <div class="callout">具体主体的结果字段展示为“主体内评分”；准入矩阵的分类字典及档位比较仍称“内评分档”，评分取值和档位编码保持不变。页面通过 <code>queryRelatedRatingCompanyList</code> 查询当前证券在 <code>ais_inv_ods.wind_cbondissuer</code> 中的四类关系主体：<code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115202000=债务主体</code>、<code>115201000=原始权益人</code>；与公共担保人查询一致，不按 <code>used</code> 过滤，主体内评左关联，无内评主体仍可作为候选且评分为空。同一主体兼多类关系时按类型分别返回，仅对同证券、同主体、同类型去重；四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条，用户可改选。非 ABS 页面将其作为“担保人”候选，ABS 页面将其作为“权益人”候选。ABS 还可通过 <code>querySelfSelectedRightsHolderPage</code> 从 <code>ais_inv_analysis.t_inv_company</code> 以 <code>wind_code</code> 分页查询自选权益人，名称优先取 <code>full_name</code>、为空时取 <code>short_names</code>，默认每页 20 条，可切换 10/20/30/50 条，分页包含总数、页码和跳转，并显示跨页连续序号；单选列位于序号列左侧，编码/名称支持模糊查询。ABS 的“担保人主体内评分”优先显示自选权益人内评；没有自选时显示当前权益人内评，切换或清除选择后即时刷新。选择变化会清空原调入选择并重新查询可调入池。校验和提交阶段后端重新查询主体，防止伪造编码、名称或内评。自选权益人弹窗采用带标签的主体编码/名称查询区；点击行或单选框选择主体，选中行高亮，最新内评以标签展示；底部显示已选主体名称和编码。确认前仅暂存选择，取消保留原值。主体编码、主体名称和内评列按弹窗可用宽度自适应分配。</div>
+                <div class="callout">方法：<code>queryAdjustPoolList</code>。任一步滤空则返回空列表。</div>
+                <div class="logic-card" style="margin-top: 12px;">
+                    <ol>
+                        <li>查 <code>ip_investment_pool</code>，条件仅 <code>is_deleted=0</code>，按 <code>outer_sort</code> / <code>parent_id</code> / <code>inner_sort</code> 排序。本接口<strong>不按</strong> <code>status=enabled</code> 再筛一层。</li>
+                        <li><strong>人员权限</strong>：管理员 <code>currentUserId=1</code> 不过滤。普通用户查「可调整」权限（<code>ip_pool_permission.permission_type=adjustable</code>）：处理人是本人，或处理人是其启用角色。命中的池及其全部上级都保留，方便页面按层级展示。一个权限都没有则返回空。</li>
+                        <li><strong>排除 CRMW 池</strong>：<code>pool_type=crmw</code> 的入、出都去掉（CRMW 走独立链路）。禁投池、观察池、黑名单、重点观察名单等<strong>不在这一步排除</strong>，单券仍可调这些池。</li>
+                        <li><strong>投资品种</strong>：只保留 <code>variety_codes</code> 包含 <code>bond</code> 的池及其上级，父级本身可以不含债券品种。</li>
+                        <li><strong>仅 <code>adjustDirection=in</code></strong>：再走第 4 节「调入过滤信用债 1～5 级」。<code>out</code> 跳过。</li>
+                        <li>查全部调入互斥（<code>in_mutex</code>）、调出互斥（<code>out_mutex</code>），按池 ID 挂到返回对象上。</li>
+                        <li>汇总各池当前有效在池数量（<code>ip_pool_status</code> 审批通过且未删除），写入 <code>currentCount</code>；<code>maxCapacity</code> 取池配置。</li>
+                        <li>转成 <code>PoolDto</code> 列表返回（扁平，带 <code>parentId</code>）。</li>
+                    </ol>
+                </div>
+
+                <h3 class="filter-heading">4. 调入过滤信用债 1～5 级（按执行顺序）</h3>
+                <div class="callout">方法：<code>filterInboundByGradeRule</code>。只改 <code>pool_type=credit_bond</code> 那棵树（大库根 + 1～5 级叶子）。其它池原样留下。调出不走本节。境外债不套这套规则。</div>
+                <div class="logic-card" style="margin-top: 12px;">
+                    <ol>
+                        <li><code>releaseRules=true</code> 或没有证券代码：不过滤，信用债池原样返回（结束）。</li>
+                        <li>当前列表里没有任何 <code>pool_type=credit_bond</code> 的池：结束。</li>
+                        <li>按证券代码查不到证券主数据：结束（列表原样返回）。</li>
+                        <li>证券类型是<strong>可转债 / 可交换债 / 可分离转债 / CRMW</strong>：整棵信用债树不显示（结束）。</li>
+                        <li><strong>重点观察名单</strong>（券或主体在 <code>restricted</code>）：非 ABS 强担保债（有担保且担保人内评 1 档）可豁免；ABS 权益人内评不属于强担保，不豁免。未在信用债 1～5 级则整棵信用债树不显示；已在 1～4 级只留五级；已在五级不可上调。</li>
+                        <li>取<strong>查矩阵用的内评档</strong>：非 ABS 非担保债只用发债主体内评；非 ABS 担保债取发债主体与所选担保人内评较优值；ABS 直接用自选权益人（优先）或普通权益人内评，不与债务主体或担保人孰高。ABS 最终权益人无内评时提示“所选权益人无内评分”，不以债务主体兜底。</li>
+                        <li>匹配期限档：普通债及<strong>含权债</strong>赎回侧解析 <code>date_exists_str</code>（兼容“月/个月”“天/日”；年原值保留、月÷12、日÷365），不再用 <code>date_exists</code> 总天数÷365；含权债回售侧按 <code>date_inright_exists</code>/<code>date_repurchase_exists</code>（年），两侧都有取更短；<code>date_call_exists</code> 仅展示/落库，不参与匹配。期限文本无法解析时默认最长档（期限>5 / <code>GT_5</code>）。无可用期限档、年数落不进任何档、或矩阵未配置允许池：后面信用债 1～5 级全部不显示（档位规则也算不出起始档）。</li>
+                        <li>用第 6 步内评档 × 第 7 步期限档查矩阵，得到允许的信用债级别，并算出标准最好档。</li>
+                        <li>按券类型决定准入方式（先命中先走）。口径：<strong>只能调入一级库</strong>=仅一级；<strong>下调一级</strong>=按内评×期限矩阵最好档再降一档且只留那一档；<strong>至少下调一级</strong>=从该降一档开到五级（x～5）。
+                            <ul>
+                                <li><strong>ABS</strong>（<code>absFlag=1</code> 或类型 <code>abs</code>；<code>abs_all</code> 不算）不走覆盖链，始终走 ABS：“1 档”只看最终权益人内评。权益人内评 1 档只能调入一级库；非 1 档在矩阵最好档上至少下调一级。</li>
+                                <li>非 ABS：多种类型只留一个标签，后写覆盖先写：私募 → 次级 → 永续 → 担保（永续+担保按担保）。「1 档」只看发债主体内评 <code>innerIssuerRating</code>。</li>
+                                <li>覆盖后仍是<strong>私募</strong>：发债主体内评 1 档只能调入一级库，其余至少下调一级。</li>
+                                <li>覆盖后仍是<strong>永续</strong>：发债主体内评 1 档下调一级（只留那一档），其余至少下调一级。</li>
+                                <li>覆盖后仍是<strong>次级</strong>：发债主体内评 1 档只能调入一级库；2+/2/2- 下调一级（只留那一档）；其余至少下调一级。</li>
+                                <li>覆盖后是<strong>担保债</strong>，或券/主体已在<strong>观察池</strong>：不得高于矩阵最好档，从该档开到五级。第 6 步的孰高只影响查哪一格，不把发债主体非 1 档当成 1 档。</li>
+                                <li><strong>普通债</strong>：矩阵给哪几级就留哪几级。匹配 2、3 只显示 2、3。</li>
+                            </ul>
+                        </li>
+                        <li>逐个信用债 1～5 级叶子按上面口径（含重点观察名单已在库限制）决定是否保留；非信用债叶子全部保留。某级留下时，其上级（如信用债大库）一并保留，便于按层级展示。</li>
+                    </ol>
+                </div>
+
+                <h3 class="filter-heading">5. 返回字段</h3>
+                <div class="table-wrap filter-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 180px;">字段</th>
+                                <th>含义</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>id</code> / <code>parentId</code> / <code>poolName</code> / <code>poolCode</code></td>
+                                <td>池主键、上级、名称、编码。前端靠 <code>parentId</code> 拼层级。</td>
+                            </tr>
+                            <tr>
+                                <td><code>poolType</code> / <code>poolLevel</code></td>
+                                <td>池类型、层级。</td>
+                            </tr>
+                            <tr>
+                                <td><code>maxCapacity</code> / <code>currentCount</code></td>
+                                <td>上限数量、现有数量。页面只在末级池展示。</td>
+                            </tr>
+                            <tr>
+                                <td><code>inMutexPoolIds</code> / <code>outMutexPoolIds</code></td>
+                                <td>调入互斥、调出互斥的对方池 ID。勾选时用来自动取消冲突项。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 class="filter-heading">6. 前端再筛成可调入库 / 可调出库</h3>
+                <div class="logic-card">
+                    <ol>
+                        <li>先用 <code>querySecurityPoolStatus</code> 得到该券当前有效在池 ID（<code>audit_status=20</code> 且未删除的末级池）。</li>
+                        <li><strong>可调出库</strong>：在 <code>out</code> 结果里，只留「当前已在」的池，以及这些池的上级。没有在池记录则右栏为空。</li>
+                        <li><strong>可调入库</strong>：在 <code>in</code> 结果里去掉「当前已在」的末级池，避免重复调入；某个上级若全部下级都已在池，该上级也不再显示。</li>
+                        <li>按 <code>parentId</code> 组装成带下级的列表给表格展示；可调入库仅默认展开「信用债大库(new)」，其他节点收起。只有没有下级的行能勾选。</li>
+                        <li>调入、调出两边的互斥 ID 合并后，勾选时跨栏也会互斥替换。</li>
+                    </ol>
+                </div>
+                <div class="implementation-note">选池第 4 节与“下一步”校验中的 <code>inCheckMainGradeRule</code> 复用评级矩阵和特殊债准入规则。选池结果只是候选，锁池、容量、开放日、到期等条件仍需后续校验。</div>
+                <div class="data-strip"><code>ip_investment_pool：读</code><code>ip_pool_permission：读</code><code>ip_pool_relation：读</code><code>ip_pool_status：读</code><code>rrs_securityinfo：读</code><code>credit_bond_*：读（仅调入）</code><code>t_sys_user_role：读</code><code>t_sys_role：读</code></div>
+            </details>
         </section>
 
         <section id="validation" class="section">
@@ -996,7 +1099,7 @@
                         <li>调入 → 已在信用债大库：同父级按 <code>innerSort</code> 上调 / 下调流程。</li>
                         <li>调入 → 不在信用债大库：同时评估白名单 / 简易 / 默认调入，推荐优先级 白名单 > 简易 > 默认。</li>
                         <li>白名单条件顺序：解析 <code>date_exists_str</code> 后剩余期限≤3年（无法解析时不命中）→ 非永续/私募/ABS → 债券类 → 主体在白名单池（<code>WHITELIST_POOL_IDS</code> 当前为空，本条件固定不成立）→ 非担保债。</li>
-                        <li>简易条件顺序：按当前矩阵和特殊债准入规则计算信用债1～5级的完整允许层级，唯一且为一/二/三级并与目标层级一致 → 同发行人近180天以非简易入库流程进入过信用债大库任意层级 → 满足对应债券类型要求 → 同发行人报告库中有近180天有效信评报告。满足后简易可选并优先推荐，仍可改选默认调入。</li>
+                        <li>简易流程逐项检查唯一准入层级、近180天非简易入库经历、近180天有效信评报告、债券类型附加要求，全部满足后可选并优先推荐；详见下方独立的<a href="#simple-inbound">“简易入库流程匹配逻辑”</a>。</li>
                     </ul>
                 </article>
             </div>
@@ -1004,33 +1107,6 @@
                 校验结果带 <code>failReasons</code> 与 <code>warnings</code>；前端「调整说明」失败时分条展示「未通过（共 N 项）」+ 编号列表（保留全部 failReasons，检查项文案不含「无法调入」终局语气）；警告单独展示。同组（同一 <code>adjustGroupKey</code>）手工+联动/互斥行用底色区分。
                 简易流程不再比较本券与同主体目标池最大剩余天数，不再要求同目标池180天非简易入池；原主体/展望/担保人评级下调条件也不参与简易命中。
                 文中「已注释」「空实现」「当前为空」等与源码一致，顺序与 <code>checkCommonIn</code> / <code>checkCommonOut</code> 调用顺序一致。
-            </div>
-            <div class="logic-grid" style="margin-top:14px">
-                <article class="logic-card">
-                    <h3>简易流程必要条件与半年报告</h3>
-                    <ul>
-                        <li>唯一性按信用债<strong>1～5级完整允许集合</strong>计算，不能按本次勾选池或仅筛一至三级计算；唯一层级必须为1～3并等于目标池 <code>innerSort</code>。放开规则不免除简易自身条件。</li>
-                        <li>非简易入库经历使用 <code>queryIssuerHasNonSimpleCreditBondInboundWithinDays(securityCode, 180)</code>：非空 <code>issuer_code</code> 相同的债券，历史 <code>ip_pool_status</code> 中 <code>pool_type=credit_bond</code>、<code>adjust_mode=调入</code>、<code>flow_type非空且不为simpleInbound</code>、<code>audit_status=20</code>，按 <code>entry_time</code> 算近180天。不要求同目标层级，已出池软删记录仍计；标准、特殊、升库、降库、白名单及批量调入等非简易流程均计入；简易和空流程类型不计入。简易条件中的“半年”统一为180天。</li>
-                        <li>半年报告使用 <code>queryIssuerHasRecentCreditReportWithinDays(securityCode, 180)</code> 查内部/外部报告库（<code>rrs_report_in</code> / <code>rrs_report_out</code>）：报告 <code>company_code</code> 直接匹配当前券非空 <code>issuer_code</code>，未删除，<code>report_type=bond_in_report/bond_out_report</code>，<code>crte_time</code> 在近180天内，并有对应未删除的报告库附件（<code>table_name=rrs_report_in/rrs_report_out</code>、<code>attachment_category=report_in/report_out</code>）。其他类型、无附件、软删报告或附件不计；报告库没有独立日期/状态字段，时间以 <code>crte_time</code> 为准，缺失主体代码不回退报告证券代码。</li>
-                        <li>报告<strong>不要求关联历史调入，也不要求与非简易入库经历属于同一笔业务</strong>。简易资格与提交阶段“半年调入日志带报告”的报告必填豁免各自判断。</li>
-                    </ul>
-                </article>
-                <article class="logic-card">
-                    <h3>简易流程债券类型要求</h3>
-                    <ul>
-                        <li>永续债：主体内评1档，在标准信用债规则最佳准入层级基础上<strong>恰好下调一级</strong>；其他内评<strong>至少下调一级</strong>。</li>
-                        <li>次级债：主体内评1档<strong>仅可调入一级库</strong>；2-、2、2+档在标准规则基准上<strong>恰好下调一级</strong>，其中2-档还须期限<strong>≤5年</strong>；其他档<strong>至少下调一级</strong>。</li>
-                        <li>标准信用债：主体内评3档还须期限<strong>≤1年</strong>；其他档无额外期限要求。未列举的其他类型不增加上述附加条件，仍须通过普通校验，并满足唯一准入层级、非简易入库经历和报告条件。</li>
-                        <li>下调一级是层级数字增加1；“至少一级”仍须同时满足完整允许层级唯一的必要条件。期限复用 <code>date_exists_str</code> 年口径解析及现有含权债期限工具，不使用旧 <code>date_exists</code> 天数；明确要求≤1年/≤5年时，缺失、无效或负数期限不满足。</li>
-                    </ul>
-                </article>
-                <article class="logic-card">
-                    <h3>独立判定标准信用债</h3>
-                    <ul>
-                        <li>标准信用债是公开发行、不涉及永续/回售/赎回/递延付息等特殊条款，无担保/内部分层/差额补足等增信措施，偿付不依赖特定资产，违约风险仅由发债主体信用资质决定，且未在内评系统观察或重点观察名单中的信用债。</li>
-                        <li>标准定义由上游维护 <code>std_credit_flag</code>；独立方法 <code>isStandardCreditBond</code> <strong>仅判断 <code>std_credit_flag==1</code></strong>，0、NULL 均不认定标准信用债；不叠加 <code>std_clause_flag</code> 或其他标志判断。</li>
-                    </ul>
-                </article>
             </div>
             <div class="logic-grid" style="margin-top:14px">
                 <article class="logic-card">
@@ -1043,6 +1119,86 @@
                 </article>
             </div>
             <div class="data-strip"><code>rrs_securityinfo：读</code><code>ip_investment_pool：读</code><code>ip_pool_status：读</code><code>ip_pool_relation：读</code><code>ip_adjust_log：读</code><code>ip_adjust_step：读</code><code>wf_flow_definition：读</code><code>credit_bond_pool_grade_rule：读</code><code>credit_bond_term_bucket：读</code><code>rrs_report_in：读</code><code>rrs_report_out：读</code><code>sys_attachment：读</code></div>
+        </section>
+
+        <section id="simple-inbound" class="section">
+            <h2 class="section-title">简易入库流程匹配逻辑</h2>
+            <p class="section-subtitle">普通校验通过的手工调入项，目标为信用债大库且当前证券尚未在库时，进入简易匹配。以下四项<strong>全部满足</strong>才可以选择简易入库流程。</p>
+            <div class="table-wrap logic-summary-table">
+                <table aria-label="简易入库四项匹配条件">
+                    <colgroup><col style="width:9%"><col style="width:26%"><col style="width:65%"></colgroup>
+                    <thead><tr><th scope="col">顺序</th><th scope="col">条件</th><th scope="col">具体口径</th></tr></thead>
+                    <tbody>
+                        <tr><td>1</td><td>唯一准入层级</td><td>根据矩阵、特殊债及观察名单规则，计算完整<strong>1～5级</strong>允许层级；只能允许一个层级，且必须是<strong>1～3级</strong>，与目标池层级一致，目标池本身也须在准入范围内。</td></tr>
+                        <tr><td>2</td><td>近期非简易入库经历</td><td>同发行人债券近<strong>180天</strong>，曾通过<strong>非简易流程</strong>成功进入信用债大库；不限历史入库层级，已经出池的记录仍计入。</td></tr>
+                        <tr><td>3</td><td>近期有效信评报告</td><td>同发行人内部或外部报告库中，有近<strong>180天创建</strong>的债券入库／出库信评报告，且报告和对应附件均未删除。</td></tr>
+                        <tr><td>4</td><td>债券类型附加要求</td><td>根据永续债、次级债、标准信用债分别检查，见下表。</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <h3 class="filter-heading">债券类型附加要求</h3>
+            <div class="table-wrap logic-summary-table">
+                <table aria-label="债券类型附加要求">
+                    <colgroup><col style="width:25%"><col style="width:25%"><col style="width:50%"></colgroup>
+                    <thead><tr><th scope="col">类型</th><th scope="col">发债主体内评</th><th scope="col">要求</th></tr></thead>
+                    <tbody>
+                        <tr><td>永续债</td><td>1档</td><td>相对标准矩阵最佳层级，恰好下调一级。</td></tr>
+                        <tr><td>永续债</td><td>其他档</td><td>至少下调一级。</td></tr>
+                        <tr><td>次级债</td><td>1档</td><td>目标必须是一级库。</td></tr>
+                        <tr><td>次级债</td><td>2+、2、2-档</td><td>恰好下调一级；其中<strong>2-档期限还须≤5年</strong>。</td></tr>
+                        <tr><td>次级债</td><td>其他档</td><td>至少下调一级。</td></tr>
+                        <tr><td>标准信用债</td><td>3档</td><td>期限须<strong>≤1年</strong>。</td></tr>
+                        <tr><td>标准信用债</td><td>其他档</td><td>不增加上述期限限制。</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="section-subtitle">“下调一级”指层级数字加一，例如一级变二级；附加要求使用发债主体内评，多个债券标志同时存在时分别检查。“至少下调一级”仍须满足上表的唯一准入层级条件。</p>
+            <details class="logic-details">
+                <summary>详细口径与实现说明</summary>
+                <div class="logic-header">
+                    <strong>匹配入口</strong>
+                    <span class="method-name">SecurityPoolAdjustService.isSimpleInboundFlowMatched</span>
+                    <span class="api-path">POST /api/v1/securityPoolAdjust/checkAdjust</span>
+                </div>
+                <div class="logic-grid" style="margin-top:14px">
+                    <article class="logic-card">
+                        <h3>简易流程必要条件与半年报告</h3>
+                        <ul>
+                            <li>唯一性按信用债<strong>1～5级完整允许集合</strong>计算，不能按本次勾选池或仅筛一至三级计算；唯一层级必须为1～3并等于目标池 <code>innerSort</code>。目标池本身也必须在实际准入范围内；唯一性不受本次勾选池、用户权限或放开规则开关影响。</li>
+                            <li>非简易入库经历使用 <code>queryIssuerHasNonSimpleCreditBondInboundWithinDays(securityCode, 180)</code>：非空 <code>issuer_code</code> 相同的债券，历史 <code>ip_pool_status</code> 中 <code>pool_type=credit_bond</code>、<code>adjust_mode=调入</code>、<code>flow_type非空且不为simpleInbound</code>、<code>audit_status=20</code>，按 <code>entry_time</code> 算近180天。不要求同目标层级，已出池软删记录仍计；标准、特殊、升库、降库、白名单及批量调入等非简易流程均计入；简易和空流程类型不计入。简易条件中的“半年”统一为180天。</li>
+                            <li>半年报告使用 <code>queryIssuerHasRecentCreditReportWithinDays(securityCode, 180)</code> 查内部/外部报告库（<code>rrs_report_in</code> / <code>rrs_report_out</code>）：报告 <code>company_code</code> 直接匹配当前券非空 <code>issuer_code</code>，未删除，<code>report_type=bond_in_report/bond_out_report</code>，<code>crte_time</code> 在近180天内，并有对应未删除的报告库附件（<code>table_name=rrs_report_in/rrs_report_out</code>、<code>attachment_category=report_in/report_out</code>）。其他类型、无附件、软删报告或附件不计；报告库没有独立日期/状态字段，时间以 <code>crte_time</code> 为准，缺失主体代码不回退报告证券代码。</li>
+                            <li>报告<strong>不要求关联历史调入，也不要求与非简易入库经历属于同一笔业务</strong>。简易资格与提交阶段“半年调入日志带报告”的报告必填豁免各自判断。</li>
+                        </ul>
+                    </article>
+                    <article class="logic-card">
+                        <h3>简易流程债券类型要求</h3>
+                        <ul>
+                            <li>附加要求只看<strong>发债主体内评</strong>，不用担保人或权益人内评替代；多个债券标志同时存在时分别检查，不能用最终分类覆盖原始永续或次级标志。</li>
+                            <li>永续债：主体内评1档，在标准信用债规则最佳准入层级基础上<strong>恰好下调一级</strong>；其他内评<strong>至少下调一级</strong>。</li>
+                            <li>次级债：主体内评1档<strong>仅可调入一级库</strong>；2-、2、2+档在标准规则基准上<strong>恰好下调一级</strong>，其中2-档还须期限<strong>≤5年</strong>，恰好5年可通过；其他档<strong>至少下调一级</strong>。</li>
+                            <li>标准信用债：主体内评3档还须期限<strong>≤1年</strong>，恰好1年可通过；其他档无额外期限要求。未列举的其他类型不增加上述附加条件，仍须通过普通校验，并满足唯一准入层级、非简易入库经历和报告条件。</li>
+                            <li>下调一级是层级数字增加1；“至少一级”仍须同时满足完整允许层级唯一的必要条件。期限复用 <code>date_exists_str</code> 年口径解析及现有含权债期限工具，不使用旧 <code>date_exists</code> 天数；明确要求≤1年/≤5年时，缺失或无法解析的期限不满足；负数期限的业务要求及当前实现差异见下方说明。</li>
+                        </ul>
+                    </article>
+                    <article class="logic-card">
+                        <h3>独立判定标准信用债</h3>
+                        <ul>
+                            <li>标准信用债是公开发行、不涉及永续/回售/赎回/递延付息等特殊条款，无担保/内部分层/差额补足等增信措施，偿付不依赖特定资产，违约风险仅由发债主体信用资质决定，且未在内评系统观察或重点观察名单中的信用债。</li>
+                            <li>标准定义由上游维护 <code>std_credit_flag</code>；独立方法 <code>isStandardCreditBond</code> <strong>仅判断 <code>std_credit_flag==1</code></strong>，0、NULL 均不认定标准信用债；不叠加 <code>std_clause_flag</code> 或其他标志判断。</li>
+                        </ul>
+                    </article>
+                    <article class="logic-card">
+                        <h3>匹配结果与判定时点</h3>
+                        <ul>
+                            <li>各项命中原因写入 <code>matchReasons</code>，未命中原因写入 <code>unmatchReasons</code>；最终仅当 <code>unmatchReasons.isEmpty()</code> 时返回 <code>true</code>。</li>
+                            <li>匹配后 <code>simpleInbound</code> 可选；当前白名单开关关闭，因此优先推荐简易，用户仍可选择默认调入流程。未匹配时简易不可选，但不因此否定已通过普通校验的默认调入。</li>
+                            <li>例如规则允许二级和四级，即使本次只勾选二级，也不满足唯一层级条件；同一层级有多个池时，仍需确认本次目标池实际被规则允许。</li>
+                            <li>简易资格仅在“下一步”的 <code>checkAdjust</code> 阶段判断，正式提交和最终落池不重新判断这套资格；最终落池仍执行锁池后的动态复核。能选择简易流程不等于已经入池，是否需要人工审批由所选流程配置决定。</li>
+                        </ul>
+                    </article>
+                </div>
+                <div class="implementation-note"><strong>当前期限边界问题（尚未修复）：</strong>业务要求负数期限不能满足≤1年/≤5年的条件，但共用期限工具会把含权剩余期限或回购剩余期限的负值转为0，可能导致简易期限检查错误通过。此处说明当前实现与业务要求的差异，本次文档整理不改变代码行为。</div>
+            </details>
         </section>
 
         <section id="submit-approval" class="section">
