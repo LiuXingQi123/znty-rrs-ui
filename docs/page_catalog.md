@@ -8,7 +8,7 @@
 | --- | --- |
 | `js/api.js` | 登录用户、统一请求、工作台开/关页签 |
 | `js/print_export.js` | 业务页浏览器打印导出 PDF 公共逻辑（证券池、CRMW、禁投池的发起、审核与详情页面） |
-| `js/security_master_diff.js` | 证券池调库及主体禁投池 ABS 债的主档差异提示与统一关闭开关 |
+| `js/security_master_diff.js` | 证券池、禁投池 ABS 债、CRMW 标的证券的主档差异提示与统一关闭开关 |
 | `js/resource_loader.js` | 页面 CDN 资源写入 |
 
 ## HTML 页面
@@ -24,9 +24,9 @@
 | `credit_bond_grade_rule.html` | 主体内评分档规则 | `css/credit_bond_grade_rule.css`、`css/common.css` |
 | `batch_crmw_pool_adjust.html` | CRMW池批量调整 | `css/batch_crmw_pool_adjust.css`、`css/common.css` |
 | `crmw_pool_excel_import.html` | CRMW池 Excel 导入 | `css/crmw_pool_excel_import.css`、`css/common.css` |
-| `crmw_pool_adjust.html` | CRMW池调整 | `css/crmw_pool_adjust.css`、`css/common.css` |
-| `crmw_pool_adjust_approve.html` | CRMW池调库审核 | `css/crmw_pool_adjust_approve.css`、`css/common.css` |
-| `crmw_pool_adjust_detail.html` | CRMW池调库详情 | `css/crmw_pool_adjust_detail.css`、`css/common.css` |
+| `crmw_pool_adjust.html` | CRMW池调整 | `css/crmw_pool_adjust.css`、`css/common.css`、`css/security_master_diff.css` |
+| `crmw_pool_adjust_approve.html` | CRMW池调库审核 | `css/crmw_pool_adjust_approve.css`、`css/common.css`、`css/security_master_diff.css` |
+| `crmw_pool_adjust_detail.html` | CRMW池调库详情 | `css/crmw_pool_adjust_detail.css`、`css/common.css`、`css/security_master_diff.css` |
 | `crmw_pool_adjust_history.html` | CRMW池调整历史查询 | `css/crmw_pool_adjust_history.css`、`css/common.css` |
 | `crmw_pool_query.html` | CRMW池查询 | `css/crmw_pool_query.css`、`css/common.css` |
 | `flow_definition.html` | 流程定义 - 工作流平台 | `css/flow_definition.css`、`css/common.css` |
@@ -135,7 +135,7 @@
 | `css/batch_crmw_pool_adjust.css` | CRMW池批量调整页面样式 | `batch_crmw_pool_adjust.html` |
 | `css/stock_security_batch_adjust.css` | 存量证券批量调整页面样式 | `stock_security_batch_adjust.html` |
 | `css/common.css` | 全站公共基础样式 | 全部 HTML 页面 |
-| `css/security_master_diff.css` | 证券主档差异标签与 Tooltip、打印隔离样式 | 证券池调库申请/详情/审核、主体禁投池 ABS 债申请 |
+| `css/security_master_diff.css` | 证券主档差异标签与 Tooltip、打印隔离样式 | 证券池及 CRMW 申请/详情/审核、主体禁投池 ABS 债申请 |
 | `css/company_pool_adjust_history.css` | 主体池调整历史查询页面样式 | `company_pool_adjust_history.html` |
 | `css/company_pool_query.css` | 主体池查询页面样式 | `company_pool_query.html` |
 | `css/credit_bond_grade_rule.css` | 主体内评分档规则页面样式 | `credit_bond_grade_rule.html` |

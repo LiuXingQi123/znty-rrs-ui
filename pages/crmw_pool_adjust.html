@@ -13,6 +13,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <link rel="stylesheet" href="../css/crmw_pool_adjust.css">
     <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/security_master_diff.css">
+    <script src="../js/security_master_diff.js"></script>
 </head>
 <body class="crmw-pool-adjust-page">
 
@@ -282,17 +284,30 @@
                     <i :class="sectionExpanded.bondInfo ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
                 <div v-show="sectionExpanded.bondInfo" style="padding:0;">
+                    <div v-if="securityMasterComparison.status !== 'disabled'" class="security-master-diff-notice">
+                        <span v-if="securityMasterComparison.status === 'loading'">正在读取当前证券主档进行对比…</span>
+                        <span v-else-if="securityMasterComparison.status === 'unavailable'">主档对比数据暂不可用，未标记差异。</span>
+                        <span v-else>橙色标签表示与当前证券主档不一致，悬停可查看主档值。数据读取时间：{{ securityMasterComparison.loadedAt }}</span>
+                    </div>
                     <el-descriptions :column="3" border size="small" class="bond-info-descriptions">
                         <el-descriptions-item label="证券全称">
+                            <security-master-diff-label slot="label" label="证券全称" field="fullName"
+                                :value="securityMasterFieldValue('fullName')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.fullName" size="small" placeholder="请输入" disabled maxlength="100"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券简称">
+                            <security-master-diff-label slot="label" label="证券简称" field="shortName"
+                                :value="securityMasterFieldValue('shortName')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.shortName" size="small" placeholder="请输入" disabled maxlength="100"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券代码">
+                            <security-master-diff-label slot="label" label="证券代码" field="windCode"
+                                :value="securityMasterFieldValue('windCode')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.windCode" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="发行人名称">
+                            <security-master-diff-label slot="label" label="发行人名称" field="issuer"
+                                :value="securityMasterFieldValue('issuer')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.issuer" size="small" placeholder="请输入" disabled maxlength="30"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="银行间代码">
@@ -311,15 +326,23 @@
                             <el-input :value="relatedMarketCodeText(bondDetail, 'OTHER')" size="small" :title="relatedMarketCodeText(bondDetail, 'OTHER')" placeholder="请输入" disabled></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="发行总额(亿元)">
+                            <security-master-diff-label slot="label" label="发行总额(亿元)" field="issueAmountplan"
+                                :value="securityMasterFieldValue('issueAmountplan')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input type="number" v-model="bondDetail.issueAmountplan" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="12"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="当期利率(%)">
+                            <security-master-diff-label slot="label" label="当期利率(%)" field="couponRate"
+                                :value="securityMasterFieldValue('couponRate')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input type="number" v-model="bondDetail.couponRate" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="含权期限说明">
+                            <security-master-diff-label slot="label" label="含权期限说明" field="maturityembeddedDesc"
+                                :value="securityMasterFieldValue('maturityembeddedDesc')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.maturityembeddedDesc" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="255"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="起息日期">
+                            <security-master-diff-label slot="label" label="起息日期" field="carryDate"
+                                :value="securityMasterFieldValue('carryDate')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-date-picker
                                     v-model="bondDetail.carryDate"
                                     type="date"
@@ -332,6 +355,8 @@
                             </el-date-picker>
                         </el-descriptions-item>
                         <el-descriptions-item label="到期日">
+                            <security-master-diff-label slot="label" label="到期日" field="maturityDate"
+                                :value="securityMasterFieldValue('maturityDate')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-date-picker
                                     v-model="bondDetail.maturityDate"
                                     type="date"
@@ -344,21 +369,33 @@
                             </el-date-picker>
                         </el-descriptions-item>
                         <el-descriptions-item label="质押比率(%)">
+                            <security-master-diff-label slot="label" label="质押比率(%)" field="infoPledgeRatio"
+                                :value="securityMasterFieldValue('infoPledgeRatio')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input type="number" v-model="bondDetail.infoPledgeRatio" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="12"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="评级机构">
+                            <security-master-diff-label slot="label" label="评级机构" field="ratingBondAgency"
+                                :value="securityMasterFieldValue('ratingBondAgency')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.ratingBondAgency" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="50"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券评级">
+                            <security-master-diff-label slot="label" label="证券评级" field="ratingBond"
+                                :value="securityMasterFieldValue('ratingBond')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.ratingBond" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="10"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主体评级">
+                            <security-master-diff-label slot="label" label="主体评级" field="ratingBondissuer"
+                                :value="securityMasterFieldValue('ratingBondissuer')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.ratingBondissuer" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="10"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="展望评级">
+                            <security-master-diff-label slot="label" label="展望评级" field="ratingOutlook"
+                                :value="securityMasterFieldValue('ratingOutlook')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.ratingOutlook" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="10"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item :label="isAbsBond(bondDetail) ? '权益人*' : '担保人*'">
+                            <security-master-diff-label slot="label" :label="isAbsBond(bondDetail) ? '权益人*' : '担保人*'" :field="(bondDetail.absFlag == 1 || bondDetail.securityType === 'abs') ? '' : 'guarantor'"
+                                :value="(guarantorOptions.find(item => item.code === bondDetail.selectedGuarantorCode) || {}).name || ''" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-select v-if="guarantorOptions.length > 0" v-model="bondDetail.selectedGuarantorCode"
                                        size="small" :placeholder="isAbsBond(bondDetail) ? '请选择权益人' : '请选择担保人'" style="width:100%;"
                                        popper-class="guarantor-select-dropdown"
@@ -382,40 +419,62 @@
                             </div>
                         </el-descriptions-item>
                         <el-descriptions-item label="主承销商">
+                            <security-master-diff-label slot="label" label="主承销商" field="agencyName"
+                                :value="securityMasterFieldValue('agencyName')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.agencyName" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="50"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="主体内评分">
+                            <security-master-diff-label slot="label" label="主体内评分" field="innerIssuerRating"
+                                :value="securityMasterFieldValue('innerIssuerRating')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.innerIssuerRating" size="small" placeholder="请输入" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券类型">
+                            <security-master-diff-label slot="label" label="证券类型" field="securityTypeName"
+                                :value="securityMasterFieldValue('securityTypeName')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="bondDetail.securityTypeName" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="赎回行权剩余期限(年)">
+                            <security-master-diff-label slot="label" label="赎回行权剩余期限(年)" field="dateCallExists"
+                                :value="securityMasterFieldValue('dateCallExists')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input type="number" v-model="bondDetail.dateCallExists" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="10"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="担保人主体内评分">
+                            <security-master-diff-label slot="label" label="担保人主体内评分" field="innerGuarantorRating"
+                                :value="bondDetail.selectedGuarantorRating" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model="bondDetail.selectedGuarantorRating" size="small" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="含权债剩余期限(年)">
+                            <security-master-diff-label slot="label" label="含权债剩余期限(年)" field="dateInrightExists"
+                                :value="securityMasterFieldValue('dateInrightExists')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input type="number" v-model="bondDetail.dateInrightExists" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="10"></el-input>
                         </el-descriptions-item>
                         <!-- 保留字段与提交透传，暂不展示；el-descriptions-item 对 v-show 无效，须用 v-if -->
                         <el-descriptions-item v-if="false" label="剩余期限(天)">
+                            <security-master-diff-label slot="label" label="剩余期限(天)" field="dateExists"
+                                :value="securityMasterFieldValue('dateExists')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <div class="date-exists-field">
                                 <el-input type="number" v-model="bondDetail.dateExists" size="small" placeholder="请输入" :disabled="adjustStep === 2" maxlength="10"></el-input>
                                 <span v-if="formatRemainTerm(bondDetail.dateExists) !== ''" class="date-exists-years">{{ formatRemainTerm(bondDetail.dateExists) }}</span>
                             </div>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券期限">
+                            <security-master-diff-label slot="label" label="证券期限" field="dateExistsStr"
+                                :value="securityMasterFieldValue('dateExistsStr')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input :value="bondDetail.dateExistsStr || ''" size="small" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="募集资金用途" :span="3">
+                            <security-master-diff-label slot="label" label="募集资金用途" field="fundUse"
+                                :value="securityMasterFieldValue('fundUse')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input type="textarea" :rows="3" v-model="bondDetail.fundUse" size="small" placeholder="请输入" maxlength="1000" show-word-limit :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="观察事项" :span="3">
+                            <security-master-diff-label slot="label" label="观察事项" field="promptReason"
+                                :value="securityMasterFieldValue('promptReason')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input type="textarea" :rows="3" v-model="bondDetail.promptReason" size="small" placeholder="请输入" maxlength="500" show-word-limit :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="证券分析" :span="3">
+                            <security-master-diff-label slot="label" label="证券分析" field="analysis"
+                                :value="securityMasterFieldValue('analysis')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input type="textarea" :autosize="{ minRows: 3, maxRows: 20 }" resize="none" v-model="bondDetail.analysis" size="small" placeholder="请输入" maxlength="5000" show-word-limit :disabled="adjustStep === 2"></el-input>
                         </el-descriptions-item>
                     </el-descriptions>
@@ -1619,7 +1678,7 @@
     };
 
     new Vue({
-        mixins: [issuerFinancialReadonlyMixin, issuerFinancialEditableMixin],
+        mixins: [issuerFinancialReadonlyMixin, issuerFinancialEditableMixin, window.RrsSecurityMasterDiff.mixin],
         el: '#crmw_pool_adjust',
         data() {
             return {
