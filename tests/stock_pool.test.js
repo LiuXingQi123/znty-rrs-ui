@@ -182,3 +182,75 @@ test('非修改节点不允许删除附件，驳回和终止需要意见', async
     page.attachments = [{ id: 100, mainId: 7 }]; page.removeExistingAttachment({ id: 7 }, page.attachments[0]);
     assert.equal(page.attachments.length, 1); await page.submitAudit('reject'); assert.equal(requests.length, 0);
 });
+
+test('股票 PDF 包含当前流程状态和审核审批，导出展开并在结束或取消后还原', () => {
+    for (const name of ['stock_pool_adjust_approve', 'stock_pool_adjust_detail']) {
+        const { page, html, window, requests } = harness(name);
+        const section = html.match(/<div\b[^>]*class="[^"]*section-flow-status[^>]*>/);
+        assert.ok(section, name + ' 存在当前流程状态区');
+        assert.match(section[0], /\bprint-section\b/, name + ' 流程状态纳入打印范围');
+        const flowSection = html.slice(section.index, html.indexOf('</el-table>', section.index));
+        assert.match(flowSection, /流程名称：\{\{ activeLog.flowName \}\}/);
+        assert.match(flowSection, /暂无流程步骤/);
+        for (const label of ['步骤名称', '步骤结果', '开始时间', '处理人', '处理结果', '处理时间', '处理意见']) {
+            assert.ok(flowSection.includes(`label="${label}"`), name + ' 保留' + label);
+        }
+        if (name === 'stock_pool_adjust_approve') {
+            const auditSection = html.match(/<div\b[^>]*class="[^"]*section-audit-approval[^>]*>/);
+            assert.ok(auditSection, '页面存在审核审批区');
+            assert.match(auditSection[0], /\bprint-section\b/, '审核审批纳入打印范围');
+            const auditContent = html.slice(auditSection.index, html.indexOf('<!-- 股票报告选择弹窗 -->', auditSection.index));
+            assert.match(auditContent, /当前步骤：\{\{ currentPendingStep.nodeLabel \|\| '' \}\}/);
+            assert.match(auditContent, /v-model="auditComment"/);
+            assert.match(auditContent, /暂无需要当前用户处理的流程步骤/);
+        }
+
+        const listeners = new Map();
+        const document = { title: '原页面标题', documentElement: { classList: new Set() }, body: { classList: new Set() } };
+        for (const element of [document.documentElement, document.body]) {
+            element.classList.remove = element.classList.delete.bind(element.classList);
+        }
+        window.parent = window;
+        window.addEventListener = (event, callback) => listeners.set(event, callback);
+        window.removeEventListener = event => listeners.delete(event);
+        window.setTimeout = callback => callback();
+        vm.runInNewContext(fs.readFileSync(path.join(root, 'js/print_export.js'), 'utf8'), { window, document });
+
+        for (const expanded of [false, true]) {
+            for (const steps of [[], [{ id: 1, nodeLabel: '复核', stepStatus: 'pending', handlerId: '2', processComment: '请核实' }]]) {
+                page.sectionExpanded.flowStatus = expanded;
+                if (name === 'stock_pool_adjust_approve') {
+                    page.sectionExpanded.auditApproval = expanded;
+                    page.auditComment = '审核意见\n保留换行';
+                }
+                page.poolExpanded = false;
+                page.flowStepList = steps;
+                const before = JSON.stringify(page.sectionExpanded);
+                let printed = false;
+                window.print = () => {
+                    printed = true;
+                    assert.equal(page.sectionExpanded.flowStatus, true);
+                    if (name === 'stock_pool_adjust_approve') {
+                        assert.equal(page.sectionExpanded.auditApproval, true);
+                        assert.equal(page.auditComment, '审核意见\n保留换行');
+                        assert.equal(page.currentPendingStep, steps[0] || null);
+                    }
+                    assert.equal(page.flowStepList, steps, '导出使用当前流程数据或空状态');
+                    assert.ok(document.body.classList.has('is-print-export'));
+                };
+                page.handleExportPdf();
+                assert.ok(printed, name + ' 调起打印');
+                listeners.get('afterprint')();
+                assert.equal(JSON.stringify(page.sectionExpanded), before);
+                if (name === 'stock_pool_adjust_approve') {
+                    assert.equal(page.auditComment, '审核意见\n保留换行', '导出后保留已填写意见');
+                }
+                assert.equal(page.poolExpanded, false);
+                assert.equal(document.title, '原页面标题');
+                assert.equal(document.body.classList.has('is-print-export'), false);
+                assert.equal(listeners.has('afterprint'), false);
+            }
+        }
+        assert.equal(requests.length, 0, '导出不提交业务请求');
+    }
+});
