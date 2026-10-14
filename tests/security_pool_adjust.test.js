@@ -15,6 +15,7 @@ function harness(search = '', rows = []) {
     };
     const context = vm.createContext({ Vue: function(config) { options = config; }, window, URLSearchParams, moment() {} });
     const html = fs.readFileSync(path.join(__dirname, '../pages/security_pool_adjust.html'), 'utf8');
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/security_master_diff.js'), 'utf8'), context);
     for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) {
         if (match[1].trim()) vm.runInContext(match[1], context);
     }

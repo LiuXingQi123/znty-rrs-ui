@@ -342,6 +342,7 @@ test('所有附件列表页面显式传业务，债券和基金相同日志 ID �
             const context = vm.createContext({ Vue, window: {}, URLSearchParams, document: { addEventListener() {} } });
             const name = `${prefix}_pool_adjust${mode}`;
             const html = fs.readFileSync(path.join(root, `pages/${name}.html`), 'utf8');
+            vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/security_master_diff.js'), 'utf8'), context);
             for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) {
                 if (match[1].trim()) vm.runInContext(match[1], context);
             }
@@ -375,6 +376,7 @@ test('审核页优先展示本人待办，仅原演示管理员可展示其他�
         function Vue(config) { options = config; }
         const context = vm.createContext({ Vue, window: {}, URLSearchParams, document: { addEventListener() {} } });
         const html = fs.readFileSync(path.join(root, `pages/${prefix}_pool_adjust_approve.html`), 'utf8');
+        vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/security_master_diff.js'), 'utf8'), context);
         for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) {
             if (match[1].trim()) vm.runInContext(match[1], context);
         }

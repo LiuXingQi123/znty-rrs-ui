@@ -8,6 +8,7 @@
 | --- | --- |
 | `js/api.js` | 登录用户、统一请求、工作台开/关页签 |
 | `js/print_export.js` | 业务页浏览器打印导出 PDF 公共逻辑（证券池、CRMW、禁投池的发起、审核与详情页面） |
+| `js/security_master_diff.js` | 证券池调库及主体禁投池 ABS 债的主档差异提示与统一关闭开关 |
 | `js/resource_loader.js` | 页面 CDN 资源写入 |
 
 ## HTML 页面
@@ -50,7 +51,7 @@
 | `fund_pool_query.html` | 基金池查询 | `css/fund_pool_query.css`、`css/common.css` |
 | `fund_nav_export.html` | 基金净值导出 | `css/fund_nav_export.css`、`css/common.css` |
 | `temp_fund_code.html` | 基金临时代码管理 | `css/temp_fund_code.css`、`css/common.css` |
-| `forbidden_pool_adjust.html` | 禁投池调整 | `css/forbidden_pool_adjust.css`、`css/common.css` |
+| `forbidden_pool_adjust.html` | 禁投池调整 | `css/forbidden_pool_adjust.css`、`css/common.css`、`css/security_master_diff.css` |
 | `forbidden_pool_adjust_approve.html` | 禁投池调整审核 | `css/forbidden_pool_adjust_approve.css`、`css/common.css` |
 | `forbidden_pool_adjust_detail.html` | 禁投池调整详情 | `css/forbidden_pool_adjust_detail.css`、`css/common.css` |
 | `forbidden_pool_history.html` | 禁投池历史查询 | `css/forbidden_pool_history.css`、`css/common.css` |
@@ -60,9 +61,9 @@
 | `login.html` | 前端演示登录 | `css/login.css` |
 | `my_matters.html` | 我的事宜 | `css/my_matters.css`、`css/common.css` |
 | `rule_manager.html` | 规则管理中心 | `css/rule_manager.css`、`css/common.css` |
-| `security_pool_adjust.html` | 证券池调库 | `css/security_pool_adjust.css`、`css/common.css` |
-| `security_pool_adjust_approve.html` | 证券池调库审核 | `css/security_pool_adjust_approve.css`、`css/common.css` |
-| `security_pool_adjust_detail.html` | 证券池调库详情 | `css/security_pool_adjust_detail.css`、`css/common.css` |
+| `security_pool_adjust.html` | 证券池调库 | `css/security_pool_adjust.css`、`css/common.css`、`css/security_master_diff.css` |
+| `security_pool_adjust_approve.html` | 证券池调库审核 | `css/security_pool_adjust_approve.css`、`css/common.css`、`css/security_master_diff.css` |
+| `security_pool_adjust_detail.html` | 证券池调库详情 | `css/security_pool_adjust_detail.css`、`css/common.css`、`css/security_master_diff.css` |
 | `security_pool_adjust_history.html` | 证券池调整历史 | `css/security_pool_adjust_history.css`、`css/common.css` |
 | `security_pool_query.html` | 证券池查询 | `css/security_pool_query.css`、`css/common.css` |
 | `temp_security_code.html` | 临时代码管理 | `css/temp_security_code.css`、`css/common.css` |
@@ -134,6 +135,7 @@
 | `css/batch_crmw_pool_adjust.css` | CRMW池批量调整页面样式 | `batch_crmw_pool_adjust.html` |
 | `css/stock_security_batch_adjust.css` | 存量证券批量调整页面样式 | `stock_security_batch_adjust.html` |
 | `css/common.css` | 全站公共基础样式 | 全部 HTML 页面 |
+| `css/security_master_diff.css` | 证券主档差异标签与 Tooltip、打印隔离样式 | 证券池调库申请/详情/审核、主体禁投池 ABS 债申请 |
 | `css/company_pool_adjust_history.css` | 主体池调整历史查询页面样式 | `company_pool_adjust_history.html` |
 | `css/company_pool_query.css` | 主体池查询页面样式 | `company_pool_query.html` |
 | `css/credit_bond_grade_rule.css` | 主体内评分档规则页面样式 | `credit_bond_grade_rule.html` |

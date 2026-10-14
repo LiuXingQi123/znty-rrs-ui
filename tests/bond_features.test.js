@@ -25,6 +25,7 @@ function harness(name) {
         window: { RrsAuth: { getCurrentUser: () => ({ userId: '1', userName: '测试用户' }) }, location: { search: '' } },
         URLSearchParams, moment: () => ({ format: () => '' })
     });
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/security_master_diff.js'), 'utf8'), context);
     for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) {
         if (match[1].trim()) vm.runInContext(match[1], context, { filename: name });
     }

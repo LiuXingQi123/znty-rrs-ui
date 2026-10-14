@@ -381,6 +381,9 @@
         </div>
     </section>
     <section class="panel" id="logic-abs"><h2>ABS债 Tab 与接口</h2>
+        <p><strong>ABS 主档差异提示：</strong>ABS 基本信息区复用证券池调库的公共提示模块，独立调用 <code>POST /api/v1/securityPoolAdjust/querySecurityMasterDetail</code>（<code>{ securityCode }</code> → <code>SecurityInfoDetailDto</code>）只读查询主档。差异字段标签以橙色突出，悬停或键盘聚焦可查看页面值、主档值和读取时间；日期、数字按业务值比较，零值与空值区分。ABS 申请现有主档取数和编辑保持不变，权益人内评分使用原控件值；权益人名称、自选权益人及市场关联代码不比较。对比独立于调库校验和提交，不改原数据。ABS 的详情与审核复用证券池页面，已使用相同提示。</p>
+        <p>该请求仅在 <code>currentPage=absDetail</code> 时执行，主体视图与列表不请求；失败显示对比不可用，不阻断原操作。<code>js/security_master_diff.js</code> 内将 <code>window.RrsSecurityMasterDiff.enabled</code> 定义设为 <code>false</code> 并刷新页面，即可统一关闭所有接入页面的附加功能。打印和 PDF 保持原有外观。</p>
+
         <p>“是否特征”支持“是否标准信用债”（<code>bondYesFlags</code> 选项 <code>stdCredit</code>），勾选仅筛选证券主档 <code>std_credit_flag=1</code>，多选按 AND；不勾选不限制。对应表格追加 <code>stdCreditFlag</code> 列，沿用 <code>isYesFlag</code> 先转布尔值：1 显示“是”Tag，其他值（含 NULL）显示“否”Tag；接口与其他标识一样返回原始数值。只使用上游原始标志，不根据其他特征或 <code>std_clause_flag</code> 推断；CRMW 使用标的证券字段。</p>
         <p>ABS 关联代码改由当前 Wind 代码对应的非空 <code>S_INFO_ISINCODE</code> 查询，去重、排除自身，不按空 ISIN 或主体推断同券。详情通过只读 <code>marketCode</code> 与 <code>relatedMarketCodes</code> 按市场展示全部代码，不再提交旧市场字段；主项、关联项各按自身市场独立校验。正式证券直接读取主档 <code>exchmarket</code>（与 Wind <code>EXCHMARKET</code> 一致，IB→CIBM）；临时代码只读取登记市场，主档独立 <code>sec_id</code> 不映射 Wind 的其他 ID。</p>
         <p class="sub">ABS 交互参考证券池调库：列表 → 详情选池(step1) → 校验提交(step2)。后端独立前缀，附件/报告仍走通用接口。</p>

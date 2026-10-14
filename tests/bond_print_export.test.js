@@ -31,6 +31,7 @@ function harness(fileName) {
     });
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/print_export.js'), 'utf8'), context);
     const html = fs.readFileSync(path.join(__dirname, '../pages', fileName), 'utf8');
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/security_master_diff.js'), 'utf8'), context);
     for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) {
         if (match[1].trim()) vm.runInContext(match[1], context);
     }
