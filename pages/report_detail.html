@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报告详情</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+    <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
+    <script src="../js/api.js"></script>
+    <link rel="stylesheet" href="../css/report_detail.css">
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body class="report-detail-page">
+<div id="report_detail" v-loading="loading">
+    <div class="detail-body">
+        <template v-if="report">
+            <!-- 报告基本信息，与调库详情页共用分区层次。 -->
+            <section class="section-card">
+                <div class="section-header">
+                    <div class="section-dot"></div>
+                    <h2 class="section-title">{{ report.reportTitle }}</h2>
+                    <el-tag size="mini" type="info">
+                        {{ source === 'internal' ? '内部报告' : '外部报告' }}
+                    </el-tag>
+                </div>
+                <div class="section-body">
+                    <el-descriptions :column="3" border size="small">
+                        <el-descriptions-item label="报告类型">
+                            {{ reportTypeLabel(report.reportType) }}
+                        </el-descriptions-item>
+                        <el-descriptions-item label="作者">
+                            {{ report.authorName }}
+                        </el-descriptions-item>
+                        <el-descriptions-item label="创建时间">
+                            {{ report.crteTime }}
+                        </el-descriptions-item>
+                        <el-descriptions-item label="证券代码">
+                            {{ report.securityCode }}
+                        </el-descriptions-item>
+                        <el-descriptions-item label="主体代码">
+                            {{ report.companyCode }}
+                        </el-descriptions-item>
+                        <el-descriptions-item label="数据来源">
+                            {{ dataSourceLabel(report.dataSource) }}
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="source === 'external'" label="来源机构" :span="3">
+                            {{ report.sourceOrgName }}
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </div>
+            </section>
+
+            <!-- 报告下的完整附件列表，保留逐个下载入口。 -->
+            <section class="section-card">
+                <div class="section-header">
+                    <div class="section-dot"></div>
+                    <h2 class="section-title">报告附件</h2>
+                    <span class="count-chip">{{ report.attachments.length }} 个</span>
+                </div>
+                <div class="section-body">
+                    <el-table :data="report.attachments" size="small" border empty-text="暂无附件">
+                        <el-table-column label="文件名称" min-width="300">
+                            <template slot-scope="{ row }">
+                                <span class="file-name">
+                                    <i class="el-icon-document"></i>
+                                    {{ row.originalFileName }}
+                                </span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="类型" width="100">
+                            <template slot-scope="{ row }">
+                                {{ (row.fileType || '').toUpperCase() }}
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="大小" width="120" align="right">
+                            <template slot-scope="{ row }">
+                                {{ formatFileSize(row.fileSize) }}
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="操作" width="100" align="center">
+                            <template slot-scope="{ row }">
+                                <el-button
+                                    type="text"
+                                    size="small"
+                                    icon="el-icon-download"
+                                    :loading="!!downloading[row.id]"
+                                    @click="downloadAttachment(row)">
+                                    下载
+                                </el-button>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </section>
+        </template>
+
+        <!-- 未选择报告或读取失败时，分别展示入口说明与重试操作。 -->
+        <div v-else-if="!loading" class="section-card section-body">
+            <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon></el-alert>
+            <div v-else>请从调库、审核或详情页点击报告标题查看完整报告。</div>
+            <el-button
+                v-if="error"
+                class="error-actions"
+                size="small"
+                icon="el-icon-refresh"
+                @click="loadReport">
+                重新加载
+            </el-button>
+        </div>
+    </div>
+</div>
+<script>
+new Vue({
+    el: '#report_detail',
+    // 报告由来源和 ID 共同定位，内外报告 ID 可以相同。
+    data() {
+        const params = new URLSearchParams(window.location.search);
+        return {
+            source: params.get('source') || '',       // 报告来源，与 ID 共同定位报告
+            reportId: params.get('reportId') || '',   // 报告主键
+            report: null,                            // 报告信息及完整附件列表
+            loading: false,                          // 报告加载状态
+            error: '',                               // 读取失败的原因
+            downloading: {}                          // 各附件下载状态，防止重复点击
+        };
+    },
+    // 从调库页面进入时加载报告，菜单直接进入时保留入口说明。
+    created() {
+        if (this.source || this.reportId) {
+            this.loadReport();
+        }
+    },
+    methods: {
+        // 精确读取报告，不通过标题或列表分页寻找报告。
+        async loadReport() {
+            this.loading = true;
+            this.error = '';
+            this.report = null;
+            try {
+                this.report = await this.apiPost('/api/v1/reports/queryReportDetail', {
+                    source: this.source,
+                    reportId: this.reportId
+                });
+            } catch (e) {
+                this.error = e.message || '报告加载失败';
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // 展示统一报告类型字典。
+        reportTypeLabel(code) {
+            return {
+                bond_in_report: '债券入库报告',
+                bond_out_report: '债券出库报告',
+                fund_in_report: '基金入库报告',
+                fund_out_report: '基金出库报告',
+                stock_in_report: '股票入库报告',
+                stock_out_report: '股票出库报告',
+                other_report: '其他报告'
+            }[code] || code || '';
+        },
+
+        // 展示统一数据来源字典。
+        dataSourceLabel(code) {
+            return {
+                migrated: '迁移数据',
+                uploaded: '系统上传数据'
+            }[code] || code || '';
+        },
+
+        // 格式化附件大小，零字节与未知大小分别显示。
+        formatFileSize(size) {
+            if (size == null) {
+                return '';
+            }
+            if (size < 1024) {
+                return size + ' B';
+            }
+            if (size < 1048576) {
+                return (size / 1024).toFixed(1) + ' KB';
+            }
+            return (size / 1048576).toFixed(1) + ' MB';
+        },
+
+        // 下载单个附件，沿用系统 Base64 下载协议。
+        async downloadAttachment(file) {
+            if (this.downloading[file.id]) {
+                return;
+            }
+            this.$set(this.downloading, file.id, true);
+            try {
+                const base64 = await this.apiPost('/api/v1/attachments/downloadAttachment', { id: file.id });
+                // 将系统下载协议返回的 Base64 内容转成浏览器可保存的文件。
+                const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                const url = URL.createObjectURL(new Blob([bytes], {
+                    type: file.contentType || 'application/octet-stream'
+                }));
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = file.originalFileName;
+                link.click();
+                // 延后释放临时地址，让浏览器先完成文件读取。
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            } catch (e) {
+                this.$message.error(e.message || '附件下载失败');
+            } finally {
+                this.$set(this.downloading, file.id, false);
+            }
+        }
+    }
+});
+</script>
+</body>
+</html>

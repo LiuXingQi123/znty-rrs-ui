@@ -9,6 +9,8 @@
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
     <script src="../js/api.js"></script>
+    <script src="../js/report_materials.js"></script>
+    <link rel="stylesheet" href="../css/report_materials.css">
     <script src="../js/print_export.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <link rel="stylesheet" href="../css/stock_pool_adjust_approve.css">
@@ -71,8 +73,13 @@
                             <el-button type="text" size="mini" icon="el-icon-document" @click="openReportDialog('', row.id, 'credit')">选择报告</el-button>
                             <el-upload action="#" :auto-upload="false" :accept="'.xls,.xlsx,.docx,.doc,.pdf,.json'" multiple :show-file-list="false" :on-change="(file, list) => handleAttachmentChange('', row.id, file, list)"><el-button type="text" size="mini" icon="el-icon-upload2">上传附件</el-button></el-upload>
                         </div>
-                        <div class="upload-file-list"><div v-for="file in attachmentsByLog(row.id, 'stock_report_')" :key="file.id" class="upload-file-tag"><span @click="downloadAttachment(file)">{{ file.originalFileName }}</span><i v-if="showLogUploadActions" class="el-icon-close" @click="removeExistingAttachment(row, file)"></i></div></div>
-                        <div class="upload-file-list"><div v-for="(report, index) in getCreditReportSelections('', row.id)" :key="'report-' + report.source + '-' + report.id" class="report-tag" :class="report.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'"><span :title="report.title">{{ report.title }}</span><span class="report-source-badge">{{ report.source === 'internal' ? '内' : '外' }}</span><i v-if="showLogUploadActions" class="el-icon-close" @click="removeCreditReportSelection('', row.id, index)"></i></div></div>
+                        <rrs-report-materials
+                            :files="attachmentsByLog(row.id, 'stock_report_')"
+                            :removable="showLogUploadActions"
+                            @download="downloadAttachment"
+                            @remove="indexes => indexes.forEach(index => removeExistingAttachment(row, attachmentsByLog(row.id, 'stock_report_')[index]))">
+                        </rrs-report-materials>
+                        <div class="upload-file-list"><div v-for="(report, index) in getCreditReportSelections('', row.id)" :key="'report-' + report.source + '-' + report.id" class="report-tag" :class="report.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'"><rrs-report-title :report="report"></rrs-report-title><span class="report-source-badge">{{ report.source === 'internal' ? '内' : '外' }}</span><i v-if="showLogUploadActions" class="el-icon-close" @click="removeCreditReportSelection('', row.id, index)"></i></div></div>
                         <div class="upload-file-list"><div v-for="(file, index) in getAttachmentFiles('', row.id)" :key="file.uid || index" class="upload-file-tag"><span @click="downloadLocalFile(file)">{{ file.name }}</span><i v-if="showLogUploadActions" class="el-icon-close" @click="removeAttachmentFile('', row.id, index)"></i></div></div>
                     </div></template></el-table-column>
                     <el-table-column label="其他材料" min-width="210"><template slot-scope="{ row }"><div class="upload-cell">
@@ -80,8 +87,13 @@
                             <el-button type="text" size="mini" icon="el-icon-document" @click="openReportDialog('', row.id, 'material')">选择报告</el-button>
                             <el-upload action="#" :auto-upload="false" :accept="'.xls,.xlsx,.docx,.doc,.pdf,.json'" multiple :show-file-list="false" :on-change="(file, list) => handleMaterialChange('', row.id, file, list)"><el-button type="text" size="mini" icon="el-icon-upload2">上传附件</el-button></el-upload>
                         </div>
-                        <div class="upload-file-list"><div v-for="file in attachmentsByLog(row.id, 'stock_material_')" :key="file.id" class="upload-file-tag"><span @click="downloadAttachment(file)">{{ file.originalFileName }}</span><i v-if="showLogUploadActions" class="el-icon-close" @click="removeExistingAttachment(row, file)"></i></div></div>
-                        <div class="upload-file-list"><div v-for="(report, index) in getOtherMaterialSelections('', row.id)" :key="'report-' + report.source + '-' + report.id" class="report-tag" :class="report.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'"><span :title="report.title">{{ report.title }}</span><span class="report-source-badge">{{ report.source === 'internal' ? '内' : '外' }}</span><i v-if="showLogUploadActions" class="el-icon-close" @click="removeOtherMaterialSelection('', row.id, index)"></i></div></div>
+                        <rrs-report-materials
+                            :files="attachmentsByLog(row.id, 'stock_material_')"
+                            :removable="showLogUploadActions"
+                            @download="downloadAttachment"
+                            @remove="indexes => indexes.forEach(index => removeExistingAttachment(row, attachmentsByLog(row.id, 'stock_material_')[index]))">
+                        </rrs-report-materials>
+                        <div class="upload-file-list"><div v-for="(report, index) in getOtherMaterialSelections('', row.id)" :key="'report-' + report.source + '-' + report.id" class="report-tag" :class="report.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'"><rrs-report-title :report="report"></rrs-report-title><span class="report-source-badge">{{ report.source === 'internal' ? '内' : '外' }}</span><i v-if="showLogUploadActions" class="el-icon-close" @click="removeOtherMaterialSelection('', row.id, index)"></i></div></div>
                         <div class="upload-file-list"><div v-for="(file, index) in getMaterialFiles('', row.id)" :key="file.uid || index" class="upload-file-tag"><span @click="downloadLocalFile(file)">{{ file.name }}</span><i v-if="showLogUploadActions" class="el-icon-close" @click="removeMaterialFile('', row.id, index)"></i></div></div>
                     </div></template></el-table-column>
                     <el-table-column prop="submitTime" label="提交时间" width="170" align="center"></el-table-column>
@@ -335,7 +347,7 @@
                 </span>
                 <template v-if="selectedInternalReports.length">
                     <span v-for="report in selectedInternalReports" :key="'selected_internal_' + report.id" class="selected-tag selected-tag-internal">
-                        <span :title="report.title">{{ report.title }}</span>
+                        <rrs-report-title :report="report"></rrs-report-title>
                         <i class="el-icon-close" @click="removeInternalSelection(report.id)"></i>
                     </span>
                     <el-button type="text" class="selected-clear-btn" icon="el-icon-delete" @click="clearInternalSelection">清空</el-button>
@@ -349,7 +361,7 @@
                 </span>
                 <template v-if="selectedExternalReports.length">
                     <span v-for="report in selectedExternalReports" :key="'selected_external_' + report.id" class="selected-tag selected-tag-external">
-                        <span :title="report.title">{{ report.title }}</span>
+                        <rrs-report-title :report="report"></rrs-report-title>
                         <i class="el-icon-close" @click="removeExternalSelection(report.id)"></i>
                     </span>
                     <el-button type="text" class="selected-clear-btn" icon="el-icon-delete" @click="clearExternalSelection">清空</el-button>

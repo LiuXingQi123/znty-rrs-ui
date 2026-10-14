@@ -7,6 +7,7 @@
 | JS 文件 | 用途 |
 | --- | --- |
 | `js/api.js` | 登录用户、统一请求、工作台开/关页签 |
+| `js/report_materials.js` | 调库报告按来源与 ID 聚合、手工文件下载、报告详情新页签 |
 | `js/print_export.js` | 业务页浏览器打印导出 PDF 公共逻辑（证券池、CRMW、禁投池的发起、审核与详情页面） |
 | `js/security_master_diff.js` | 证券池、禁投池 ABS 债、CRMW 标的证券的主档差异提示与统一关闭开关 |
 | `js/resource_loader.js` | 页面 CDN 资源写入 |
@@ -15,6 +16,7 @@
 
 | HTML 文件 | 功能名称 | 对应 CSS |
 | --- | --- | --- |
+| `report_detail.html` | 报告详情与完整附件下载 | `css/report_detail.css`、`css/common.css` |
 | `batch_security_pool_adjust.html` | 证券池批量调整 | `css/batch_security_pool_adjust.css`、`css/common.css` |
 | `stock_security_batch_adjust.html` | 存量证券批量调整 | `css/stock_security_batch_adjust.css`、`css/common.css` |
 | `security_pool_excel_import.html` | 证券池 Excel 导入 | `css/security_pool_excel_import.css`、`css/common.css` |
@@ -243,3 +245,7 @@
 | `docs/scheduled-task-tables.html` | 定时任务管理文档 | HTML 内联样式 |
 | `docs/dictionary-values-index.html` | 字典值总览 | HTML 内联样式 |
 | `docs/database-tables-index.html` | 数据库表总览 | HTML 内联样式 |
+
+## 报告材料公共样式
+
+所有申请、批量调库、审核及详情页共享 `css/report_materials.css` 与 `js/report_materials.js`；独立报告详情样式见上表。报告内容与附件下载统一在报告详情页扩展。

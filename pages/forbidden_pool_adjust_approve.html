@@ -9,6 +9,8 @@
     <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
     <script src="https://unpkg.com/axios@1.7.9/dist/axios.min.js"></script>
     <script src="../js/api.js"></script>
+    <script src="../js/report_materials.js"></script>
+    <link rel="stylesheet" href="../css/report_materials.css">
     <script src="../js/print_export.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
     <link rel="stylesheet" href="../css/forbidden_pool_adjust_approve.css">
@@ -378,16 +380,15 @@
                                     <div v-if="getReportNames(row.creditReports).length" class="upload-file-list">
                                         <span v-for="(name, i) in getReportNames(row.creditReports)" :key="'cr_'+i" class="report-tag report-tag-internal">{{ name }}</span>
                                     </div>
-                                    <div v-if="row.attachmentFiles && row.attachmentFiles.length" class="upload-file-list">
-                                        <span v-for="(file, i) in row.attachmentFiles" :key="'af_'+file.id"
-                                              class="upload-file-tag" @click="downloadAttachment(file)">
-                                            <span :title="file.originalFileName">{{ file.originalFileName }}</span>
-                                            <i v-if="showLogUploadActions" class="el-icon-close" @click.stop="removeExistingAttachmentFile(row, 'credit', i)"></i>
-                                        </span>
-                                    </div>
+                                    <rrs-report-materials
+                                        :files="row.attachmentFiles || []"
+                                        @download="downloadAttachment"
+                                        :removable="showLogUploadActions"
+                                        @remove="indexes => indexes.forEach(index => removeExistingAttachmentFile(row, 'credit', index))">
+                                    </rrs-report-materials>
                                     <div v-if="getCreditReportSelections(getLogRowKey(row)).length > 0" class="upload-file-list">
                                         <div v-for="(r, i) in getCreditReportSelections(getLogRowKey(row))" :key="'ncr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
-                                            <span :title="r.title">{{ r.title }}</span>
+                                            <rrs-report-title :report="r"></rrs-report-title>
                                             <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
                                             <i v-if="showLogUploadActions" class="el-icon-close" @click="removeCreditReportSelection(getLogRowKey(row), i)"></i>
                                         </div>
@@ -415,16 +416,15 @@
                                     <div v-if="getReportNames(row.otherMaterials).length" class="upload-file-list">
                                         <span v-for="(name, i) in getReportNames(row.otherMaterials)" :key="'om_'+i" class="report-tag report-tag-external">{{ name }}</span>
                                     </div>
-                                    <div v-if="row.materialFiles && row.materialFiles.length" class="upload-file-list">
-                                        <span v-for="(file, i) in row.materialFiles" :key="'mf_'+file.id"
-                                              class="upload-file-tag" @click="downloadAttachment(file)">
-                                            <span :title="file.originalFileName">{{ file.originalFileName }}</span>
-                                            <i v-if="showLogUploadActions" class="el-icon-close" @click.stop="removeExistingAttachmentFile(row, 'material', i)"></i>
-                                        </span>
-                                    </div>
+                                    <rrs-report-materials
+                                        :files="row.materialFiles || []"
+                                        @download="downloadAttachment"
+                                        :removable="showLogUploadActions"
+                                        @remove="indexes => indexes.forEach(index => removeExistingAttachmentFile(row, 'material', index))">
+                                    </rrs-report-materials>
                                     <div v-if="getOtherMaterialSelections(getLogRowKey(row)).length > 0" class="upload-file-list">
                                         <div v-for="(r, i) in getOtherMaterialSelections(getLogRowKey(row))" :key="'nom_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
-                                            <span :title="r.title">{{ r.title }}</span>
+                                            <rrs-report-title :report="r"></rrs-report-title>
                                             <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
                                             <i v-if="showLogUploadActions" class="el-icon-close" @click="removeOtherMaterialSelection(getLogRowKey(row), i)"></i>
                                         </div>
@@ -661,7 +661,7 @@
                                                 </div>
                                                 <div v-if="getCreditReportSelections(row.id).length > 0" class="upload-file-list">
                                                     <div v-for="(r, i) in getCreditReportSelections(row.id)" :key="'cr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
-                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <rrs-report-title :report="r"></rrs-report-title>
                                                         <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
                                                         <i v-if="showLogUploadActions" class="el-icon-close" @click="removeCreditReportSelection(row.id, i)"></i>
                                                     </div>
@@ -690,7 +690,7 @@
                                                 </div>
                                                 <div v-if="getOtherMaterialSelections(row.id).length > 0" class="upload-file-list">
                                                     <div v-for="(r, i) in getOtherMaterialSelections(row.id)" :key="'om_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
-                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <rrs-report-title :report="r"></rrs-report-title>
                                                         <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
                                                         <i v-if="showLogUploadActions" class="el-icon-close" @click="removeOtherMaterialSelection(row.id, i)"></i>
                                                     </div>
@@ -758,7 +758,7 @@
                                                 </div>
                                                 <div v-if="getCreditReportSelections(row.id).length > 0" class="upload-file-list">
                                                     <div v-for="(r, i) in getCreditReportSelections(row.id)" :key="'cr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
-                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <rrs-report-title :report="r"></rrs-report-title>
                                                         <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
                                                         <i v-if="showLogUploadActions" class="el-icon-close" @click="removeCreditReportSelection(row.id, i)"></i>
                                                     </div>
@@ -787,7 +787,7 @@
                                                 </div>
                                                 <div v-if="getOtherMaterialSelections(row.id).length > 0" class="upload-file-list">
                                                     <div v-for="(r, i) in getOtherMaterialSelections(row.id)" :key="'om_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
-                                                        <span :title="r.title">{{ r.title }}</span>
+                                                        <rrs-report-title :report="r"></rrs-report-title>
                                                         <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
                                                         <i v-if="showLogUploadActions" class="el-icon-close" @click="removeOtherMaterialSelection(row.id, i)"></i>
                                                     </div>
@@ -878,7 +878,7 @@
                                     </div>
                                     <div v-if="getCreditReportSelections(row.poolId).length > 0" class="upload-file-list">
                                         <div v-for="(r, i) in getCreditReportSelections(row.poolId)" :key="'cr_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
-                                            <span :title="r.title">{{ r.title }}</span>
+                                            <rrs-report-title :report="r"></rrs-report-title>
                                             <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
                                             <i v-if="showLogUploadActions" class="el-icon-close" @click="removeCreditReportSelection(row.poolId, i)"></i>
                                         </div>
@@ -905,7 +905,7 @@
                                     </div>
                                     <div v-if="getOtherMaterialSelections(row.poolId).length > 0" class="upload-file-list">
                                         <div v-for="(r, i) in getOtherMaterialSelections(row.poolId)" :key="'om_'+i" class="report-tag" :class="r.source === 'internal' ? 'report-tag-internal' : 'report-tag-external'">
-                                            <span :title="r.title">{{ r.title }}</span>
+                                            <rrs-report-title :report="r"></rrs-report-title>
                                             <span class="report-source-badge">{{ r.source === 'internal' ? '内' : '外' }}</span>
                                             <i v-if="showLogUploadActions" class="el-icon-close" @click="removeOtherMaterialSelection(row.poolId, i)"></i>
                                         </div>
@@ -1248,7 +1248,7 @@
                     </span>
                     <template v-if="selectedInternalReports.length">
                         <span v-for="r in selectedInternalReports" :key="'ir_'+r.id" class="selected-tag selected-tag-internal">
-                            <span :title="r.title">{{ r.title }}</span>
+                            <rrs-report-title :report="r"></rrs-report-title>
                             <i class="el-icon-close" @click="removeInternalSelection(r.id)"></i>
                         </span>
                         <el-button type="text" class="selected-clear-btn" @click="clearInternalSelection">清空</el-button>
@@ -1262,7 +1262,7 @@
                     </span>
                     <template v-if="selectedExternalReports.length">
                         <span v-for="r in selectedExternalReports" :key="'er_'+r.id" class="selected-tag selected-tag-external">
-                            <span :title="r.title">{{ r.title }}</span>
+                            <rrs-report-title :report="r"></rrs-report-title>
                             <i class="el-icon-close" @click="removeExternalSelection(r.id)"></i>
                         </span>
                         <el-button type="text" class="selected-clear-btn" @click="clearExternalSelection">清空</el-button>

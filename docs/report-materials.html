@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>报告与调库材料</title>
+    <style>
+        body {
+            margin: 0;
+            background: #F7F8FA;
+            color: #3F485A;
+            font: 13px/1.8 "Microsoft YaHei", sans-serif;
+        }
+
+        main {
+            max-width: 1120px;
+            margin: 24px auto;
+            padding: 24px;
+            background: #FFFFFF;
+            border: 1px solid #E5E5E5;
+            border-radius: 4px;
+        }
+
+        h1 {
+            color: #242933;
+            font-size: 20px;
+        }
+
+        h2 {
+            margin-top: 24px;
+            color: #242933;
+            font-size: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 8px 12px;
+            border: 1px solid #E5E5E5;
+            text-align: left;
+        }
+
+        th {
+            background: #F7F8FA;
+        }
+
+        a {
+            color: #2743A4;
+        }
+
+        code {
+            overflow-wrap: anywhere;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>报告与调库材料</h1>
+        <p>适用于证券池、禁投主体、禁投 ABS、CRMW、基金、股票的申请、批量调整、审核及详情页。报告与手工文件分别展示，采用现有深蓝、浅灰和紧凑标签样式。</p>
+        <h2>展示与操作</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>材料</th>
+                    <th>调库表格展示</th>
+                    <th>点击行为</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>内部或外部报告</td>
+                    <td>报告标题 + 内/外标识；同一报告无论有多少附件都只显示一次</td>
+                    <td>在工作台打开报告详情新页签；同来源、同 ID 复用页签</td>
+                </tr>
+                <tr>
+                    <td>手工上传文件</td>
+                    <td>文件名称；同名文件也保留各自关联</td>
+                    <td>直接下载文件</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>示例：选择一份含两个 PDF 的信评报告，再手工上传一个 PDF，表格显示“一份报告 + 一个 PDF”。报告详情展示作者、类型、证券代码、主体代码、数据来源、创建时间及外部来源机构，以及完整附件列表；附件均可单独下载。报告库目前没有独立正文或摘要字段，因此详情页展示现有元信息和原始附件。</p>
+        <p>报告详情与调库详情、审核页保持一致：内容铺满工作台区域，沿用公共 detail-body 的零外边距；分区标题栏高至少 48px，带蓝色竖线与底部分隔线，正文内边距为上下 16px、左右 20px，分区间距 16px。不另设“报告详情 / 返回”顶部栏，通过工作台页签关闭报告并回到来源页签。报告信息、完整附件及下载入口均保留。</p>
+        <p>查看报告不会清空原申请的选池、材料或审批意见。独立业务页使用新浏览器页面，并保留当前登录用户，可通过浏览器返回。</p>
+        <p>审核修改节点删除一份已绑定报告，会一次移除该报告在当前日志及当前材料栏下的全部关联，不删除报告库原件或物理文件。普通详情页保持只读。最近信评报告自动回填返回所定位报告的全部有效附件。</p>
+        <h2>接口与数据关联</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>接口/字段</th>
+                    <th>约定</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>POST /api/v1/reports/queryReportDetail</code></td>
+                    <td>入参 <code>{ reportId, source: 'internal' | 'external' }</code>；返回 <code>ReportDto</code> 及完整 <code>attachments</code>。非法来源、无效 ID、报告不存在或已删除明确报错。</td>
+                </tr>
+                <tr>
+                    <td><code>POST /api/v1/attachments/queryAttachmentList</code></td>
+                    <td>原请求不变；返回新增 <code>sourceAttachmentId/sourceReportId/sourceReportSource/sourceReportTitle</code>，页面按来源 + 报告 ID 分组。</td>
+                </tr>
+                <tr>
+                    <td><code>sys_attachment.source_attachment_id</code></td>
+                    <td>复制报告附件时保存报告库原附件 ID；手工文件、报告库原件为空；基金代码转正复制附件时保留来源。</td>
+                </tr>
+                <tr>
+                    <td><code>POST /api/v1/attachments/downloadAttachment</code></td>
+                    <td>沿用 <code>{ id }</code> 和 Base64 下载协议。</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>公共实现：<code>js/report_materials.js</code>、<code>css/report_materials.css</code>；独立详情：<code>pages/report_detail.html</code>、<code>css/report_detail.css</code>。后续新增材料入口可直接复用公共组件，报告内容扩展集中在报告详情页。</p>
+        <h2>存量升级</h2>
+        <p>存量数据库先备份，再通过 MySQL 客户端执行后端 <code>sql/tool_report_source_upgrade.sql</code>。该脚本只增加字段并修复唯一可定位的报告来源，不重建表、不清空业务数据、不改物理文件。末尾查询若有结果，表示原件缺失或归属不唯一，须按实际报告核对修复，页面不会猜测来源。不要使用包含 DROP 的初始化建表脚本升级存量库。</p>
+        <p>新环境初始化使用更新后的 <code>rrs_sys_attachment_schema.sql</code>；工具升级脚本已登记初始化排除清单。业务代码不按文件名反查并猜测存量报告关联。</p>
+        <h2>验收</h2>
+        <p>验证同报告两个 PDF + 一个手工 PDF、内外同 ID 报告、同名不同报告、两类材料栏、自动回填、修改节点整报告删除、独立页面导航、报告删除与下载失败提示，以及原页面打印导出。</p>
+    </main>
+</body>
+</html>
