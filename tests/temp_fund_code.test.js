@@ -127,7 +127,7 @@ test('基金四字段、只读正式快照和工作台文档入口完整', () =>
     assert.match(html, /:remote-method="searchFormalFundOptions"/);
     assert.doesNotMatch(html, /tempCompany|tempMitigation|tempIssueDate|tempMaturityDate|el-date-picker/);
     assert.deepEqual(plain(page.marketOptions).map(item => item.value), [
-        'SSE', 'SZSE', 'CIBM', 'BSE', 'COMPANY', 'OTC', 'HKEX', 'QDII', 'JWCW', 'UNKNOWN', 'OTHER'
+        'SSE', 'SZSE', 'NIB', 'BSE', 'COMPANY', 'OTC', 'HKEX', 'QDII', 'JWCW', 'UNKNOWN', 'OTHER'
     ]);
     const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
     assert.match(index, /page: 'pages\/temp_fund_code\.html\?v=1'/);

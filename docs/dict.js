@@ -495,7 +495,7 @@ const DICT_CURRENCY = {
 const DICT_EXCHANGE = {
     'SSE':     '上海证券交易所',
     'SZSE':    '深圳证券交易所',
-    'CIBM':    '银行间市场',
+    'NIB':     '银行间市场',
     'BSE':     '北京证券交易所',
     'COMPANY': '主体',
     'OTC':     '场外市场',

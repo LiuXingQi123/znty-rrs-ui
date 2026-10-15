@@ -14,6 +14,11 @@ const exchangeDictionary = vm.runInNewContext('(' + dictionarySource.match(/cons
 const marketPages = fs.readdirSync(path.join(root, 'pages')).filter(name => name.endsWith('.html')
     && /\b(?:marketOptions|securityMarketOptions)\s*:/.test(fs.readFileSync(path.join(root, 'pages', name), 'utf8')));
 
+test('银行间市场使用 NIB，与证券主档一致', () => {
+    assert.equal(exchangeDictionary.NIB, '银行间市场');
+    assert.equal(Object.hasOwn(exchangeDictionary, 'CIBM'), false);
+});
+
 for (const name of marketPages) {
     test(name + ' 通用市场选项与参考字典一致，港交所显示中文', () => {
         let options;
@@ -55,11 +60,11 @@ for (const name of pages) {
         }
         const method = options.methods.relatedMarketCodeText;
         assert.equal(typeof method, 'function');
-        const detail = { windCode: 'A.IB', marketCode: 'CIBM', relatedMarketCodes: [
+        const detail = { windCode: 'A.IB', marketCode: 'NIB', relatedMarketCodes: [
             { windCode: 'B.SH', marketCode: 'SSE' }, { windCode: 'C.SH', marketCode: 'SSE' },
             { windCode: 'B.SH', marketCode: 'SSE' }, { windCode: 'D.SZ', marketCode: 'SZSE' }
         ] };
-        assert.equal(method(detail, 'CIBM'), 'A.IB');
+        assert.equal(method(detail, 'NIB'), 'A.IB');
         assert.equal(method(detail, 'SSE'), 'B.SH、C.SH');
         assert.equal(method(detail, 'SZSE'), 'D.SZ');
         assert.equal(method(detail, 'BSE'), '');
