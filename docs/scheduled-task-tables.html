@@ -456,7 +456,7 @@
                 <ul>
                     <li>不同 taskCode 无编排、无全局锁，先后全靠 cron；列表 id 不要求与顺序一致。</li>
                     <li>临时代码替换每天 04:40、08:40、09:40、13:40、18:40、22:40 执行；22:00 债券类型变更 → 22:40 临时代码替换 → 23:00 到期债/股出 → 23:05 CRMW 到期出 → 23:10 外评出主体 → 23:15 外评入主体 → 23:20 同池入债 → Job 入债 → 主体不在池出债 → 次日06:00观察名单及联动同步 → 次日 09:00 两项提醒并行执行。</li>
-                    <li><code>wind_code_sync</code> 与三项恒生池 Excel 导出任务不改池状态，不插入上序，可并行。</li>
+                    <li><code>wind_code_sync</code> 会修改普通池、CRMW 和在途申请，Demo 每小时第 2/12/22/32/42/52 分钟运行，与整点及五分钟调库错开；三项恒生池 Excel 导出任务仍只读。</li>
                     <li>页面「立即执行」不校验顺序。完整规则见需求 29 第 4.1 / 4.2 节。</li>
                 </ul>
             </article>
@@ -627,16 +627,23 @@
             <article class="card">
                 <h3>Wind代码变更同步 wind_code_sync</h3>
                 <ul>
-                    <li>每 10 分钟执行一次（Cron：<code>0 */10 * * * ?</code>）</li>
-                    <li>实现类 <code>WindCodeSyncService</code> 仍为空壳，本次未修改。无需 param_json；与自动调库无池依赖，不插入上述顺序链。</li>
-                    <li>债券临时代码替换由独立的 <code>bond_temp_code_replace</code> 完成，二者不复用任务编码。</li>
+                    <li>每 10 分钟执行一次（Demo Cron：<code>0 2/10 * * * ?</code>），无需 param_json。已有数据库中的配置不由代码自动覆盖。</li>
+                    <li>扫描 <code>ais_inv_ods.wind_cbondchangewindcode</code>，<code>CHANGE_DATE</code> 为昨天至今天的八位 <code>yyyyMMdd</code>，旧码与新码不同；同一 SEC_ID 的连续变更按代码链执行。</li>
+                    <li>按唯一 <code>SEC_ID</code> 定位主档，原地更新 <code>wind_code</code>，保留证券 ID 和其他字段。首次处理的新码必须不存在；主档缺失特别提示并跳过，已完成事件不重复处理。</li>
+                    <li><code>official</code> 只补转换登记并保留来源；<code>temporary</code> 复用原登记并转为 <code>temp_converted</code>，使用登记中已核实的市场；<code>temp_converted</code> 新增本次登记、保留原转换历史。</li>
+                    <li>仅替换本次旧新码，不扩展同券其他市场。复用普通池、CRMW 标的及在途申请转换：已在池生成系统出入库记录，在途保留原审批，历史终态不改码；无业务引用不制造调库流水。</li>
+                    <li>每条事件独立事务，主档、登记、池状态、日志和快照一起提交或回滚；登记备注保留原内容并追加事件完成标记，成功后供重复扫描去重。失败项在扫描窗口内重试，超窗需核查并专项补执行。</li>
+                    <li>主档原代码不一致、登记取消/删除/目标冲突、来源与登记不一致、日期无效均明确报错。人工新增的 TEMP_ 证券 ID 若未与真实 SEC_ID 对齐，本任务不会猜测匹配。</li>
+                    <li>与 <code>bond_temp_code_replace</code> 使用独立任务编码、独立扫描入口，共用业务转换组件；后者仍按原规则扩展同券全部市场。</li>
+                    <li>换码演示：先初始化 <code>rrs_external_import_demo_data.sql</code>，再初始化 <code>ais_inv_ods_demo_data.sql</code>。预置 8 条记录，日期按上海时间动态生成；窗口内 5 条正常换码事件（含连续换码）、1 条缺失主档提示，另 2 条验证同码和历史日期过滤。再次执行可验证事件去重；从头演示时需同时恢复主档及临时代码、调库运行态 Demo。</li>
+                    <li>演示编码只变化数字末位，市场后缀不变：<code>108008901.IB→108008906.IB</code>、<code>198101.SH→198106.SH</code>、<code>128101.SZ→128106.SZ</code>；连续换码为 <code>XYB001.IB→XYB006.IB→XYB007.IB</code>。</li>
                 </ul>
             </article>
         </div>
         <div class="note">
             <ul class="notes">
                 <li>新增任务步骤：① <b>先评估执行顺序</b>（需求 29 第 4.1 / 4.2 节）再定 cron；② 页面新增配置记下 task_code；③ 实现 <code>RrsScheduledTask</code> 并覆盖 <code>getParamHelp</code>；④ 部署后执行。</li>
-                <li>不同 taskCode 无全局锁。Demo：临时代码替换每天 04:40、08:40、09:40、13:40、18:40、22:40 执行；22:00 债券类型变更 → 22:40 临时代码替换 → 23:00 到期债股 → 23:05 CRMW 到期 → 23:10 外评出主体 → 23:15 外评入主体 → 23:20 同池入债 → 次日 00:00 主体不在池出债（默认关闭）→ 06:00观察名单及联动同步 → 09:00 两项提醒并行执行；<code>company_inpool_bond_auto_in</code> 每 10 分钟执行，会在部分时刻与固定任务同秒触发；另 <code>wind_code_sync</code> 与三项恒生池 Excel 导出任务不改池状态。</li>
+                <li>不同 taskCode 无全局锁。Demo：临时代码替换每天 04:40、08:40、09:40、13:40、18:40、22:40 执行；22:00 债券类型变更 → 22:40 临时代码替换 → 23:00 到期债股 → 23:05 CRMW 到期 → 23:10 外评出主体 → 23:15 外评入主体 → 23:20 同池入债 → 次日 00:00 主体不在池出债（默认关闭）→ 06:00观察名单及联动同步 → 09:00 两项提醒并行执行；<code>company_inpool_bond_auto_in</code> 每 10 分钟执行，会在部分时刻与固定任务同秒触发；另 <code>wind_code_sync</code> 在每小时第 2/12/22/32/42/52 分钟执行，会修改池状态；三项恒生池 Excel 导出任务只读。</li>
                 <li>演示数据：<code>rrs_scheduled_task_demo_data.sql</code>（脚本工具可初始化；<b>cron</b> 须与上述执行顺序一致，列表 id 不要求）。</li>
             </ul>
         </div>
