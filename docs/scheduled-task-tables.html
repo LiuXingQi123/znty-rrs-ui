@@ -626,16 +626,77 @@
             </article>
             <article class="card">
                 <h3>Wind代码变更同步 wind_code_sync</h3>
+                <h4>执行调用链与各步写入</h4>
+                <p>这里的“登记”是 <code>rrs_temp_security_code</code> 业务表中的一条记录，普通 <code>official</code> 证券换码也会使用该表。准备登记和完成转正是两个步骤：新增登记时先保存旧码和 <code>temporary</code> 状态，后续方法才写入正式码和 <code>updated</code> 状态；复用已有登记时，原有目标码必须与本次新码一致。</p>
+                <div class="table-wrap">
+                    <pre>ScheduledTaskService.runTask()
+  │  按任务编码找到实现类，取得任务锁后调用 execute()
+  ↓
+WindCodeSyncService.execute()
+  │  记录任务开始、结束、耗时和执行结果
+  ↓
+doSync()
+  │  扫描 Wind 昨天至今天的旧码→新码事件
+  │  同一 SEC_ID 按 A→B→C 的顺序处理，逐条统计成功、跳过和失败
+  ↓
+TempSecurityCodeService.editWindCodeChangeByJob(change)
+  │  单条事件的事务入口：以下操作一起提交，任一步失败全部回滚
+  │  按 SEC_ID 锁定主档，检查事件是否已完成、旧码是否匹配、新码是否冲突
+  │
+  ├─ prepareWindRegistration()
+  │    查询旧码对应的 rrs_temp_security_code 登记
+  │    无登记：按旧证券信息新增，temp_security_code=旧码、status=temporary
+  │            此时不填写正式码；temporary 主档缺少原登记时直接报错
+  │    有登记：校验待转正状态、目标码、类型和市场后复用
+  │    在 memo 中附加事件去重标记；复用记录的备注随后续转正更新一起保存
+  │
+  ├─ windCodeSyncMapper.editSecurityWindCode()
+  │    更新 rrs_securityinfo：wind_code 从旧码改为新码，保留原 SEC_ID
+  │    来源 temporary 改为 temp_converted，official/temp_converted 保持不变
+  │
+  └─ editTempSecurityCodeToUpdated(..., true)
+       │  组装转正数据：正式码=本次新码、状态=updated、操作来源=job
+       │  true 表示 Wind 单码模式：只处理本次新码，不扩展同券其他市场代码
+       ↓
+     convertTempSecurityBusinessData()
+       │
+       ├─ prepareWindCodeConversion() / prepareCrmwConversion()
+       │    查询旧码当前在池记录和在途申请，准备普通池及 CRMW 转换计划
+       │    校验新码主数据、市场、池关系和申请冲突，全部通过后再更新登记
+       │
+       ├─ tempSecurityCodeMapper.editTempSecurityCodeToUpdated()
+       │    真正更新登记表：写入新码及正式证券信息、job 来源和事件标记
+       │    将 status 从 temporary 改为 updated，此时仍在本条事务内
+       │
+       ├─ convertOrdinaryPoolBusinessData()
+       │    已在池：生成旧码调出、新码调入流水，并更新池状态；避免重复入池
+       │    在途申请：替换代码和快照，保留原批次、发起人及审批流程
+       │    无业务引用：不生成调库流水；历史终态申请保留原样
+       │
+       └─ convertCrmwBusinessData()
+            同一凭证下转换标的代码：已在池旧出新入，在途更新代码和快照
+            保留原凭证及审批流程；另处理匹配旧码的 CRMW 凭证字段引用</pre>
+                </div>
+                <p>事件标记在准备登记时就已组装，但此时不代表换码完成。只有本条事务成功提交、登记状态为 <code>updated</code> 且来源为 <code>job</code> 后，后续扫描才按该标记跳过重复事件；业务转换失败时，主档换码、登记和相关业务写入一起回滚。</p>
+                <h4>扫描、处理规则与演示数据</h4>
                 <ul>
                     <li>每 10 分钟执行一次（Demo Cron：<code>0 2/10 * * * ?</code>），无需 param_json。已有数据库中的配置不由代码自动覆盖。</li>
                     <li>扫描 <code>ais_inv_ods.wind_cbondchangewindcode</code>，<code>CHANGE_DATE</code> 为昨天至今天的八位 <code>yyyyMMdd</code>，旧码与新码不同；同一 SEC_ID 的连续变更按代码链执行。</li>
-                    <li>按唯一 <code>SEC_ID</code> 定位主档，原地更新 <code>wind_code</code>，保留证券 ID 和其他字段。首次处理的新码必须不存在；主档缺失特别提示并跳过，已完成事件不重复处理。</li>
+                    <li><code>OBJECT_ID</code> 不做必填校验，为 NULL 或空字符串也继续处理；它仍保留在备注标记中，证券匹配始终使用 <code>SEC_ID</code>。临时代码记录指 <code>rrs_temp_security_code</code> 表中的一条数据。</li>
+                    <li>按唯一 <code>SEC_ID</code> 定位主档，每个市场的 SEC_ID 也独立唯一，原地更新 <code>wind_code</code>，保留证券 ID 和其他字段。首次处理的新码必须不存在；主档缺失或旧码在主档全表不存在时，均记录 WARN 特别提示并跳过，不计失败、不改业务数据，即使临时表有登记也不单独转换。已完成事件优先按标记判重。</li>
                     <li><code>official</code> 只补转换登记并保留来源；<code>temporary</code> 复用原登记并转为 <code>temp_converted</code>，使用登记中已核实的市场；<code>temp_converted</code> 新增本次登记、保留原转换历史。</li>
                     <li>仅替换本次旧新码，不扩展同券其他市场。复用普通池、CRMW 标的及在途申请转换：已在池生成系统出入库记录，在途保留原审批，历史终态不改码；无业务引用不制造调库流水。</li>
+                    <li>普通池和 CRMW 的旧代码出库记录，调整类型为“Wind代码变更调出”，后端使用 <code>AdjustType.WIND_CODE_CHANGE_OUT</code>；新代码入库及原待审批申请的调整类型沿用现有规则。</li>
                     <li>每条事件独立事务，主档、登记、池状态、日志和快照一起提交或回滚；登记备注保留原内容并追加事件完成标记，成功后供重复扫描去重。失败项在扫描窗口内重试，超窗需核查并专项补执行。</li>
-                    <li>主档原代码不一致、登记取消/删除/目标冲突、来源与登记不一致、日期无效均明确报错。人工新增的 TEMP_ 证券 ID 若未与真实 SEC_ID 对齐，本任务不会猜测匹配。</li>
+                    <li>任务状态与单条换码结果分别统计：正常完成扫描和逐条处理即显示“任务结束（成功）”，单条失败仍记录 ERROR、失败数量及原因，影响条数仅计实际成功数；只有扫描或任务级异常导致执行未完成才显示任务失败。</li>
+                    <li>旧码存在却属于其他 SEC_ID、登记取消/删除/目标冲突、来源与登记不一致、日期无效均明确报错。旧码不存在只特别提示，摘要单列“旧码缺失跳过”，不计失败。人工新增的 TEMP_ 证券 ID 若未与真实 SEC_ID 对齐，本任务不会猜测匹配。</li>
                     <li>与 <code>bond_temp_code_replace</code> 使用独立任务编码、独立扫描入口，共用业务转换组件；后者仍按原规则扩展同券全部市场。</li>
-                    <li>换码演示：先初始化 <code>rrs_external_import_demo_data.sql</code>，再初始化 <code>ais_inv_ods_demo_data.sql</code>。预置 8 条记录，日期按上海时间动态生成；窗口内 5 条正常换码事件（含连续换码）、1 条缺失主档提示，另 2 条验证同码和历史日期过滤。再次执行可验证事件去重；从头演示时需同时恢复主档及临时代码、调库运行态 Demo。</li>
+                    <li>换码演示：预置 13 条事件，日期按上海时间动态生成。完整初始化后窗口内 11 条：首次成功 9 条、主档缺失跳过 1 条、旧码缺失跳过 1 条、失败 0 条；另 2 条验证同码与窗口外日期过滤。同一窗口再次执行重复跳过 9 条，两类缺失仍各跳过 1 条，不新增登记或流水。</li>
+                    <li>配套数据：表结构就绪后可用脚本工具完整初始化 Demo（<code>INIT_ALL_DEMO</code>）；按模块需同时恢复外部证券主档、临时代码、字典、投资池配置、证券调库运行态、CRMW 池状态和 AIS ODS Demo。无论哪种方式，从头演示前还须清空普通/CRMW 调库快照，这两张表不由 Demo 脚本灌数。任务先保持关闭，恢复完整后手动执行；从头演示需恢复相同范围，只重置 ODS 不会恢复业务数据。</li>
+                    <li>四类来源样例：<code>108008901.IB→108008906.IB</code> 为 official 无登记，新增登记且保留来源；<code>WCTMP001.IB→WCTMP006.IB</code> 为 temporary，复用 id=4 登记并转为 temp_converted；<code>WCDMISS001.IB→WCDMISS002.IB</code> 无主档，只提示；<code>ABN002.IB→ABN007.IB</code> 为 temp_converted，新增本次登记并保留 <code>TMP002.IB→ABN002.IB</code> 历史。</li>
+                    <li>业务样例：<code>MTN001.IB→MTN006.IB</code> 同时迁移三级库及 CRMW 标的，凭证 <code>CRMW001.IB</code> 不变；<code>GSB001.SH→GSB006.SH</code> 保留待审批申请 id=8 的批次、流程和步骤，更新快照且不提前入池；WCTMP、ABN 无业务引用，只改主档及登记。</li>
+                    <li>旧码缺失样例：<code>WCH_DEMO_013</code> 的 SEC_ID=S9001046 主档当前为 PPN001.IB，事件旧码 PPN000.IB 不存在。任务只记录特别提示，PPN001.IB 保持原样，不新增登记和调库记录。</li>
+                    <li>待转正样例的外部映射已在 Demo 中准备：WCTMP001.IB 主档 SEC_ID 为 <code>S9001050</code>，原登记仍保留 <code>TEMP_WCTMP001.IB</code> 及备注；Wind 任务不会自行猜测或补齐真实 SEC_ID。</li>
                     <li>演示编码只变化数字末位，市场后缀不变：<code>108008901.IB→108008906.IB</code>、<code>198101.SH→198106.SH</code>、<code>128101.SZ→128106.SZ</code>；连续换码为 <code>XYB001.IB→XYB006.IB→XYB007.IB</code>。</li>
                 </ul>
             </article>

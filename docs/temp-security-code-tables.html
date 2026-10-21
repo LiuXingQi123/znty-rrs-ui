@@ -407,7 +407,7 @@
                 <ul>
                     <li>状态固定 temporary，仅写临时字段。新增代码框提示需带市场后缀；名称必填并有输入提示。</li>
                     <li>新增时额外写入 <code>sec_id = TEMP_ + 临时代码</code>，并同步到占位主档。例如代码 <code>001.IB</code> 对应 ID <code>TEMP_001.IB</code>。该字段仅供外部使用，当前页面和接口不展示、不返回，也不新增专门校验或业务判断；转正、取消和软删除不改 ID。</li>
-                    <li>同步插入 <code>rrs_securityinfo</code>（wind_code=临时代码，security_source=temporary，<code>security_status=L</code> 上市中，issuer_code 取主体代码，发行/到期取表单并格式化为 <code>yyyyMMdd</code>；起息/止息/剩余期限未知不写）。上市状态枚举 <code>SecurityStatus</code>：<code>L</code>/<code>N</code>/<code>D</code>/<code>U</code>；占位须写明确值（临时代码用 <code>L</code>，来源无状态用 <code>U</code>）。留 <code>NULL</code> 时调库列表 <code>security_status != 'D'</code> 会因三值逻辑查不到。</li>
+                    <li>同步插入 <code>rrs_securityinfo</code>（wind_code=临时代码，security_source=temporary，<code>market</code> 取表单选择的临时市场编码，与临时代码表的 <code>temp_security_market</code> 一致，<code>security_status=L</code> 上市中，issuer_code 取主体代码，发行/到期取表单并格式化为 <code>yyyyMMdd</code>；起息/止息/剩余期限未知不写）。上市状态枚举 <code>SecurityStatus</code>：<code>L</code>/<code>N</code>/<code>D</code>/<code>U</code>；占位须写明确值（临时代码用 <code>L</code>，来源无状态用 <code>U</code>）。留 <code>NULL</code> 时调库列表 <code>security_status != 'D'</code> 会因三值逻辑查不到。</li>
                     <li>若临时码已在主数据存在则拒绝新增。</li>
                 </ul>
             </article>
@@ -423,7 +423,7 @@
                     <li>CRMW 保留原凭证，标的按同券全部市场代码整组转换，流程中保留原发起人、批次和审批，逐码保存 CRMW 证券快照；去重精确到凭证、标的和池，其他凭证的记录不影响本组入池。</li>
                     <li>调整原因中的「调入池」「互斥配套调出池」，以及流程冲突、市场、来源和池关系等提示均显示投资池名称，不展示池 ID；复用已有名称，不额外拼接层级全名，历史日志不改写。</li>
                     <li>正式主数据已存在则不再 upsert；临时占位置 security_status=D。</li>
-                    <li>定时入口 <code>bond_temp_code_replace</code> 扫描已由外部数据补齐正式 <code>security_code</code> 的 temporary 记录，复用上述完整分叉，来源记为 <code>job</code>；与 <code>wind_code_sync</code> 独立。Wind 任务按 SEC_ID 原地更名主档：official 补登记、temporary 复用原登记、temp_converted 新增本次登记保留原历史，再以单码模式复用业务转换，不扩展其他市场。事件完成标记追加在登记备注中；主档与业务写入同事务回滚。主档缺失特别提示并跳过。</li>
+                    <li>定时入口 <code>bond_temp_code_replace</code> 扫描已由外部数据补齐正式 <code>security_code</code> 的 temporary 记录，复用上述完整分叉，来源记为 <code>job</code>；与 <code>wind_code_sync</code> 独立。Wind 任务按 SEC_ID 原地更名主档：official 补登记、temporary 复用原登记、temp_converted 新增本次登记保留原历史，再以单码模式复用业务转换，不扩展其他市场。事件完成标记追加在登记备注中；主档与业务写入同事务回滚。主档缺失或旧码在主档中不存在时特别提示并跳过、不计失败，即使存在临时登记也不单独转换；已完成事件优先按标记判重。</li>
                 </ul>
             </article>
             <article class="card"><h3>取消和删除</h3>
