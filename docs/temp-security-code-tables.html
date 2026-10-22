@@ -423,7 +423,7 @@
                     <li>CRMW 保留原凭证，标的按同券全部市场代码整组转换，流程中保留原发起人、批次和审批，逐码保存 CRMW 证券快照；去重精确到凭证、标的和池，其他凭证的记录不影响本组入池。</li>
                     <li>调整原因中的「调入池」「互斥配套调出池」，以及流程冲突、市场、来源和池关系等提示均显示投资池名称，不展示池 ID；复用已有名称，不额外拼接层级全名，历史日志不改写。</li>
                     <li>正式主数据已存在则不再 upsert；临时占位置 security_status=D。</li>
-                    <li>定时入口 <code>bond_temp_code_replace</code> 扫描已由外部数据补齐正式 <code>security_code</code> 的 temporary 记录，复用上述完整分叉，来源记为 <code>job</code>；与 <code>wind_code_sync</code> 独立。Wind 任务按 SEC_ID 原地更名主档：official 补登记、temporary 复用原登记、temp_converted 新增本次登记保留原历史，再以单码模式复用业务转换，不扩展其他市场。事件完成标记追加在登记备注中；主档与业务写入同事务回滚。主档缺失或旧码在主档中不存在时特别提示并跳过、不计失败，即使存在临时登记也不单独转换；已完成事件优先按标记判重。</li>
+                    <li>定时入口 <code>bond_temp_code_replace</code> 扫描已由外部数据补齐正式 <code>security_code</code> 的 temporary 记录，复用上述完整分叉，来源记为 <code>job</code>；与 <code>wind_code_sync</code> 独立。Wind 任务按页面扩展参数 scanDays 指定的天数扫描（省略默认 1 天），日期由数据库计算、按 SEC_ID 取 CHANGE_DATE 最新记录，并将主档当前码直接改为最新代码：official 补登记、temporary 复用原登记、temp_converted 新增本次登记保留原历史，再以单码模式复用业务转换，不扩展其他市场。事件完成标记追加在登记备注中；主档与业务写入同事务回滚。主档缺失时特别提示并跳过；源记录旧码不存在也继续按 SEC_ID 换码，实际出入库使用主档当前码。主档已是最新码则跳过，已完成事件优先按源记录标记判重。</li>
                 </ul>
             </article>
             <article class="card"><h3>取消和删除</h3>
