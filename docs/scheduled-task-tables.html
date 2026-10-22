@@ -468,6 +468,7 @@
                     <li>普通池及 CRMW 标的复用人工整组转正：按正式码的非空 ISIN 查询全部同券市场代码，逐码记账、统一出入池。在途主项换码并补关联项/快照，沿用原审批；已在池临时退出，正式组未在池时整体进入。CRMW 在同一凭证下逐标的市场代码处理，凭证自身不扩展；即时出入库调整人为系统，流程中原发起人保留。</li>
                     <li>业务校验仅三类：信用债大库及各级库的独立在途、市场、池关系。调入互斥按目标池配置逐码补配套调出，不反向推断关系；流程中沿用原批次等待审批，已在池转换随本次即时生效，已有同批调出不重复生成。容量、池启停、业务锁定、报告、评级和冻结期不重新阻断转正；主数据、相关池整组状态、去重、写入行数和事务保护保留。</li>
                     <li>成功后状态置 updated、<code>oprt_source=job</code>；失败记录保留 temporary 供重试。</li>
+                    <li>成功转换固定向 <code>rrs_temp_security_code_update_log</code> 写一条旧新码映射，<code>replace_table_name=rrs_temp_security_code</code>、<code>replace_record_id=登记ID</code>；无业务引用也写，有业务引用时另存原有逐记录明细。日志插入须影响 1 行，否则整次回滚。</li>
                     <li>本任务调整原因及失败提示中的投资池使用名称，不显示池 ID；不额外拼接层级全名，历史日志不改写。</li>
                     <li>这是独立任务，不调用、不修改 <code>wind_code_sync</code>。</li>
                 </ul>
@@ -688,6 +689,7 @@ TempSecurityCodeService.editWindCodeChangeByJob(change)
                     <li><code>official</code> 只补转换登记并保留来源；<code>temporary</code> 复用原登记并转为 <code>temp_converted</code>，使用登记中已核实的市场；<code>temp_converted</code> 新增本次登记、保留原转换历史。</li>
                     <li>仅替换本次旧新码，不扩展同券其他市场。复用普通池、CRMW 标的及在途申请转换：已在池生成系统出入库记录，在途保留原审批，历史终态不改码；无业务引用不制造调库流水。</li>
                     <li>普通池和 CRMW 的旧代码出库记录，调整类型为“Wind代码变更调出”，后端使用 <code>AdjustType.WIND_CODE_CHANGE_OUT</code>；新代码入库及原待审批申请的调整类型沿用现有规则。</li>
+                    <li>每次实际换码成功，固定写一条 <code>rrs_temp_security_code_update_log</code> 登记映射（<code>replace_table_name=rrs_temp_security_code</code>、<code>replace_record_id=登记ID</code>），记录主档实际旧码到新码；无业务引用也记录。有业务引用另存原有明细，跳过或重复事件不追加；日志写入失败时整次回滚。</li>
                     <li>每条事件独立事务，主档、登记、池状态、日志和快照一起提交或回滚；登记备注保留原内容并追加事件完成标记，成功后供重复扫描去重。失败项在扫描窗口内重试，超窗需核查并专项补执行。</li>
                     <li>任务状态与单条换码结果分别统计：正常完成扫描和逐条处理即显示“任务结束（成功）”，单条失败仍记录 ERROR、失败数量及原因，影响条数仅计实际成功数；只有扫描或任务级异常导致执行未完成才显示任务失败。</li>
                     <li>旧码存在却属于其他 SEC_ID、登记取消/删除/目标冲突、来源与登记不一致、日期无效均明确报错。旧码不存在只特别提示，摘要单列“旧码缺失跳过”，不计失败。人工新增的 TEMP_ 证券 ID 若未与真实 SEC_ID 对齐，本任务不会猜测匹配。</li>
