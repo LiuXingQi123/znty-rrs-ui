@@ -373,7 +373,7 @@
     <section class="panel" id="overview"><h2>业务流程总览</h2>
         <p class="sub">前端 <code>pages/forbidden_pool_adjust.html</code>：<code>listTab=company|abs</code>；主体详情页 <code>currentPage=detail</code>，ABS 详情页 <code>currentPage=absDetail</code>（步骤 <code>absAdjustStep</code> 1/2）。状态字段主体与 ABS 完全隔离，禁止复用同名 data。</p>
         <div class="flow">
-            <div class="step"><b>1. 列表双 Tab</b><span>进入页面时并行预载主体和 ABS 两个列表，切换 Tab 只重排表格、不重复查询；主体查 wind_cbondissuer，ABS 查 ABS 证券分页。</span></div>
+            <div class="step"><b>1. 列表双 Tab</b><span>进入页面时并行预载主体和 ABS 两个列表，切换 Tab 只重排表格、不重复查询；主体查 wind_compintroduction，ABS 查 ABS 证券分页。</span></div>
             <div class="step"><b>2. 加载详情</b><span>进入或切换主体/ABS 债时先清空步骤1的可调入/调出池列表与勾选（含表格内部选中态），再发起查询，避免慢查询期间闪现上一次的选中；主体/ABS 详情、当前在池、可调池树（债券禁止库等四池）；可调入库默认仅展开「信用债大库(new)」，其他根节点默认收起（当前四池不含该节点时即全部收起），可调出库默认全部展开；主体调库日志附件按日志 ID 去重后一次批量查询，并按返回的 <code>mainId</code> 回填。</span></div>
             <div class="step"><b>3. 校验调整</b><span>主体或 ABS 各自 checkAdjust + 联动互斥 + 流程。</span></div>
             <div class="step"><b>4. 提交审批</b><span>multipart 附件随 <code>files</code> 传同序 <code>originalFileNameListJson</code> 以保留中文原始文件名；主体 company / ABS 证券级分别写日志。</span></div>
@@ -415,11 +415,13 @@
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>主体查询与池状态</h2>
+        <p>基础信息中的全称和简称分别对应 <code>COMP_NAME</code> 与 <code>COMP_SNAME</code>，简称为空时保留空值；主体页面展示和调库提交明确使用全称。</p>
+        <p>主体 Excel 批量校验复用本次批量匹配的主体资料、投资池配置及池关系，不跨请求缓存；其余逐项业务规则保持不变。单笔申请、提交及终审复核继续读取当前数据。</p>
         <p class="sub">主体主数据来自跨库 Wind 表，不依赖 rrs_securityinfo 的 company 行；旗下债券经 issuer_code 关联。</p><span class="api">POST /api/v1/forbiddenPoolAdjust/queryCompanyPage · queryCompanyDetail · queryCompanyPoolStatus · queryCompanyBondList · queryAdjustPoolList · queryAdjustLogList · queryAdjustStepList</span>
         <div class="logic">
             <article class="card"><h3>主体与债券</h3>
                 <ul>
-                    <li>列表/详情：<code>ais_inv_ods.wind_cbondissuer</code>（<code>used=1</code>），代码 <code>s_info_compcode</code>；筛选代码/名称/行业。</li>
+                    <li>列表、详情、完整校验及提交均读取 <code>ais_inv_ods.wind_compintroduction</code>，以 <code>COMP_ID</code> 确认主体，显示 <code>COMP_NAME</code> 全称；按代码、全称、统一社会信用代码筛选。展示信用代码、主体类型、企业性质、省份、城市，详情另含成立日期、注册地址及旗下债券数量；不再读取旧表行业和金融机构属性。</li>
                     <li>旗下债券数量（主数据总数）：<code>issuer_code</code> + <code>category_type=bond</code>，含 <code>crmw</code>，仅排除 <code>security_status=D</code>（<code>company</code> 本就非 bond）。对比证券池时用主体全称填「发行人」；禁投侧按主体代码精确统计。</li>
                     <li>旗下债券在池：普通池 <code>ip_pool_status</code> + CRMW 池 <code>ip_pool_status_crmw</code>（按 <code>crmw_scode</code>）；分组 <code>bondCount</code> 为该池在池数。</li>
                     <li>旗下债券明细：<code>queryCompanyBondList</code> 与对应池 <code>bondCount</code> 条数一致（同样含 CRMW）。</li>
@@ -485,7 +487,7 @@
                 </thead>
                 <tbody>
                 <tr>
-                    <td><span class="name">ais_inv_ods.wind_cbondissuer</span></td>
+                    <td><span class="name">ais_inv_ods.wind_compintroduction</span></td>
                     <td>发行主体主数据（列表/详情）</td>
                     <td><span class='tag r'>查询</span></td>
                     <td>主体分页、详情、名称展示</td>
@@ -584,9 +586,9 @@
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <p>需要用户身份的接口由页面按接口要求显式提供用户字段；附件列表查询明确发送 <code>businessDomain=bond</code> 和 <code>adjustLogIds</code>，附件下载只发送 <code>id</code>。公共 <code>apiPost</code> 原样发送参数，不按接口或页面文件名补参。</p>
         <ul class="notes">
-            <li>禁投池 ABS 证券基本信息的字段与顺序与证券池调整一致，显示权益人、自选权益人和担保人主体内评分；<code>115202000</code> 展示为“债务主体”。「剩余期限(天)」隐藏保留，新增只读「证券期限」展示 <code>date_exists_str</code>。<code>promptReason</code> 展示为“观察事项”，<code>analysis</code>（证券分析）最大输入长度为 5000 字。自选权益人弹窗采用带标签的主体编码/名称查询区；点击行或单选框选择主体，选中行高亮，最新内评以标签展示；底部显示已选主体名称和编码。确认前仅暂存选择，取消保留原值。主体编码、主体名称和内评列按弹窗可用宽度自适应分配。</li>
+            <li>禁投池 ABS 证券基本信息的字段与顺序与证券池调整一致，显示权益人、自选权益人和担保人主体内评分；<code>115202000</code> 展示为“债务主体”。「剩余期限(天)」隐藏保留，新增只读「证券期限」展示 <code>date_exists_str</code>。<code>promptReason</code> 展示为“观察事项”，<code>analysis</code>（证券分析）最大输入长度为 5000 字。自选权益人弹窗采用带标签的主体编码/名称查询区；点击行或单选框选择主体，选中行高亮，最新内评以标签展示；底部显示已选主体全称和编码。确认前仅暂存选择，取消保留原值。主体编码、主体全称和内评列按弹窗可用宽度自适应分配。</li>
             <li>页面列表 <strong>主体 | ABS债</strong> 双 Tab；首次进入及带主体/证券代码进入时均并行预载两边列表，切换 Tab 不重新请求。主体逻辑与 ABS 状态字段隔离（ABS 使用 <code>abs*</code> 前缀 data）。初始化 <code>applyUrlCompanyOrList</code>：URL 有 <code>companyCode</code> 进主体详情，仅有 <code>securityCode</code> 切 ABS Tab。</li>
-            <li>主体调库日志 <code>security_type</code> 固定为 <code>company</code>；对象代码为 Wind 主体码（<code>s_info_compcode</code>），不是债券 wind_code；主体主数据读 <code>ais_inv_ods.wind_cbondissuer</code>。</li>
+            <li>主体调库日志 <code>security_type</code> 固定为 <code>company</code>；对象代码为公司简介 <code>COMP_ID</code>（与发行人主体码对应），不是债券 wind_code；详情、校验及提交主体主数据读 <code>ais_inv_ods.wind_compintroduction</code>，不再关联旧发行人表。</li>
             <li>ABS 调库走 <code>/api/v1/forbiddenAbsPoolAdjust/*</code>，仅 <code>abs_flag=1</code>；可调池 15/16/17/23；不同步同主体其它债。</li>
             <li>主体级校验<strong>跳过</strong>品种、市场、债券到期；保留池锁定、pending、容量、来源/限制、互斥、全局禁止、开放日等；行业校验调用已注释。</li>
             <li>主体调入任意目标池的下一步校验页会逐券展示旗下债券互斥调出；每条互斥项均以具体债券作为真实调整对象，与主体手工项同批提交和审批，最终审批前按债券最新池状态复核。</li>

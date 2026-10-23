@@ -113,6 +113,7 @@
                         <i class="el-icon-upload upload-icon"></i>
                         <div class="upload-text">将<strong>{{ form.importType === 'company' ? '主体' : '证券' }}</strong> Excel 拖到此处，或 <em>点击选择</em></div>
                         <div class="upload-tip">请先选择导入类型并下载对应模板；再次选择将覆盖当前未提交批次</div>
+                        <div v-if="isCompanyImport" class="upload-tip">依次按统一社会信用代码、主体代码、主体全称匹配；未填写或未找到时继续下一项</div>
                         <div v-if="!isCompanyImport" class="upload-tip">上传后在导入明细中选择担保人/权益人，默认第一条；ABS 支持自选权益人</div>
                     </el-upload>
                     <div class="tpl-cols">
@@ -168,6 +169,7 @@
                                 </el-table-column>
                                 <el-table-column label="父池名称" prop="parentPoolName" min-width="120" show-overflow-tooltip></el-table-column>
                                 <el-table-column label="子池名称" prop="childPoolName" min-width="120" show-overflow-tooltip></el-table-column>
+                                <el-table-column v-if="isCompanyImport" label="统一社会信用代码" prop="unifiedSocialCreditCode" min-width="180" show-overflow-tooltip></el-table-column>
                                 <el-table-column :label="nameColumnLabel" prop="securityName" min-width="140" show-overflow-tooltip></el-table-column>
                                 <el-table-column :label="codeColumnLabel" prop="securityCode" min-width="140" show-overflow-tooltip>
                                     <template slot-scope="{ row }"><span class="security-code">{{ row.securityCode || '' }}</span></template>
@@ -400,9 +402,9 @@
                           placeholder="请输入主体编码" :disabled="ratingCompanySaving" @keyup.enter.native="searchSelfRightsHolders"></el-input>
             </div>
             <div class="self-rights-holder-field">
-                <label for="security_pool_excel_import_self_company_name">主体名称</label>
+                <label for="security_pool_excel_import_self_company_name">主体全称</label>
                 <el-input id="security_pool_excel_import_self_company_name" v-model.trim="selfRightsHolderFilters.companyName" size="small" clearable
-                          placeholder="请输入主体名称" :disabled="ratingCompanySaving" @keyup.enter.native="searchSelfRightsHolders"></el-input>
+                          placeholder="请输入主体全称" :disabled="ratingCompanySaving" @keyup.enter.native="searchSelfRightsHolders"></el-input>
             </div>
             <div class="self-rights-holder-actions">
                 <el-button type="primary" size="small" icon="el-icon-search" :disabled="ratingCompanySaving" @click="searchSelfRightsHolders">查询</el-button>
@@ -420,7 +422,7 @@
             </el-table-column>
             <el-table-column type="index" label="序号" width="60" align="center" :index="selfRightsHolderIndex"></el-table-column>
             <el-table-column prop="companyCode" label="主体编码" min-width="120" show-overflow-tooltip></el-table-column>
-            <el-table-column prop="companyName" label="主体名称" min-width="260" show-overflow-tooltip></el-table-column>
+            <el-table-column prop="companyName" label="主体全称" min-width="260" show-overflow-tooltip></el-table-column>
             <el-table-column label="最新内评" min-width="84" align="center" label-class-name="self-rights-holder-rating-header">
                 <template slot-scope="{ row }"><el-tag v-if="row.innerRating" size="mini">{{ row.innerRating }}</el-tag></template>
             </el-table-column>
@@ -504,9 +506,9 @@ new Vue({
         isCompanyImport() {
             return this.form.importType === 'company'
         },
-        // 名称列表头（证券名称 / 主体名称）
+        // 名称列表头（证券名称 / 主体全称）
         nameColumnLabel() {
-            return this.isCompanyImport ? '主体名称' : '证券名称'
+            return this.isCompanyImport ? '主体全称' : '证券名称'
         },
         // 简称列表头
         shortNameColumnLabel() {
@@ -519,7 +521,7 @@ new Vue({
         // 当前模板列名标签
         templateColumns() {
             if (this.isCompanyImport) {
-                return ['父池名称', '子池名称', '主体名称', '主体代码']
+                return ['父池名称', '子池名称', '统一社会信用代码', '主体全称', '主体代码']
             }
             return ['父池名称', '子池名称', '证券名称', '证券代码']
         },
