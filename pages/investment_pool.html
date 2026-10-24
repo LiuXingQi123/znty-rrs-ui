@@ -1228,19 +1228,20 @@
                         ]
                     }
                 ],
-                marketOptions: [    // 投资市场复选框枚举（与 MarketCode 一致）
-                    { label: '上海证券交易所', value: 'SSE' },
-                    { label: '深圳证券交易所', value: 'SZSE' },
-                    { label: '银行间市场', value: 'NIB' },
-                    { label: '北京证券交易所', value: 'BSE' },
-                    { label: '主体', value: 'COMPANY' },
-                    { label: '场外市场', value: 'OTC' },
-                    { label: '香港交易所', value: 'HKEX' },
-                    { label: '其他QDII市场', value: 'QDII' },
-                    { label: 'JWCW市场', value: 'JWCW' },
-                    { label: '未知', value: 'UNKNOWN' },
-                    { label: '其他', value: 'OTHER' }
-                ],
+                marketOptions: [],  // 投资市场代码读取后端共用集合
+                marketLabels: {     // 仅维护展示名称，不决定允许的市场范围
+                    SSE: '上海证券交易所',
+                    SZSE: '深圳证券交易所',
+                    NIB: '银行间市场',
+                    BSE: '北京证券交易所',
+                    COMPANY: '主体',
+                    OTC: '场外市场',
+                    HKEX: '香港交易所',
+                    QDII: '其他QDII市场',
+                    JWCW: 'JWCW市场',
+                    UNKNOWN: '未知',
+                    OTHER: '其他'
+                },
                 // 投资品种复选框：value=dict_security_type.category_type（与字典演示数据大类一致）
                 varietyOptions: [ // 投资品种复选框
                     { label: '债券', value: 'bond' },
@@ -1324,12 +1325,25 @@
         },
         // 生命周期：组件创建时初始化关系表单、加载审批流程选项、投资池树及定时任务列表
         created() {
+            // 初始化池关系表单
             this.initRelationForm()
+            // 加载投资市场选项
+            this.loadMarketOptions()
+            // 加载审批流程选项
             this.loadFlowOptions()
+            // 加载投资池树
             this.loadPoolTree()
+            // 加载定时任务列表
             this.loadScheduledTasks()
         },
         methods: {
+            // 从共用接口读取投资市场，与后端同券关联范围保持一致
+            async loadMarketOptions() {
+                try {
+                    const codes = await this.apiPost('/api/v1/common/queryMarketCodeList', {})
+                    this.marketOptions = codes.map(code => ({ value: code, label: this.marketLabels[code] || code }))
+                } catch (e) {}
+            },
             // 根据池 ID 获取带完整路径的显示标签
             getPoolLabel(id) {
                 const flat = this.flatPoolOptions.find(p => p.id === id)

@@ -369,7 +369,7 @@
     <nav class="nav"><a href="#overview">流程总览</a><a href="#logic-1">目标池与候选证券查询</a><a href="#logic-2">批量校验与提交</a><a
             href="#tables">涉及表</a><a href="#notes">规则说明</a><a href="module-tables-index.html">文档目录</a></nav>
     <section class="panel" id="overview">
-        <p>正式证券市场直接读取 <code>rrs_securityinfo.market</code>（VARCHAR(10)，表末尾新增，与 Wind <code>EXCHMARKET</code> 原值一致，银行间使用 NIB）；临时代码使用登记市场。同券其他代码按 Wind 非空 <code>S_INFO_ISINCODE</code> 查询，空 ISIN 不关联。详情的 <code>marketCode</code> 和 <code>relatedMarketCodes</code> 为只读，同市场多个代码完整展示，不再提交旧市场字段。每条市场代码独立校验；证券与 CRMW 快照不再保存市场列，历史详情补查当前关联关系，其余业务字段按原快照回显。主档 <code>sec_id</code> 是独立外部证券 ID，转正保留正式证券 ID。</p><h2>业务流程总览</h2>
+        <p>正式证券市场直接读取 <code>rrs_securityinfo.market</code>（VARCHAR(10)，表末尾新增，与 Wind <code>EXCHMARKET</code> 原值一致，银行间使用 NIB）；临时代码使用登记市场。同券市场范围与投资池投资市场共用后端 <code>MarketCode</code> 集合，不另设白名单。先按 Wind <code>EXCHMARKET</code> 筛选主代码及关联代码，再校验本地主档；范围外代码不参与关联展示、关联校验和关联出入库，缺主档不阻断，范围内缺主档或市场仍报错。不按代码后缀或 <code>S_INFO_EXCHMARKET</code> 推断；目标池勾选市场仍单独控制逐券入池限制。证券池、ABS、CRMW、批量、Excel 及临时转正共用此规则。同券其他代码按 Wind 非空 <code>S_INFO_ISINCODE</code> 查询，空 ISIN 不关联。详情的 <code>marketCode</code> 和 <code>relatedMarketCodes</code> 为只读，同市场多个代码完整展示，不再提交旧市场字段。每条市场代码独立校验；证券与 CRMW 快照不再保存市场列，历史详情补查当前关联关系，其余业务字段按原快照回显。主档 <code>sec_id</code> 是独立外部证券 ID，转正保留正式证券 ID。</p><h2>业务流程总览</h2>
         <p>同券跨市场按调库组整体校验：主券或任一关联券失败，整组不可调整，不允许只提交部分市场，其他独立组不受影响。“放开规则”沿用主券本次选择，所有关联券一致跳过既有主体债入库矩阵；在途流程、市场、品种、到期、容量及其他硬限制仍逐券校验。单笔提交透传基本信息已查询的 <code>relatedMarketCodes</code>，后端使用传入集合检查同池调入是否带齐主券和关联券，提交阶段不再查询同券关系；批量及 Excel 入口复用已有校验结果中的实际代码集合。逐券活动流程检查继续执行。</p>
         <p class="sub">从页面操作到数据库读写的主要路径。页面为单页两步工作台（池列表 → 选券/校验/提交），不依赖独立选择页回传。</p>
         <div class="flow">
