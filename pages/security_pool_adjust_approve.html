@@ -752,7 +752,7 @@
                             <div v-if="canRedirectPool" style="margin-top:10px;">
                                 <div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">改判目标池（评级联动，可选）</div>
                                 <el-select v-model="redirectPoolId" size="small" clearable placeholder="不选则按原目标池落地" style="width:100%;">
-                                    <el-option v-for="p in redirectPoolOptions" :key="p.id" :label="p.poolName" :value="p.id"></el-option>
+                                    <el-option v-for="p in redirectPoolOptions" :key="p.id" :label="p.poolFullName" :value="p.id"></el-option>
                                 </el-select>
                             </div>
                         </div>
@@ -1857,7 +1857,7 @@
             // 当前调库记录变化时，按需加载评级联动改判池候选项
             activeAdjustLog() {
                 this.redirectPoolId = null;
-                if (this.canRedirectPool) {
+                if (this.isProcessMode && this.canRedirectPool && this.currentPendingStep) {
                     this.loadRedirectPoolOptions();
                 } else {
                     this.redirectPoolOptions = [];
@@ -2655,16 +2655,20 @@
 
             // 加载评级联动改判池候选项（主体债入库矩阵允许池）
             async loadRedirectPoolOptions() {
-                const securityCode = this.bondDetail.windCode || this.getUrlParam('securityCode') || this.getUrlParam('windCode');
-                if (!securityCode) {
-                    this.redirectPoolOptions = [];
+                const log = this.activeAdjustLog;
+                this.redirectPoolOptions = [];
+                if (!log || !log.id || !log.securityCode) {
                     return;
                 }
                 try {
-                    const data = await this.apiPost('/api/v1/securityPoolAdjust/queryRedirectPoolOptions', { securityCode });
-                    this.redirectPoolOptions = data || [];
+                    const data = await this.apiPost('/api/v1/securityPoolAdjust/queryRedirectPoolOptions', {
+                        securityCode: log.securityCode,
+                        adjustLogId: log.id
+                    });
+                    // 切换申请后，不让前一笔异步响应覆盖当前候选池
+                    if (this.activeAdjustLog === log) this.redirectPoolOptions = data || [];
                 } catch (e) {
-                    this.redirectPoolOptions = [];
+                    if (this.activeAdjustLog === log) this.redirectPoolOptions = [];
                 }
             },
 
