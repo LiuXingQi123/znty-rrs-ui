@@ -429,7 +429,7 @@
 
     <section class="panel" id="logic-2">
         <h2>校验与提交</h2>
-        <p class="sub">先校验导入行，再复用单券 / 主体调库校验；流程策略与<strong>当前批量页不同</strong>（Excel 仍注入 batch 推荐）。</p>
+        <p class="sub">先校验导入行，再复用单券 / 主体调库校验；证券流程策略与证券池批量、存量批量一致：完整单笔候选加配置的批量流程，统一推荐批量。</p>
         <span class="api">POST /api/v1/securityPoolExcelImport/queryItemPage · editRatingCompany · checkImport · queryTask · submitImport · cancelImport</span>
         <div class="logic">
             <article class="card">
@@ -451,8 +451,8 @@
                 <h3>提交、流程与权限</h3>
                 <ul>
                     <li>提交弹出「选择调库流程」；弹窗结构、卡片层级、间距与底部操作区完全对齐证券池调整页，候选规则仍按 Excel 导入规则处理。</li>
-                    <li><strong>Excel 流程策略（当前代码）：</strong>先拷贝单券/主体 <code>flowOptions</code>，再 <code>injectBatchFlowOption</code> 把目标池 <code>batchIn</code>/<code>batchOut</code> 插到候选<strong>最前</strong>并 <code>recommended=true</code>，可能压过单券 special/简易推荐。</li>
-                    <li><strong>与批量/存量对比：</strong>证券池批量、存量批量已<strong>不注入、不回填</strong> batch 流程，完全透传单券候选。Excel <strong>仍注入</strong>属有意差异（非「与批量一致」）。</li>
+                    <li><strong>证券流程策略：</strong>完整复用单笔匹配，包含产品库快速资格及信用债简易资格；通过公共方法 <code>BatchAdjustFlowOptionHelper.appendConfiguredBatchFlow</code> 追加目标池配置的 <code>batchIn</code>/<code>batchOut</code> 并设为唯一推荐。未配置 ID/Key 时保留单笔推荐。同定义的快速与批量选项按类型分别保留。</li>
+                    <li><strong>材料按资格豁免：</strong>满足快速资格时，本次信评报告及其他附件免提交，与选择快速、一般、特殊或批量流程无关；行级 materialExemptionType 随提交透传，同组配套项跟随主项。切换流程不改变豁免和提示，所选审批流程仍照常执行。不展示合同投资范围确认提示。证券池批量、存量批量和 Excel 共用追加方法；单笔入口保持原候选。</li>
                     <li>证券按来源导入行 <code>sourceItemId</code> 分组，通过 <code>addExcelImportAdjustLogList</code> 复用单券提交步骤。同码不同池可选不同主体；本行主项及联动、互斥、关联项使用该行保存的选择和流程，并分别保存本笔证券快照。整批先检查已有在途流程，再逐行创建流程，避免同批新流程阻断其他行。主体仍按主体分组 <code>addCompanyAdjustLog</code>；清空出库先于导入提交。</li>
                     <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；目标池须 <code>excel_importable</code>；管理员 <code>userId=1</code> 放行。</li>
                     <li>导入批次号仅管理员可见；<code>impId</code> 仍用于后续校验 / 提交。</li>
@@ -552,8 +552,8 @@
             <li>页面不选择目标池：父池 / 子池名称必须能解析到启用叶子池，否则该行校验失败。</li>
             <li>调整类型：Excel 手工主项 <code>Excel导入</code>，清空项 <code>Excel清空</code>；联动/互斥/关联与单笔一致。字典 <code>DICT_ADJUST_TYPE</code> 已登记。</li>
             <li>首先清空目标池仅调入：清空主项及同一来源的联动、互斥和关联项一同提交出库，先清空出库，再导入；清空校验用 <code>item_tag=clear</code>，提交改写 <code>manual</code> + adjustType 区分。</li>
-            <li>证券校验复用单券 <code>checkAdjust</code>，主体校验复用 <code>checkCompanyAdjust</code>；证券 Excel 模板仅四列，页面默认首个关联主体并允许修改，ABS 支持全市场自选权益人且自选优先。改选择后须重新校验。联动、互斥与关联项展示来源主券选择；首先清空目标池自动生成的出库成员沿用原有默认主体逻辑。流程候选：Excel <strong>仍注入</strong> batchIn/Out 推荐；批量/存量见
-                <a href="batch-security-pool-adjust-tables.html">证券池批量调整</a>（已不注入）。</li>
+            <li>证券校验复用单券 <code>checkAdjust</code>，主体校验复用 <code>checkCompanyAdjust</code>；证券 Excel 模板仅四列，页面默认首个关联主体并允许修改，ABS 支持全市场自选权益人且自选优先。改选择后须重新校验。联动、互斥与关联项展示来源主券选择；首先清空目标池自动生成的出库成员沿用原有默认主体逻辑。证券流程候选：完整单笔匹配加配置的 batchIn/Out，统一推荐批量；批量/存量见
+                <a href="batch-security-pool-adjust-tables.html">证券池批量调整</a>（共用追加方法）。</li>
             <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；驳回 / 撤回只改日志与步骤。</li>
             <li>导入批次号仅管理员可见；目标池须具备 <code>excel_importable</code>，管理员放行。</li>
             <li>校验分层（check 全量 / submit 不重跑 / recheck 子集）与单券一致，见

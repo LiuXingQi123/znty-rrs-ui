@@ -1069,7 +1069,7 @@
                         <li><strong>股票</strong>（顺序与 <code>checkStockIn</code> 一致）：退市校验 → 股票入池评级限制（入口保留，当前空实现不拦截，未接 investrank）。</li>
                         <li><strong>基金</strong>（顺序与 <code>checkFundIn</code> 一致）：基金评分（仅 check 阶段按请求 fundRate 校验；正式提交不携带 fundRate、不再次校验）。</li>
                         <li><strong>主体 company</strong>：类型特有校验暂无（调入不校验到期）。</li>
-                        <li>报告必填（<code>in_report_restriction</code>）在<strong>提交</strong>阶段校验；豁免口径：半年内同主体已有<strong>审批通过调入且确有报告</strong>（<code>queryHasRecentInboundWithReport</code> / bondfileflag 语义），非「任意有效报告」。</li>
+                        <li>报告必填（<code>in_report_restriction</code>）在<strong>提交</strong>阶段校验；豁免口径：主项快速资格对应的同组材料豁免优先，其余保留半年内同主体已有<strong>审批通过调入且确有报告</strong>（<code>queryHasRecentInboundWithReport</code> / bondfileflag 语义），非「任意有效报告」。</li>
                     </ol>
                 </article>
                 <article class="rule-panel outbound">
@@ -1098,7 +1098,7 @@
                     <p style="margin:0 0 8px;color:var(--muted);font-size:13px;">顺序与 <code>resolveAdjustFlowOptionsForItem</code> 一致（仅 canAdjust 的手工项）。</p>
                     <ul>
                         <li>调出 → 目标池标准调出流程（outFlow）。</li>
-                        <li>调入 → 若当前已在目标池 <code>in_mutex</code> 互斥池中：优先特殊审批（<code>bond:special-inbound</code>）；信用债大库（pool_type=credit_bond）默认排除特殊审批。</li>
+                        <li>调入 → 产品库满足指定来源时优先快速（保留原候选）；其他情况若当前已在目标池 <code>in_mutex</code> 互斥池中：优先特殊审批（<code>bond:special-inbound</code>）；信用债大库（pool_type=credit_bond）默认排除特殊审批。</li>
                         <li>调入 → 目标池非信用债大库：默认调入（inFlow）。</li>
                         <li>调入 → 已在信用债大库：同父级按 <code>innerSort</code> 上调 / 下调流程。</li>
                         <li>调入 → 不在信用债大库：同时评估白名单 / 简易 / 默认调入，推荐优先级 白名单 > 简易 > 默认。</li>
@@ -1171,7 +1171,7 @@
                             <li>唯一性按信用债<strong>1～5级完整允许集合</strong>计算，不能按本次勾选池或仅筛一至三级计算；唯一层级必须为1～3并等于目标池 <code>innerSort</code>。目标池本身也必须在实际准入范围内；唯一性不受本次勾选池、用户权限或放开规则开关影响。</li>
                             <li>非简易入库经历使用 <code>queryIssuerHasNonSimpleCreditBondInboundWithinDays(securityCode, 180)</code>：非空 <code>issuer_code</code> 相同的债券，历史 <code>ip_pool_status</code> 中 <code>pool_type=credit_bond</code>、<code>adjust_mode=调入</code>、<code>flow_type非空且不为simpleInbound</code>、<code>audit_status=20</code>，按 <code>entry_time</code> 算近180天。不要求同目标层级，已出池软删记录仍计；标准、特殊、升库、降库、白名单及批量调入等非简易流程均计入；简易和空流程类型不计入。简易条件中的“半年”统一为180天。</li>
                             <li>半年报告使用 <code>queryIssuerHasRecentCreditReportWithinDays(securityCode, 180)</code> 查内部/外部报告库（<code>rrs_report_in</code> / <code>rrs_report_out</code>）：报告 <code>company_code</code> 直接匹配当前券非空 <code>issuer_code</code>，未删除，<code>report_type=bond_in_report/bond_out_report</code>，<code>crte_time</code> 在近180天内，并有对应未删除的报告库附件（<code>table_name=rrs_report_in/rrs_report_out</code>、<code>attachment_category=report_in/report_out</code>）。其他类型、无附件、软删报告或附件不计；报告库没有独立日期/状态字段，时间以 <code>crte_time</code> 为准，缺失主体代码不回退报告证券代码。</li>
-                            <li>报告<strong>不要求关联历史调入，也不要求与非简易入库经历属于同一笔业务</strong>。简易资格与提交阶段“半年调入日志带报告”的报告必填豁免各自判断。</li>
+                            <li>报告<strong>不要求关联历史调入，也不要求与非简易入库经历属于同一笔业务</strong>。简易资格与既有“半年调入日志带报告”分别判断；满足简易资格后，不论所选流程，本次材料直接豁免，不要求再命中既有历史日志豁免。</li>
                         </ul>
                     </article>
                     <article class="logic-card">
@@ -1197,7 +1197,7 @@
                             <li>各项命中原因写入 <code>matchReasons</code>，未命中原因写入 <code>unmatchReasons</code>；最终仅当 <code>unmatchReasons.isEmpty()</code> 时返回 <code>true</code>。</li>
                             <li>匹配后 <code>simpleInbound</code> 可选；当前白名单开关关闭，因此优先推荐简易，用户仍可选择默认调入流程。未匹配时简易不可选，但不因此否定已通过普通校验的默认调入。</li>
                             <li>例如规则允许二级和四级，即使本次只勾选二级，也不满足唯一层级条件；同一层级有多个池时，仍需确认本次目标池实际被规则允许。</li>
-                            <li>简易资格仅在“下一步”的 <code>checkAdjust</code> 阶段判断，正式提交和最终落池不重新判断这套资格；最终落池仍执行锁池后的动态复核。能选择简易流程不等于已经入池，是否需要人工审批由所选流程配置决定。</li>
+                            <li>简易资格仅在“下一步”的 <code>checkAdjust</code> 阶段判断，正式提交和最终落池不重新判断这套资格；最终落池仍执行锁池后的动态复核。能选择简易流程不等于已经入池，材料豁免不影响实际所选审批流程；含人工节点时继续创建待审批步骤。</li>
                         </ul>
                     </article>
                 </div>
@@ -1214,7 +1214,7 @@
                     <ol>
                         <li><strong>前置校验：</strong>证券代码、调整人、调库项等字段合法性；防重复提交；<strong>不</strong>在此重跑全量 <code>checkAdjust</code>。</li>
                         <li><strong>参数初始化：</strong>加载证券、池关系、当前状态及每个唯一流程的运行快照；同一次提交统一 <code>submit_time</code>，保证同批历史聚拢。带附件时使用 multipart，并随 <code>files</code> 传递同序的 <code>originalFileNameListJson</code>，后端优先使用原始文件名，避免公司环境中中文名称乱码。</li>
-                        <li><strong>调入处理：</strong>按池报告限制校验报告必填；校验 pending 池组与互斥配套调出；按调库组写入手工/联动/互斥/关联码记录并绑定附件。</li>
+                        <li><strong>调入处理：</strong>先判断同组快速材料豁免，未豁免时按池报告限制校验必填；校验 pending 池组与互斥配套调出；按调库组写入手工/联动/互斥/关联码记录并绑定附件。</li>
                         <li><strong>调出处理：</strong>按出库报告限制校验；同样写入申请记录并保持同组批次关系。</li>
                         <li><strong>后续处理：</strong>合并主档与页面可编辑字段后写 <code>ip_adjust_security_snapshot</code>（不修改 <code>rrs_securityinfo</code> 主档）；直通项再 <code>recheckBeforeFinalApproval</code> 后落池。</li>
                     </ol>
@@ -1477,13 +1477,21 @@
                 <li>本页依据当前 Controller / Service / Mapper XML 与前端页面整理，适用于当前代码版本；规则变化须同步维护。</li>
             </ul>
         </section>
-    </main>
+<section class="section" id="inbound-material-exemption">
+    <h2 class="section-title">快速入库与材料豁免</h2>
+    <p>信用债简易资格在下一步沿用原方法计算；产品库快速资格独立判断，目标为 bond_product_root 子树启用叶子，当前有效来源为信用债一至三级、转债核心/重点或信用风险缓释工具库。本次待申请来源不计入当前在库。</p>
+    <p>满足快速资格即免除本次信评报告、报告引用及其他附件要求，与选择快速、一般、特殊或批量流程无关。同组联动、互斥和关联市场项跟随主项；关联码逐码判断，任一不符则整组无快速材料豁免。无资格主项和独立调出沿用原材料规则。</p>
+    <p>行级 materialExemptionType 为 creditBondSimple / productSource，无资格时为空；申请、详情调库、审核页下一步及三个批量入口统一按行级资格提示“本次免提交材料（信评报告及其他附件）”。切换流程不改变资格和提示，详情/审核补齐批量调入、批量调出标签。不显示合同范围确认提示，不增加勾选，现有材料入口及内容保留。</p>
+    <p>单笔推荐保留原规则；批量、存量和 Excel 追加配置的批量候选并统一推荐批量。材料豁免不改变所选流程 ID、Key、类型，人工审批继续办理。提交不重查信用债矩阵、入库经历或历史报告；产品来源复用已有在库集合。补充的报告引用仍验证并保存，原准入、落池复核及整批事务保持不变，不改表。</p>
+</section>
+</main>
 
     <footer>证券池调库数据链路说明 · 静态文档页面</footer>
 
 <section style="margin:16px;padding:16px;border:1px solid #E5E5E5;border-radius:4px;background:#FFFFFF;font-size:13px;line-height:1.8;">
     <h2 style="font-size:16px;color:#242933;">报告与手工文件（统一交互）</h2>
     <p>信评/基金/股票报告及其他材料：报告按来源与报告 ID 聚合为一个标题入口，点击在工作台新页签查看报告信息及全部附件；手工上传文件保留独立下载入口。同一报告有两个 PDF、另上传一个 PDF 时，表格显示一份报告和一个文件。审核修改节点移除报告时，删除本日志、本材料栏中该报告的全部关联。</p>
+    <p>证券池申请、详情页调库模式和审核页下一步模式提交新申请时，信评报告与其他材料分别携带所选报告的全部有效附件 ID，本地上传文件另按文件数组下标提交；满足材料豁免时仍保存用户已选择的材料。正常查看详情不重新选池，正常审核修改节点沿用附件变更请求。</p>
     <p>附件查询新增 sourceAttachmentId、sourceReportId、sourceReportSource、sourceReportTitle；最近报告自动回填携带完整附件。报告详情调用 POST /api/v1/reports/queryReportDetail，传 reportId 与 source（internal/external）。<a href="report-materials.html" style="color:#2743A4;">完整交互、字段与存量升级说明</a></p>
 </section>
 </body>

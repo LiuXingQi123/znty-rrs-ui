@@ -316,6 +316,7 @@
                                             </ol>
                                         </div>
                                         <span v-else class="fail-reason-pass">{{ row.adjustNote || '' }}</span>
+                                        <div v-if="rowMaterialExemptionType(row)" class="flow-option-reason ok">本次免提交材料（信评报告及其他附件）</div>
                                     </template>
                                 </el-table-column>
                                 <el-table-column label="校验结果" width="150" fixed="right" align="center">
@@ -369,6 +370,7 @@
                             <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
                         </div>
                         <div class="flow-option-reasons">
+                            <div v-if="option.selectable && rowMaterialExemptionType(row)" class="flow-option-reason ok">本次免提交材料（信评报告及其他附件）</div>
                             <div v-for="(reason, idx) in (option.matchReasons || [])"
                                  :key="'m_' + option.optionKey + '_' + idx"
                                  class="flow-option-reason ok">{{ reason }}</div>
@@ -1072,7 +1074,7 @@ new Vue({
             if (!text) return true
             return /^[a-zA-Z0-9_.:\-]+$/.test(text) && !/[\u4e00-\u9fa5]/.test(text)
         },
-        // 按已选 flowId/flowKey 匹配 optionKey
+        // 按已选类型和流程标识恢复选择，区分快速与批量共用同一流程定义的情况
         matchSelectedFlowKey(row, options) {
             if (!row || !options || !options.length) return ''
             if (row.selectedFlowKey) {
@@ -1081,6 +1083,7 @@ new Vue({
             }
             if (row.flowId != null || row.flowKey) {
                 const byId = options.find(o => {
+                    if (row.flowType && o.flowType !== row.flowType) return false
                     if (row.flowId != null && o.flowId != null) return String(o.flowId) === String(row.flowId)
                     return (o.flowKey || '') === (row.flowKey || '')
                 })
@@ -1091,6 +1094,13 @@ new Vue({
         // 行内流程选择变更
         handleRowFlowChange(row) {
             this.applySelectedFlow(row)
+        },
+        // 材料豁免按主项资格展示，同组配套项跟随主项，与所选流程无关
+        rowMaterialExemptionType(row) {
+            if (!row || !row.canAdjust) return ''
+            const manual = this.isManualItem(row) ? row : this.checkItems.find(item =>
+                this.isManualItem(item) && row.adjustGroupKey && item.adjustGroupKey === row.adjustGroupKey)
+            return manual && manual.canAdjust ? manual.materialExemptionType || '' : ''
         },
         // 将选中流程写回行字段
         applySelectedFlow(row) {

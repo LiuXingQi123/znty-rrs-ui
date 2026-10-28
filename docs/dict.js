@@ -103,6 +103,12 @@ const DICT_ITEM_TYPE = {
 // ── 5. 调库流程类型（flow_type）───────────────────────────
 // 枚举：FlowType
 // 业务字段 flow_type（ip_adjust_log.flow_type / ip_pool_status.flow_type）
+// 入库材料豁免依据，对应 MaterialExemptionType；空值表示沿用原材料要求
+const DICT_MATERIAL_EXEMPTION_TYPE = {
+    creditBondSimple: '信用债简易入库',
+    productSource: '产品库来源资格',
+};
+
 const DICT_FLOW_TYPE = {
     'whitelistInbound':  '白名单调入',
     'simpleInbound':     '简易调入',

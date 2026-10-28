@@ -94,7 +94,7 @@
     <div class="wrap">
         <p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>存量证券批量调整</h1>
-        <p class="desc">调入从指定来源池圈选证券、调出不限制来源池，目标均为「债券产品库」子树叶子；校验/提交与证券池批量调整同构，委托单券服务，不注入 batch 专用流程。具体主体的结果字段展示为“主体内评分”；准入矩阵的分类字典及档位比较仍称“内评分档”，评分取值和档位编码保持不变。</p>
+        <p class="desc">调入从指定来源池圈选证券、调出不限制来源池，目标均为「债券产品库」子树叶子；校验/提交与证券池批量调整同构，委托单券服务，在单笔候选基础上追加并推荐配置的批量流程。具体主体的结果字段展示为“主体内评分”；准入矩阵的分类字典及档位比较仍称“内评分档”，评分取值和档位编码保持不变。</p>
         <div class="stats">
             <span class="stat">委托单券 check/submit</span>
             <span class="stat">目标=产品库子树</span>
@@ -130,7 +130,7 @@
                 <ul>
                     <li>手工项 <code>adjustType</code> 仍为 <strong>手动批量调整</strong>（无「存量专用」类型）。</li>
                     <li>无 Excel 的 clearTarget / excel_importable 语义。</li>
-                    <li>与 Excel 差异：本页<strong>不</strong>注入目标池 batchIn/batchOut；Excel 仍可能注入 bulk 推荐流程。</li>
+                    <li>与证券池批量、Excel 共用批量候选追加方法：完整单笔候选加配置的 batchIn/batchOut，统一推荐批量流程。</li>
                 </ul>
             </article>
         </div>
@@ -147,7 +147,7 @@
                 <ul>
                     <li>逐券转 <code>AdjustCheckReq</code>，调用 <code>securityPoolAdjustService.checkAdjust</code>。</li>
                     <li>通用/类型规则、联动互斥、反阻断与单券一致（行业已注释；基金评分仅 check 且本页不传 fundRate）。</li>
-                    <li>流程候选<strong>完全透传</strong>单笔结果（白名单/简易/默认/特殊/升降级等），<strong>不注入、不回填</strong> batchIn/batchOut。</li>
+                    <li>流程候选保留完整单笔结果（白名单/信用债简易/产品库快速/默认/特殊/升降级等），追加配置的 batchIn/batchOut 并推荐批量；未配置时保留单笔推荐。提交透传所选流程，不用批量配置覆盖选择。</li>
                     <li><code>releaseRules=yes</code> 仅跳过内评矩阵，其它硬规则仍执行。</li>
                 </ul>
             </article>
@@ -208,6 +208,14 @@
         </ul>
     </section>
     <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p>
+
+<section class="panel" id="inbound-material-exemption">
+    <h2>快速入库与材料豁免</h2>
+    <p>信用债简易资格在下一步沿用原方法计算；产品库快速资格独立判断，目标为 bond_product_root 子树启用叶子，当前有效来源为信用债一至三级、转债核心/重点或信用风险缓释工具库。本次待申请来源不计入当前在库。</p>
+    <p>满足快速资格即免除本次信评报告、报告引用及其他附件要求，与选择快速、一般、特殊或批量流程无关。同组联动、互斥和关联市场项跟随主项；关联码逐码判断，任一不符则整组无快速材料豁免。无资格主项和独立调出沿用原材料规则。</p>
+    <p>行级 materialExemptionType 为 creditBondSimple / productSource，无资格时为空；申请、详情调库、审核页下一步及三个批量入口统一按行级资格提示“本次免提交材料（信评报告及其他附件）”。切换流程不改变资格和提示，详情/审核补齐批量调入、批量调出标签。不显示合同范围确认提示，不增加勾选，现有材料入口及内容保留。</p>
+    <p>单笔推荐保留原规则；批量、存量和 Excel 追加配置的批量候选并统一推荐批量。材料豁免不改变所选流程 ID、Key、类型，人工审批继续办理。提交不重查信用债矩阵、入库经历或历史报告；产品来源复用已有在库集合。补充的报告引用仍验证并保存，原准入、落池复核及整批事务保持不变，不改表。</p>
+</section>
 </main>
 <footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
 

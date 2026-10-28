@@ -407,10 +407,10 @@
         <div class="logic">
             <article class="card"><h3>逐券校验与页面展示</h3>
                 <ul>
-                    <li>每个证券转换为单证券 <code>AdjustCheckReq</code>，调用单笔 <code>securityPoolAdjustService.checkAdjust</code>，复用通用/类型特有校验、联动互斥扩展与反阻断。</li>
+                    <li>每个证券转换为单证券 <code>AdjustCheckReq</code>，调用 <code>securityPoolAdjustService.checkBatchAdjust</code>，复用完整单笔校验及匹配，再追加配置的批量流程。</li>
                     <li><strong>调入顺序</strong>（与 <code>checkCommonIn</code> 一致）：池锁定 → 品种 → 市场 → pending → 已在目标池 → 容量 → 来源池 → 调入限制池 → 同请求互斥 → 弹性禁投（警告）→ 全局禁止池 → 行业限制（已注释）→ 开放日 →（债券）到期 → 主体内评矩阵 /（股票）退市 → 评级限制（空实现）/（基金）评分（仅 check）。页面按当前页证券代码批量查询 <code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115202000=债务主体</code>、<code>115201000=原始权益人</code> 四类关系主体；主体内评左关联，无内评主体仍返回且评分为空。同一主体兼多类关系时按类型分别返回，仅对同证券、同主体、同类型去重；四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条。非 ABS 展示为担保人，ABS 展示为权益人，并可从 <code>t_inv_company</code> 以 <code>wind_code</code> 分页选择自选权益人；表格使用带搜索图标的可清空输入框，聚焦或点击图标打开选择弹窗，清空后解除自选；弹窗与单笔调库完全一致，单选列位于序号列左侧。ABS 的“担保人主体内评分”自选优先，否则使用普通权益人内评；校验和提交均透传三个主体编码并由后端重新查询校验。自选权益人弹窗采用带标签的主体编码/名称查询区；点击行或单选框选择主体，选中行高亮，最新内评以标签展示；底部显示已选主体全称和编码。确认前仅暂存选择，取消保留原值。主体编码、主体全称和内评列按弹窗可用宽度自适应分配。</li>
                     <li><strong>调出顺序</strong>（与 <code>checkCommonOut</code> 一致）：池锁定 → pending → 未入池 → 冻结期（入池时间缺失报「证券入池生效时间缺失」）→ 调出限制池 → 调出互斥池 → 同请求互斥 → 弹性禁投（警告）→ 开放日 → 到期/退市。</li>
-                    <li>流程候选与推荐<strong>完全透传</strong>单笔 <code>checkAdjust</code>（白名单/简易/默认/特殊/升降级等），<strong>不再注入</strong>目标池 batchIn/batchOut（与 Excel 导入仍注入 batch 推荐形成有意差异）；前端默认选中 recommended，操作员可改选。</li>
+                    <li>流程候选保留单笔完整匹配（白名单/信用债简易/产品库快速/默认/特殊/升降级等），通过公共方法追加目标池配置的 batchIn/batchOut，统一推荐批量流程；证券池批量、存量批量和 Excel 导入共用该规则。未配置批量流程时保留单笔推荐，操作员可改选。</li>
                     <li>步骤2 chips 汇总报告/附件/放开规则/条数；「调整说明」失败分条展示 failReasons；同组 <code>adjustGroupKey</code> 底色区分。</li>
                     <li>基金评分：仅 check 阶段且依赖请求 <code>fundRate</code>；批量页<strong>不传</strong> fundRate，池配置了 <code>fund_rate_limit</code> 时批量路径易失败（与单券页不同）。</li>
                 </ul>
@@ -418,7 +418,7 @@
             <article class="card"><h3>提交和审批</h3>
                 <ul>
                     <li>整个批量请求<strong>一个事务</strong>，任一失败全部回滚；约 30 秒窗口内防重复提交（按证券集合+手工项+流程+原因意见比较）。</li>
-                    <li>提交流程透传前端按单笔候选所选 flowId/flowKey/flowType，不再回填 batchIn/batchOut。前端须为可提交手工项<strong>选定流程候选</strong>（含「无需审批」/空 flow 直通）；后端允许空流程直通。</li>
+                    <li>提交流程透传前端所选 flowId/flowKey/flowType，不用 batchIn/batchOut 覆盖选择。前端须为可提交手工项<strong>选定流程候选</strong>（含「无需审批」/空 flow 直通）；后端允许空流程直通。</li>
                     <li>按<strong>触发主券</strong>（sourceSecurityCode）分组后调用单券 <code>submitAdjustLog</code>（非本类落库）；共享 <code>SubmissionFiles</code> 与 <code>BatchNoContext</code>；手工项 <code>adjustType=手动批量调整</code>。</li>
                     <li>批量 multipart 提交在共享 <code>files</code> 外携带同序 <code>originalFileNameListJson</code>，后端据此保留中文原始文件名；未传数组时回退 multipart 文件名，数组数量与文件数不一致时直接拒绝提交。</li>
                     <li>存在直通项时：先 <code>isDirectAdjustFlow</code> 判定，再整批 <code>recheckBeforeFinalApproval</code>。子集与单券终审一致——调入：池锁/已在池/品种/来源/限制/禁投/容量；调出：池锁/未在池/限制/冻结；不重跑开放日/矩阵等（见证券池调库「校验分层」）。</li>
@@ -444,7 +444,7 @@
                 <tbody>
                 <tr>
                     <td><span class="name">ip_investment_pool</span></td>
-                    <td>目标池定义、容量；池上 batchIn/Out 配置仅维护展示，主链路校验/提交不注入该专用流程</td>
+                    <td>目标池定义、容量及流程配置；校验保留完整单笔候选并追加已配置的 batchIn/Out，统一推荐批量，提交沿用所选流程</td>
                     <td><span class='tag r'>查询</span></td>
                     <td>池分页、叶子池校验；流程候选来自单券 checkAdjust</td>
                 </tr>
@@ -547,7 +547,15 @@
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
         </div>
     </section>
-    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p></main>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p>
+<section class="panel" id="inbound-material-exemption">
+    <h2>快速入库与材料豁免</h2>
+    <p>信用债简易资格在下一步沿用原方法计算；产品库快速资格独立判断，目标为 bond_product_root 子树启用叶子，当前有效来源为信用债一至三级、转债核心/重点或信用风险缓释工具库。本次待申请来源不计入当前在库。</p>
+    <p>满足快速资格即免除本次信评报告、报告引用及其他附件要求，与选择快速、一般、特殊或批量流程无关。同组联动、互斥和关联市场项跟随主项；关联码逐码判断，任一不符则整组无快速材料豁免。无资格主项和独立调出沿用原材料规则。</p>
+    <p>行级 materialExemptionType 为 creditBondSimple / productSource，无资格时为空；申请、详情调库、审核页下一步及三个批量入口统一按行级资格提示“本次免提交材料（信评报告及其他附件）”。切换流程不改变资格和提示，详情/审核补齐批量调入、批量调出标签。不显示合同范围确认提示，不增加勾选，现有材料入口及内容保留。</p>
+    <p>单笔推荐保留原规则；批量、存量和 Excel 追加配置的批量候选并统一推荐批量。材料豁免不改变所选流程 ID、Key、类型，人工审批继续办理。提交不重查信用债矩阵、入库经历或历史报告；产品来源复用已有在库集合。补充的报告引用仍验证并保存，原准入、落池复核及整批事务保持不变，不改表。</p>
+</section>
+</main>
 <footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
 
 <section style="margin:16px;padding:16px;border:1px solid #E5E5E5;border-radius:4px;background:#FFFFFF;font-size:13px;line-height:1.8;">

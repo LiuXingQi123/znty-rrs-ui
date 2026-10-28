@@ -455,6 +455,9 @@
                                 </ol>
                             </div>
                             <span v-else class="fail-reason-pass">{{ row.adjustNote || '' }}</span>
+                            <div v-if="rowMaterialExemptionType(row)" class="flow-option-reason ok">
+                                本次免提交材料（信评报告及其他附件）
+                            </div>
                         </template>
                     </el-table-column>
                     <el-table-column label="校验结果" width="150" fixed="right" align="center">
@@ -587,6 +590,7 @@
                             <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
                         </div>
                         <div class="flow-option-reasons">
+                            <div v-if="option.selectable && rowMaterialExemptionType(row)" class="flow-option-reason ok">本次免提交材料（信评报告及其他附件）</div>
                             <div v-for="(reason, idx) in option.matchReasons"
                                  :key="'m_' + option.optionKey + '_' + idx"
                                  class="flow-option-reason ok">{{ reason }}</div>
@@ -1689,6 +1693,7 @@
                     itemTag: item.itemTag,
                     adjustGroupKey: item.adjustGroupKey,
                     valid: item.canAdjust,
+                    materialExemptionType: item.materialExemptionType || '',
                     hasWarning: warningStr !== '',
                     failReasons,
                     failReason,
@@ -1710,6 +1715,7 @@
                 return options.map((option, index) => ({
                     optionKey: rowIndex + '_' + (option.flowKey || option.flowType || 'flow') + '_' + index,
                     flowType: option.flowType,
+                    materialExemptionType: option.materialExemptionType || '',
                     flowName: option.flowName,
                     flowId: option.flowId,
                     flowKey: option.flowKey,
@@ -1719,6 +1725,14 @@
                     matchReasons: option.matchReasons || [],
                     unmatchReasons: option.unmatchReasons || []
                 }))
+            },
+
+            // 材料豁免按主项资格展示，切换审批流程不改变，同组配套项跟随主项
+            rowMaterialExemptionType(row) {
+                if (!row || !row.valid) return ''
+                const manual = row.itemTag === 'manual' ? row : this.adjustReviewList.find(item =>
+                    item.itemTag === 'manual' && row.adjustGroupKey && item.adjustGroupKey === row.adjustGroupKey)
+                return manual && manual.valid ? manual.materialExemptionType || '' : ''
             },
 
             // 当前行已选中的流程候选项
@@ -1797,6 +1811,7 @@
                             flowId: item.flowId,
                             flowKey: item.flowKey,
                             flowType: item.flowType,
+                            materialExemptionType: this.rowMaterialExemptionType(item),
                             adjustmentNote: item.adjustNote,
                             creditReportFileIndexes,
                             materialFileIndexes,

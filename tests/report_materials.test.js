@@ -99,3 +99,100 @@ test('所有调库页接入公共入口；详情页保留完整附件列表和�
     assert.ok(html.includes('/api/v1/reports/queryReportDetail'));
     assert.ok(html.includes('/api/v1/attachments/downloadAttachment'));
 });
+
+// 加载调库页面的真实方法，提交请求由测试截获，不上传文件或写入业务数据
+function bondAdjustPage(name) {
+    let options;
+    const window = {
+        location: { search: '', hash: '' },
+        RrsAuth: { getCurrentUser: () => ({ userId: '1', userName: '测试用户' }) }
+    };
+    const context = vm.createContext({ Vue: function(config) { options = config; }, window, URLSearchParams, moment() {} });
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/security_master_diff.js'), 'utf8'), context);
+    const html = fs.readFileSync(path.join(__dirname, '../pages', name), 'utf8');
+    for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) {
+        if (match[1].trim()) vm.runInContext(match[1], context);
+    }
+    const page = { ...options.data() };
+    Object.entries(options.methods).forEach(([key, method]) => { page[key] = method.bind(page); });
+    page.$message = { success() {}, error(message) { assert.fail(message); } };
+    page.backToList = () => {};
+    return page;
+}
+
+const bondAdjustPages = ['security_pool_adjust.html', 'security_pool_adjust_detail.html', 'security_pool_adjust_approve.html'];
+for (const name of bondAdjustPages) {
+    for (const exemption of ['', 'productSource']) {
+        test(name + '：' + (exemption ? '免材料' : '普通') + '申请同时提交报告库引用和本地文件', async () => {
+            const page = bondAdjustPage(name);
+            const creditFile = { name: '上传信评.pdf' }, materialFile = { name: '上传材料.pdf' };
+            page.bondDetail = { windCode: '108008901.IB', shortName: '测试券', securityType: 'bond' };
+            page.adjustReviewList = [{
+                valid: true, itemTag: 'manual', adjustGroupKey: 'G1', poolId: 10, direction: '调入',
+                flowId: 107, flowKey: 'bond:batch', flowType: 'batchInbound', materialExemptionType: exemption,
+                creditReports: [{ attachments: [{ id: 701 }, { id: 703 }] }, { attachments: [{ id: 701 }] }],
+                otherMaterials: [{ attachments: [{ id: 702 }] }],
+                attachmentFiles: [{ raw: creditFile }], materialFiles: [{ raw: materialFile }]
+            }, {
+                valid: false, poolId: 11, creditReports: [{ attachments: [{ id: 799 }] }],
+                attachmentFiles: [{ raw: { name: '无效项.pdf' } }]
+            }];
+            let captured;
+            page.submitAdjustMultipart = async (url, payload, files) => { captured = { url, payload, files }; };
+            await page.submitAdjustLog();
+            assert.ok(captured, '实际提交方法必须发送请求');
+            assert.equal(captured.url, '/api/v1/securityPoolAdjust/addAdjustLogWithFiles');
+            assert.equal(captured.payload.items.length, 1, '不可调整项不提交');
+            const item = captured.payload.items[0];
+            assert.deepEqual(Array.from(item.creditReportSourceAttachmentIds || []), [701, 703]);
+            assert.deepEqual(Array.from(item.materialSourceAttachmentIds || []), [702]);
+            assert.deepEqual(Array.from(item.creditReportFileIndexes), [0]);
+            assert.deepEqual(Array.from(item.materialFileIndexes), [1]);
+            assert.equal(captured.files.length, 2);
+            assert.equal(captured.files[0], creditFile);
+            assert.equal(captured.files[1], materialFile);
+            assert.equal(item.materialExemptionType, exemption, '豁免不丢弃用户选择的材料');
+            assert.equal(item.flowId, 107);
+            assert.equal(item.flowType, 'batchInbound');
+            assert.equal(page.submitLoading, false);
+        });
+    }
+
+    test(name + '：未选择报告库材料时，本地上传仍独立提交', async () => {
+        const page = bondAdjustPage(name);
+        const file = { name: '仅上传.pdf' };
+        page.bondDetail = { windCode: '108008901.IB', securityType: 'bond' };
+        page.adjustReviewList = [{
+            valid: true, itemTag: 'manual', poolId: 10, direction: '调入', attachmentFiles: [{ raw: file }]
+        }];
+        let captured;
+        page.submitAdjustMultipart = async (url, payload, files) => { captured = { payload, files }; };
+        await page.submitAdjustLog();
+        const item = captured.payload.items[0];
+        assert.deepEqual(Array.from(item.creditReportSourceAttachmentIds || []), []);
+        assert.deepEqual(Array.from(item.materialSourceAttachmentIds || []), []);
+        assert.deepEqual(Array.from(item.creditReportFileIndexes), [0]);
+        assert.equal(captured.files.length, 1);
+        assert.equal(captured.files[0], file);
+    });
+}
+
+test('审核修改节点同时保留报告库引用、本地上传和删除记录', () => {
+    const page = bondAdjustPage('security_pool_adjust_approve.html');
+    const file = { name: '审核补充.pdf' };
+    const log = { id: 123, targetPoolId: 10 };
+    const key = page.getLogRowKey(log);
+    page.adjustLogList = [log];
+    page.attachmentFiles = { [key]: [{ raw: file }] };
+    page.materialFiles = {};
+    page.creditReportSelections = { [key]: [{ attachments: [{ id: 701 }] }] };
+    page.otherMaterialSelections = { [key]: [{ attachments: [{ id: 702 }] }] };
+    page.deletedAttachmentIds = { [key]: [700] };
+    const files = [];
+    const changes = page.buildAuditAttachmentChanges(files);
+    assert.deepEqual(JSON.parse(JSON.stringify(changes)), [{
+        adjustLogId: 123, creditReportFileIndexes: [0], materialFileIndexes: [],
+        creditReportSourceAttachmentIds: [701], materialSourceAttachmentIds: [702], deleteAttachmentIds: [700]
+    }]);
+    assert.equal(files[0], file);
+});

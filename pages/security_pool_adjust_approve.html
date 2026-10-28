@@ -1103,6 +1103,7 @@
                                     </ol>
                                 </div>
                                 <span v-else class="fail-reason-pass">{{ row.adjustNote || '' }}</span>
+                                <div v-if="rowMaterialExemptionType(row)" class="flow-option-reason ok">本次免提交材料（信评报告及其他附件）</div>
                             </template>
                         </el-table-column>
                         <el-table-column label="校验结果" width="150" align="center">
@@ -1153,6 +1154,7 @@
                                 <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
                             </div>
                             <div class="flow-option-reasons">
+                                <div v-if="option.selectable && rowMaterialExemptionType(row)" class="flow-option-reason ok">本次免提交材料（信评报告及其他附件）</div>
                                 <div v-for="(reason, idx) in option.matchReasons"
                                      :key="'m_' + option.optionKey + '_' + idx"
                                      class="flow-option-reason ok">{{ reason }}</div>
@@ -2762,6 +2764,7 @@
                 return (options || []).map((option, index) => ({
                     optionKey: (option.flowKey || option.flowType || 'flow') + '_' + rowIndex + '_' + index,
                     flowType: option.flowType,
+                    materialExemptionType: option.materialExemptionType || '',
                     flowName: option.flowName,
                     flowId: option.flowId,
                     flowKey: option.flowKey,
@@ -2771,6 +2774,14 @@
                     matchReasons: option.matchReasons || [],
                     unmatchReasons: option.unmatchReasons || []
                 }));
+            },
+
+            // 材料豁免按主项资格展示，切换审批流程不改变，同组配套项跟随主项
+            rowMaterialExemptionType(row) {
+                if (!row || !row.valid) return '';
+                const manual = row.itemTag === 'manual' ? row : this.adjustReviewList.find(item =>
+                    item.itemTag === 'manual' && row.adjustGroupKey && item.adjustGroupKey === row.adjustGroupKey);
+                return manual && manual.valid ? manual.materialExemptionType || '' : '';
             },
 
             // 获取行当前选中的流程
@@ -2839,13 +2850,16 @@
                     specialInbound: '特殊审批',
                     upgradeInbound: '上调',
                     downgradeInbound: '下调',
-                    normalOutbound: '调出'
+                    normalOutbound: '调出',
+                    batchInbound: '批量调入',
+                    batchOutbound: '批量调出'
                 };
                 return map[type] || '标准';
             },
 
             // 流程类型对应的 el-tag type：白名单/简易 success、下调 warning、调出 danger、其他 info
             flowTypeTagType(type) {
+                if (type === 'batchInbound' || type === 'batchOutbound') return '';
                 if (type === 'whitelistInbound' || type === 'simpleInbound') return 'success';
                 if (type === 'specialInbound' || type === 'downgradeInbound') return 'warning';
                 if (type === 'normalOutbound') return 'danger';
@@ -2855,6 +2869,7 @@
             // 流程候选标签样式
             getFlowOptionTagType(option) {
                 if (!option) return 'info';
+                if (option.flowType === 'batchInbound' || option.flowType === 'batchOutbound') return '';
                 if (option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound') return 'success';
                 if (option.flowType === 'specialInbound' || option.flowType === 'downgradeInbound') return 'warning';
                 return 'info';
@@ -2946,6 +2961,7 @@
                         itemTag: item.itemTag,
                         adjustGroupKey: item.adjustGroupKey,
                         valid: item.canAdjust,
+                        materialExemptionType: item.materialExemptionType || '',
                         failReasons: failReasons,
                         failReason: failReasonStr,
                         adjustNote: adjustNote,
@@ -2965,6 +2981,7 @@
                 this.flowOptions = (result.flowOptions || []).map((option, index) => ({
                     optionKey: (option.flowKey || option.flowType || 'flow') + '_' + index,
                     flowType: option.flowType,
+                    materialExemptionType: option.materialExemptionType || '',
                     flowName: option.flowName,
                     flowId: option.flowId,
                     flowKey: option.flowKey,
@@ -3070,9 +3087,12 @@
                         flowId: r.flowId,
                         flowKey: r.flowKey,
                         flowType: r.flowType,
+                        materialExemptionType: this.rowMaterialExemptionType(r),
                         adjustmentNote: r.adjustNote,
                         creditReportFileIndexes: r.creditReportFileIndexes || [],
-                        materialFileIndexes: r.materialFileIndexes || []
+                        materialFileIndexes: r.materialFileIndexes || [],
+                        creditReportSourceAttachmentIds: this.collectReportAttachmentIds(r.creditReports || []),
+                        materialSourceAttachmentIds: this.collectReportAttachmentIds(r.otherMaterials || [])
                     }))
                 };
                 try {
