@@ -809,7 +809,7 @@
         <section id="pool-status" class="section">
             <h2 class="section-title">当前所在池查询逻辑</h2>
             <p class="section-subtitle">接口同时返回“当前证券所在池”和“同发行主体所在池”，两者用途不同。</p>
-            <p>同主体证券按 <code>rrs_securityinfo.issuer_code</code> 关联，适用于主体所在池、近半年报告豁免、同主体信评回填和简易流程近180天的非简易信用债入库经历与报告库查询；批量调库和 Excel 导入复用相同口径。简易流程要求发行人代码非空。代码相同而名称不同仍关联，同名不同代码不关联。<code>issuer</code> 保留名称展示和名称筛选用途。</p>
+            <p>同主体证券按 <code>rrs_securityinfo.issuer_code</code> 关联，适用于主体所在池、近半年报告豁免、同主体信评回填和简易流程近180天的非简易信用债入库经历与入库业务信评附件查询；批量调库和 Excel 导入复用相同口径。简易流程要求发行人代码非空。代码相同而名称不同仍关联，同名不同代码不关联。<code>issuer</code> 保留名称展示和名称筛选用途。</p>
             <div class="logic-header">
                 <strong>接口</strong>
                 <span class="api-path">POST /api/v1/securityPoolAdjust/querySecurityPoolStatus</span>
@@ -1135,7 +1135,7 @@
                     <tbody>
                         <tr><td>1</td><td>唯一准入层级</td><td>根据矩阵、特殊债及观察名单规则，计算完整<strong>1～5级</strong>允许层级；只能允许一个层级，且必须是<strong>1～3级</strong>，与目标池层级一致，目标池本身也须在准入范围内。</td></tr>
                         <tr><td>2</td><td>近期非简易入库经历</td><td>同发行人债券近<strong>180天</strong>，曾通过<strong>非简易流程</strong>成功进入信用债大库；不限历史入库层级，已经出池的记录仍计入。</td></tr>
-                        <tr><td>3</td><td>近期有效信评报告</td><td>同发行人内部或外部报告库中，有近<strong>180天创建</strong>的债券入库／出库信评报告，且报告和对应附件均未删除。</td></tr>
+                        <tr><td>3</td><td>近期入库业务信评附件</td><td>同发行人债券近<strong>180天实际入库</strong>的已通过调入业务下，有未删除的信评附件；手工上传、内部引用、外部引用均计入，不限原报告主体，出库业务不计入。</td></tr>
                         <tr><td>4</td><td>债券类型附加要求</td><td>根据永续债、次级债、标准信用债分别检查，见下表。</td></tr>
                     </tbody>
                 </table>
@@ -1170,8 +1170,8 @@
                         <ul>
                             <li>唯一性按信用债<strong>1～5级完整允许集合</strong>计算，不能按本次勾选池或仅筛一至三级计算；唯一层级必须为1～3并等于目标池 <code>innerSort</code>。目标池本身也必须在实际准入范围内；唯一性不受本次勾选池、用户权限或放开规则开关影响。</li>
                             <li>非简易入库经历使用 <code>queryIssuerHasNonSimpleCreditBondInboundWithinDays(securityCode, 180)</code>：非空 <code>issuer_code</code> 相同的债券，历史 <code>ip_pool_status</code> 中 <code>pool_type=credit_bond</code>、<code>adjust_mode=调入</code>、<code>flow_type非空且不为simpleInbound</code>、<code>audit_status=20</code>，按 <code>entry_time</code> 算近180天。不要求同目标层级，已出池软删记录仍计；标准、特殊、升库、降库、白名单及批量调入等非简易流程均计入；简易和空流程类型不计入。简易条件中的“半年”统一为180天。</li>
-                            <li>半年报告使用 <code>queryIssuerHasRecentCreditReportWithinDays(securityCode, 180)</code> 查内部/外部报告库（<code>rrs_report_in</code> / <code>rrs_report_out</code>）：报告 <code>company_code</code> 直接匹配当前券非空 <code>issuer_code</code>，未删除，<code>report_type=bond_in_report/bond_out_report</code>，<code>crte_time</code> 在近180天内，并有对应未删除的报告库附件（<code>table_name=rrs_report_in/rrs_report_out</code>、<code>attachment_category=report_in/report_out</code>）。其他类型、无附件、软删报告或附件不计；报告库没有独立日期/状态字段，时间以 <code>crte_time</code> 为准，缺失主体代码不回退报告证券代码。</li>
-                            <li>报告<strong>不要求关联历史调入，也不要求与非简易入库经历属于同一笔业务</strong>。简易资格与既有“半年调入日志带报告”分别判断；满足简易资格后，不论所选流程，本次材料直接豁免，不要求再命中既有历史日志豁免。</li>
+                            <li>信评附件使用 <code>queryIssuerHasRecentCreditReportWithinDays(securityCode, 180)</code> 查同发行人债券的已通过调入业务：<code>ip_pool_status.adjust_log_id</code> 关联未删除的 <code>ip_adjust_log</code>，池状态和日志均须为 <code>audit_status=20</code>、<code>adjust_mode=调入</code>。近180天只按实际入库时间 <code>entry_time</code> 计算，含边界，不接受未来或缺失时间，已出池软删的历史仍计入。业务下有未删除的 <code>credit_report_hand/credit_report_in/credit_report_out</code> 附件即可，手工上传、内部引用、外部引用均计入，不检查原报告主体、类型或创建时间；日志创建和附件绑定时间不参与计算，出库业务与其他材料不计入。</li>
+                            <li>信评附件与非简易信用债入库经历<strong>分别判断，不要求属于同一笔业务</strong>；信评附件所在入库业务不额外限制流程类型或目标池类型。简易资格与既有“半年调入日志带报告”分别判断，既有豁免仍沿用6个自然月和日志创建时间；满足简易资格后，不论所选流程，本次材料直接豁免，不要求再命中既有历史日志豁免。</li>
                         </ul>
                     </article>
                     <article class="logic-card">
