@@ -451,7 +451,9 @@
                 <h3>提交、流程与权限</h3>
                 <ul>
                     <li>提交弹出「选择调库流程」；弹窗结构、卡片层级、间距与底部操作区完全对齐证券池调整页，候选规则仍按 Excel 导入规则处理。</li>
-                    <li><strong>证券流程策略：</strong>完整复用单笔匹配，包含产品库快速资格及信用债简易资格；通过公共方法 <code>BatchAdjustFlowOptionHelper.appendConfiguredBatchFlow</code> 追加目标池配置的 <code>batchIn</code>/<code>batchOut</code> 并设为唯一推荐。未配置 ID/Key 时保留单笔推荐。同定义的快速与批量选项按类型分别保留。</li>
+                    <li><strong>证券流程策略：</strong>完整执行原单笔校验，包含产品库快速资格及信用债简易资格；Excel 专用入口将原业务未通过项统一设为可提交，保留原因并继续生成流程候选。通过公共方法 <code>BatchAdjustFlowOptionHelper.appendConfiguredBatchFlow</code> 追加目标池配置的 <code>batchIn</code>/<code>batchOut</code> 并设为唯一推荐。未配置 ID/Key 时保留单笔推荐。同定义的快速与批量选项按类型分别保留。</li>
+                    <li><strong>调整提示不阻断：</strong>禁止池、调入限制池、容量、在途等原校验照常执行，结果在“调整说明”显示“调整提示（共 N 项）”，这些行及同组配套项均显示“可调整”并随提交携带。原原因和可提交状态保存在导入快照中，重新打开仍可查看。证券或目标池无法识别等数据错误仍不可提交；主体导入、清空出库和其他调库入口保持原规则。</li>
+                    <li><strong>提交与落池一致：</strong>证券导入不会在提交或审批结束时再被原业务失败及报告必填要求阻断，实际仍按所选流程审批。重复调入先结束旧有效状态再写入，调出已不在库的证券按已完成处理；数据对象、来源明细、关联组完整性和数据库写入异常仍检查，异常整批回滚。</li>
                     <li><strong>材料按资格豁免：</strong>满足快速资格时，本次信评报告及其他附件免提交，与选择快速、一般、特殊或批量流程无关；行级 materialExemptionType 随提交透传，同组配套项跟随主项。切换流程不改变豁免和提示，所选审批流程仍照常执行。不展示合同投资范围确认提示。证券池批量、存量批量和 Excel 共用追加方法；单笔入口保持原候选。</li>
                     <li>证券按来源导入行 <code>sourceItemId</code> 分组，通过 <code>addExcelImportAdjustLogList</code> 复用单券提交步骤。同码不同池可选不同主体；本行主项及联动、互斥、关联项使用该行保存的选择和流程，并分别保存本笔证券快照。整批先检查已有在途流程，再逐行创建流程，避免同批新流程阻断其他行。主体仍按主体分组 <code>addCompanyAdjustLog</code>；清空出库先于导入提交。</li>
                     <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；目标池须 <code>excel_importable</code>；管理员 <code>userId=1</code> 放行。</li>
