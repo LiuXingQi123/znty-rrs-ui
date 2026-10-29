@@ -255,10 +255,13 @@
                             <el-option v-for="item in sourcePoolOptions" :key="item.id"
                                        :label="sourcePoolLabel(item)" :value="item.id"></el-option>
                         </el-select>
-                        <el-input v-model.trim="securitySearchForm.issuer" placeholder="发行主体" clearable size="small"
+                        <el-input v-model.trim="securitySearchForm.issuer" placeholder="主体全称" clearable size="small"
+                                  style="width:150px;" @keyup.enter.native="handleSecuritySearch"></el-input>
+                        <el-input v-model.trim="securitySearchForm.issuerCode" placeholder="主体编码" clearable size="small"
                                   style="width:150px;" @keyup.enter.native="handleSecuritySearch"></el-input>
                         <el-input v-model.trim="securitySearchForm.securityCode" placeholder="证券代码" clearable size="small" style="width:150px;" @keyup.enter.native="handleSecuritySearch"></el-input>
                         <el-input v-model.trim="securitySearchForm.securityShortName" placeholder="证券简称" clearable size="small" style="width:150px;" @keyup.enter.native="handleSecuritySearch"></el-input>
+                        <el-input v-model.trim="securitySearchForm.securityFullName" placeholder="证券全称" clearable size="small" style="width:150px;" @keyup.enter.native="handleSecuritySearch"></el-input>
                         <el-select v-model="securitySearchForm.marketCodes" multiple collapse-tags clearable size="small" placeholder="市场（多选）" style="width:220px;">
                             <el-option v-for="item in securityMarketOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
                         </el-select>
@@ -287,7 +290,9 @@
                             <el-tag v-for="code in row.marketCodes" :key="code" size="mini" type="info">{{ securityMarketLabel(code) }}</el-tag>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="issuer" label="发行人" min-width="210" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="fullName" label="证券全称" min-width="240" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="issuerCode" label="主体编码" min-width="140" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="issuer" label="主体全称" min-width="210" show-overflow-tooltip></el-table-column>
                     <el-table-column prop="ratingBond" label="证券评级" min-width="90">
                         <template slot-scope="{ row }">
                             <el-tag v-if="row.ratingBond" size="mini" type="success">{{ row.ratingBond }}</el-tag>
@@ -905,7 +910,7 @@
                         return data.children && data.children.length > 0
                     }
                 },
-                securitySearchForm: { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [], bondYesFlags: [] }, // 证券查询条件
+                securitySearchForm: { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', securityFullName: '', issuerCode: '', marketCodes: [], bondYesFlags: [] }, // 证券查询条件
                 bondYesFlagOptions: [ // 是否特征多选：勾选即筛「是」，多选 AND
                     { value: 'abs', label: '是否ABS' },
                     { value: 'guarant', label: '是否担保' },
@@ -1330,7 +1335,7 @@
             // 重置工作台状态
             resetWorkbench() {
                 this.adjustStep = 1
-                this.securitySearchForm = { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [], bondYesFlags: [] }
+                this.securitySearchForm = { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', securityFullName: '', issuerCode: '', marketCodes: [], bondYesFlags: [] }
                 if (this.isInbound) this.applyDefaultSourcePoolSelection()
                 this.securityPagination = { pageIndex: 1, pageSize: 10, total: 0 }
                 this.securityTableData = []
@@ -1366,6 +1371,8 @@
                         issuer: this.securitySearchForm.issuer || null,
                         securityCode: this.securitySearchForm.securityCode || null,
                         securityShortName: this.securitySearchForm.securityShortName || null,
+                        securityFullName: this.securitySearchForm.securityFullName || null,
+                        issuerCode: this.securitySearchForm.issuerCode || null,
                         marketCodes: this.securitySearchForm.marketCodes.length ? this.securitySearchForm.marketCodes : null,
                         bondYesFlags: this.securitySearchForm.bondYesFlags.length ? this.securitySearchForm.bondYesFlags : null,
                         pageIndex: this.securityPagination.pageIndex,
@@ -1425,7 +1432,7 @@
 
             // 重置证券查询条件
             handleSecurityReset() {
-                this.securitySearchForm = { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', marketCodes: [], bondYesFlags: [] }
+                this.securitySearchForm = { sourcePoolIds: [], issuer: '', securityCode: '', securityShortName: '', securityFullName: '', issuerCode: '', marketCodes: [], bondYesFlags: [] }
                 if (this.isInbound) this.applyDefaultSourcePoolSelection()
                 this.securityPagination.pageIndex = 1
                 this.loadSecurityList()

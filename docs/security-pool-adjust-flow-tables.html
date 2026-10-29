@@ -734,7 +734,8 @@
 
         <section id="list-query" class="section">
             <h2 class="section-title">主页面证券查询逻辑</h2>
-            <p>“是否特征”支持“是否标准信用债”（<code>bondYesFlags</code> 选项 <code>stdCredit</code>），勾选仅筛选证券主档 <code>std_credit_flag=1</code>，多选按 AND；不勾选不限制。对应表格追加 <code>stdCreditFlag</code> 列，沿用 <code>isYesFlag</code> 先转布尔值：1 显示“是”Tag，其他值（含 NULL）显示“否”Tag；接口与其他标识一样返回原始数值。只使用上游原始标志，不根据其他特征或 <code>std_clause_flag</code> 推断；CRMW 使用标的证券字段。</p>
+            <p>证券列表支持“主体编码”（<code>issuerCode</code>）和“证券全称”（<code>securityFullName</code>）查询，分别按证券主档 <code>issuer_code</code>、<code>full_name</code> 包含式模糊匹配；留空不限制，与其他条件按 AND 组合。输入框支持回车查询，查询回到第一页，重置时一并清空。表格展示“主体编码”（<code>issuerCode</code>）和“证券全称”（<code>fullName</code>），为空留白；原“发行人”或“发行主体全称”的查询条件和列表列统一显示为“主体全称”（<code>issuer</code>）。证券基础信息区保持原样。</p>
+        <p>“是否特征”支持“是否标准信用债”（<code>bondYesFlags</code> 选项 <code>stdCredit</code>），勾选仅筛选证券主档 <code>std_credit_flag=1</code>，多选按 AND；不勾选不限制。对应表格追加 <code>stdCreditFlag</code> 列，沿用 <code>isYesFlag</code> 先转布尔值：1 显示“是”Tag，其他值（含 NULL）显示“否”Tag；接口与其他标识一样返回原始数值。只使用上游原始标志，不根据其他特征或 <code>std_clause_flag</code> 推断；CRMW 使用标的证券字段。</p>
             <p class="section-subtitle">主页面先定位需要调库的证券，再进入详情页加载池状态、可调池和历史流程。</p>
             <div class="logic-header">
                 <strong>接口</strong>
@@ -745,7 +746,7 @@
                 <article class="logic-card">
                     <h3>请求与分页</h3>
                     <ul>
-                        <li>筛选字段：<code>securityCode</code>、<code>securityShortName</code>、<code>securityType</code>、<code>issuer</code>。</li>
+                        <li>筛选字段：<code>securityCode</code>、<code>securityShortName</code>、<code>securityFullName</code>、<code>issuerCode</code>、<code>securityType</code>、<code>issuer</code>。Service 将完整的 <code>SecurityPoolAdjustReq</code> 传给 Mapper，避免新增字段在参数拆分时遗漏。</li>
                         <li>证券类型下拉来自 <code>POST /api/v1/securityPoolAdjust/querySecurityTypeList</code>，关联 <code>rrs_securityinfo</code> 与有效 <code>dict_security_type</code>，与列表同口径：仅 <code>category_type=bond</code>，包含 CRMW 凭证并排除退市证券；主体、股票、基金由大类过滤。</li>
                         <li>分页字段：<code>pageIndex</code>、<code>pageSize</code>。</li>
                         <li>初始化走 <code>applyUrlSecurityOrList</code>：URL 带 <code>securityCode</code>（事宜「去调库」等）时写入筛选并进入该券详情；无参数才只加载列表。</li>
@@ -761,7 +762,7 @@
                         <li>主档包含标准条款判定 <code>std_clause_flag</code>（返回 <code>stdClauseFlag</code>：1=条款合格 / 0=条款不合格 / NULL=未判定）和标准信用债标识 <code>std_credit_flag</code>（返回 <code>stdCreditFlag</code>：1=标准信用债 / 0=非标准信用债 / NULL=未判定）。两列均为 <code>INT DEFAULT NULL</code>，保留原始值；简易流程的独立方法 <code>isStandardCreditBond</code> 仅判断 <code>std_credit_flag==1</code>，标准信用债定义由上游维护，<code>std_clause_flag</code> 和其他标志不参与该方法。标准条款字段不新增页面展示；标准信用债字段在主列表展示并支持筛选。</li>
                         <li>Demo 全部 52 条主档记录显式填写两列：XYB001～XYB003、普通公司债/中票/短融/担保债为 1/1；私募债和定向工具为 1/0；永续/次级/含权及 XYB004 条款不合格样本为 0/0；ABS/资产证券化/CRMW/存单/国债/Govt债/可转债为 NULL/0；XYB005 未判定信用债、Corp债和临时代码（含 Wind 换码样例 WCTMP001.IB）为 NULL/NULL。这些是演示场景，不是系统按类型自动判定的规则，也不按评级高低判定。</li>
                         <li>内连接 <code>dict_security_type</code> 取名称，并限制 <code>category_type=bond</code>（本页仅债券；股/基等走其它入口）。</li>
-                        <li>证券代码、简称、发行人均使用包含式模糊匹配：<code>LIKE %条件%</code>；证券类型为精确匹配 <code>si.security_type = #{securityType}</code>。</li>
+                        <li>证券代码、简称、全称、主体编码、主体全称均使用包含式模糊匹配：<code>LIKE %条件%</code>；证券类型为精确匹配 <code>si.security_type = #{securityType}</code>。</li>
                         <li>候选证券查询无固定 <code>ORDER BY</code>（与需求 04「列表无固定排序」一致），分页结果顺序不作保证。</li>
                         <li>包含 <code>security_type='crmw'</code> 的 CRMW 凭证，可通过证券池调整进入债券产品库等普通池；可调入库、可调出库仍排除 <code>pool_type='crmw'</code>，凭证+标的组合通过独立 CRMW 池调整办理。主体 <code>company</code> 由大类过滤。</li>
                         <li>固定排除退市：<code>si.security_status != 'D'</code>（上市状态 <code>SecurityStatus</code>：<code>L</code>上市中 / <code>N</code>待上市 / <code>D</code>退市 / <code>U</code>未知；仅排除 <code>D</code>，<code>U</code> 可查；勿留 <code>NULL</code>，否则三值逻辑滤行）。</li>
@@ -798,7 +799,7 @@
                 </article>
             </div>
             <div class="logic-sequence">
-                <div class="sequence-item"><strong>1. 输入条件</strong><span>证券代码、简称、证券类型或发行人，可留空查询全部。</span></div>
+                <div class="sequence-item"><strong>1. 输入条件</strong><span>证券代码、简称、全称、证券类型、主体编码或主体全称，可留空查询全部。</span></div>
                 <div class="sequence-item"><strong>2. 开启分页</strong><span>PageHelper 拦截紧随其后的 Mapper 查询。</span></div>
                 <div class="sequence-item"><strong>3. 查询证券</strong><span>证券主表关联证券类型字典并执行模糊过滤。</span></div>
                 <div class="sequence-item"><strong>4. 点击“调库”</strong><span>以 windCode 进入详情视图；先清空步骤1的可调入/调出池列表与勾选（含表格内部选中态），再并发加载业务数据，避免慢查询期间闪现上一只券的选中。</span></div>

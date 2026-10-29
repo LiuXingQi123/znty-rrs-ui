@@ -84,6 +84,10 @@
                     <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
                 </el-input>
 
+                <el-input v-model.trim="searchForm.securityFullName" placeholder="证券全称" clearable size="small" style="width:140px;" @keyup.enter.native="handleSearch">
+                    <i slot="prefix" class="el-input__icon el-icon-tickets"></i>
+                </el-input>
+
                 <el-select v-model="searchForm.securityType" placeholder="证券类型" clearable size="small" style="width:140px;">
                     <el-option v-for="t in securityTypeOptions" :key="t.securityType" :label="t.securityTypeName" :value="t.securityType"></el-option>
                 </el-select>
@@ -108,7 +112,11 @@
                     <i slot="prefix" class="el-input__icon el-icon-user"></i>
                 </el-input>
 
-                <el-input v-model.trim="searchForm.issuer" placeholder="发行主体全称" clearable size="small" style="width:180px;">
+                <el-input v-model.trim="searchForm.issuer" placeholder="主体全称" clearable size="small" style="width:180px;">
+                    <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
+                </el-input>
+
+                <el-input v-model.trim="searchForm.issuerCode" placeholder="主体编码" @keyup.enter.native="handleSearch" clearable size="small" style="width:180px;">
                     <i slot="prefix" class="el-input__icon el-icon-office-building"></i>
                 </el-input>
 
@@ -173,7 +181,8 @@
                 <el-table-column prop="couponRate" label="票面年利率(%)" min-width="120" align="right">
                     <template slot-scope="{ row }">{{ row.couponRate || '' }}</template>
                 </el-table-column>
-                <el-table-column prop="issuer" label="发行主体全称" min-width="180" show-overflow-tooltip>
+                <el-table-column prop="issuerCode" label="主体编码" min-width="140" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="issuer" label="主体全称" min-width="180" show-overflow-tooltip>
                     <template slot-scope="{ row }">{{ row.issuer || '' }}</template>
                 </el-table-column>
                 <el-table-column prop="fullName" label="证券全称" min-width="240" show-overflow-tooltip>
@@ -268,11 +277,13 @@ new Vue({
                 poolIds: [],           // 选中的池ID列表（多选）
                 securityCode: '',      // 证券代码关键词
                 securityShortName: '', // 证券简称关键词
+                securityFullName: '', // 证券全称关键词
+                issuerCode: '',       // 主体编码关键词
                 securityType: '',      // 证券类型（下拉选中值）
                 securityStatus: '',        // 证券状态：空=不限；active=存续 / matured=到期
                 entryTimeRange: null,  // 入池时间范围 [startDate, endDate]
                 adjusterName: '',      // 调整人姓名关键词
-                issuer: '',            // 发行主体全称关键词
+                issuer: '',            // 主体全称关键词
                 bondYesFlags: [],      // 是否特征多选，勾选即筛「是」
                 mySecurities: false,   // 是否只看我的证券
                 currentUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
@@ -495,6 +506,8 @@ new Vue({
                     poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
                     securityCode: this.searchForm.securityCode || null,
                     securityShortName: this.searchForm.securityShortName || null,
+                    securityFullName: this.searchForm.securityFullName || null,
+                    issuerCode: this.searchForm.issuerCode || null,
                     securityType: this.searchForm.securityType || null,
                     securityStatus: this.searchForm.securityStatus || null,
                     entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
@@ -524,6 +537,8 @@ new Vue({
                 poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
                 securityCode: this.searchForm.securityCode || null,
                 securityShortName: this.searchForm.securityShortName || null,
+                securityFullName: this.searchForm.securityFullName || null,
+                issuerCode: this.searchForm.issuerCode || null,
                 securityType: this.searchForm.securityType || null,
                 securityStatus: this.searchForm.securityStatus || null,
                 entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0] ? this.searchForm.entryTimeRange[0] + ' 00:00:00' : null,
@@ -583,6 +598,8 @@ new Vue({
                 poolIds: [],
                 securityCode: '',
                 securityShortName: '',
+                securityFullName: '', // 证券全称关键词
+                issuerCode: '',       // 主体编码关键词
                 securityType: '',
                 securityStatus: '',
                 entryTimeRange: null,
