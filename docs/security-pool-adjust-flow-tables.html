@@ -746,7 +746,7 @@
                     <h3>请求与分页</h3>
                     <ul>
                         <li>筛选字段：<code>securityCode</code>、<code>securityShortName</code>、<code>securityType</code>、<code>issuer</code>。</li>
-                        <li>证券类型下拉来自 <code>POST /api/v1/securityPoolAdjust/querySecurityTypeList</code>，关联 <code>rrs_securityinfo</code> 与 <code>dict_security_type</code>，与列表同口径：仅 <code>category_type=bond</code>，并排除 <code>crmw</code>（字典归 bond）及已删除态；<code>company</code> 本就非 bond，无需再排。</li>
+                        <li>证券类型下拉来自 <code>POST /api/v1/securityPoolAdjust/querySecurityTypeList</code>，关联 <code>rrs_securityinfo</code> 与有效 <code>dict_security_type</code>，与列表同口径：仅 <code>category_type=bond</code>，包含 CRMW 凭证并排除退市证券；主体、股票、基金由大类过滤。</li>
                         <li>分页字段：<code>pageIndex</code>、<code>pageSize</code>。</li>
                         <li>初始化走 <code>applyUrlSecurityOrList</code>：URL 带 <code>securityCode</code>（事宜「去调库」等）时写入筛选并进入该券详情；无参数才只加载列表。</li>
                         <li>查询、重置、切换页码或每页条数都会重新调用接口；新查询回到第 1 页。</li>
@@ -763,7 +763,7 @@
                         <li>内连接 <code>dict_security_type</code> 取名称，并限制 <code>category_type=bond</code>（本页仅债券；股/基等走其它入口）。</li>
                         <li>证券代码、简称、发行人均使用包含式模糊匹配：<code>LIKE %条件%</code>；证券类型为精确匹配 <code>si.security_type = #{securityType}</code>。</li>
                         <li>候选证券查询无固定 <code>ORDER BY</code>（与需求 04「列表无固定排序」一致），分页结果顺序不作保证。</li>
-                        <li>固定排除 <code>security_type = 'crmw'</code>（凭证字典大类为 bond，须单独挡）；主体 <code>company</code> 已由大类过滤。</li>
+                        <li>包含 <code>security_type='crmw'</code> 的 CRMW 凭证，可通过证券池调整进入债券产品库等普通池；可调入库、可调出库仍排除 <code>pool_type='crmw'</code>，凭证+标的组合通过独立 CRMW 池调整办理。主体 <code>company</code> 由大类过滤。</li>
                         <li>固定排除退市：<code>si.security_status != 'D'</code>（上市状态 <code>SecurityStatus</code>：<code>L</code>上市中 / <code>N</code>待上市 / <code>D</code>退市 / <code>U</code>未知；仅排除 <code>D</code>，<code>U</code> 可查；勿留 <code>NULL</code>，否则三值逻辑滤行）。</li>
                         <li>与禁投池「旗下债券数量」主数据统计同口径；对比时证券池侧按<strong>发行人名称</strong>模糊筛，禁投侧按<strong>主体代码 issuer_code</strong>精确关联。</li>
                         <li>主列表在操作列前由前端展示是否类字段（后端 <code>SELECT si.*</code> 已带回原始标志，不做中文映射）：是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」，对齐 <code>isPrivateBond</code>）、是否ABS（<code>absFlag=1</code> 或证券类型 <code>abs</code>；<code>abs_all</code> 不算）、是否次级（<code>cjFlag=1</code>）、是否标准信用债（<code>stdCreditFlag=1</code> 为是，0 与 NULL 均按现有标识展示为否）。展示「是/否」Tag；详情页证券基本信息不增加这些字段。</li>
