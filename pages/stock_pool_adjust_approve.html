@@ -97,7 +97,7 @@
                         <div class="upload-file-list"><div v-for="(file, index) in getMaterialFiles('', row.id)" :key="file.uid || index" class="upload-file-tag"><span @click="downloadLocalFile(file)">{{ file.name }}</span><i v-if="showLogUploadActions" class="el-icon-close" @click="removeMaterialFile('', row.id, index)"></i></div></div>
                     </div></template></el-table-column>
                     <el-table-column prop="submitTime" label="提交时间" width="170" align="center"></el-table-column>
-                    <el-table-column prop="flowName" label="审批流程" min-width="175" show-overflow-tooltip></el-table-column>
+                    <el-table-column prop="flowName" label="审批流程" min-width="175"><template slot-scope="{ row }"><el-tooltip v-if="row.flowName" :content="flowDesc(row)" :disabled="!flowDesc(row)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip"><span class="flow-name-tip">{{ row.flowName }}</span></el-tooltip><span v-else></span></template></el-table-column>
                     <el-table-column prop="auditStatus" label="审核状态" width="150" fixed="right" align="center" class-name="print-vertical-column" label-class-name="print-vertical-column"><template slot-scope="{ row }"><el-tag v-if="row.auditStatus" size="mini" :type="auditStatusType(row.auditStatus)">{{ auditStatusLabel(row.auditStatus) }}</el-tag></template></el-table-column>
                 </el-table>
             </div>
@@ -107,7 +107,7 @@
             <div v-show="sectionExpanded.reasonAdvice" class="reason-advice-body" style="padding:20px 22px;"><div class="reason-advice-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div><div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div><el-input v-model="activeLog.adjustReason" type="textarea" :rows="4" size="small" :disabled="!canEditReasonAdvice" maxlength="500" show-word-limit></el-input></div><div><div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div><el-input v-model="activeLog.adjustAdvice" type="textarea" :rows="4" size="small" :disabled="!canEditReasonAdvice" maxlength="500" show-word-limit></el-input></div></div></div>
         </div>
         <div class="section-card section-flow-status print-section">
-            <div class="section-header" @click="toggleSection('flowStatus')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">当前流程状态</div><el-tag v-if="activeLog.flowName" size="mini" type="info">流程名称：{{ activeLog.flowName }}</el-tag><i :class="sectionExpanded.flowStatus ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div>
+            <div class="section-header" @click="toggleSection('flowStatus')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">当前流程状态</div><el-tooltip v-if="activeLog.flowName" :content="flowDesc(activeLog)" :disabled="!flowDesc(activeLog)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip"><el-tag size="mini" type="info">流程名称：{{ activeLog.flowName }}</el-tag></el-tooltip><i :class="sectionExpanded.flowStatus ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div>
             <div v-show="sectionExpanded.flowStatus" class="section-body"><div v-if="flowStepList.length === 0" style="color:var(--c-text-3);font-size:13px;padding:8px 0;">暂无流程步骤</div><el-table
                             v-else
                             class="flow-step-table"
@@ -386,6 +386,8 @@ new Vue({
     // 初始化股票研究页面的查询条件、业务数据和操作状态
     data() {
         return {
+            // 流程 ID → 流程描述，悬停展示用
+            flowDescMap: {},
             loading: false, // 股票调库审核详情加载状态
             submitting: false, // 提交处理中状态，防止重复提交
             pageError: '', // 详情加载失败提示
@@ -541,6 +543,7 @@ new Vue({
     },
     // 读取页面入口参数并加载初始业务数据
     async created() {
+        this.loadFlowDescriptions();
         const params = new URLSearchParams(window.location.search);
         this.adjustLogId = params.get('adjustLogId');
         this.adjustBatchNo = params.get('adjustBatchNo') || '';
@@ -553,6 +556,18 @@ new Vue({
         await this.loadDetail(stockCode);
     },
     methods: {
+
+        // 流程 ID 是主键，直接按 ID 建描述索引
+        loadFlowDescriptions() {
+            this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                const map = {};
+                (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                this.flowDescMap = map;
+            }).catch(() => {});
+        },
+        flowDesc(flow) {
+            return this.flowDescMap[flow.flowId] || '';
+        },
         // 已绑定附件先标记删除，随修改节点统一提交。
         removeExistingAttachment(row, file) {
             if (!this.showLogUploadActions || file.id == null) return;

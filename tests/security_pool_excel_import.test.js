@@ -66,10 +66,21 @@ test('无法识别的数据仍不混入可提交项，有效且带提示的行�
     assert.equal(page.validCheckItems[0].failReasons.length, 2);
 });
 
-test('调整提示独立于可调整状态显示，不再用未通过标题', () => {
+test('可调整行展示调整提示，主体冲突等不可调整行展示未通过', () => {
     assert.match(html, /v-if="row\.failReasons && row\.failReasons\.length"/);
     assert.doesNotMatch(html, /v-if="!row\.canAdjust && row\.failReasons/);
-    assert.match(html, /调整提示（共 \{\{ row\.failReasons\.length \}\} 项）/);
-    assert.doesNotMatch(html, /未通过（共/);
+    assert.match(html, /row\.canAdjust \? '调整提示' : '未通过'/);
     assert.match(html, /row\.canAdjust \? '可调整' : '不可调整'/);
+});
+
+test('主体冲突留在调整说明中，并从可提交集合排除', () => {
+    const page = harness();
+    const conflict = { ...manual(), canAdjust: false, flowOptions: [], failReasons: [
+        'ABS[108008901.IB]已被在库或在途主体[C10008]占用，不能以主体[C10010]进入其他库'
+    ] };
+    page.applyTask({ impId: 'EXCEL_ABS_CONFLICT', saveRslt: '0', chkRslt: '2', checkDone: true,
+        checkItems: [conflict], checkPassCount: 0, checkFailCount: 1 });
+    assert.equal(page.validCheckCount, 0);
+    assert.equal(page.canSubmit, false);
+    assert.match(page.checkItems[0].failReasons[0], /C10008.*C10010/);
 });

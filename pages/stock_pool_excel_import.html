@@ -119,7 +119,7 @@
                                 <el-table-column label="审批流程" min-width="200">
                                     <template slot-scope="{ row }">
                                         <el-select v-if="row.canAdjust && isManualItem(row)" v-model="row.selectedFlowOptionKey" size="small" placeholder="请选择流程" popper-class="stock-excel-flow-select-dropdown" :disabled="busy || isSubmitted" @change="handleRowFlowChange(row)">
-                                            <el-option v-for="option in row.flowOptions" :key="option.optionKey" :label="resolveFlowDisplayName(option)" :value="option.optionKey" :disabled="!option.selectable"><span class="batch-flow-option-name">{{ resolveFlowDisplayName(option) }}</span><span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">{{ flowTypeLabel(option.flowType) }}</span></el-option>
+                                            <el-option v-for="option in row.flowOptions" :key="option.optionKey" :label="resolveFlowDisplayName(option)" :value="option.optionKey" :disabled="!option.selectable"><span class="batch-flow-option-name" :title="flowDesc(option)">{{ resolveFlowDisplayName(option) }}</span><span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">{{ flowTypeLabel(option.flowType) }}</span></el-option>
                                         </el-select>
                                         <span v-else-if="row.canAdjust" class="flow-placeholder muted">随手工项</span>
                                     </template>
@@ -146,7 +146,9 @@
                 <div class="flow-option-head"><span class="flow-option-name flow-pool-name">{{ row.stockShortName || row.stockCode }}（{{ row.stockCode }}） · {{ row.poolName }}</span><el-tag size="mini" :type="row.adjustDirection === 'in' ? 'success' : 'danger'">{{ directionLabel(row.adjustDirection) }}</el-tag><el-tag v-if="row.itemTag === 'clear'" size="mini" type="warning">Excel清空</el-tag></div>
                 <el-radio-group v-model="row.selectedFlowOptionKey" style="width:100%;margin-top:10px;" :disabled="submitting" @change="handleRowFlowChange(row)">
                     <el-radio v-for="option in row.flowOptions" :key="option.optionKey" :label="option.optionKey" :disabled="!option.selectable" class="flow-option-card flow-choice-card" :class="{ 'is-selected': row.selectedFlowOptionKey === option.optionKey, 'is-disabled': !option.selectable }">
-                        <div class="flow-option-head"><span class="flow-option-name">{{ resolveFlowDisplayName(option) }}</span><el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag><el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag><el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag></div>
+                        <div class="flow-option-head"><el-tooltip :content="flowDesc(option)" :disabled="!flowDesc(option)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+    <span class="flow-option-name flow-name-tip">{{ resolveFlowDisplayName(option) }}</span>
+</el-tooltip><el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag><el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag><el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag></div>
                         <div class="flow-option-reasons"><div v-for="(reason, index) in option.matchReasons" :key="'match_' + index" class="flow-option-reason ok">{{ reason }}</div><div v-for="(reason, index) in option.unmatchReasons" :key="'unmatch_' + index" class="flow-option-reason warn">{{ reason }}</div></div>
                     </el-radio>
                 </el-radio-group>
@@ -163,6 +165,8 @@ new Vue({
     data() {
         const user = window.RrsAuth.getCurrentUser()
         return {
+            // 流程 ID → 流程描述，悬停展示用
+            flowDescMap: {},
             loading: false, // 上传文件、刷新明细或重置批次的处理中状态
             checking: false, // 整批校验处理中状态
             submitting: false, // 提交处理中状态，防止重复提交
@@ -273,6 +277,18 @@ new Vue({
         }
     },
     methods: {
+
+        // 流程 ID 是主键，直接按 ID 建描述索引
+        loadFlowDescriptions() {
+            this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                const map = {};
+                (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                this.flowDescMap = map;
+            }).catch(() => {});
+        },
+        flowDesc(flow) {
+            return this.flowDescMap[flow.flowId] || '';
+        },
         // 空值保持空白，数字 0 仍为有效值。
         hasValue(value) {
             return value !== null && value !== undefined && String(value).trim() !== ''
@@ -704,7 +720,10 @@ new Vue({
         adjustTypeTagType(type) {
             return type === '互斥调整' ? 'danger' : (type === '联动调整' || type === 'Excel清空' ? 'warning' : 'info')
         }
-    }
+    },
+    mounted() {
+        this.loadFlowDescriptions();
+    },
 })
 </script>
 </body>

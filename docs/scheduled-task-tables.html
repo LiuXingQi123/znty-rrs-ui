@@ -509,6 +509,7 @@
                     <li>执行时间：每天 06:00（Cron：<code>0 0 6 * * ?</code>），调度默认关闭。</li>
                     <li>目标池配置：扩展参数默认 <code>{"observePoolId":16,"keyObservePoolId":23}</code>；<code>observePoolId</code> 对应2观察，<code>keyObservePoolId</code> 对应3重点观察。省略字段或设为null表示不管理该类池，至少配置一类，两类目标池不能相同。已有空参数任务须先填写并保存。</li>
                     <li>数据来源：<code>ais_inv_analysis.company_observer_view</code> 主体观察名单表；仅保留 <code>company_id</code>、<code>company_code</code>、<code>observer_type</code>、<code>isHo</code>，无主键及创建、修改时间字段。<code>company_id</code> 对应 <code>t_inv_company.id</code>，<code>company_code</code> 对应主体Wind代码及债券发行人编码。</li>
+                    <li>脏数据处理：目标池内主体（含在池债券的发行主体）编码为空时，跳过该记录并在过程日志和结果摘要中记录条数，<strong>不阻断本轮任务</strong>；补齐发行主体编码后重跑即可纳入同步。</li>
                     <li>主体进出池：按观察类型先出池、后入池；类型变为1、空值或主体从名单移除时，退出当前配置的目标池。只管理配置的目标池，修改参数不会自动清理原目标池；关系池按实际配置处理。</li>
                     <li>旗下债券：未退市、未到期（含当天）的普通债、ABS、CRMW随主体同批进出池。主体已出池但旗下债券仍在池时，也要调出对应债券。</li>
                     <li>来源池校验：调入时须满足至少一个来源池，包含当前在池、本轮调整前在池及本主体同批调入的来源池。</li>
@@ -598,13 +599,14 @@
                 </ul>
             </article>
             <article class="card">
-                <h3>在池主体旗下债券自动入池 company_inpool_bond_auto_in</h3>
+                <h3>在池主体旗下债券自动入池（ABS债提醒） company_inpool_bond_auto_in</h3>
                 <p>所有已有生效主体的普通池自动追加同池补债映射；继续合并参数、关系绑定和显式跨池映射。</p>
                 <ul>
                     <li>每 10 分钟执行一次（Cron：<code>0 */10 * * * ?</code>）</li>
                     <li>对应老系统 <code>AutoAdjustInNewBondToLimitPoolJob</code></li>
                     <li>同池：<code>{"poolIds":[15]}</code>；跨池：<code>{"mappings":[{"companyInPoolId":15,"bondTargetPoolId":100}]}</code>；关系配置绑定本任务的池按同池映射并入。</li>
-                    <li>主体已在池 → 旗下债未退市、未到期（不含当天）、尚未在<strong>目标池</strong>则入；另排除已更新临时代码，普通债、ABS、CRMW 均参与；不看限制池。</li>
+                    <li>主体已在池 → 旗下债未退市、未到期（不含当天）、尚未在<strong>目标池</strong>则入；另排除已更新临时代码，普通债、已确认主体 ABS、CRMW 均参与；未确认主体的 ABS 只生成待确认日志并计入 ABS 规则提醒统计，研究员确认后才入池；不看限制池。</li>
+                    <li>过程日志记录 ABS 规则提醒跳过原因，结果摘要单列 ABS 规则提醒跳过数及其中待确认主体数。</li>
                 </ul>
             </article>
             <article class="card">
@@ -624,8 +626,8 @@
                     <li>无需 param_json。扫描已在信用债 1～5 级但按当前特殊债规则不再允许的债券（不含境外债），写入 <code>ip_grade_rule_alert</code> 待办。</li>
                     <li>ABS 和非 ABS 担保债按当前在池记录的 <code>adjust_log_id</code> 读取对应证券入库快照，以实际采用的 <code>guarantor_id</code> 查询该主体最新内评；不沿用主档或快照旧评分，不重新默认选择关联主体。普通非担保债保持原主体内评口径。</li>
                     <li>缺少来源日志、入库快照或实际评级主体代码时，本轮任务失败并回滚，错误中显示证券、池和日志 ID，不关闭旧待办。历史缺失数据需核实补齐；主体已明确但最新无内评时按原规则判断，ABS 提醒附实际主体代码。</li>
-                    <li>执行摘要区分：本轮命中 / 本轮失效（曾待处理、本轮未再命中）/ 仍待处理；影响条数取仍待处理。</li>
-                    <li>人工在「我的事宜」分级规则提醒页签去调库或标记已处理。</li>
+                    <li>执行摘要区分：本轮命中 / 沿用已处理（同券同池、同档位同原因的待办已处理过）/ 本轮失效（曾待处理、本轮未再命中）/ 仍待处理；影响条数取仍待处理。</li>
+                    <li>人工在「我的事宜」分级规则提醒页签去调库或标记已处理；两种处理都会回写 <code>context_key</code>，下一轮同依据不再提醒。</li>
                 </ul>
             </article>
             <article class="card">

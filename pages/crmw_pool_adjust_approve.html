@@ -637,11 +637,13 @@
                         <el-table-column label="提交时间" width="170" align="center">
                             <template slot-scope="{ row }">{{ row.submitTime || '' }}</template>
                         </el-table-column>
-                        <el-table-column prop="flowName" label="审批流程" min-width="175" show-overflow-tooltip>
+                        <el-table-column prop="flowName" label="审批流程" min-width="175">
                             <template slot-scope="{ row }">
                                 <span v-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
                                     <el-tag v-if="row.flowType" class="flow-type-tag" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
-                                    <span>{{ row.flowName }}</span>
+                                    <el-tooltip :content="flowDesc(row)" :disabled="!flowDesc(row)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                                        <span class="flow-name-tip">{{ row.flowName }}</span>
+                                    </el-tooltip>
                                 </span>
                                 <span v-else></span>
                             </template>
@@ -700,9 +702,9 @@
                 <div class="section-header" @click="toggleSection('flowStatus')" style="cursor:pointer;user-select:none;">
                     <div class="section-dot"></div>
                     <div class="section-title">当前流程状态</div>
-                    <el-tag v-if="activeAdjustLog && activeAdjustLog.flowName" size="mini" type="info">
-                        流程名称：{{ activeAdjustLog.flowName }}
-                    </el-tag>
+                    <el-tooltip v-if="activeAdjustLog && activeAdjustLog.flowName" :content="flowDesc(activeAdjustLog)" :disabled="!flowDesc(activeAdjustLog)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                        <el-tag size="mini" type="info">流程名称：{{ activeAdjustLog.flowName }}</el-tag>
+                    </el-tooltip>
                     <i :class="sectionExpanded.flowStatus ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);transition:transform .2s;"></i>
                 </div>
                 <div v-show="sectionExpanded.flowStatus" class="section-body">
@@ -1049,11 +1051,13 @@
                                 <el-tag class="adjust-direction-tag" size="mini" :type="row.direction === '调入' ? 'success' : 'danger'">{{ row.direction }}</el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="flowName" label="审批流程" min-width="175" show-overflow-tooltip>
+                        <el-table-column prop="flowName" label="审批流程" min-width="175">
                             <template slot-scope="{ row }">
                                 <span v-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
                                     <el-tag v-if="row.flowType" class="flow-type-tag" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
-                                    <span>{{ row.flowName }}</span>
+                                    <el-tooltip :content="flowDesc(row)" :disabled="!flowDesc(row)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                                        <span class="flow-name-tip">{{ row.flowName }}</span>
+                                    </el-tooltip>
                                 </span>
                                 <span v-else></span>
                             </template>
@@ -1162,7 +1166,9 @@
                                   class="flow-option-card flow-choice-card"
                                   :class="{ 'is-selected': row.selectedFlowKey === option.optionKey, 'is-disabled': !option.selectable }">
                             <div class="flow-option-head">
-                                <span class="flow-option-name">{{ option.flowName }}</span>
+                                <el-tooltip :content="flowDesc(option)" :disabled="!flowDesc(option)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                                    <span class="flow-option-name flow-name-tip">{{ option.flowName }}</span>
+                                </el-tooltip>
                                 <el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag>
                                 <el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag>
                                 <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
@@ -1570,6 +1576,8 @@
         el: '#crmw_pool_adjust_approve',
         data() {
             return {
+                // 流程 ID → 流程描述，悬停展示用
+                flowDescMap: {},
                 moment: moment, // 日期处理工具
                 pagePaths: { // 页面跳转路径
                     crmwPoolAdjust: 'crmw_pool_adjust.html', // CRMW池调整列表页
@@ -1845,6 +1853,7 @@
         },
         // 页面初始化：设置接口基础地址，加载独立调库审核页
         created() {
+            this.loadFlowDescriptions();
             this.initStandaloneReviewPage();
         },
         mounted() {
@@ -1863,6 +1872,18 @@
             window.RrsPrintExport.unbind();
         },
         methods: {
+
+            // 流程 ID 是主键，直接按 ID 建描述索引
+            loadFlowDescriptions() {
+                this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                    const map = {};
+                    (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                    this.flowDescMap = map;
+                }).catch(() => {});
+            },
+            flowDesc(flow) {
+                return this.flowDescMap[flow.flowId] || '';
+            },
             // 按市场完整展示同券代码，包含当前代码及只读关联代码。
             relatedMarketCodeText(detail, marketCode) {
                 if (!detail) return '';

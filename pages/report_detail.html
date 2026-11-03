@@ -116,10 +116,9 @@ new Vue({
     el: '#report_detail',
     // 报告由来源和 ID 共同定位，内外报告 ID 可以相同。
     data() {
-        const params = new URLSearchParams(window.location.search);
         return {
-            source: params.get('source') || '',       // 报告来源，与 ID 共同定位报告
-            reportId: params.get('reportId') || '',   // 报告主键
+            source: this.getUrlParam('source'),       // 报告来源，与 ID 共同定位报告
+            reportId: this.getUrlParam('reportId'),   // 报告主键
             report: null,                            // 报告信息及完整附件列表
             loading: false,                          // 报告加载状态
             error: '',                               // 读取失败的原因
@@ -133,6 +132,19 @@ new Vue({
         }
     },
     methods: {
+        // 获取普通 Query 或 Hash 路由中的 URL 参数
+        getUrlParam(name) {
+            // 优先读取普通 Query，参数存在时不再使用 Hash 中的同名值
+            const searchParams = new URLSearchParams(window.location.search);
+            if (searchParams.has(name)) return searchParams.get(name) || '';
+
+            // 普通 Query 未命中时，读取 Hash 路由问号后的查询参数
+            const hash = window.location.hash || '';
+            const hashQueryIndex = hash.indexOf('?');
+            if (hashQueryIndex < 0) return '';
+            return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
+        },
+
         // 精确读取报告，不通过标题或列表分页寻找报告。
         async loadReport() {
             this.loading = true;

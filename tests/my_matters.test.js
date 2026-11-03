@@ -17,7 +17,7 @@ function harness() {
     for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) {
         if (match[1].trim()) vm.runInContext(match[1], context);
     }
-    const page = { ...options.data(), $message: { error() {}, success() {} }, $refs: {}, $nextTick: f => f() };
+    const page = { ...options.data(), $message: { error() {}, success() {} }, $refs: {}, $nextTick: f => f(), $set(row, key, value) { row[key] = value; } };
     Object.entries(options.methods).forEach(([key, method]) => { page[key] = method.bind(page); });
     Object.entries(options.computed).forEach(([key, getter]) => { Object.defineProperty(page, key, { get: () => getter.call(page) }); });
     page.businessDomain = 'bond';
@@ -332,6 +332,61 @@ test('事项和提醒页面显式提供当前用户，无需公共 API 补参', 
     assert.ok(requests.some(item => item.url.endsWith('/queryMyInitiatedMattersPage')));
     assert.ok(requests.some(item => item.url.endsWith('/queryAlertPage')));
     assert.ok(requests.every(item => item.body.currentUserId === '2'));
+});
+
+test('规则提醒支持规则类型筛选，查询和角标使用同一条件', async () => {
+    const { page } = harness();
+    page.alertSearchForm.ruleType = 'absCompanySync';
+    page.alertSearchForm.securityCode = '108008905.IB';
+    page.alertSearchForm.alertStatus = '00';
+    const requests = [];
+    page.apiPost = async (url, body) => {
+        requests.push({ url, body });
+        return { records: [], total: 3 };
+    };
+    await page.queryAlertTabTotal();
+    await page.loadAlertList();
+    const alertRequests = requests.filter(item => item.url.endsWith('/queryAlertPage'));
+    assert.equal(alertRequests.length, 2);
+    assert.ok(alertRequests.every(item => item.body.ruleType === 'absCompanySync'));
+    assert.ok(alertRequests.every(item => item.body.securityCode === '108008905.IB'));
+    assert.equal(page.alertOpenCount, 3);
+    page.activeTab = 'gradeRuleAlert';
+    page.handleReset();
+    assert.equal(page.alertSearchForm.ruleType, '');
+});
+
+test('规则提醒自选权益人弹窗复用证券池调整页的查询、分页、单选和确认布局', async () => {
+    const { page } = harness();
+    const html = fs.readFileSync(path.join(root, 'pages/my_matters.html'), 'utf8');
+    assert.match(html, /custom-class="self-rights-holder-dialog"/);
+    assert.match(html, /self-rights-holder-search/);
+    assert.match(html, /el-radio v-model="absSelfPendingCode"/);
+    assert.match(html, /absSelfPagination/);
+    assert.match(html, /确认选择/);
+    const row = { id: 1, ruleType: 'absCompanySync', alertStatus: '00', securityCode: 'ABS1', selectedIssuerCode: '', selectedIssuer: null, absCandidates: [] };
+    page.alertTableData = [row];
+    page.apiPost = async (url, body) => {
+        assert.equal(url, '/api/v1/securityPoolAdjust/querySelfSelectedRightsHolderPage');
+        assert.equal(body.pageIndex, 1);
+        assert.equal(body.pageSize, 20);
+        return { records: [{ companyCode: 'C10002', companyName: '某城市投资开发建设有限公司', innerRating: '2+' }], total: 1 };
+    };
+    await page.openAbsSelfPicker(row);
+    page.handleAbsSelfCurrentChange(page.absSelfCandidates[0]);
+    page.confirmAbsSelfCandidate();
+    assert.equal(row.selectedIssuerCode, 'C10002');
+    assert.equal(row.selectedIssuer.companyCode, 'C10002');
+    assert.equal(page.absSelfDialogVisible, false);
+});
+
+test('ABS 规则提醒的下拉选择和处理方法已挂载到页面实例', () => {
+    const { page } = harness();
+    for (const method of ['isAbsAlert', 'loadAbsCandidates', 'handleAbsIssuerChange', 'openAbsSelfPicker', 'loadAbsSelfCandidates', 'searchAbsSelfCandidates', 'resetAbsSelfSearch', 'handleAbsSelfPageChange', 'handleAbsSelfSizeChange', 'absSelfIndex', 'absSelfRowClassName', 'handleAbsSelfCurrentChange', 'confirmAbsSelfCandidate', 'confirmAbsAlert', 'ignoreAbsAlert']) {
+        assert.equal(typeof page[method], 'function', method + ' 未定义');
+    }
+    assert.equal(page.isAbsAlert({ ruleType: 'absCompanySync' }), true);
+    assert.equal(page.isAbsAlert({ ruleType: 'grade' }), false);
 });
 
 test('所有附件列表页面显式传业务，债券和基金相同日志 ID 不串业务', async () => {

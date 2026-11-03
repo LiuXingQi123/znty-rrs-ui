@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>不符合分级规则提醒｜表与业务逻辑</title>
+    <title>不符合规则提醒｜表与业务逻辑</title>
     <style>
         body.docs-page-grade-rule-alert-tables {
             --primary: #2743A4;
@@ -358,7 +358,7 @@
 <body class="docs-page docs-page-grade-rule-alert-tables">
 <header>
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP · 并入「我的事宜」</p>
-        <h1>不符合分级规则提醒</h1>
+        <h1>不符合规则提醒</h1>
         <p class="desc">定时扫描已在信用债 1～5 级、但按当前特殊债规则不再允许待在该档的债券（不含境外债，对齐老 polidEnum），写入待办供人工下调或出库。不自动改池。对齐老系统「债券不符合主体内评分档规则提醒」。</p>
         <div class="stats"><span class="stat">非独立菜单</span><span class="stat">入口=我的事宜第三页签</span><span
                 class="stat">旧页仅重定向</span></div>
@@ -374,8 +374,8 @@
             <article class="card">
                 <h3>当前产品形态</h3>
                 <ul>
-                    <li><strong>研究管理 → 债券研究</strong> 下<strong>没有</strong>「不符合分级规则提醒」独立业务页（与文档管理债券研究分组一致）。</li>
-                    <li>业务入口：<strong>研究管理 → RRS配置 → 我的事宜 → 第三页签「分级规则提醒」</strong>（<code>my_matters.html?tab=gradeRuleAlert</code>）。</li>
+                    <li><strong>研究管理 → 债券研究</strong> 下<strong>没有</strong>「不符合规则提醒」独立业务页（与文档管理债券研究分组一致）。</li>
+                    <li>业务入口：<strong>研究管理 → RRS配置 → 我的事宜 → 第三页签「规则提醒」</strong>（<code>my_matters.html?tab=gradeRuleAlert</code>）。</li>
                     <li>扫描任务：定时任务 <code>bond_grade_inconformity_alert</code>（可视化「定时任务管理」配置/执行）。</li>
                     <li>历史页 <code>pages/grade_rule_alert.html</code> 仅 <code>location.replace</code> 到我的事宜对应 Tab，不单独渲染列表。</li>
                     <li>本页是<strong>业务说明文档</strong>，挂在「文档管理 → 业务文档 → RRS配置」下，紧挨「我的事宜」；标题标注「并入事宜」。</li>
@@ -396,10 +396,10 @@
         <div class="flow">
             <div class="step"><b>1. 扫描在池</b><span>已生效且在信用债 1～5 级叶子的债券（不含境外债）。</span></div>
             <div class="step"><b>2. 复用校验</b><span>调用 evaluateGradedInboundForPool，口径与选池/checkAdjust 相同。</span></div>
-            <div class="step"><b>3. 本轮命中</b><span>不符合则新增或刷新 ip_grade_rule_alert（状态 00）。</span></div>
+            <div class="step"><b>3. 本轮命中</b><span>不符合则按证券、当前池、档位和不符合原因生成依据摘要；同券同池已有待处理则刷新该条，同一依据已处理过则跳过，否则新增 <code>ip_grade_rule_alert</code>（状态 00）。</span></div>
             <div class="step"><b>4. 本轮失效</b><span>曾待处理、本轮未再命中（已合规或已不在扫描范围）置 99。</span></div>
-            <div class="step"><b>5. 仍待处理</b><span>执行后统计 alert_status=00；摘要三项分列，影响条数取仍待处理。</span></div>
-            <div class="step"><b>6. 人工处理</b><span>在「我的事宜」分级规则提醒页签去调库或标记已处理。不自动改池。</span></div>
+            <div class="step"><b>5. 仍待处理</b><span>执行后统计 alert_status=00；摘要四项分列（命中 / 沿用已处理 / 失效 / 仍待处理），影响条数取仍待处理。</span></div>
+            <div class="step"><b>6. 人工处理</b><span>普通提醒去调库或标记已处理；ABS 主体联动提醒选择权益人后确认主体，或忽略入池。发行主体下拉与证券池调整页权益人一致：选项展示主体全称、关系类型标签（担保人 / 差额支付承诺人 / 债务主体 / 原始权益人）和最新内评，选中后显示“全称（类型）”。自选权益人弹窗与证券池调整页一致，支持主体编码/全称查询、分页、单选高亮和确认选择。列表支持规则类型筛选，并按扫描批次、规则类型、证券代码、主体上下文和池信息稳定排序。确认主体会把待确认日志转为已生效池状态；忽略入池会将待确认日志置为无效，提醒保留为已处理。</span></div>
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>扫描与待办</h2>
@@ -416,9 +416,9 @@
             <article class="card"><h3>待办状态</h3>
                 <ul>
                     <li><code>00</code> 待处理：本轮仍不符合。</li>
-                    <li><code>20</code> 已处理：人工标记，不改池。</li>
+                    <li><code>20</code> 已处理：普通提醒标记不改池；ABS 主体联动提醒确认主体或忽略入池后保留处理记录。处理时会把当时的依据摘要写入 <code>context_key</code>，下一轮同依据不再提醒。</li>
                     <li><code>99</code> 已失效：再次扫描已符合。</li>
-                    <li>「去调库」工作台新开证券池调整页签（<code>security_pool_adjust.html?securityCode=</code>），调整页 <code>applyUrlSecurityOrList</code> 读代码并进入该券；脱离工作台回退 href。</li>
+                    <li>普通提醒「去调库」先按已处理关闭提醒，再在工作台新开证券池调整页签（<code>security_pool_adjust.html?securityCode=</code>）；ABS 主体联动提醒使用权益人下拉、确认主体和忽略入池，不进入普通调库入口。</li>
                     <li>业务入口在「我的事宜」，不再单独占菜单。旧页仅重定向。</li>
                 </ul>
             </article>
@@ -439,9 +439,15 @@
                 <tbody>
                 <tr>
                     <td><span class="name">ip_grade_rule_alert</span></td>
-                    <td>不符合分级规则待办</td>
+                    <td>不符合规则待办及 ABS 主体联动处理记录</td>
                     <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span class='tag u'>更新</span></td>
-                    <td>定时扫描写入；我的事宜提醒页签查询与标记已处理</td>
+                    <td>定时扫描/主体联动写入；我的事宜查询与处理，保留忽略入池结论</td>
+                </tr>
+                <tr>
+                    <td><span class="name">ip_adjust_log / ip_pool_status</span></td>
+                    <td>自动调入日志和当前在池状态</td>
+                    <td><span class='tag r'>查询</span> <span class='tag u'>更新</span></td>
+                    <td>ABS 确认主体时才写入池状态，并将调库原因更新为已确认主体且已完成入池；忽略入池时将待确认调库日志置为无效</td>
                 </tr>
                 <tr>
                     <td><span class="name">ip_pool_status</span></td>
@@ -473,7 +479,8 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>任务<strong>不自动出池</strong>，只写待办。处理入口在「我的事宜」分级规则提醒页签，须到证券池调库完成下调或出库后再标记已处理。新开 Tab 仅导航层，公司不兼容时可还原 href。</li>
+            <li>任务<strong>不自动出池</strong>，只写待办。处理入口在「我的事宜」规则提醒页签，须到证券池调库完成下调或出库后再标记已处理。新开 Tab 仅导航层，公司不兼容时可还原 href。</li>
+            <li>已处理沿用：标记已处理和去调库都会把「证券 + 当前池 + 档位 + 不符合原因」压成 <code>context_key</code> 写入待办；下一轮扫描遇到相同摘要直接跳过，不再重复生成。档位、原因或所在池任一变化即视为新问题，仍会重新提醒。</li>
             <li>观察池：券或主体已在观察池时，不得高于矩阵最好档、开到五级，不跳过矩阵。识别含主体级 <code>issuer_code</code>。重点观察名单走 <code>checkRestricted</code>，不在类型分支里。</li>
             <li>证券池调库审核页「改判目标池」下拉同样套重点观察名单，避免审批绕开预览。</li>
         </ul>
@@ -481,7 +488,8 @@
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
         </div>
     </section>
-    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p></main>
+    <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p><section><h2>ABS 主体一致性</h2><p>ABS 在所有有效在库和在途申请中只允许一个主体代码；人工申请审核通过或直通成功入库后永久固定主体代码，全部出清也不更换；主体联动自动入池只生成 audit_status=00 的待确认调库日志，暂不写入 ip_pool_status 和主档五字段，也不形成永久绑定；研究员确认主体后才转为 audit_status=20 并正式入池，成功确认后才固定身份。审核通过才保存主档五字段。任意池主体联动和退出提醒共用同一规则，见<a href="security-pool-adjust-flow-tables.html#abs-identity">ABS 跨池唯一主体与主体联动</a>。</p></section>
+</main>
 <footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
 </body>
 </html>

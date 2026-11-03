@@ -280,7 +280,7 @@
                                             <el-option v-for="option in (row.flowOptions || [])" :key="option.optionKey"
                                                        :label="resolveFlowDisplayName(option)" :value="option.optionKey"
                                                        :disabled="!option.selectable">
-                                                <span class="batch-flow-option-name">{{ resolveFlowDisplayName(option) }}</span>
+                                                <span class="batch-flow-option-name" :title="flowDesc(option)">{{ resolveFlowDisplayName(option) }}</span>
                                                 <span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">
                                                     {{ flowTypeLabel(option.flowType) }}
                                                 </span>
@@ -344,7 +344,9 @@
                               class="flow-option-card flow-choice-card"
                               :class="{ 'is-selected': row.selectedFlowKey === option.optionKey, 'is-disabled': !option.selectable }">
                         <div class="flow-option-head">
-                            <span class="flow-option-name">{{ resolveFlowDisplayName(option) }}</span>
+                            <el-tooltip :content="flowDesc(option)" :disabled="!flowDesc(option)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                                <span class="flow-option-name flow-name-tip">{{ resolveFlowDisplayName(option) }}</span>
+                            </el-tooltip>
                             <el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag>
                             <el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag>
                             <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
@@ -378,6 +380,8 @@ new Vue({
     el: '#crmw_pool_excel_import',
     data() {
         return {
+            // 流程 ID → 流程描述，悬停展示用
+            flowDescMap: {},
             loading: false,                 // 页面加载中
             checking: false,                // 校验中
             submitting: false,              // 提交中
@@ -477,11 +481,24 @@ new Vue({
         },
     },
     mounted() {
+        this.loadFlowDescriptions();
         // 读取当前登录用户，缺省管理员
         this.currentUser = (window.RrsAuth && window.RrsAuth.getCurrentUser()) || { userId: '1', userName: '管理员' }
         this.loadPoolList()
     },
     methods: {
+
+        // 流程 ID 是主键，直接按 ID 建描述索引
+        loadFlowDescriptions() {
+            this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                const map = {};
+                (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                this.flowDescMap = map;
+            }).catch(() => {});
+        },
+        flowDesc(flow) {
+            return this.flowDescMap[flow.flowId] || '';
+        },
         // 下载 classpath 模板（Base64）
         async downloadTemplate(templateCode) {
             const data = await this.apiPost('/api/v1/commonFile/downloadTemplate', { templateCode: templateCode })

@@ -858,3 +858,7 @@ const DICT_BUSINESS_DOMAIN = { bond: '债券', fund: '基金', stock: '股票' }
 
 // 股票研究评级，最近两次有效评级按评级日期、主键倒序选取。
 const DICT_STOCK_RATING = { buy: '买入', overweight: '增持', neutral: '中性', underweight: '减持', sell: '卖出' };
+
+// 我的事宜规则提醒类型，历史空类型按 grade 展示
+const DICT_ALERT_RULE_TYPE = { grade: '分级规则', absCompanySync: 'ABS主体联动' };
+const DICT_ALERT_RULE_TYPE_TAG = { grade: 'info', absCompanySync: 'warning' };

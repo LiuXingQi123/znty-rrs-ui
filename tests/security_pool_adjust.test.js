@@ -14,6 +14,7 @@ function harness(search = '', rows = []) {
         RrsWorkbench: { closeActiveTab: () => false }
     };
     const context = vm.createContext({ Vue: function(config) { options = config; }, window, URLSearchParams, moment() {} });
+    vm.runInContext('Vue.set = (object, key, value) => { object[key] = value; };', context);
     const html = fs.readFileSync(path.join(__dirname, '../pages/security_pool_adjust.html'), 'utf8');
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/security_master_diff.js'), 'utf8'), context);
     for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) {
@@ -25,6 +26,10 @@ function harness(search = '', rows = []) {
         $delete: (object, key) => { delete object[key]; }
     };
     Object.entries(options.methods).forEach(([name, method]) => { page[name] = method.bind(page); });
+    Object.entries(options.computed).forEach(([name, getter]) => {
+        Object.defineProperty(page, name, { get: getter.bind(page) });
+    });
+    page.$message = { warning() {}, error() {} };
     for (const name of ['refreshListTableLayout', 'applyDefaultInPoolExpansion', 'applyDefaultPoolCollapse',
         'loadLogAttachments', 'loadFlowSteps', 'applyLastCreditReportToPools']) page[name] = () => {};
     const requests = [];
@@ -40,6 +45,73 @@ function harness(search = '', rows = []) {
     };
     return { page, requests };
 }
+
+test('ABS 已占用 A 时默认恢复 A，并直接显示候选五字段', async () => {
+    const { page } = harness();
+    const requests = [];
+    page.apiPost = async (url, body) => {
+        requests.push({ url, body });
+        if (url.endsWith('/querySecurityDetail')) return {
+            windCode: 'ABS1', securityType: 'abs', absFlag: 1,
+            absIdentity: { issuerCode: 'A', issuer: '甲' }
+        };
+        if (url.endsWith('/queryRelatedRatingCompanyList')) return [
+            { companyCode: 'B', companyName: '乙', innerRating: '1', relationTypeCode: 115004000 },
+            { companyCode: 'A', companyName: '甲', innerRating: '2', relationTypeCode: 115201000,
+                ratingBondissuer: 'AA+', ratingBondissuerAgency: 'R1' }
+        ];
+        if (url.endsWith('/querySecurityPoolStatus')) return { securityCurrentPools: [], issuerCurrentPools: [] };
+        return [];
+    };
+    await page.loadDetailData('ABS1');
+    assert.equal(page.bondDetail.selectedRightsHolderCode, 'A');
+    assert.equal(page.bondDetail.issuerCode, 'A');
+    assert.equal(page.bondDetail.innerIssuerRating, '2');
+    assert.equal(page.bondDetail.ratingBondissuer, 'AA+');
+    assert.equal(page.bondDetail.ratingBondissuerAgency, 'R1');
+    assert.equal(requests.filter(request => request.url.endsWith('/queryRelatedRatingCompanyList')).length, 1);
+    assert.equal(requests.find(request => request.url.endsWith('/queryAdjustPoolList') && request.body.adjustDirection === 'in').body.rightsHolderCode, 'A');
+});
+
+test('ABS 主体冲突进入步骤二展示不可调整原因，不弹出接口异常', async () => {
+    const { page } = harness();
+    page.bondDetail = { windCode: 'ABS1', securityType: 'abs', selectedRightsHolderCode: 'B' };
+    page.selectedInPools = [{ id: 101, poolName: '测试池', poolType: 'other' }];
+    page.syncSelectedPoolsFromTables = () => {};
+    page.saveIssuerFinancialChanges = async () => {};
+    page.$message.error = message => assert.fail(message);
+    const reason = 'ABS[ABS1]已被在库或在途主体[A]占用，不能以主体[B]进入其他库';
+    page.apiPost = async url => {
+        assert.equal(url, '/api/v1/securityPoolAdjust/checkAdjust');
+        return { items: [{ securityCode: 'ABS1', targetPoolId: 101, poolName: '测试池',
+            adjustMode: '调入', itemTag: 'manual', canAdjust: false, failReasons: [reason], flowOptions: [] }], flowOptions: [] };
+    };
+    await page.goToStep2();
+    assert.equal(page.adjustStep, 2);
+    assert.equal(page.adjustReviewList[0].valid, false);
+    assert.equal(page.adjustReviewList[0].failReasons[0], reason);
+    assert.equal(page.adjustReviewList[0].selectedFlowKey, '');
+});
+
+test('ABS 在途自选 C 从身份数据恢复，主档仍可为空', async () => {
+    const { page } = harness();
+    let inbound;
+    page.apiPost = async (url, body) => {
+        if (url.endsWith('/querySecurityDetail')) return {
+            windCode: 'ABS1', securityType: 'abs', issuerCode: null,
+            absIdentity: { issuerCode: 'C', issuer: '丙', innerIssuerRating: '1', ratingBondissuer: 'AAA', ratingBondissuerAgency: 'R2' }
+        };
+        if (url.endsWith('/queryRelatedRatingCompanyList')) return [{ companyCode: 'A', companyName: '甲', innerRating: '2' }];
+        if (url.endsWith('/queryAdjustPoolList') && body.adjustDirection === 'in') inbound = body;
+        if (url.endsWith('/querySecurityPoolStatus')) return { securityCurrentPools: [], issuerCurrentPools: [] };
+        return [];
+    };
+    await page.loadDetailData('ABS1');
+    assert.equal(page.selectedSelfRightsHolder.companyCode, 'C');
+    assert.equal(page.bondDetail.issuerCode, 'C');
+    assert.equal(page.bondDetail.ratingBondissuerAgency, 'R2');
+    assert.equal(inbound.selfSelectedRightsHolderCode, 'C');
+});
 
 // 同券重进和换券都必须创建使用默认规则的新申请。
 for (const nextCode of ['BOND1', 'BOND2']) {

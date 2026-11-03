@@ -440,15 +440,17 @@
                     </el-table-column>
                     <el-table-column label="审批流程" min-width="175">
                         <template slot-scope="{ row }">
-                            <el-select v-if="row.valid && row.itemTag === 'manual'" v-model="row.selectedFlowKey" size="small" placeholder="请选择流程"
+                            <el-tooltip v-if="row.valid && row.itemTag === 'manual'" :content="flowDesc(selectedRowFlowOption(row))" :disabled="!flowDesc(selectedRowFlowOption(row))" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                                <el-select v-model="row.selectedFlowKey" size="small" placeholder="请选择流程"
                                        popper-class="batch-flow-select-dropdown"  @change="handleRowFlowChange(row)">
                                 <el-option v-for="option in row.flowOptions" :key="option.optionKey" :label="option.flowName" :value="option.optionKey" :disabled="!option.selectable">
-                                    <span class="batch-flow-option-name">{{ option.flowName }}</span>
+                                    <span class="batch-flow-option-name" :title="flowDesc(option)">{{ option.flowName }}</span>
                                     <span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">
                                         {{ flowTypeLabel(option.flowType) }}
                                     </span>
                                 </el-option>
                             </el-select>
+                            </el-tooltip>
                         </template>
                     </el-table-column>
                     <el-table-column label="调整说明" min-width="280">
@@ -586,7 +588,9 @@
                               class="flow-option-card flow-choice-card"
                               :class="{ 'is-selected': row.selectedFlowKey === option.optionKey, 'is-disabled': !option.selectable }">
                         <div class="flow-option-head">
-                            <span class="flow-option-name">{{ option.flowName }}</span>
+                            <el-tooltip :content="flowDesc(option)" :disabled="!flowDesc(option)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                                <span class="flow-option-name flow-name-tip">{{ option.flowName }}</span>
+                            </el-tooltip>
                             <el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag>
                             <el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag>
                             <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
@@ -881,6 +885,8 @@
         el: '#batch_crmw_pool_adjust',
         data() {
             return {
+                // 流程 ID → 流程描述，悬停展示用
+                flowDescMap: {},
                 moment: moment, // 日期处理工具
                 today: moment().format('YYYY年MM月DD日'), // 顶栏日期
                 pageMode: 'poolList',                    // 当前视图：poolList / adjustWorkbench
@@ -1083,6 +1089,7 @@
             }
         },
         mounted() {
+            this.loadFlowDescriptions();
             this.initPage()
             this.handleWindowResize = () => {
                 window.clearTimeout(this.resizeLayoutTimer)
@@ -1098,6 +1105,18 @@
             window.clearTimeout(this.resizeLayoutTimer)
         },
         methods: {
+
+            // 流程 ID 是主键，直接按 ID 建描述索引
+            loadFlowDescriptions() {
+                this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                    const map = {};
+                    (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                    this.flowDescMap = map;
+                }).catch(() => {});
+            },
+            flowDesc(flow) {
+                return this.flowDescMap[flow.flowId] || '';
+            },
 
             // 候选组合跨页勾选键：凭证代码 + 标的代码
             candidateRowKey(row) {
@@ -1361,6 +1380,16 @@
                         r.selectedRelatedCompanyCode = saved ? (saved.selectedRelatedCompanyCode || '') : (opts.length > 0 ? opts[0].code : '')
                         r.selectedSelfRightsHolder = saved ? (saved.selectedSelfRightsHolder || null) : null
                         r.selectedSelfSelectedRightsHolderCode = saved ? (saved.selectedSelfSelectedRightsHolderCode || '') : ''
+                        if (!saved && this.isAbsBond(r)) {
+                            const initial = this.resolveInitialAbsIdentity(r, opts);
+                            r.selectedRelatedCompanyCode = initial.ordinaryCode;
+                            r.selectedSelfRightsHolder = initial.selfSelected;
+                            r.selectedSelfSelectedRightsHolderCode = initial.selfSelected ? initial.selfSelected.companyCode : '';
+                        }
+                        if (this.isAbsBond(r)) {
+                            const ordinary = opts.find(option => option.code === r.selectedRelatedCompanyCode);
+                            this.applyAbsIdentitySelection(r, ordinary, r.selectedSelfRightsHolder);
+                        }
                     })
                     this.securityTableData = records
                     this.securityPagination.total = data.total || 0
@@ -1454,7 +1483,9 @@
                         name,
                         typeName,
                         label: typeName ? name + '（' + typeName + '）' : name,
-                        rating: item.totalScore || ''
+                        rating: item.totalScore || '',
+                        ratingBondissuer: item.ratingBondissuer,
+                        ratingBondissuerAgency: item.ratingBondissuerAgency
                     })
                     return result
                 }, {})
@@ -1472,6 +1503,57 @@
             },
 
             // 判断当前标的证券是否为 ABS
+            // 直接传递页面已查询的主体名称及评级，后端不重复查询候选
+            buildSelectedRatingCompany(detail, options, ordinaryCode, selfSelected) {
+                const ordinary = (options || []).find(option => option.code === ordinaryCode);
+                const selected = selfSelected || ordinary || {};
+                return {
+                    companyCode: selected.companyCode || selected.code || null,
+                    companyName: selected.companyName != null ? selected.companyName : (selected.name || null),
+                    innerRating: selected.innerRating != null ? selected.innerRating : (selected.rating == null ? null : selected.rating),
+                    ratingBondissuer: selected.ratingBondissuer == null ? null : selected.ratingBondissuer,
+                    ratingBondissuerAgency: selected.ratingBondissuerAgency == null ? null : selected.ratingBondissuerAgency,
+                    rightsHolderName: this.isAbsBond(detail) && ordinary ? ordinary.name : null,
+                    selfSelectedRightsHolderName: selfSelected ? selfSelected.companyName : null
+                };
+            },
+
+            buildAbsIdentityFields(candidate) {
+                const row = candidate || {};
+                return {
+                    issuer: row.companyName != null ? row.companyName : (row.name != null ? row.name : row.issuer),
+                    issuerCode: row.companyCode || row.code || row.issuerCode || '',
+                    ratingBondissuer: row.ratingBondissuer == null ? null : row.ratingBondissuer,
+                    ratingBondissuerAgency: row.ratingBondissuerAgency == null ? null : row.ratingBondissuerAgency,
+                    innerIssuerRating: row.innerRating != null ? row.innerRating
+                        : (row.rating != null ? row.rating : row.innerIssuerRating)
+                };
+            },
+            // 仅修改当前页面对象，主档由后端在审批通过时保存
+            applyAbsIdentitySelection(detail, ordinary, selfSelected) {
+                const fields = this.buildAbsIdentityFields(selfSelected || ordinary);
+                Object.keys(fields).forEach(key => this.$set(detail, key, fields[key] == null ? null : fields[key]));
+                return fields;
+            },
+            // 首次申请按候选顺序选择，成功入库后永久恢复同一主体，未成功的在途按快照恢复
+            resolveInitialAbsIdentity(detail, options) {
+                const identity = detail && detail.absIdentity;
+                const code = identity ? identity.issuerCode : '';
+                const selected = options.find(option => option.code === code);
+                if (identity && !selected) {
+                    return {
+                        ordinaryCode: options.length ? options[0].code : '',
+                        selfSelected: {
+                            companyCode: identity.issuerCode,
+                            companyName: identity.issuer,
+                            innerRating: identity.innerIssuerRating,
+                            ratingBondissuer: identity.ratingBondissuer,
+                            ratingBondissuerAgency: identity.ratingBondissuerAgency
+                        }
+                    };
+                }
+                return { ordinaryCode: selected ? selected.code : (options.length ? options[0].code : ''), selfSelected: null };
+            },
             isAbsBond(row) {
                 if (!row) return false
                 const flag = String(row.absFlag === undefined || row.absFlag === null ? '' : row.absFlag).toLowerCase()
@@ -1605,6 +1687,7 @@
                             crmwScode: item.crmwScode || '',
                             crmwStype: item.crmwStype || 'crmw',
                             guarantorCode: this.isAbsBond(item) ? '' : (item.selectedRelatedCompanyCode || ''),
+                            selectedRatingCompany: this.buildSelectedRatingCompany(item, item.guarantorOptions, item.selectedRelatedCompanyCode, item.selectedSelfRightsHolder),
                             rightsHolderCode: this.isAbsBond(item) ? (item.selectedRelatedCompanyCode || '') : '',
                             selfSelectedRightsHolderCode: this.isAbsBond(item) ? (item.selectedSelfSelectedRightsHolderCode || '') : ''
                         }))
@@ -1765,6 +1848,7 @@
                             crmwName: item.crmwName || '',
                             crmwScode: item.crmwScode || '',
                             crmwStype: item.crmwStype || 'crmw',
+                            selectedRatingCompany: this.selectedRatingCompanySelectionFor(item.sourceSecurityCode || this.candidateRowKey(item)),
                             guarantorCode: this.selectedRatingCompanyCodesFor(item.sourceSecurityCode || this.candidateRowKey(item)).guarantorCode,
                             rightsHolderCode: this.selectedRatingCompanyCodesFor(item.sourceSecurityCode || this.candidateRowKey(item)).rightsHolderCode,
                             selfSelectedRightsHolderCode: this.selectedRatingCompanyCodesFor(item.sourceSecurityCode || this.candidateRowKey(item)).selfSelectedRightsHolderCode,
@@ -1796,6 +1880,12 @@
                 }
             },
 
+            // 从已选组合取回主体数据，后端校验和提交直接使用
+            selectedRatingCompanySelectionFor(combinationKey) {
+                const row = this.selectedSecurities.find(item => this.candidateRowKey(item) === combinationKey
+                    || item.securityCode === combinationKey);
+                return row ? this.buildSelectedRatingCompany(row, row.guarantorOptions, row.selectedRelatedCompanyCode, row.selectedSelfRightsHolder) : null;
+            },
             // 根据校验结果所属主组合取回步骤1选择的评级主体代码
             selectedRatingCompanyCodesFor(combinationKey) {
                 const selected = this.selectedSecurities.find(item => this.candidateRowKey(item) === combinationKey

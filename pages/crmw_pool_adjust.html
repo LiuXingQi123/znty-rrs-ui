@@ -496,12 +496,12 @@
                 </div>
                 <div v-show="issuerFinancialExpanded" class="issuer-financial-body">
                     <div v-if="adjustStep === 1" class="financial-toolbar">
-                        <el-radio-group v-model="issuerFinancialBondType" size="small" :disabled="financialBusy">
+                        <el-radio-group v-model="issuerFinancialBondType" size="small" :disabled="financialBusy || financialUnavailable">
                             <el-radio-button label="city">城投债</el-radio-button>
                             <el-radio-button label="industrial">产业债</el-radio-button>
                         </el-radio-group>
                         <el-button size="small" icon="el-icon-document" :loading="financialSaveLoading"
-                                   :disabled="financialBusy" @click="handleSaveFinancial">保存</el-button>
+                                   :disabled="financialBusy || financialUnavailable" @click="handleSaveFinancial">保存</el-button>
                     </div>
                     <el-table :data="currentIssuerFinancialIndicatorRows" border size="small"
                               class="issuer-financial-table">
@@ -513,7 +513,7 @@
                             <template slot="header" slot-scope="headerScope">
                                 <div v-if="adjustStep === 1" class="financial-column-period">
                                     <span class="financial-column-year">{{ String(column.reportDate).slice(0, 4) }}</span>
-                                    <el-select :value="String(column.reportDate)" size="small" :disabled="financialBusy"
+                                    <el-select :value="String(column.reportDate)" size="small" :disabled="financialBusy || financialUnavailable"
                                                @change="handleFinancialReportDateChange(index, $event)">
                                         <el-option v-for="option in financialReportOptions(column)" :key="option.value"
                                                    :label="option.label" :value="option.value"></el-option>
@@ -522,7 +522,7 @@
                                 <span :class="{ 'print-only-caption': adjustStep === 1 }">{{ issuerFinancialColumnLabel(column) }}</span>
                             </template>
                             <template slot-scope="{ row }">
-                                <el-input v-if="adjustStep === 1" type="number" size="small" step="any" class="financial-value-input" :disabled="financialBusy" :value="financialDisplayValue(row, column, index)" @input="updateFinancialValue(row, column, index, $event)"></el-input>
+                                <el-input v-if="adjustStep === 1" type="number" size="small" step="any" class="financial-value-input" :disabled="financialBusy || financialUnavailable" :value="financialDisplayValue(row, column, index)" @input="updateFinancialValue(row, column, index, $event)"></el-input>
                                 <span v-else class="financial-number">{{ financialDisplayValue(row, column) }}</span>
                             </template>
                         </el-table-column>
@@ -920,16 +920,20 @@
                         </el-table-column>
                         <el-table-column label="审批流程" min-width="175">
                             <template slot-scope="{ row }">
-                                <el-select v-if="row.valid && row.itemTag === 'manual'" v-model="row.selectedFlowKey" size="small" placeholder="请选择流程"
+                                <el-tooltip v-if="row.valid && row.itemTag === 'manual'" :content="flowDesc(selectedRowFlowOption(row))" :disabled="!flowDesc(selectedRowFlowOption(row))" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                                    <el-select v-model="row.selectedFlowKey" size="small" placeholder="请选择流程"
                                            popper-class="batch-flow-select-dropdown" @change="handleRowFlowChange(row)">
                                     <el-option v-for="option in row.flowOptions" :key="option.optionKey" :label="option.flowName" :value="option.optionKey" :disabled="!option.selectable">
-                                        <span class="batch-flow-option-name">{{ option.flowName }}</span>
+                                        <span class="batch-flow-option-name" :title="flowDesc(option)">{{ option.flowName }}</span>
                                         <span class="batch-flow-type-tag" :class="'is-' + flowTypeClass(option.flowType)">{{ flowTypeLabel(option.flowType) }}</span>
                                     </el-option>
                                 </el-select>
+                                </el-tooltip>
                                 <span v-else-if="row.flowName" style="display:inline-flex;align-items:center;gap:6px;">
                                     <el-tag v-if="row.flowType" size="mini" :type="flowTypeTagType(row.flowType)">{{ flowTypeLabel(row.flowType) }}</el-tag>
-                                    <span>{{ row.flowName }}</span>
+                                    <el-tooltip :content="flowDesc(row)" :disabled="!flowDesc(row)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                                        <span class="flow-name-tip">{{ row.flowName }}</span>
+                                    </el-tooltip>
                                 </span>
                                 <span v-else></span>
                             </template>
@@ -1123,7 +1127,9 @@
                                   class="flow-option-card flow-choice-card"
                                   :class="{ 'is-selected': row.selectedFlowKey === option.optionKey, 'is-disabled': !option.selectable }">
                             <div class="flow-option-head">
-                                <span class="flow-option-name">{{ option.flowName }}</span>
+                                <el-tooltip :content="flowDesc(option)" :disabled="!flowDesc(option)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                                    <span class="flow-option-name flow-name-tip">{{ option.flowName }}</span>
+                                </el-tooltip>
                                 <el-tag size="mini" :type="getFlowOptionTagType(option)">{{ flowTypeLabel(option.flowType) }}</el-tag>
                                 <el-tag v-if="option.recommended" size="mini" type="success">推荐</el-tag>
                                 <el-tag v-if="!option.selectable" size="mini" type="info">不可选</el-tag>
@@ -1478,8 +1484,7 @@
             }
         },
         watch: {
-            // 证券编码变化后重新加载财务数据
-            issuerFinancialSecurityCode: {
+            financialIssuerKey: {
                 immediate: true,
                 handler() {
                     this.loadIssuerFinancialData();
@@ -1491,17 +1496,19 @@
             // 按证券编码加载发行主体财务数据，忽略过期请求结果
             async loadIssuerFinancialData() {
                 const securityCode = String(this.issuerFinancialSecurityCode || '').trim();
-                const requestSeq = ++this.issuerFinancialRequestSeq;
-                this.issuerFinancialList = [];
-                this.issuerFinancialLoadError = '';
-                if (!securityCode) return;
+                this.clearSelectedFinancialData();
+                const requestSeq = this.issuerFinancialRequestSeq;
+                const issuerKey = this.financialIssuerKey;
+                this._financialRequestIssuerKey = issuerKey;
+                const selection = this.financialSelection();
+                if (!securityCode || this.financialUnavailable) return;
                 this.issuerFinancialLoading = true;
                 try {
                     const records = await this.apiPost(
                         '/api/v1/securityPoolAdjust/queryIssuerFinancialList',
-                        { securityCode }
+                        { securityCode, ...selection }
                     );
-                    if (requestSeq !== this.issuerFinancialRequestSeq) return;
+                    if (requestSeq !== this.issuerFinancialRequestSeq || issuerKey !== this.financialIssuerKey) return;
                     this.issuerFinancialList = Array.isArray(records) ? records : [];
                 } catch (error) {
                     if (requestSeq !== this.issuerFinancialRequestSeq) return;
@@ -1542,7 +1549,8 @@
         computed: {
             // 四期日期和顺序由后端统一返回，列头切换只改变本列报告类型
             financialColumns() {
-                return this.financialColumnDates.map(reportDate => ({ reportDate }));
+                return this.financialUnavailable ? Array.from({ length: 4 }, () => ({ reportDate: '' }))
+                    : this.financialColumnDates.map(reportDate => ({ reportDate }));
             },
             // 查询、保存或下一步期间锁定财报控件，保证提交内容一致
             financialBusy() {
@@ -1586,7 +1594,7 @@
             },
             // 优先读取已查询/已编辑的报告；查询失败时保留原列日期
             async handleFinancialReportDateChange(index, reportDate) {
-                if (this.financialBusy) return;
+                if (this.financialBusy || this.financialUnavailable) return;
                 const date = String(reportDate);
                 if (Object.prototype.hasOwnProperty.call(this.financialEditData, date)) {
                     this.$set(this.financialColumnDates, index, date);
@@ -1598,7 +1606,7 @@
                 try {
                     const record = await this.apiPost(
                         '/api/v1/securityPoolAdjust/queryIssuerFinancialByReportDate',
-                        { securityCode, reportDate: Number(date) }
+                        { securityCode, reportDate: Number(date), ...this.financialSelection() }
                     );
                     if (seq !== this.financialQuerySeq || securityCode !== this.issuerFinancialSecurityCode) return;
                     this.initializeFinancialRecord(record || { reportDate: Number(date) });
@@ -1616,7 +1624,7 @@
             },
             // 所有四列均可编辑，同报告期共同指标在两类视图中保持一致
             updateFinancialValue(row, column, index, value) {
-                if (this.financialBusy) return;
+                if (this.financialBusy || this.financialUnavailable) return;
                 const date = String(column.reportDate);
                 const record = this.financialEditData[date];
                 if (!record) return;
@@ -1645,6 +1653,7 @@
             },
             // 手动保存与下一步复用，失败时保留原值和所有待保存修改
             async saveIssuerFinancialChanges(showMessage = false) {
+                if (this.financialUnavailable) return;
                 if (this.issuerFinancialLoading || this.financialReportLoading || this.financialSaveLoading) {
                     throw new Error('财务数据正在加载或保存，请稍后');
                 }
@@ -1659,7 +1668,7 @@
                 this.financialSaveLoading = true;
                 try {
                     const saved = await this.apiPost('/api/v1/securityPoolAdjust/saveIssuerFinancialList', {
-                        securityCode, records
+                        securityCode, records, ...this.financialSelection()
                     });
                     if (seq !== this.financialQuerySeq || securityCode !== this.issuerFinancialSecurityCode) {
                         throw new Error('当前证券已切换，请重新确认财务数据');
@@ -1691,6 +1700,8 @@
         el: '#crmw_pool_adjust',
         data() {
             return {
+                // 流程 ID → 流程描述，悬停展示用
+                flowDescMap: {},
                 moment: moment, // 日期处理工具
                 currentPage: 'list',          // 当前显示页：'list'=列表页 / 'detail'=详情页
                 crmwSearchForm: { securityCode: '', securityShortName: '', issuer: '' }, // CRMW列表搜索条件
@@ -1819,6 +1830,17 @@
             };
         },
         computed: {
+            // ABS 暂未选择主体时，财报仅留空白，不允许编辑或保存
+            financialUnavailable() {
+                return this.isAbsBond(this.bondDetail) && (!(this.selectedSelfRightsHolder && this.selectedSelfRightsHolder.companyCode) && !this.bondDetail.selectedGuarantorCode);
+            },
+            // 同一主体只查询一次，切换主体或证券才重新加载财报
+            financialIssuerKey() {
+                const selection = this.financialSelection();
+                const code = selection.selectedRatingCompany ? selection.selectedRatingCompany.companyCode : selection.issuerCode;
+                return (this.bondDetail.windCode || '') + '|' + (code || '');
+            },
+
             // 通过校验的数量
             validCount() {
                 return this.adjustReviewList.filter(r => r.valid).length;
@@ -1900,6 +1922,7 @@
         },
         // 页面初始化：带凭证/标的代码时选中并进入调库
         created() {
+            this.loadFlowDescriptions();
             this.applyUrlCrmwOrList();
         },
         mounted() {
@@ -1918,6 +1941,89 @@
             window.RrsPrintExport.unbind();
         },
         methods: {
+
+            // 流程 ID 是主键，直接按 ID 建描述索引
+            loadFlowDescriptions() {
+                this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                    const map = {};
+                    (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                    this.flowDescMap = map;
+                }).catch(() => {});
+            },
+            flowDesc(flow) {
+                return this.flowDescMap[flow.flowId] || '';
+            },
+            // 普通权益人和全市场自选权益人使用同一字段映射
+            buildAbsIdentityFields(candidate) {
+                const row = candidate || {};
+                return {
+                    issuer: row.companyName != null ? row.companyName : (row.name != null ? row.name : row.issuer),
+                    issuerCode: row.companyCode || row.code || row.issuerCode || '',
+                    ratingBondissuer: row.ratingBondissuer == null ? null : row.ratingBondissuer,
+                    ratingBondissuerAgency: row.ratingBondissuerAgency == null ? null : row.ratingBondissuerAgency,
+                    innerIssuerRating: row.innerRating != null ? row.innerRating
+                        : (row.rating != null ? row.rating : row.innerIssuerRating)
+                };
+            },
+            // 仅修改当前页面对象，主档由后端在审批通过时保存
+            applyAbsIdentitySelection(detail, ordinary, selfSelected) {
+                const fields = this.buildAbsIdentityFields(selfSelected || ordinary);
+                Object.keys(fields).forEach(key => this.$set(detail, key, fields[key] == null ? null : fields[key]));
+                return fields;
+            },
+            // 首次申请按候选顺序选择，成功入库后永久恢复同一主体，未成功的在途按快照恢复
+            resolveInitialAbsIdentity(detail, options) {
+                const identity = detail && (detail.absIdentity || (detail.issuerCode ? detail : null));
+                const code = identity ? identity.issuerCode : '';
+                const selected = options.find(option => option.code === code);
+                if (identity && !selected) {
+                    return {
+                        ordinaryCode: options.length ? options[0].code : '',
+                        selfSelected: {
+                            companyCode: identity.issuerCode,
+                            companyName: identity.issuer,
+                            innerRating: identity.innerIssuerRating,
+                            ratingBondissuer: identity.ratingBondissuer,
+                            ratingBondissuerAgency: identity.ratingBondissuerAgency
+                        }
+                    };
+                }
+                return { ordinaryCode: selected ? selected.code : (options.length ? options[0].code : ''), selfSelected: null };
+            },
+
+
+            // 财报直接使用当前选中的主体，空选择不会借用证券主档身份
+            financialSelection() {
+                return this.isAbsBond(this.bondDetail) ? {
+                    rightsHolderCode: this.bondDetail.selectedGuarantorCode || '',
+                    selfSelectedRightsHolderCode: this.selectedSelfRightsHolder ? this.selectedSelfRightsHolder.companyCode : '',
+                    selectedRatingCompany: this.buildSelectedRatingCompany(this.bondDetail, this.guarantorOptions, this.bondDetail.selectedGuarantorCode, this.selectedSelfRightsHolder)
+                } : { issuerCode: this.bondDetail.issuerCode || '' };
+            },
+            // 立即清空财报及编辑缓存，使旧主体的异步响应失效
+            clearSelectedFinancialData() {
+                this.issuerFinancialRequestSeq++;
+                this.issuerFinancialLoading = false;
+                this.issuerFinancialLoadError = '';
+                this.issuerFinancialList = [];
+                this.initializeFinancialEditData([]);
+            },
+
+            // 直接传递页面已查询的主体名称及评级，后端不重复查询候选
+            buildSelectedRatingCompany(detail, options, ordinaryCode, selfSelected) {
+                const ordinary = (options || []).find(option => option.code === ordinaryCode);
+                const selected = selfSelected || ordinary || {};
+                return {
+                    companyCode: selected.companyCode || selected.code || null,
+                    companyName: selected.companyName != null ? selected.companyName : (selected.name || null),
+                    innerRating: selected.innerRating != null ? selected.innerRating : (selected.rating == null ? null : selected.rating),
+                    ratingBondissuer: selected.ratingBondissuer == null ? null : selected.ratingBondissuer,
+                    ratingBondissuerAgency: selected.ratingBondissuerAgency == null ? null : selected.ratingBondissuerAgency,
+                    rightsHolderName: this.isAbsBond(detail) && ordinary ? ordinary.name : null,
+                    selfSelectedRightsHolderName: selfSelected ? selfSelected.companyName : null
+                };
+            },
+
             // 按市场完整展示同券代码，包含当前代码及只读关联代码。
             relatedMarketCodeText(detail, marketCode) {
                 if (!detail) return '';
@@ -2002,6 +2108,8 @@
                         typeName,
                         label: typeName ? name + '（' + typeName + '）' : name,
                         rating: item.totalScore || '',
+                        ratingBondissuer: item.ratingBondissuer,
+                        ratingBondissuerAgency: item.ratingBondissuerAgency,
                         sortOrder: index
                     };
                     return result;
@@ -2020,6 +2128,10 @@
             // 根据所选担保人联动回填只读的最新主体内评分
             handleGuarantorChange(guarantorCode) {
                 const selected = this.guarantorOptions.find(option => option.code === guarantorCode);
+                if (this.isAbsBond(this.bondDetail)) {
+                    if (this.financialIssuerKey !== this._financialRequestIssuerKey) this.clearSelectedFinancialData();
+                    this.applyAbsIdentitySelection(this.bondDetail, selected, this.selectedSelfRightsHolder);
+                }
                 if (!this.selectedSelfRightsHolder) this.$set(this.bondDetail, 'selectedGuarantorRating', selected ? selected.rating : '');
             },
             // 打开当前标的证券的自选权益人弹窗
@@ -2043,7 +2155,7 @@
             // 暂存自选权益人单选结果
             handleSelfRightsHolderCurrentChange(row) { this.pendingSelfRightsHolder = row; this.pendingSelfRightsHolderCode = row ? row.companyCode : '' },
             // 确认当前标的证券的自选权益人
-            confirmSelfRightsHolder() { if (!this.pendingSelfRightsHolder) return; this.selectedSelfRightsHolder = Object.assign({}, this.pendingSelfRightsHolder); this.$set(this.bondDetail, 'selectedGuarantorRating', this.selectedSelfRightsHolder.innerRating || ''); this.selfRightsHolderDialogVisible = false },
+            confirmSelfRightsHolder() { if (!this.pendingSelfRightsHolder) return; this.selectedSelfRightsHolder = Object.assign({}, this.pendingSelfRightsHolder); this.$set(this.bondDetail, 'selectedGuarantorRating', this.selectedSelfRightsHolder.innerRating || ''); this.handleGuarantorChange(this.bondDetail.selectedGuarantorCode); this.selfRightsHolderDialogVisible = false },
             // 清空当前标的证券的自选权益人
             clearSelfRightsHolder() { this.selectedSelfRightsHolder = null; this.handleGuarantorChange(this.bondDetail.selectedGuarantorCode) },
             // 调整类型对应的 el-tag type：手工 info / 联动 warning / 互斥 danger
@@ -2249,10 +2361,11 @@
                     this.guarantorGradeMap = guarantorGradeMap;
                     // 按接口顺序默认选中首个担保人
                     const guarantorOpts = this.guarantorOptions;
-                    this.selectedSelfRightsHolder = null;
-                    const selectedGuarantor = guarantorOpts.length > 0 ? guarantorOpts[0] : null;
-                    this.$set(this.bondDetail, 'selectedGuarantorCode', selectedGuarantor ? selectedGuarantor.code : '');
-                    this.$set(this.bondDetail, 'selectedGuarantorRating', selectedGuarantor ? selectedGuarantor.rating : '');
+                    const initial = this.isAbsBond(this.bondDetail) ? this.resolveInitialAbsIdentity(this.bondDetail, guarantorOpts) : null;
+                    this.selectedSelfRightsHolder = initial ? initial.selfSelected : null;
+                    const selectedCode = initial ? initial.ordinaryCode : (guarantorOpts.length ? guarantorOpts[0].code : '');
+                    this.$set(this.bondDetail, 'selectedGuarantorCode', selectedCode);
+                    this.handleGuarantorChange(selectedCode);
                     // 当前所在池
                     this.securityCurrentPools   = (poolStatus && poolStatus.securityCurrentPools)   || [];
                     this.issuerCurrentPools = (poolStatus && poolStatus.issuerCurrentPools) || [];
@@ -2994,6 +3107,8 @@
                         guarantorCode: this.isAbsBond(this.bondDetail) ? '' : (this.bondDetail.selectedGuarantorCode || ''),
                         rightsHolderCode: this.isAbsBond(this.bondDetail) ? (this.bondDetail.selectedGuarantorCode || '') : '',
                         selfSelectedRightsHolderCode: this.isAbsBond(this.bondDetail) && this.selectedSelfRightsHolder ? this.selectedSelfRightsHolder.companyCode : '',
+                        securityInfo: this.bondDetail,
+                        selectedRatingCompany: this.buildSelectedRatingCompany(this.bondDetail, this.guarantorOptions, this.bondDetail.selectedGuarantorCode, this.isAbsBond(this.bondDetail) ? this.selectedSelfRightsHolder : null),
                         items
                     };
                     const result = await this.apiPost('/api/v1/crmwPoolAdjust/checkCrmwAdjust', checkParams);
@@ -3105,6 +3220,7 @@
                     item.materialFileIndexes = this.collectSubmitFiles(item.materialFiles || [], submitFiles);
                 });
                 const securityInfo = {
+                    ...this.bondDetail,
                     fullName: this.bondDetail.fullName,
                     shortName: this.bondDetail.shortName,
                     windCode: this.bondDetail.windCode,
@@ -3142,6 +3258,7 @@
                     guarantorCode: this.isAbsBond(this.bondDetail) ? '' : (this.bondDetail.selectedGuarantorCode || ''),
                     rightsHolderCode: this.isAbsBond(this.bondDetail) ? (this.bondDetail.selectedGuarantorCode || '') : '',
                     selfSelectedRightsHolderCode: this.isAbsBond(this.bondDetail) && this.selectedSelfRightsHolder ? this.selectedSelfRightsHolder.companyCode : '',
+                    selectedRatingCompany: this.buildSelectedRatingCompany(this.bondDetail, this.guarantorOptions, this.bondDetail.selectedGuarantorCode, this.isAbsBond(this.bondDetail) ? this.selectedSelfRightsHolder : null),
                     adjustType: '手工调整',
                     adjustReason: this.adjustReason,
                     adjustAdvice: this.adjustAdvice,

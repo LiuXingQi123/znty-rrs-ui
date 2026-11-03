@@ -314,6 +314,7 @@
         <p>单笔提交透传基本信息已查询的 <code>relatedMarketCodes</code>，后端使用传入集合检查同池调入是否带齐主券和关联券，提交阶段不再查询同券关系；批量及 Excel 入口复用已有校验结果中的实际代码集合。逐券活动流程检查继续执行。</p>
         <p>关联项沿用原凭证、主项分组、流程和批次，仅手工项创建步骤，报告要求由同组手工项承担。提交 <code>items[]</code> 携带实际 <code>securityCode/securityShortName/securityType</code>，日志、快照和池状态均保留实际标的代码；直通即时生效，人工审批最终通过后同批生效。出池按原凭证、实际标的及目标池精确处理，保留其他凭证的组合。</p>
         <p>批量及 Excel 导入复用相同逻辑，同批多个同券主行展开的重复组合按凭证、标的、目标池、方向去重，显式手工项优先；Excel 关联项全称、市场和类型按自身主档展示。活动流程通过同批任一组合定位，关联码审批中不能重复申请同池组。</p>
+        <p>流程名称（校验结果下拉、选流程弹窗、审核/详情页审批流程列与「当前流程状态」标签）统一支持悬停查看流程描述：页面单独调用 <code>POST /api/v1/flows/queryFlowList</code> 读取 <code>wf_flow_definition.description</code>，按流程 ID（主键）直接取值；描述为空不弹气泡，接口异常静默降级不影响调库。</p>
         <p><code>queryCrmwAdjustLogList</code> 展示当前组合全部历史及同批关联项，不按请求批次或终态过滤，返回项增加实际标的代码和名称；校验表及审核、详情记录表展示这些字段。自动到期调出继续按实际在池组合逐条处理。本次不变更表结构或迁移历史数据。</p>
     </section>
 
@@ -353,6 +354,7 @@
     <section id="logic" class="panel"><h2>查询、校验与操作逻辑</h2>
         <p>“是否特征”支持“是否标准信用债”（<code>bondYesFlags</code> 选项 <code>stdCredit</code>），勾选仅筛选证券主档 <code>std_credit_flag=1</code>，多选按 AND；不勾选不限制。对应表格追加 <code>stdCreditFlag</code> 列，沿用 <code>isYesFlag</code> 先转布尔值：1 显示“是”Tag，其他值（含 NULL）显示“否”Tag；接口与其他标识一样返回原始数值。只使用上游原始标志，不根据其他特征或 <code>std_clause_flag</code> 推断；CRMW 使用标的证券字段。</p>
         <p class="sub">与证券池调库同构；对象=「CRMW 凭证 + 标的证券」组合，落地表独立。</p>
+        <p>CRMW 调库日志共用 <code>ip_adjust_log</code>，以 <code>pool_type=crmw</code> 区分；池状态和申请快照分别使用独立的 <code>ip_pool_status_crmw</code>、<code>ip_adjust_security_snapshot_crmw</code>。ABS 主体占用与回显按日志类型读取对应快照。</p>
         <p>同主体证券按标的证券的 <code>rrs_securityinfo.issuer_code</code> 关联，用于主体所在 CRMW 池汇总和近半年报告豁免；保留的简易流程最大剩余期限查询也采用该代码。批量调库和 Excel 导入复用相同口径，同名不同代码不关联，代码相同但名称不同仍关联；名称展示和筛选继续使用 <code>issuer</code>。</p>
         <div class="logic-grid">
             <article class="logic-card"><h3>查询与选择</h3>
@@ -541,6 +543,7 @@
             requirements；后续代码调整时应同步维护本页。
         </div>
     </section>
+<section><h2>ABS 主体一致性</h2><p>ABS 在所有有效在库和在途申请中只允许一个主体代码；人工申请审核通过或直通成功入库后永久固定主体代码，全部出清也不更换；主体联动自动入池只生成 audit_status=00 的待确认调库日志，暂不写入 ip_pool_status 和主档五字段，也不形成永久绑定；研究员确认主体后才转为 audit_status=20 并正式入池，成功确认后才固定身份。审核通过才保存主档五字段。任意池主体联动和退出提醒共用同一规则，见<a href="security-pool-adjust-flow-tables.html#abs-identity">ABS 跨池唯一主体与主体联动</a>。</p></section>
 </main>
 <footer class="wrap">ZNTY RRS · BUSINESS DOCUMENTATION</footer>
 
@@ -549,5 +552,10 @@
     <p>信评/基金/股票报告及其他材料：报告按来源与报告 ID 聚合为一个标题入口，点击在工作台新页签查看报告信息及全部附件；手工上传文件保留独立下载入口。同一报告有两个 PDF、另上传一个 PDF 时，表格显示一份报告和一个文件。审核修改节点移除报告时，删除本日志、本材料栏中该报告的全部关联。</p>
     <p>附件查询新增 sourceAttachmentId、sourceReportId、sourceReportSource、sourceReportTitle；最近报告自动回填携带完整附件。报告详情调用 POST /api/v1/reports/queryReportDetail，传 reportId 与 source（internal/external）。<a href="report-materials.html" style="color:#2743A4;">完整交互、字段与存量升级说明</a></p>
 </section>
+<section class="section">
+    <h2>已查询数据复用</h2>
+    <p>候选查询同时返回主体代码、名称、内评、认可机构最新外评及机构。选择后随校验、提交传递，后端直接取值；单券已加载的证券信息用于校验、提交和快照，财报保存后返回本次记录，不再逐期回查。在库、在途及同一 ABS 主体一致性仍按业务时点检查。</p>
+</section>
+<section class="section"><h2>未选择 ABS 主体时的财报</h2><p>权益人和自选权益人均为空时，立即清空财报及编辑缓存，不按证券代码或历史主体回查；旧主体的异步响应不能重新填回页面。四期数值保持空白，暂不可编辑或保存。清除自选后仍有普通权益人时，改用普通权益人的财报。清空选择不弹出主体名称错误，下一步再提示必须选择主体；成功入库后固定的主体代码不因页面清空或全部出库解除。</p></section>
 </body>
 </html>

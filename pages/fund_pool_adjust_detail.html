@@ -48,10 +48,10 @@
                     :files="attachmentsByLog(row.id, 'fund_material_')"
                     @download="downloadAttachment">
                 </rrs-report-materials>
-                </template></el-table-column><el-table-column prop="submitTime" label="提交时间" width="170" align="center"></el-table-column><el-table-column prop="flowName" label="审批流程" min-width="175" show-overflow-tooltip></el-table-column><el-table-column prop="auditStatus" label="审核状态" width="150" fixed="right" align="center" class-name="print-vertical-column" label-class-name="print-vertical-column"><template slot-scope="{ row }"><el-tag v-if="row.auditStatus" size="mini" :type="auditStatusType(row.auditStatus)">{{ auditStatusLabel(row.auditStatus) }}</el-tag></template></el-table-column></el-table></div>
+                </template></el-table-column><el-table-column prop="submitTime" label="提交时间" width="170" align="center"></el-table-column><el-table-column prop="flowName" label="审批流程" min-width="175"><template slot-scope="{ row }"><el-tooltip v-if="row.flowName" :content="flowDesc(row)" :disabled="!flowDesc(row)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip"><span class="flow-name-tip">{{ row.flowName }}</span></el-tooltip><span v-else></span></template></el-table-column><el-table-column prop="auditStatus" label="审核状态" width="150" fixed="right" align="center" class-name="print-vertical-column" label-class-name="print-vertical-column"><template slot-scope="{ row }"><el-tag v-if="row.auditStatus" size="mini" :type="auditStatusType(row.auditStatus)">{{ auditStatusLabel(row.auditStatus) }}</el-tag></template></el-table-column></el-table></div>
         </div>
         <div class="section-card section-reason-advice print-section"><div class="section-header" @click="toggleSection('reasonAdvice')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">原因和建议</div><i :class="sectionExpanded.reasonAdvice ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div><div v-show="sectionExpanded.reasonAdvice" class="reason-advice-body" style="padding:20px 22px;"><div class="reason-advice-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div><div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整原因</div><el-input :value="activeLog.adjustReason || ''" type="textarea" :rows="4" size="small" disabled></el-input></div><div><div style="font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;">调整建议</div><el-input :value="activeLog.adjustAdvice || ''" type="textarea" :rows="4" size="small" disabled></el-input></div></div></div></div>
-        <div class="section-card section-flow-status print-section"><div class="section-header" @click="toggleSection('flowStatus')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">当前流程状态</div><el-tag v-if="activeLog.flowName" size="mini" type="info">流程名称：{{ activeLog.flowName }}</el-tag><i :class="sectionExpanded.flowStatus ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div><div v-show="sectionExpanded.flowStatus" class="section-body"><div v-if="flowStepList.length === 0" style="color:var(--c-text-3);font-size:13px;padding:8px 0;">暂无流程步骤</div><el-table
+        <div class="section-card section-flow-status print-section"><div class="section-header" @click="toggleSection('flowStatus')" style="cursor:pointer;user-select:none;"><div class="section-dot"></div><div class="section-title">当前流程状态</div><el-tooltip v-if="activeLog.flowName" :content="flowDesc(activeLog)" :disabled="!flowDesc(activeLog)" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip"><el-tag size="mini" type="info">流程名称：{{ activeLog.flowName }}</el-tag></el-tooltip><i :class="sectionExpanded.flowStatus ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" style="margin-left:auto;font-size:13px;color:var(--c-text-3);"></i></div><div v-show="sectionExpanded.flowStatus" class="section-body"><div v-if="flowStepList.length === 0" style="color:var(--c-text-3);font-size:13px;padding:8px 0;">暂无流程步骤</div><el-table
                             v-else
                             class="flow-step-table"
                             :data="flowStepList"
@@ -102,6 +102,8 @@ new Vue({
     // 初始化页面数据和交互状态
     data() {
         return {
+            // 流程 ID → 流程描述，悬停展示用
+            flowDescMap: {},
             loading: false,  // 详情加载状态
             pageError: '',  // 详情加载错误信息
             fund: {},  // 基金基础信息
@@ -125,6 +127,7 @@ new Vue({
     },
     // 读取页面上下文并加载初始数据
     async created() {
+        this.loadFlowDescriptions();
         const params = new URLSearchParams(window.location.search);
         this.adjustLogId = params.get('adjustLogId');
         this.adjustBatchNo = params.get('adjustBatchNo') || '';
@@ -140,6 +143,18 @@ new Vue({
         window.RrsPrintExport.unbind();
     },
     methods: {
+
+        // 流程 ID 是主键，直接按 ID 建描述索引
+        loadFlowDescriptions() {
+            this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                const map = {};
+                (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                this.flowDescMap = map;
+            }).catch(() => {});
+        },
+        flowDesc(flow) {
+            return this.flowDescMap[flow.flowId] || '';
+        },
         // 切换详情区块的展开状态
         toggleSection(name) {
             this.$set(this.sectionExpanded, name, !this.sectionExpanded[name]);

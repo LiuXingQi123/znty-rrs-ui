@@ -263,12 +263,15 @@
                                 <el-row :gutter="20">
                                     <el-col v-for="item in flowFields" :key="item.key" :span="12">
                                         <el-form-item :label="item.label">
-                                            <el-select v-model="baseForm[item.key]" filterable class="full-width" placeholder="不需要审批" popper-class="flow-select-dropdown">
-                                                <el-option v-for="flow in flowOptions" :key="flow.optionKey" :label="flow.flowName" :value="flow.optionKey">
-                                                    <span style="float: left;">{{ flow.flowName }}</span>
-                                                    <span style="float: right; color: var(--text-muted); font-size: 12px; margin-left: 20px;">{{ flow.description }}</span>
-                                                </el-option>
-                                            </el-select>
+                                            <!-- 已选流程悬停展示流程定义里的描述 -->
+                                            <el-tooltip :content="flowDescOfSelected(baseForm[item.key])" :disabled="!flowDescOfSelected(baseForm[item.key])" placement="top" :open-delay="150" :append-to-body="true" popper-class="rrs-flow-tip">
+                                                <el-select v-model="baseForm[item.key]" filterable class="full-width" placeholder="不需要审批" popper-class="flow-select-dropdown">
+                                                    <el-option v-for="flow in flowOptions" :key="flow.optionKey" :label="flow.flowName" :value="flow.optionKey">
+                                                        <span style="float: left;">{{ flow.flowName }}</span>
+                                                        <span style="float: right; color: var(--text-muted); font-size: 12px; margin-left: 20px;">{{ flow.description }}</span>
+                                                    </el-option>
+                                                </el-select>
+                                            </el-tooltip>
                                         </el-form-item>
                                     </el-col>
                                 </el-row>
@@ -886,6 +889,8 @@
         el: '#investment_pool',
         data() {
             return {
+                // 流程 ID → 流程描述，悬停展示用
+                flowDescMap: {},
                 moment: moment, // 日期处理工具
                 today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
                 poolTree: [],           // 投资池树形结构数据
@@ -1325,6 +1330,7 @@
         },
         // 生命周期：组件创建时初始化关系表单、加载审批流程选项、投资池树及定时任务列表
         created() {
+            this.loadFlowDescriptions();
             // 初始化池关系表单
             this.initRelationForm()
             // 加载投资市场选项
@@ -1337,6 +1343,18 @@
             this.loadScheduledTasks()
         },
         methods: {
+
+            // 流程 ID 是主键，直接按 ID 建描述索引
+            loadFlowDescriptions() {
+                this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                    const map = {};
+                    (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                    this.flowDescMap = map;
+                }).catch(() => {});
+            },
+            flowDesc(flow) {
+                return this.flowDescMap[flow.flowId] || '';
+            },
             // 从共用接口读取投资市场，与后端同券关联范围保持一致
             async loadMarketOptions() {
                 try {
@@ -1746,6 +1764,11 @@
                 const item = this.flowOptions.find(f => f.optionKey === optionKey)
                 if (!item || !item.flowId) return null
                 return { flowId: item.flowId, flowKey: item.flowKey, flowName: item.flowName, description: item.description || '' }
+            },
+            // 已选流程的 optionKey → 描述，供审批流程字段悬停展示
+            flowDescOfSelected(optionKey) {
+                const item = (this.flowOptions || []).find(f => f.optionKey === optionKey)
+                return item ? (item.description || '') : ''
             },
             // 根据投资池类型 code 获取中文名称（详情/头部/子节点弹窗共用）
             getPoolTypeName(poolType) {
