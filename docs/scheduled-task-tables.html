@@ -558,7 +558,8 @@
                 <ul>
                     <li>每天 23:00 执行（Cron：<code>0 0 23 * * ?</code>）</li>
                     <li>参数：<code>{"poolIds":[15]}</code> 或 <code>{"poolIds":[10,15]}</code>；<code>poolIds</code> 可选，与投资池关系配置中绑定本任务的池取并集。</li>
-                    <li>扫描所列投资池中 audit_status=20 的债/股，主数据 <code>maturity_date</code> 按 <code>yyyyMMdd</code> 与数据库日期比较，早于昨天（T-2）则自动调出（不含主体/基金/CRMW）；当前在调出限制池则跳过；仅软删成功才写日志（自动调整、不走审批）。</li>
+                    <li>扫描所列投资池中 audit_status=20 的债/股，主数据 <code>maturity_date</code> 按 <code>yyyyMMdd</code> 与数据库日期比较，早于昨天（T-2）则自动调出（不含主体/基金/CRMW）；当前在调出限制池、已被其他处理提前出池或缺少证券编码时跳过，并在结果中说明未处理数量；仅软删成功才写日志（自动调整、不走审批）。</li>
+                    <li>执行结果按“扫描候选、实际出池、未处理”汇总，并按目标池列出数量；过程日志逐行说明未处理证券及原因，例如“证券【110001】：当前已不在目标池，本轮不处理”。</li>
                     <li>定时任务生成的调库日志只写调整原因，调整建议保持为空；人工调库及人工临时代码转正不受影响。调整原因展示实际判断信息，例如：<code>证券到期自动调出（到期日：2026-09-01；出池口径：到期日早于昨日）</code>。主体旗下债券任务同时展示发行主体与主体所在/未在池，关系池联动出池展示调入池与被调出池，临时代码替换定时任务展示临时代码与正式代码。</li>
                 </ul>
             </article>
@@ -578,6 +579,7 @@
                     <li>参数：<code>{"poolIds":[17],"limitPoolIds":[]}</code>；<code>poolIds</code> 可选，与关系配置绑定池取并集。省略或 <code>[]</code> 均不追加额外拦截。</li>
                     <li>已在17、近一年存在认可外评，且不在禁止库15、不在重点观察23、孰低外评不属于AA-及以下 → 同批调出主体和符合范围的未退市同池债。认可机构读取 <code>dict_external_rating_agency</code> 有效配置；近一年无认可外评不自动出池，未配置有效机构时阻断任务。主体命中调出限制池时跳过；旗下债命中时阻断主体联动并回滚本轮。</li>
                     <li>评级临界：<code>AA-</code>及以下不出池；<code>AA</code>及以上在其他条件均不命中时可出池；空评级/近一年无认可外评不出池。</li>
+                    <li>执行结果按扫描主体、实际出池主体、旗下债券出池和未处理主体汇总，并按目标池列出数量；过程日志逐行说明未处理主体或债券及原因。旗下债命中调出限制池仍按主体联动规则阻断并回滚本轮。</li>
                 </ul>
             </article>
             <article class="card">
@@ -587,6 +589,7 @@
                     <li>参数：<code>{"poolIds":[17]}</code>；<code>poolIds</code> 可选，与关系配置绑定池取并集。</li>
                     <li>尚未在目标池，且满足（一）当前在禁止库15、（二）近一年认可外评孰低为AA-及以下、（三）当前在重点观察23之一 → 自动入主体，并同批调入旗下未退市、未到期（含当天）的普通债、CRMW（<strong>已排除 ABS 债</strong>）。认可机构读取 <code>dict_external_rating_agency</code> 有效配置，未配置时阻断任务。主体已入池后若旗下债券受调入限制，则整批回滚；跟债不按目标池ID限制。</li>
                     <li>评级临界：<code>AA-</code>及以下因评级入池；<code>AA</code>及以上不因评级入池；空评级/近一年无认可外评不因评级入池，但命中禁止库15或重点观察23时仍按相应条件入池。</li>
+                    <li>执行结果按扫描主体、实际入池主体、旗下债券入池和未处理主体汇总，并按目标池列出数量；过程日志逐行说明未处理主体及原因。旗下债命中调入限制池仍按主体联动规则阻断并回滚本轮。</li>
                 </ul>
             </article>
             <article class="card">
@@ -596,6 +599,7 @@
                     <li>对应老系统 IP_RULE type=0「主体下债券自动入库」</li>
                     <li>参数：<code>{"poolIds":[15,16,17,23]}</code>（主体与债<strong>必须同一池</strong>，无 mappings）；Demo 为15、16、17、23，并自动扫描所有已有生效主体的普通池。</li>
                     <li>主体已在本池 → 旗下债未退市、未到期（含当天）且未在本池 → 同池自动入；<strong>排除 ABS</strong>，只处理有发行主体的普通债、CRMW。ABS 的进出池与待确认提醒统一由「主体下ABS债券自动入库」负责。扫描17时再次校验主体三个条件，均不满足则不补债。</li>
+                    <li>执行结果按扫描债券、实际入池和未处理汇总，并按目标池列出数量；过程日志逐行说明未处理债券及原因。</li>
                 </ul>
             </article>
             <article class="card">
@@ -603,8 +607,8 @@
                 <p>ABS 进出池的唯一入口：按池把「应在池」与「实际在池」求差集，替代原先散落在各主体联动任务里的 ABS 判断。</p>
                 <ul>
                     <li>每 10 分钟执行一次（Cron：<code>0 5/10 * * * ?</code>，第 5/15/25/35/45/55 分），与「在池主体旗下债券自动入池（已排除ABS债）」的 0/10/20 分错开 5 分钟</li>
-                    <li>参数：<code>{"enableIn":true,"enableOut":true,"minDaysToMaturity":0}</code>；可再加 <code>poolIds</code>、<code>mappings</code></li>
-                    <li>开关：<code>enableIn</code> 控制入池、<code>enableOut</code> 控制出池，省略时均开启，<strong>同时关闭则本轮失败</strong>；<code>minDaysToMaturity</code> 为距到期最小剩余天数，不足则不再补入池，<code>0</code> 表示到期当天仍可入（默认值，与改造前一致）</li>
+                    <li>参数：<code>{"enableIn":false,"enableOut":true,"minDaysToMaturity":0}</code>；可再加 <code>poolIds</code>、<code>mappings</code></li>
+                    <li>开关：<code>enableIn</code> 控制入池、<code>enableOut</code> 控制出池，省略时入池默认关闭、出池默认开启，<strong>同时关闭则本轮失败</strong>；<code>minDaysToMaturity</code> 为距到期最小剩余天数，不足则不再补入池，<code>0</code> 表示到期当天仍可入（默认值，与改造前一致）</li>
                     <li>扫描池：参数 <code>poolIds</code> ∪ 关系绑定池 ∪ 已有生效主体的普通池 ∪ 当前已有 ABS 在池的池；CRMW 组合池跳过</li>
                     <li><strong>已确认发行人</strong>（主档 <code>issuer_code</code> 有值）→ 直接跟随该主体在该池的进出自动入池、出池</li>
                     <li><strong>未确认发行人</strong> → 按担保人 / 差额支付承诺人 / 债务主体 / 原始权益人四类关系匹配池内主体，<strong>只生成规则提醒与待确认日志</strong>，不自动落池</li>
@@ -622,6 +626,7 @@
                     <li>同池：<code>{"poolIds":[15]}</code>；跨池：<code>{"mappings":[{"companyInPoolId":15,"bondTargetPoolId":100}]}</code>；关系配置绑定本任务的池按同池映射并入。</li>
                     <li>主体已在池 → 旗下债未退市、未到期（不含当天）、尚未在<strong>目标池</strong>则入；另排除 ABS、退市债与已更新临时代码，只处理普通债与 CRMW；不看限制池，也不按 <code>market_codes</code> 过滤。</li>
                     <li>ABS 不在本任务处理：其进出池与未确认主体的待确认提醒由「主体下ABS债券自动入库（区分已确认发行人和未确认发行人）」统一负责，本任务不再生成 ABS 提醒。</li>
+                    <li>执行结果按扫描债券、实际入池和未处理汇总，并按“主体所在池 → 债券写入池”列出数量；过程日志逐行说明未处理映射或债券及原因。</li>
                 </ul>
             </article>
             <article class="card">
