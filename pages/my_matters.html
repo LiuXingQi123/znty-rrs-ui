@@ -219,8 +219,12 @@
                             <el-button size="mini" @click="ignoreAbsAlert(row)">忽略入池</el-button>
                         </template>
                         <template v-else>
-                            <el-button class="matter-action" type="primary" size="mini" @click="openAlertAdjust(row)">去调库</el-button>
-                            <el-button v-if="row.alertStatus === '00'" size="mini" @click="handleAlertProcessed(row)">标记已处理</el-button>
+                            <el-tooltip content="仅打开证券池调库入口，不会自动更新提醒状态" placement="top" :open-delay="150" :append-to-body="true">
+                                <el-button class="matter-action" type="primary" size="mini" @click="openAlertAdjust(row)">去调库</el-button>
+                            </el-tooltip>
+                            <el-tooltip v-if="row.alertStatus === '00'" content="只更新本条提醒状态，不会自动修改投资池" placement="top" :open-delay="150" :append-to-body="true">
+                                <el-button size="mini" @click="handleAlertProcessed(row)">标记已处理</el-button>
+                            </el-tooltip>
                         </template>
                     </template>
                 </el-table-column>
@@ -1078,22 +1082,9 @@ new Vue({
             }
         },
 
-        // 从提醒进入证券池调库，先把待处理提醒关闭，避免下一轮扫描再次提醒
-        async openAlertAdjust(row) {
+        // 从提醒进入证券池调库，只提供调库入口，不改变提醒状态
+        openAlertAdjust(row) {
             if (this.businessDomain !== 'bond') return;
-            if (row.alertStatus === '00' && !this.isAbsAlert(row)) {
-                try {
-                    await this.apiPost('/api/v1/gradeRuleAlert/editAlertProcessed', {
-                        id: row.id,
-                        currentUserId: this.currentUserId,
-                        currentUserName: this.currentUserName,
-                    });
-                } catch (e) {
-                    this.$message.error((e && e.message) || '标记已处理失败，请刷新后重试');
-                    return;
-                }
-                this.loadAlertList();
-            }
             const code = row.securityCode || '';
             const name = row.securityShortName || code;
             const params = new URLSearchParams();
