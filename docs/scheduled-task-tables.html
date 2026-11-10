@@ -817,6 +817,19 @@ TempSecurityCodeService.editWindCodeChangeByJob(change)
         </div>
     </section>
     <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p>
+<section class="panel" id="crmw-forbidden-auto-out"><h2>CRMW关联禁投自动出库</h2>
+<p>任务编码 <code>crmw_forbidden_auto_out</code>，Cron <code>0 7/10 * * * ?</code>，每小时第7、17、27、37、47、57分执行，Demo默认关闭，扩展参数留空。</p>
+<ol>
+<li>标的债券：A 公司发行的债券，是接受信用保护的对象</li>
+<li>CRMW 凭证：由 B 机构创设／提供信用保护，与标的债券形成在库组合</li>
+<li>标的债券、A 公司、CRMW 凭证、B 机构任一已在有效禁止库，就清退对应在库组合；主体分别取各自主档的发行主体代码</li>
+<li>只生成系统自动CRMW出库记录，不重复进入禁止库，不连带禁投另一端，不自动恢复旧组合；观察、重点观察、黑名单质押库和低内评不单独触发本任务</li>
+<li>组合通常一千多条、最多不到一万条，一次读取全部有效组合，不分页不排序，批量读取证券与主体依据，按原状态主键精确退出；同组合多原因合并，同一凭证或标的关联多个组合时分别处理</li>
+<li>每个组合独立事务，单条状态和日志同时提交；该条失败只回滚自己、记录错误并继续，不影响其他正常组合。主档或双方唯一主体代码缺失也只记录该条错误，不推断未确认ABS权益人。任务结果汇总成功和失败数量，只有公共查询异常才返回任务级失败</li>
+<li>扫描和出库均在任务Service内：入口不加整体事务，执行时通过ObjectProvider取得任务的Spring代理，逐条调用本类公开方法，由 <code>@Transactional(rollbackFor = Exception.class)</code> 管理该组合的出库和日志；避免this自调用绕过事务，无需开启循环依赖，也不依赖CRMW调整Service。单条失败回滚后，继续处理下一条</li>
+<li>禁投硬清退不执行人工锁定、冻结期、开放日、调出限制或到期日校验。当前不修改CRMW调入及最终审批校验，在两次任务之间可能仍入库，下一轮再清退</li>
+<li>部署后在定时任务管理新增配置，先手动执行核对再启用；不为增加任务重置现有业务数据。不同任务无编排，Cron错开不保证前序完成，需按实际耗时留间隔</li>
+</ol></section>
 <section class="panel"><h2>CRMW规则提醒</h2><p>债券业务新增独立“CRMW规则提醒”Tab；任务crmw_rule_alert每天09:13、默认关闭。独立CrmwRuleAlertTaskService通过execute()包装计时、日志、异常和结果，私有doScanCrmwRuleAlerts()负责扫描；任务Mapper与提醒页面Mapper分开。按凭证创设方最新内评低于3档或观察/重点观察状态生成独立待办，只提醒不改池，所有变更保存审计。<a href="crmw-rule-alert-tables.html">规则、接口、表结构及启用说明</a></p></section>
 </main>
 </body>

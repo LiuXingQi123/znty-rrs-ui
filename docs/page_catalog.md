@@ -254,3 +254,8 @@
 
 - 业务入口：`pages/my_matters.html?tab=crmwRuleAlert`，复用 `css/my_matters.css`，无新增业务页和CSS。
 - 业务文档：`docs/crmw-rule-alert-tables.html`，样式内联且限定 `#crmw_rule_alert_doc`；已登记文档菜单和总览。
+
+## CRMW关联禁投自动出库
+
+- 复用 `pages/scheduled_task.html`，无需新增业务页和CSS；任务编码 `crmw_forbidden_auto_out`。
+- 角色、四端禁投清退、调度与启用说明见 `docs/scheduled-task-tables.html#crmw-forbidden-auto-out`。
