@@ -876,7 +876,7 @@
                         <tr><td>1</td><td>是否放开规则</td><td>选择“是”时，跳过本表的信用债准入过滤；<strong>权限、池类型、债券品种及前端已在池过滤仍然执行</strong>。</td></tr>
                         <tr><td>2</td><td>是否具备过滤数据</td><td>未传证券代码、当前候选中没有信用债池，或查不到证券主数据时，结束这一步过滤，保留当前列表。</td></tr>
                         <tr><td>3</td><td>是否属于排除品种</td><td><strong>可转债、可交换债、可分离转债、CRMW</strong>不适用信用债1～5级，移除整棵信用债池树。</td></tr>
-                        <tr><td>4</td><td>是否在重点观察名单</td><td>证券或主体任一命中时：未在分级库不得新增；已在1～4级先复核五级库是否满足完整入库规则，满足时只能去五级或出库，否则只能出库；已在五级不可上调。非ABS强担保债（担保人内评1档）可豁免，且调入校验只跳过池间<code>in_restrict</code>中的重点观察名单限制；ABS权益人内评不享受该豁免。</td></tr>
+                        <tr><td>4</td><td>是否在重点观察名单</td><td>证券或主体任一命中时：未在分级库不得新增；已在1～4级先复核五级库是否满足完整入库规则，满足时只能去五级或出库，否则只能出库；已在五级不可上调。强担保开关开启时，非ABS强担保债（担保人内评1档）可豁免，且调入校验只跳过池间<code>in_restrict</code>中的重点观察名单限制；ABS权益人内评不享受该豁免。</td></tr>
                         <tr><td>5</td><td>确定查矩阵的内评</td><td>非ABS普通债用<strong>发债主体内评</strong>；非ABS担保债取主体与所选担保人内评较优值；ABS用<strong>自选权益人优先、否则普通权益人</strong>的内评。非ABS临时代码缺内评时默认4档，ABS不按此兜底；最终无可用内评则移除信用债树。</td></tr>
                         <tr><td>6</td><td>确定期限档</td><td>普通债按证券期限文本换算成年；含权债按现有回售／赎回口径取更短期限。<strong>期限无法解析时按最长档继续匹配</strong>；没有可匹配期限档时，信用债1～5级不保留。</td></tr>
                         <tr><td>7</td><td>查询标准矩阵</td><td>按“<strong>内评分档×期限档</strong>”查询允许池，确定标准最佳层级；矩阵未配置允许池时，信用债1～5级不保留。</td></tr>
@@ -906,6 +906,7 @@
                     </tbody>
                 </table>
             </div>
+            <p><strong>强担保豁免开关：</strong>统一使用 <code>common/constants/BusinessSwitches.java</code> 中的代码常量 <code>BusinessSwitches.STRONG_GUARANTEE_ENABLED</code>，当前为 <code>false</code>。改为 <code>true</code> 可恢复豁免，修改后需重新编译并重启服务生效。关闭时，非 ABS 担保人内评 1 档也执行重点观察名单限制；开启时恢复原有重点观察名单准入及池间 <code>in_restrict</code> 豁免。普通担保债评级矩阵不变，ABS、禁止池及其他限制池不享受该豁免。 单笔、批量、导入校验、审批改判、简易流程匹配和定时提醒共用此开关。</p>
             <p class="section-subtitle">“下调一级”指标准矩阵最佳层级数字加一；“至少下调一级”允许从下调后的层级一直到五级，计算结果不超过五级。上述层级规则仍需同时满足重点观察名单限制。</p>
             <p class="section-subtitle"><strong>可调出库的区别：</strong>共用权限、池类型和债券品种筛选，跳过信用债调入矩阵；前端仅保留证券当前已在的池及对应父节点。</p>
             <p class="section-subtitle"><strong>选池可见只是候选：</strong>点击“下一步”还会检查锁池、容量、开放日、到期及池间限制等条件；信用债准入过滤也不等于已满足简易入库资格。</p>
@@ -983,7 +984,7 @@
                         <li>当前列表里没有任何 <code>pool_type=credit_bond</code> 的池：结束。</li>
                         <li>按证券代码查不到证券主数据：结束（列表原样返回）。</li>
                         <li>证券类型是<strong>可转债 / 可交换债 / 可分离转债 / CRMW</strong>：整棵信用债树不显示（结束）。</li>
-                        <li><strong>重点观察名单</strong>（券或主体在 <code>restricted</code>）：非 ABS 强担保债（有担保且担保人内评 1 档）可豁免；调入校验也只豁免池间 <code>in_restrict</code> 中的 <code>pool_type=restricted</code>，禁止池及其他限制池仍拦截；ABS 权益人内评不属于强担保，不豁免。未在信用债 1～5 级则整棵信用债树不显示；已在 1～4 级只留五级；已在五级不可上调。</li>
+                        <li><strong>重点观察名单</strong>（券或主体在 <code>restricted</code>）：强担保开关开启时，非 ABS 强担保债（有担保且担保人内评 1 档）可豁免；调入校验也只豁免池间 <code>in_restrict</code> 中的 <code>pool_type=restricted</code>，禁止池及其他限制池仍拦截；ABS 权益人内评不属于强担保，不豁免。未在信用债 1～5 级则整棵信用债树不显示；已在 1～4 级只留五级；已在五级不可上调。</li>
                         <li>取<strong>查矩阵用的内评档</strong>：非 ABS 非担保债只用发债主体内评；非 ABS 担保债取发债主体与所选担保人内评较优值；ABS 直接用自选权益人（优先）或普通权益人内评，不与债务主体或担保人孰高。ABS 最终权益人无内评时提示“所选权益人无内评分”，不以债务主体兜底。</li>
                         <li>匹配期限档：普通债及<strong>含权债</strong>赎回侧解析 <code>date_exists_str</code>（兼容“月/个月”“天/日”；年原值保留、月÷12、日÷365），不再用 <code>date_exists</code> 总天数÷365；含权债回售侧按 <code>date_inright_exists</code>/<code>date_repurchase_exists</code>（年），两侧都有取更短；<code>date_call_exists</code> 仅展示/落库，不参与匹配。期限文本无法解析时默认最长档（期限>5 / <code>GT_5</code>）。无可用期限档、年数落不进任何档、或矩阵未配置允许池：后面信用债 1～5 级全部不显示（档位规则也算不出起始档）。</li>
                         <li>用第 6 步内评档 × 第 7 步期限档查矩阵，得到允许的信用债级别，并算出标准最好档。</li>
@@ -1065,7 +1066,7 @@
                 <article class="rule-panel">
                     <h3>调入校验（通用 + 类型特有）</h3>
                     <ol>
-                        <li><strong>通用</strong>（顺序与 <code>checkCommonIn</code> 一致）：池锁定 → 品种 → 市场 → 进行中流程（pending）→ 是否已在目标池 → 容量 → 来源池 → 调入限制池（<code>in_restrict</code>；非ABS强担保仅跳过其中 <code>pool_type=restricted</code> 的重点观察名单）→ 本次是否同时调入互斥池 → 弹性禁投池（<code>in_soft_restrict</code>，警告不阻断）→ 全局禁止池（禁投池，<code>forbidden</code>，强担保不豁免）→ 行业限制（已注释）→ 开放日。</li>
+                        <li><strong>通用</strong>（顺序与 <code>checkCommonIn</code> 一致）：池锁定 → 品种 → 市场 → 进行中流程（pending）→ 是否已在目标池 → 容量 → 来源池 → 调入限制池（<code>in_restrict</code>；强担保开关开启时，非ABS强担保仅跳过其中 <code>pool_type=restricted</code> 的重点观察名单）→ 本次是否同时调入互斥池 → 弹性禁投池（<code>in_soft_restrict</code>，警告不阻断）→ 全局禁止池（禁投池，<code>forbidden</code>，强担保不豁免）→ 行业限制（已注释）→ 开放日。</li>
                         <li><strong>债券</strong>（顺序与 <code>checkBondIn</code> 一致）：到期校验 → 主体内评×期限矩阵，口径与上方第 4 节同一套。</li>
                         <li><strong>股票</strong>（顺序与 <code>checkStockIn</code> 一致）：退市校验 → 股票入池评级限制（入口保留，当前空实现不拦截，未接 investrank）。</li>
                         <li><strong>基金</strong>（顺序与 <code>checkFundIn</code> 一致）：基金评分（仅 check 阶段按请求 fundRate 校验；正式提交不携带 fundRate、不再次校验）。</li>
@@ -1157,6 +1158,7 @@
                     </tbody>
                 </table>
             </div>
+            <p><strong>强担保豁免开关：</strong>统一使用 <code>common/constants/BusinessSwitches.java</code> 中的代码常量 <code>BusinessSwitches.STRONG_GUARANTEE_ENABLED</code>，当前为 <code>false</code>。改为 <code>true</code> 可恢复豁免，修改后需重新编译并重启服务生效。关闭时，非 ABS 担保人内评 1 档也执行重点观察名单限制；开启时恢复原有重点观察名单准入及池间 <code>in_restrict</code> 豁免。普通担保债评级矩阵不变，ABS、禁止池及其他限制池不享受该豁免。 单笔、批量、导入校验、审批改判、简易流程匹配和定时提醒共用此开关。</p>
             <p class="section-subtitle">“下调一级”指层级数字加一，例如一级变二级；附加要求使用发债主体内评，多个债券标志同时存在时分别检查。“至少下调一级”仍须满足上表的唯一准入层级条件。</p>
             <details class="logic-details">
                 <summary>详细口径与实现说明</summary>
