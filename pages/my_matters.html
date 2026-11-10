@@ -42,7 +42,7 @@
             <div class="search-row">
                 <span class="search-label"><i class="el-icon-search"></i>筛选</span>
 
-                <template v-if="!isAlertTab">
+                <template v-if="!isAnyAlertTab">
                     <el-select v-model="searchForm.flowIds" placeholder="流程名称" clearable multiple collapse-tags size="small" style="width:220px;">
                         <el-option v-for="f in flowOptions" :key="f.flowId" :label="f.flowName" :value="f.flowId"></el-option>
                     </el-select>
@@ -79,7 +79,7 @@
                         <el-option v-for="a in auditStatusOptions" :key="a.value" :label="a.label" :value="a.value"></el-option>
                     </el-select>
                 </template>
-                <template v-else>
+                <template v-else-if="isAlertTab">
                     <el-input v-model.trim="alertSearchForm.securityCode" placeholder="证券代码" clearable size="small" style="width:180px;" @keyup.enter.native="handleSearch">
                         <i slot="prefix" class="el-input__icon el-icon-document"></i>
                     </el-input>
@@ -87,6 +87,16 @@
                         <el-option v-for="item in alertRuleTypeOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
                     </el-select>
                     <el-select v-model="alertSearchForm.alertStatus" placeholder="状态" clearable size="small" style="width:140px;">
+                        <el-option label="待处理" value="00"></el-option>
+                        <el-option label="已处理" value="20"></el-option>
+                        <el-option label="已失效" value="99"></el-option>
+                    </el-select>
+                </template>
+
+                <template v-if="isCrmwAlertTab">
+                    <el-input v-model.trim="crmwAlertSearchForm.crmwScode" placeholder="CRMW凭证代码" clearable size="small" style="width:180px;" @keyup.enter.native="handleSearch"></el-input>
+                    <el-input v-model.trim="crmwAlertSearchForm.securityCode" placeholder="标的证券代码" clearable size="small" style="width:180px;" @keyup.enter.native="handleSearch"></el-input>
+                    <el-select v-model="crmwAlertSearchForm.alertStatus" placeholder="状态" clearable size="small" style="width:140px;">
                         <el-option label="待处理" value="00"></el-option>
                         <el-option label="已处理" value="20"></el-option>
                         <el-option label="已失效" value="99"></el-option>
@@ -117,8 +127,11 @@
                 <el-tab-pane v-if="businessDomain === 'bond'" name="gradeRuleAlert">
                     <span slot="label">规则提醒 ({{ alertOpenCount }})</span>
                 </el-tab-pane>
+                <el-tab-pane v-if="businessDomain === 'bond'" name="crmwRuleAlert">
+                    <span slot="label">CRMW规则提醒 ({{ crmwAlertOpenCount }})</span>
+                </el-tab-pane>
             </el-tabs>
-            <el-table v-show="!isAlertTab" ref="mattersTableRef" :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无事宜">
+            <el-table v-show="!isAnyAlertTab" ref="mattersTableRef" :data="tableData" v-loading="loading" stripe border size="small" style="width:100%;" empty-text="暂无事宜">
                 <el-table-column label="序号" width="72" align="center">
                     <template slot-scope="{ $index }">
                         {{ (pagination.pageIndex - 1) * pagination.pageSize + $index + 1 }}
@@ -229,6 +242,36 @@
                     </template>
                 </el-table-column>
             </el-table>
+            <!-- CRMW独立提醒：按凭证、标的及当前池展示，不与主体债提醒混用 -->
+            <el-table v-show="isCrmwAlertTab" ref="crmwAlertTableRef" :data="crmwAlertTableData" v-loading="crmwAlertLoading" stripe border size="small" style="width:100%;" empty-text="暂无CRMW规则提醒">
+                <el-table-column label="序号" width="72" align="center">
+                    <template slot-scope="{ $index }">{{ (crmwAlertPagination.pageIndex - 1) * crmwAlertPagination.pageSize + $index + 1 }}</template>
+                </el-table-column>
+                <el-table-column prop="crmwScode" label="CRMW凭证代码" min-width="150" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="crmwName" label="CRMW凭证名称" min-width="160" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="securityCode" label="标的证券代码" min-width="140" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="securityShortName" label="标的证券简称" min-width="150" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="issuerCode" label="创设方/保护方代码" min-width="160" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="issuerName" label="创设方/保护方" min-width="180" show-overflow-tooltip></el-table-column>
+                <el-table-column label="主体内评" width="100" align="center">
+                    <template slot-scope="{ row }"><el-tag v-if="row.innerIssuerRating" size="mini">{{ row.innerIssuerRating }}</el-tag></template>
+                </el-table-column>
+                <el-table-column prop="currentPoolName" label="当前投资池" min-width="150" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="failReason" label="提醒原因" min-width="320" show-overflow-tooltip></el-table-column>
+                <el-table-column label="状态" width="90" align="center">
+                    <template slot-scope="{ row }"><el-tag v-if="row.alertStatus" size="mini" :type="alertStatusType(row.alertStatus)">{{ alertStatusLabel(row.alertStatus) }}</el-tag></template>
+                </el-table-column>
+                <el-table-column prop="lastScanTime" label="扫描时间" min-width="170" align="center"></el-table-column>
+                <el-table-column prop="dealUserName" label="处理人" min-width="110" show-overflow-tooltip></el-table-column>
+                <el-table-column prop="dealTime" label="处理时间" min-width="170" align="center"></el-table-column>
+                <el-table-column label="操作" width="270" fixed="right" align="center">
+                    <template slot-scope="{ row }">
+                        <el-button type="text" size="mini" @click="openCrmwAlertAdjust(row)">去CRMW调库</el-button>
+                        <el-button type="text" size="mini" @click="openCrmwAlertCompany(row)">主体禁投调整</el-button>
+                        <el-button v-if="row.alertStatus === '00'" type="text" size="mini" @click="handleCrmwAlertProcessed(row)">标记已处理</el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
             <el-dialog title="选择自选权益人" :visible.sync="absSelfDialogVisible" width="820px"
                        custom-class="self-rights-holder-dialog" top="8vh" :close-on-click-modal="false">
                 <div class="self-rights-holder-search">
@@ -288,7 +331,7 @@
             </el-dialog>
             <div class="pagination-wrap">
                 <el-pagination
-                    v-if="!isAlertTab"
+                    v-if="!isAnyAlertTab"
                     :total="pagination.total"
                     :current-page="pagination.pageIndex"
                     :page-size="pagination.pageSize"
@@ -299,7 +342,7 @@
                     @size-change="handleSizeChange">
                 </el-pagination>
                 <el-pagination
-                    v-else
+                    v-else-if="isAlertTab"
                     :total="alertPagination.total"
                     :current-page="alertPagination.pageIndex"
                     :page-size="alertPagination.pageSize"
@@ -308,6 +351,11 @@
                     small
                     @current-change="handleAlertPageChange"
                     @size-change="handleAlertSizeChange">
+                </el-pagination>
+                <el-pagination v-else :total="crmwAlertPagination.total" :current-page="crmwAlertPagination.pageIndex"
+                    :page-size="crmwAlertPagination.pageSize" :page-sizes="[10, 20, 50, 100]"
+                    layout="total, sizes, prev, pager, next, jumper" small
+                    @current-change="handleCrmwAlertPageChange" @size-change="handleCrmwAlertSizeChange">
                 </el-pagination>
             </div>
         </div>
@@ -328,6 +376,12 @@ new Vue({
             businessReady: false, // 业务入口初始化是否完成
             viewRevision: 0, // 业务、筛选、页签变化时递增，忽略旧响应
             listRequestId: 0, // 同视图并发列表查询序号
+            crmwAlertRequestId: 0, // CRMW独立提醒查询序号
+            crmwAlertSearchForm: { crmwScode: '', securityCode: '', alertStatus: '00' }, // CRMW筛选
+            crmwAlertPagination: { pageIndex: 1, pageSize: 20, total: 0 }, // CRMW分页
+            crmwAlertTableData: [], // CRMW提醒列表
+            crmwAlertLoading: false, // CRMW提醒加载状态
+            crmwAlertOpenCount: 0, // CRMW提醒角标
             alertRequestId: 0, // 提醒查询序号
             flowRequestId: 0, // 流程下拉查询序号
             matterRoutes: { // 各场景独立页面及定位参数
@@ -369,7 +423,7 @@ new Vue({
                 { value: '99', label: '发起人已撤回' },
             ],
             flowOptions: [],              // 流程名称下拉选项
-            activeTab: 'pending',         // 当前事宜页签：pending=待处理 / completed=已完成 / initiated=我发起的 / gradeRuleAlert=规则提醒
+            activeTab: 'pending',         // 当前事宜页签：pending=待处理 / completed=已完成 / initiated=我发起的 / gradeRuleAlert=规则提醒 / crmwRuleAlert=CRMW规则提醒
             tableData: [],                // 当前页审批事宜数据
             loading: false,               // 审批表格加载状态
             pagination: {             // 审批分页参数
@@ -416,8 +470,13 @@ new Vue({
         isAlertTab() {
             return this.activeTab === 'gradeRuleAlert';
         },
+        // 是否在CRMW独立提醒页签
+        isCrmwAlertTab() { return this.activeTab === 'crmwRuleAlert'; },
+        // 两类提醒共享筛选区位置，各自维护数据和请求
+        isAnyAlertTab() { return this.isAlertTab || this.isCrmwAlertTab; },
         // 右上角条数文案
         listTotalText() {
+            if (this.isCrmwAlertTab) return '共 ' + this.crmwAlertPagination.total + ' 条CRMW规则提醒';
             if (this.isAlertTab) {
                 return '共 ' + this.alertPagination.total + ' 条规则提醒';
             }
@@ -432,7 +491,7 @@ new Vue({
     mounted() {
         this.loadFlowDescriptions();
         const tab = new URLSearchParams(window.location.search).get('tab');
-        if (tab === 'gradeRuleAlert' || tab === 'initiated') {
+        if (tab === 'gradeRuleAlert' || tab === 'crmwRuleAlert' || tab === 'initiated') {
             this.activeTab = tab;
         }
         // 页面实例初始化时读取一次业务入口，再加载当前业务事项
@@ -564,7 +623,7 @@ new Vue({
                 this.businessDomains = domains;
                 this.businessDomain = domains.length ? domains[0].businessDomain : '';
                 this.resetBusinessView();
-                if (this.activeTab === 'gradeRuleAlert' && this.businessDomain !== 'bond') this.activeTab = 'pending';
+                if (this.isAnyAlertTab && this.businessDomain !== 'bond') this.activeTab = 'pending';
                 if (this.businessDomain) await Promise.all([this.loadFlowOptions(), this.loadAllTabsOnEnter()]);
             } catch (e) {
                 this.businessDomains = [];
@@ -586,6 +645,9 @@ new Vue({
         // 清空当前业务视图
         resetBusinessView() {
             this.viewRevision++;
+            this.crmwAlertSearchForm = { crmwScode: '', securityCode: '', alertStatus: '00' };
+            this.crmwAlertPagination = { pageIndex: 1, pageSize: 20, total: 0 };
+            this.crmwAlertTableData = []; this.crmwAlertOpenCount = 0; this.crmwAlertLoading = false;
             this.searchForm = { flowIds: [], securityCode: '', securityShortName: '', startDateRange: null, processDescription: '', auditStatus: '', initiatorName: '' };
             this.alertSearchForm = { securityCode: '', alertStatus: '00' };
             this.pagination = { pageIndex: 1, pageSize: 20, total: 0 };
@@ -635,6 +697,7 @@ new Vue({
 
         // 按当前页签加载审批或提醒
         reloadCurrentTab() {
+            if (this.isCrmwAlertTab) { this.loadCrmwAlertList(); return; }
             if (this.isAlertTab) {
                 this.loadAlertList();
             } else if (this.activeTab === 'initiated') {
@@ -652,7 +715,10 @@ new Vue({
                 if (this.activeTab === tab) tasks.push(tab === 'initiated' ? this.loadInitiatedList() : this.loadList());
                 else tasks.push(tab === 'initiated' ? this.queryInitiatedTabTotal() : this.queryMatterTabTotal(tab));
             }
-            if (this.businessDomain === 'bond') tasks.push(this.isAlertTab ? this.loadAlertList() : this.queryAlertTabTotal());
+            if (this.businessDomain === 'bond') {
+                tasks.push(this.isAlertTab ? this.loadAlertList() : this.queryAlertTabTotal());
+                tasks.push(this.loadCrmwAlertList(!this.isCrmwAlertTab));
+            }
             await Promise.all(tasks);
         },
 
@@ -786,9 +852,114 @@ new Vue({
             }
         },
 
+        // 查询CRMW提醒列表或角标，旧业务和旧页签响应不得覆盖当前列表
+        async loadCrmwAlertList(totalOnly = false) {
+            if (this.businessDomain !== 'bond') return;
+            const view = this.captureView();
+            const requestId = ++this.crmwAlertRequestId;
+            if (!totalOnly) this.crmwAlertLoading = true;
+            try {
+                // 1. 独立接口和分页，不复用主体债提醒的筛选条件
+                const data = await this.apiPost('/api/v1/crmwRuleAlert/queryAlertPage', {
+                    ...this.crmwAlertSearchForm, currentUserId: this.currentUserId,
+                    pageIndex: totalOnly ? 1 : this.crmwAlertPagination.pageIndex,
+                    pageSize: totalOnly ? 1 : this.crmwAlertPagination.pageSize,
+                });
+                if (!this.isCurrentView(view) || requestId !== this.crmwAlertRequestId) return;
+                // 2. 角标查询不改动列表，切换页签后不写入旧结果
+                this.crmwAlertOpenCount = Number(data.total || 0);
+                if (!totalOnly && this.isCrmwAlertTab) {
+                    this.crmwAlertTableData = data.records || [];
+                    this.crmwAlertPagination.total = Number(data.total || 0);
+                }
+            } catch (e) {
+                if (this.isCurrentView(view) && requestId === this.crmwAlertRequestId) {
+                    this.crmwAlertOpenCount = 0;
+                    if (!totalOnly) { this.crmwAlertTableData = []; this.crmwAlertPagination.total = 0; }
+                }
+            } finally {
+                // 3. 只结束本次视图的加载状态，并重算固定列布局
+                if (this.isCurrentView(view) && requestId === this.crmwAlertRequestId && !totalOnly) {
+                    this.crmwAlertLoading = false;
+                    this.refreshTableLayout('crmwAlertTableRef');
+                }
+            }
+        },
+
+        // CRMW提醒独立翻页
+        handleCrmwAlertPageChange(page) {
+            this.viewRevision++;
+            this.crmwAlertPagination.pageIndex = page;
+            this.loadCrmwAlertList();
+        },
+
+        // CRMW提醒切换每页条数
+        handleCrmwAlertSizeChange(size) {
+            this.viewRevision++;
+            this.crmwAlertPagination.pageSize = size;
+            this.crmwAlertPagination.pageIndex = 1;
+            this.loadCrmwAlertList();
+        },
+
+        // 按凭证和标的打开CRMW调库，不改变提醒状态
+        openCrmwAlertAdjust(row) {
+            if (this.businessDomain !== 'bond') return;
+            const params = new URLSearchParams({ crmwScode: row.crmwScode, securityCode: row.securityCode });
+            const opened = window.RrsWorkbench.openDetailTab({
+                index: window.RrsWorkbench.buildTabIndex('crmw-adjust', [row.crmwScode, row.securityCode]),
+                title: window.RrsWorkbench.formatDetailTitle(row.crmwName, row.crmwScode, '调库'),
+                page: 'crmw_pool_adjust.html', query: params.toString(),
+            });
+            if (opened) return;
+            params.set('loginUserId', this.currentUserId);
+            params.set('loginUserName', this.currentUserName);
+            window.location.href = 'crmw_pool_adjust.html?' + params.toString();
+        },
+
+        // 进入创设方或保护方的主体禁投调整，是否入禁止库仍由人工决定
+        openCrmwAlertCompany(row) {
+            if (this.businessDomain !== 'bond') return;
+            const params = new URLSearchParams({ companyCode: row.issuerCode });
+            const opened = window.RrsWorkbench.openDetailTab({
+                index: window.RrsWorkbench.buildTabIndex('forbidden-adjust', [row.issuerCode]),
+                title: window.RrsWorkbench.formatDetailTitle(row.issuerName, row.issuerCode, '禁投调整'),
+                page: 'forbidden_pool_adjust.html', query: params.toString(),
+            });
+            if (opened) return;
+            params.set('loginUserId', this.currentUserId);
+            params.set('loginUserName', this.currentUserName);
+            window.location.href = 'forbidden_pool_adjust.html?' + params.toString();
+        },
+
+        // 人工确认已处理，仅关闭本条CRMW提醒
+        async handleCrmwAlertProcessed(row) {
+            const view = this.captureView();
+            if (view.domain !== 'bond') return;
+            // 1. 说明操作只记录人工结论，不自动出库或修改主体池
+            try {
+                await this.$confirm('确认标记已处理？此操作只记录人工结论，不会自动出库或将主体纳入禁止库。', '提示', {
+                    type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消',
+                });
+            } catch (e) { return; }
+            if (!this.isCurrentView(view)) return;
+            // 2. 记录处理人，成功后刷新当前提醒
+            this.crmwAlertLoading = true;
+            try {
+                await this.apiPost('/api/v1/crmwRuleAlert/editAlertProcessed', {
+                    id: row.id, currentUserId: this.currentUserId, currentUserName: this.currentUserName,
+                });
+                this.$message.success('已标记处理');
+                if (this.isCurrentView(view)) await this.loadCrmwAlertList();
+            } finally {
+                // 3. 切换业务或页签后不修改新视图的加载状态
+                if (this.isCurrentView(view)) this.crmwAlertLoading = false;
+            }
+        },
+
         // 触发查询
         handleSearch() {
             this.viewRevision++;
+            if (this.isCrmwAlertTab) { this.crmwAlertPagination.pageIndex = 1; this.loadCrmwAlertList(); return; }
             if (this.isAlertTab) {
                 this.alertPagination.pageIndex = 1;
                 this.loadAlertList();
@@ -804,6 +975,7 @@ new Vue({
         // 切换事宜页签
         handleTabClick() {
             this.viewRevision++;
+            if (this.isCrmwAlertTab) { this.crmwAlertPagination.pageIndex = 1; this.loadCrmwAlertList(); return; }
             if (this.isAlertTab) {
                 this.alertPagination.pageIndex = 1;
                 this.loadAlertList();
@@ -819,6 +991,12 @@ new Vue({
         // 重置查询条件
         handleReset() {
             this.viewRevision++;
+            if (this.isCrmwAlertTab) {
+                this.crmwAlertSearchForm = { crmwScode: '', securityCode: '', alertStatus: '00' };
+                this.crmwAlertPagination.pageIndex = 1;
+                this.loadCrmwAlertList();
+                return;
+            }
             if (this.isAlertTab) {
                 this.alertSearchForm = {
                     securityCode: '',

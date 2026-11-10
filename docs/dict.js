@@ -862,3 +862,7 @@ const DICT_STOCK_RATING = { buy: '买入', overweight: '增持', neutral: '中�
 // 我的事宜规则提醒类型，历史空类型按 grade 展示
 const DICT_ALERT_RULE_TYPE = { grade: '分级规则', absCompanySync: 'ABS主体联动' };
 const DICT_ALERT_RULE_TYPE_TAG = { grade: 'info', absCompanySync: 'warning' };
+
+// 两类规则提醒共用的状态，CRMW使用独立页签和独立表，不加入主体债规则类型
+const DICT_RULE_ALERT_STATUS = { "00": "待处理", "20": "已处理", "99": "已失效" };
+const DICT_RULE_ALERT_STATUS_TAG = { "00": "warning", "20": "success", "99": "info" };

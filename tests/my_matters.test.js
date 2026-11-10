@@ -19,6 +19,8 @@ function harness() {
     }
     const page = { ...options.data(), $message: { error() {}, success() {} }, $refs: {}, $nextTick: f => f(), $set(row, key, value) { row[key] = value; } };
     Object.entries(options.methods).forEach(([key, method]) => { page[key] = method.bind(page); });
+    // 事项测试只控制事项与提醒请求，流程描述预载由公共流程功能负责
+    page.loadFlowDescriptions = async () => {};
     Object.entries(options.computed).forEach(([key, getter]) => { Object.defineProperty(page, key, { get: () => getter.call(page) }); });
     page.businessDomain = 'bond';
     const pending = [];
@@ -208,7 +210,7 @@ test('初始化一次入口，返回、切换、查询和翻页只刷新业务�
     const returned = requests.slice(returnedAt);
     assert.ok(returned.some(item => item.url.endsWith('/queryFlowOptionList')));
     assert.ok(returned.some(item => item.body.pageSize === 1));
-    assert.ok(returned.every(item => item.url.includes('/gradeRuleAlert/') || item.body.businessDomain === 'bond'));
+    assert.ok(returned.every(item => item.url.includes('/gradeRuleAlert/') || item.url.includes('/crmwRuleAlert/') || item.body.businessDomain === 'bond'));
     page.businessDomain = 'fund'; await page.handleBusinessChange();
     page.handleSearch(); page.activeTab = 'completed'; page.handleTabClick(); page.handleReset(); page.handlePageChange(2); page.handleSizeChange(10);
     await Promise.resolve();
@@ -332,6 +334,98 @@ test('事项和提醒页面显式提供当前用户，无需公共 API 补参', 
     assert.ok(requests.some(item => item.url.endsWith('/queryMyInitiatedMattersPage')));
     assert.ok(requests.some(item => item.url.endsWith('/queryAlertPage')));
     assert.ok(requests.every(item => item.body.currentUserId === '2'));
+});
+
+test('CRMW提醒独立页签仅在债券业务显示，筛选分页不混用', async () => {
+    const { page, pending } = harness();
+    const html = fs.readFileSync(path.join(root, 'pages/my_matters.html'), 'utf8');
+    assert.match(html, /v-if="businessDomain === 'bond'" name="crmwRuleAlert"/);
+    page.activeTab = 'crmwRuleAlert';
+    page.crmwAlertSearchForm = { crmwScode: 'C1', securityCode: 'B1', alertStatus: '00' };
+    page.crmwAlertPagination.pageIndex = 2;
+    page.alertSearchForm.securityCode = 'ABS1';
+    assert.equal(page.isCrmwAlertTab, true); assert.equal(page.isAlertTab, false); assert.equal(page.isAnyAlertTab, true);
+    const load = page.loadCrmwAlertList();
+    assert.equal(pending[0].url, '/api/v1/crmwRuleAlert/queryAlertPage');
+    assert.equal(pending[0].body.crmwScode, 'C1'); assert.equal(pending[0].body.securityCode, 'B1');
+    assert.equal(pending[0].body.pageIndex, 2);
+    pending[0].resolve({ records: [{ id: 7, crmwScode: 'C1', securityCode: 'B1' }], total: 9 });
+    await load;
+    assert.equal(page.crmwAlertTableData[0].id, 7); assert.equal(page.crmwAlertOpenCount, 9);
+    assert.equal(page.alertSearchForm.securityCode, 'ABS1'); assert.equal(page.alertPagination.total, 0);
+    assert.equal(page.crmwAlertLoading, false);
+});
+
+test('CRMW提醒查询、重置和分页只访问CRMW接口', async () => {
+    const { page } = harness();
+    page.activeTab = 'crmwRuleAlert';
+    const requests = [];
+    page.apiPost = async (url, body) => { requests.push({ url, body }); return { records: [], total: 0 }; };
+    page.crmwAlertPagination.pageIndex = 5;
+    page.handleSearch(); await Promise.resolve();
+    assert.equal(page.crmwAlertPagination.pageIndex, 1);
+    page.handleCrmwAlertPageChange(3); await Promise.resolve();
+    assert.equal(requests.at(-1).body.pageIndex, 3);
+    page.handleCrmwAlertSizeChange(50); await Promise.resolve();
+    assert.equal(requests.at(-1).body.pageSize, 50); assert.equal(requests.at(-1).body.pageIndex, 1);
+    page.crmwAlertSearchForm.crmwScode = 'C1'; page.handleReset(); await Promise.resolve();
+    assert.equal(page.crmwAlertSearchForm.crmwScode, ''); assert.equal(page.crmwAlertSearchForm.alertStatus, '00');
+    assert.ok(requests.every(item => item.url === '/api/v1/crmwRuleAlert/queryAlertPage'));
+});
+
+test('CRMW角标预载不改列表，基金股票入口不加载CRMW提醒', async () => {
+    const { page, pending } = harness();
+    page.crmwAlertTableData = [{ id: 'existing' }];
+    const count = page.loadCrmwAlertList(true);
+    assert.equal(pending[0].body.pageSize, 1);
+    pending[0].resolve({ records: [{ id: 'countOnly' }], total: 4 }); await count;
+    assert.equal(page.crmwAlertTableData[0].id, 'existing'); assert.equal(page.crmwAlertOpenCount, 4);
+    for (const domain of ['fund', 'stock']) { page.businessDomain = domain; await page.loadCrmwAlertList(); }
+    assert.equal(pending.length, 1);
+});
+
+test('切换页签或业务后CRMW旧响应不覆盖新视图', async () => {
+    const { page, pending } = harness();
+    page.activeTab = 'crmwRuleAlert';
+    const first = page.loadCrmwAlertList(); const second = page.loadCrmwAlertList();
+    pending[1].resolve({ records: [{ id: 'latest' }], total: 2 }); await second;
+    pending[0].resolve({ records: [{ id: 'old' }], total: 9 }); await first;
+    assert.equal(page.crmwAlertTableData[0].id, 'latest'); assert.equal(page.crmwAlertOpenCount, 2);
+    const old = page.loadCrmwAlertList();
+    page.businessDomain = 'fund'; page.resetBusinessView();
+    pending[2].resolve({ records: [{ id: 'wrongDomain' }], total: 9 }); await old;
+    assert.equal(page.crmwAlertTableData.length, 0); assert.equal(page.crmwAlertOpenCount, 0);
+});
+
+test('CRMW调库携带凭证和标的，主体禁投调整携带创设方编码且不标记提醒', () => {
+    const { page, window, pending } = harness();
+    const tabs = [];
+    window.RrsWorkbench = { buildTabIndex: (prefix, parts) => prefix + ':' + parts.join(':'), formatDetailTitle: () => '调库', openDetailTab: tab => { tabs.push(tab); return true; } };
+    const row = { crmwScode: 'C1', securityCode: 'B1', issuerCode: 'CREATOR', issuerName: '创设方' };
+    page.openCrmwAlertAdjust(row);
+    assert.equal(tabs[0].page, 'crmw_pool_adjust.html');
+    assert.equal(new URLSearchParams(tabs[0].query).get('crmwScode'), 'C1');
+    assert.equal(new URLSearchParams(tabs[0].query).get('securityCode'), 'B1');
+    page.openCrmwAlertCompany(row);
+    assert.equal(tabs[1].page, 'forbidden_pool_adjust.html');
+    assert.equal(new URLSearchParams(tabs[1].query).get('companyCode'), 'CREATOR');
+    assert.equal(pending.length, 0);
+});
+
+test('CRMW人工处理可取消，确认后调用独立接口并刷新列表', async () => {
+    const { page } = harness();
+    page.activeTab = 'crmwRuleAlert';
+    const requests = [];
+    page.apiPost = async (url, body) => { requests.push({ url, body }); return { records: [], total: 0 }; };
+    page.$confirm = async () => { throw new Error('cancel'); };
+    await page.handleCrmwAlertProcessed({ id: 8 });
+    assert.equal(requests.length, 0);
+    page.$confirm = async () => {};
+    await page.handleCrmwAlertProcessed({ id: 8 });
+    assert.equal(requests[0].url, '/api/v1/crmwRuleAlert/editAlertProcessed');
+    assert.equal(requests[0].body.id, 8); assert.equal(requests[0].body.currentUserId, '2');
+    assert.equal(requests[1].url, '/api/v1/crmwRuleAlert/queryAlertPage');
+    assert.equal(page.crmwAlertLoading, false);
 });
 
 test('规则提醒支持规则类型筛选，查询和角标使用同一条件', async () => {

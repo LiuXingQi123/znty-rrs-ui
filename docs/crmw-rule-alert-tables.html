@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CRMW规则提醒｜表与业务逻辑</title>
+<style>
+#crmw_rule_alert_doc { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; font-size:13px; line-height:1.7; color:#3F485A; background:#F7F8FA; margin:0; padding:24px; }
+#crmw_rule_alert_doc main { max-width:1280px; margin:auto; }
+#crmw_rule_alert_doc h1 { font-size:20px; color:#242933; }
+#crmw_rule_alert_doc h2 { font-size:16px; color:#242933; margin:0 0 12px; }
+#crmw_rule_alert_doc section { background:#FFFFFF; border:1px solid #E5E5E5; border-radius:4px; margin:16px 0; padding:16px; }
+#crmw_rule_alert_doc a { color:#2743A4; }
+#crmw_rule_alert_doc table { width:100%; border-collapse:collapse; font-size:13px; }
+#crmw_rule_alert_doc th, #crmw_rule_alert_doc td { border:1px solid #E5E5E5; text-align:left; padding:8px 12px; }
+#crmw_rule_alert_doc th { background:#F7F8FA; color:#242933; }
+#crmw_rule_alert_doc code { color:#2743A4; overflow-wrap:anywhere; }
+</style></head><body id="crmw_rule_alert_doc"><main><h1>CRMW规则提醒</h1>
+<p><a href="module-tables-index.html">业务文档总览</a> · <a href="my-matters-tables.html">我的事宜</a> · <a href="scheduled-task-tables.html">定时任务</a></p>
+<section><h2>业务角色示例：A 公司与 B 机构</h2>
+<ol>
+<li><strong>标的债券：A 公司发行的债券</strong>，是接受信用保护的对象，A 公司是标的债发行人</li>
+<li><strong>CRMW 凭证：由 B 机构创设／提供信用保护</strong>，B 机构是这里的创设方／保护方</li>
+<li><strong>创设方／保护方内评：B 机构最新的主体内评</strong>，不等于 A 公司的主体内评，也不等于凭证自身的证券评级</li>
+</ol>
+<p>本任务检查“B 机构的 CRMW 凭证＋A 公司发行的标的债券＋当前池”这一组合。凭证代码 crmw_scode 用于查找凭证主档，其 issuer_code 对应 B 机构；标的代码 security_code 对应 A 公司发行的债券。内评和观察／重点观察名单的检查对象均为 B 机构。</p>
+</section>
+<section><h2>1. 业务入口与规则</h2><p>我的事宜 → 债券 → CRMW规则提醒。任务编码 <code>crmw_rule_alert</code>，每天09:13，Cron <code>0 13 9 * * ?</code>，Demo默认关闭，无扩展参数。</p>
+<p>按第十八条，每天复核有效CRMW在池组合的创设方/保护方风险。主体取凭证主档发行人，不取标的债发行人或担保人。内评取该主体在AIS评级视图中ts最新的total_score，不沿用主档或快照旧评分。</p>
+<table><thead><tr><th>条件</th><th>结果</th></tr></thead><tbody>
+<tr><td>内评3档及以上：1、2+、2、2-、3+、3</td><td>不因评级触发提醒</td></tr>
+<tr><td>内评低于3档：3-、4</td><td>生成待办，由研究员决定是否出库</td></tr>
+<tr><td>创设方已在观察或重点观察名单</td><td>独立触发，研究员决定组合出库或主体进入禁止库</td></tr></tbody></table>
+<p>按启用内评档位的sort_no比较；每天按当前风险状态扫描，包含存量风险。凭证、唯一主体、最新有效内评或3档配置缺失时整轮报错回滚，不猜主体，不把无内评算作低评级。</p></section>
+<section><h2>2. 列表与人工处理</h2><p>凭证代码、标的代码及提醒状态支持筛选，独立分页和角标。列表展示凭证、标的、创设方代码和名称、最新内评、当前池、原因、扫描及处理时间。仅债券业务显示，沿用共享提醒范围。</p>
+<ol><li>去CRMW调库：凭证和标的一起定位到CRMW申请页，研究员人工发起出库</li><li>主体禁投调整：使用创设方代码定位主体，人工选择禁止库并发起审批</li><li>标记已处理：仅保存处理人和时间，保留本次依据，不自动改池；跳转本身不改变提醒状态</li></ol></section>
+<section><h2>3. 待办生命周期</h2><p>组合键为凭证＋标的＋当前池。依据还包含入库日志、主体、最新内评及原因。待处理记录刷新；最近记录已处理且依据未变时不再重复提醒；依据变化后重新生成。恢复合规或退出扫描范围时旧待处理失效。状态：00待处理、20已处理、99已失效。</p><p>每次新增、刷新、失效、人工处理均保存完整事件快照。任务摘要区分本轮命中、沿用已处理、本轮失效及仍待处理。</p></section>
+<section><h2>4. API</h2><p>提醒页面使用独立的CrmwRuleAlertController → CrmwRuleAlertService → CrmwRuleAlertMapper，只负责分页和人工处理。定时任务另由CrmwRuleAlertTaskService及Task Mapper执行；execute()包装计时、日志、失败结果及事务回滚，私有doScanCrmwRuleAlerts()执行扫描，沿用doAutoOutExpired的结构。</p><table><thead><tr><th>POST接口</th><th>请求</th><th>返回</th></tr></thead><tbody>
+<tr><td><code>/api/v1/crmwRuleAlert/queryAlertPage</code></td><td>crmwScode、securityCode（模糊）、alertStatus、pageIndex、pageSize</td><td>ApiResponse&lt;PageResult&lt;CrmwRuleAlertDto&gt;&gt;</td></tr>
+<tr><td><code>/api/v1/crmwRuleAlert/editAlertProcessed</code></td><td>id、currentUserId、currentUserName必传</td><td>更新后的提醒</td></tr></tbody></table></section>
+<section><h2>5. 独立表结构</h2><p><code>ip_crmw_rule_alert</code> 保存当前提醒，<code>ip_crmw_rule_alert_evt</code> 包含主表全部字段，另有evt_id、opter_id、opt_time、oprt_type。任务操作人为0；人工操作保留处理人。无物理外键及二级索引。</p>
+<table><thead><tr><th>字段</th><th>类型</th><th>含义</th></tr></thead><tbody><tr><td><code>id</code></td><td>BIGINT</td><td>主键 ID</td></tr>
+<tr><td><code>crmw_scode</code></td><td>VARCHAR(64)</td><td>CRMW凭证代码</td></tr>
+<tr><td><code>crmw_name</code></td><td>VARCHAR(128)</td><td>CRMW凭证名称</td></tr>
+<tr><td><code>security_code</code></td><td>VARCHAR(64)</td><td>标的证券代码</td></tr>
+<tr><td><code>security_short_name</code></td><td>VARCHAR(128)</td><td>标的证券简称</td></tr>
+<tr><td><code>issuer_code</code></td><td>VARCHAR(64)</td><td>创设方或保护方代码，取凭证主档发行主体</td></tr>
+<tr><td><code>issuer_name</code></td><td>VARCHAR(256)</td><td>创设方或保护方名称</td></tr>
+<tr><td><code>inner_issuer_rating</code></td><td>VARCHAR(16)</td><td>创设方或保护方最新主体内评</td></tr>
+<tr><td><code>current_pool_id</code></td><td>BIGINT</td><td>当前所在投资池 ID</td></tr>
+<tr><td><code>current_pool_name</code></td><td>VARCHAR(128)</td><td>当前所在投资池名称</td></tr>
+<tr><td><code>adjust_log_id</code></td><td>BIGINT</td><td>当前入库来源调库日志 ID</td></tr>
+<tr><td><code>fail_reason</code></td><td>VARCHAR(500)</td><td>命中的规则原因</td></tr>
+<tr><td><code>context_key</code></td><td>VARCHAR(64)</td><td>组合、入库来源、主体、内评及原因摘要</td></tr>
+<tr><td><code>alert_status</code></td><td>VARCHAR(8)</td><td>提醒状态：00=待处理 / 20=已处理 / 99=已失效</td></tr>
+<tr><td><code>last_scan_time</code></td><td>DATETIME</td><td>最近一次扫描命中时间</td></tr>
+<tr><td><code>deal_user_id</code></td><td>VARCHAR(32)</td><td>处理人 ID</td></tr>
+<tr><td><code>deal_user_name</code></td><td>VARCHAR(64)</td><td>处理人名称</td></tr>
+<tr><td><code>deal_time</code></td><td>DATETIME</td><td>处理时间</td></tr>
+<tr><td><code>is_deleted</code></td><td>TINYINT(1)</td><td>逻辑删除：0=正常 / 1=已删除</td></tr>
+<tr><td><code>crte_time</code></td><td>DATETIME</td><td>创建时间</td></tr>
+<tr><td><code>updt_time</code></td><td>DATETIME</td><td>修改时间</td></tr></tbody></table></section>
+<section><h2>6. 初始化与启用</h2><ol><li>通过脚本工具初始化新模块建表脚本 <code>rrs_crmw_rule_alert_schema.sql</code>，勿重置已有业务表</li><li>已有环境在定时任务管理新增任务编码crmw_rule_alert、Cron 0 13 9 * * ?，参数留空；新环境Demo已包含配置</li><li>确认凭证发行人代表实际创设方/保护方，并已维护最新评级和主体观察名单；先立即执行检查结果，再按需启用调度</li></ol><p>Demo脚本仅清空本模块提醒及审计，不预置虚构待办。09:13晚于06:00名单同步，避开整点补债、第12分钟换码及每6分钟导出；不同任务没有全局编排，须结合实际耗时安排。</p></section><section><h2>7. 大表查询</h2><p>任务候选只关联CRMW池状态与投资池，去掉外层排序。主档、最新评级和名单按本轮涉及的凭证/主体去重后分别批量读取；最近提醒按组合最大有效ID批量读取，不再逐组合查库。每条读取SQL最多涉及两张表，没有相关子查询或无业务意义的排序。最新评级取最大更新时间，最新空评分不回退；页面分页顺序保持原样。无候选时跳过大表资料查询。本次不改索引或表结构，百万级数据实际耗时仍需结合真实MySQL执行计划验证。</p></section></main></body></html>

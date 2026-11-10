@@ -249,3 +249,8 @@
 ## 报告材料公共样式
 
 所有申请、批量调库、审核及详情页共享 `css/report_materials.css` 与 `js/report_materials.js`；独立报告详情样式见上表。报告内容与附件下载统一在报告详情页扩展。
+
+## CRMW规则提醒
+
+- 业务入口：`pages/my_matters.html?tab=crmwRuleAlert`，复用 `css/my_matters.css`，无新增业务页和CSS。
+- 业务文档：`docs/crmw-rule-alert-tables.html`，样式内联且限定 `#crmw_rule_alert_doc`；已登记文档菜单和总览。
