@@ -400,7 +400,7 @@
             <div class="step"><b>1. 导入参数</b><span>选目标 CRMW 叶子池、调入/调出；选填原因与意见。</span></div>
             <div class="step"><b>2. 下载并上传</b><span>下载 CRMW 模板后拖入 xls/xlsx；解析 CRMW代码 / 证券代码写入临时表。</span></div>
             <div class="step"><b>3. 导入明细</b><span>分页查看凭证+标的主数据回填；可按校验状态筛选后点击校验。</span></div>
-            <div class="step"><b>4. 调库校验</b><span>每行走 CRMW 单笔 checkCrmwAdjust；展示可调整项。</span></div>
+            <div class="step"><b>4. 调库校验</b><span>每行执行 checkExcelAdjust；业务失败保留为调整提示。</span></div>
             <div class="step"><b>5. 选流程提交</b><span>弹窗与批量 CRMW 一致；确认后写申请/步骤，仅 20 落池。</span></div>
         </div>
     </section>
@@ -435,7 +435,7 @@
 
     <section class="panel" id="logic-2">
         <h2>校验与提交</h2>
-        <p class="sub">先校验导入行主数据，再复用 CRMW 单笔调库校验；流程候选透传单笔，<strong>不注入</strong> batch 流程（与 CRMW 批量一致）。</p>
+        <p class="sub">先校验导入行主数据，再执行完整 CRMW 单笔规则并将业务失败保留为提示；保留单笔候选，追加已配置的批量流程并推荐。</p>
         <span class="api">POST /api/v1/crmwPoolExcelImport/queryItemPage · checkImport · queryTask · submitImport · cancelImport</span>
         <div class="logic">
             <article class="card">
@@ -443,7 +443,7 @@
                 <ul>
                     <li>明细分页 <code>queryItemPage</code>：可按 CRMW 代码或证券代码、校验结果（待校验 / 通过 / 失败）筛选。</li>
                     <li>导入明细列：CRMW代码、CRMW全称、CRMW市场、证券代码、证券全称、证券类型、证券市场、校验、校验说明。</li>
-                    <li>每行调用 <code>CrmwPoolAdjustService.checkCrmwAdjust</code>（凭证 + 标的 + 目标池 + 方向）。</li>
+                    <li>每行调用 <code>CrmwPoolAdjustService.checkExcelAdjust</code>（凭证 + 标的 + 目标池 + 方向）。</li>
                     <li>保留 linkage / mutex / related 展开项；无清空目标池。</li>
                     <li>校验结果列：CRMW代码、CRMW全称、CRMW市场、证券代码、证券全称、证券类型、证券市场、调整类型、调整方向、审批流程、调整说明、校验结果。</li>
                     <li>校验结果调整类型：手工主项「Excel导入」；联动/互斥/关联与单笔一致。</li>
@@ -453,7 +453,7 @@
                 <h3>提交、流程与权限</h3>
                 <ul>
                     <li>提交弹出「选择调库流程」；交互形态对齐证券池 Excel 导入 / CRMW 批量。</li>
-                    <li>流程候选完全透传单笔 <code>checkCrmwAdjust</code>，<strong>不注入</strong> batchIn/batchOut。</li>
+                    <li>流程候选由 <code>checkExcelAdjust</code> 保留单笔候选并追加已配置的 batchIn/batchOut；配置批量时推荐批量，未配置时保留单笔推荐。</li>
                     <li>按组合键 <code>crmwScode|securityCode</code> 分组调用 <code>submitAdjustLog</code>；整批共享附件上下文与批次号；存在直通项时先 <code>recheckBeforeFinalApproval</code>。</li>
                     <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status_crmw</code>；目标池须 <code>excel_importable</code>；管理员 <code>userId=1</code> 放行。</li>
                     <li>导入批次号仅管理员可见；<code>impId</code> 仍用于后续校验 / 提交。</li>
@@ -548,11 +548,12 @@
             <li>目标池在页面选择：必须是启用叶子 CRMW 池，否则上传失败。</li>
             <li>模板仅 CRMW代码、证券代码；全称 / 市场 / 类型由 <code>rrs_securityinfo</code> 回填。</li>
             <li>调整类型：Excel 手工主项 <code>Excel导入</code>；联动/互斥/关联与单笔一致。</li>
-            <li>每行复用 CRMW 单笔 <code>checkCrmwAdjust</code> / <code>submitAdjustLog</code>。流程候选透传单笔，<strong>不注入</strong> batch 流程，见
+            <li>每行通过 <code>checkExcelAdjust</code> 执行原校验，复用 <code>submitAdjustLog</code> 落库。保留单笔候选并追加已配置的批量流程，配置批量时默认推荐，见
                 <a href="batch-crmw-pool-adjust-tables.html">CRMW池批量调整</a>。</li>
             <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status_crmw</code>；驳回 / 撤回只改日志与步骤。</li>
+            <li>提交使用后端本次已加载的证券信息逐日志保存申请快照，非 ABS 同样保存；审核和历史详情按申请快照回显，不重复查主档、不写回主档。</li>
             <li>导入批次号仅管理员可见；目标池须具备 <code>excel_importable</code>，管理员放行。</li>
-            <li>校验分层（check 全量 / submit 不重跑 / recheck 子集）与 CRMW 单笔一致，见
+            <li>原规则完整执行后，Excel 业务失败转为调整提示；提交与最终落池沿用相同放行口径，见
                 <a href="crmw-pool-adjust-tables.html">CRMW池调整</a>。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
@@ -560,6 +561,7 @@
         </div>
     </section>
     <p><a class="back" href="module-tables-index.html">← 返回模块文档目录</a></p>
+<section class="card"><h2>批量流程与 Excel 调整提示</h2><ul class="notes"><li>批量及 Excel 保留 CRMW 单笔候选，追加目标池已配置的批量调入/调出流程并推荐；未配置时保留单笔推荐，实际提交保留用户选择。</li><li>普通批量业务失败仍阻断。Excel 的容量、锁池、在途、限制池、到期及组合在池状态等失败保留为调整提示，主项和同组联动、互斥、关联项均可提交。</li><li>数据不存在、类型错误、权限不足、主体选择不合法及 ABS 身份冲突仍阻断；提示及可提交状态保存到导入快照。</li><li>Excel 提交、直通和人工终审采用一致口径，仍由所选流程决定审批；只有通过才落池，数据库异常仍整批回滚。</li><li>重复调入只替换同一凭证、实际标的和目标池的旧有效状态；Excel 调出已不在池时按完成处理，不影响其他组合。</li></ul></section>
 </main>
 <footer>znty-rrs-ui/docs · 静态业务数据文档</footer>
 </body>

@@ -419,10 +419,10 @@
         <div class="logic">
             <article class="card"><h3>逐券校验与页面展示</h3>
                 <ul>
-                    <li>每个组合转换为单笔 <code>AdjustCheckReq</code>（含 <code>crmwScode/crmwStype/crmwName</code>），调用 <code>crmwPoolAdjustService.checkCrmwAdjust</code>，复用 CRMW 组合校验、联动互斥扩展与反阻断。结果项身份、流程候选与 <code>warnings</code> 透传单笔返回。</li>
+                    <li>每个组合转换为单笔 <code>AdjustCheckReq</code>（含 <code>crmwScode/crmwStype/crmwName</code>），调用 <code>crmwPoolAdjustService.checkBatchAdjust</code>，复用 CRMW 组合校验、联动互斥扩展与反阻断。结果项身份、流程候选与 <code>warnings</code> 透传单笔返回。</li>
                     <li><strong>调入/调出顺序</strong>与 CRMW 单笔 <code>checkInConditions</code> / <code>checkOutConditions</code> 一致：目标池必须是 CRMW 池；已在池按凭证+标的组合判断；弹性禁投写 warnings 不阻断。CRMW 单笔<strong>不走</strong>主体债入库矩阵，也<strong>不消费</strong> <code>releaseRules</code> / <code>fundRate</code>。</li>
                     <li>页面工作台保留与证券池批量相同的「是否放开规则」和「担保人*」控件（多担保人默认不选、下一步必选）。批量编排层把每个标的的 <code>guarantorCode</code> 透传到单笔校验与提交，用于关系复核、担保人评级下调判断及申请快照保存；<code>releaseRules=yes</code> 仅在提交时把「放开主体债入库矩阵规则」追加到调整意见/调整说明。</li>
-                    <li>流程候选与推荐<strong>完全透传</strong>单笔 <code>checkCrmwAdjust</code>，<strong>不再注入</strong>目标池 batchIn/batchOut；前端默认选中 recommended，操作员可改选。</li>
+                    <li>流程候选保留完整单笔结果，由 <code>checkBatchAdjust</code> 追加已配置的 batchIn/batchOut 并推荐；未配置时保留单笔推荐，操作员可改选。</li>
                     <li>步骤2 chips 汇总报告/附件/放开规则/条数；「调整说明」失败分条展示 failReasons，警告展示为「可调整(警告)」；同组 <code>adjustGroupKey</code> 底色区分。流程确认弹窗标题同时展示标的与 CRMW 凭证，避免同标的不同凭证混淆。</li>
                 </ul>
             </article>
@@ -454,9 +454,9 @@
                 <tbody>
                 <tr>
                     <td><span class="name">ip_investment_pool</span></td>
-                    <td>目标池定义、容量；池上 batchIn/Out 配置仅维护展示，主链路校验/提交不注入该专用流程</td>
+                    <td>目标池定义、容量；池上 batchIn/Out 配置用于批量及 Excel 主项的额外流程候选和推荐</td>
                     <td><span class='tag r'>查询</span></td>
-                    <td>池分页、叶子池校验；流程候选来自单券 checkAdjust</td>
+                    <td>池分页、叶子池校验；流程候选为单笔候选加已配置批量流程</td>
                 </tr>
                 <tr>
                     <td><span class="name">ip_pool_permission</span></td>
@@ -552,7 +552,7 @@
             <li>步骤2原因/建议为整批共享文案，与单笔调库页「每组合可回填日志原因」场景不同。</li>
             <li>submit 不整单重跑 checkCrmwAdjust；直通/终审仅 recheck 动态子集。细节见
                 <a href="crmw-pool-adjust-tables.html">CRMW池调整</a>。</li>
-            <li>与 Excel 导入差异：本页<strong>不</strong>注入 batchIn/batchOut；Excel 仍可能把目标池批量流程置顶推荐。</li>
+            <li>本页和 CRMW Excel 均保留单笔候选并追加已配置的批量流程；本页业务失败仍阻断，Excel 保留为提示并允许提交。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档和前端调用链整理；后续代码规则变化时应同步维护。
