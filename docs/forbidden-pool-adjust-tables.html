@@ -392,7 +392,7 @@
         <div class="logic">
             <article class="card"><h3>前端状态与页面</h3>
                 <ul>
-                    <li>列表筛选：<code>absSearchForm</code>（securityCode / securityShortName / issuer / bondYesFlags）；表格 <code>absTableData</code> + <code>absPagination</code>。列对齐证券池调库主列表：在操作列前由前端展示是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」）、是否ABS（<code>absFlag=1</code> 或类型 <code>abs</code>；<code>abs_all</code> 不算）、是否次级（<code>cjFlag=1</code>）、是否标准信用债（<code>stdCreditFlag=1</code> 为是，0 与 NULL 均按现有标识展示为否）；后端 <code>SELECT si.*</code> 原样返回，不做中文映射；详情页证券基本信息不增加这些字段。</li>
+                    <li>列表筛选：<code>absSearchForm</code>（securityCode / securityShortName / issuer / bondYesFlags），证券代码按前缀匹配；表格 <code>absTableData</code> + <code>absPagination</code>。列对齐证券池调库主列表：在操作列前由前端展示是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」）、是否ABS（<code>absFlag=1</code> 或类型 <code>abs</code>；<code>abs_all</code> 不算）、是否次级（<code>cjFlag=1</code>）、是否标准信用债（<code>stdCreditFlag=1</code> 为是，0 与 NULL 均按现有标识展示为否）；后端 <code>SELECT si.*</code> 原样返回，不做中文映射；详情页证券基本信息不增加这些字段。</li>
                     <li>详情：证券基本信息 <code>absBondDetail</code> 与证券池调库字段/交互对齐（步骤1可编辑、步骤2只读）；「剩余期限(天)」隐藏保留，新增只读「证券期限」展示 <code>date_exists_str</code>（<code>dateExistsStr</code>），空值空白；ABS 列表列由「剩余期限」改为「证券期限」，直接展示 <code>dateExistsStr</code>。页面将当前证券代码传给 <code>queryGuarantorGradeList</code>，接口以该代码匹配 <code>ais_inv_ods.wind_cbondissuer.s_info_windcode</code>，查询 <code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115200000=债务主体</code>、<code>115201000=原始权益人</code> 四类有最新内评的记录，并以 <code>s_info_compcode</code> / <code>s_info_compname</code> 作为担保人代码和名称，不读取或拆分证券主数据的担保人逗号串；同一主体兼多类关系时按类型分别返回，仅对同证券、同主体、同类型去重；四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条；展开项显示名称、类型标签和右侧内评，收起后显示“名称（类型）”；选中后评分只读展示且不覆盖主数据评分；当前证券/主体所在池；可调入/可调出双栏树 <code>absInPools</code> / <code>absOutPools</code>。可调入库默认仅展开「信用债大库(new)」，其他根节点默认收起（ABS 可选池不含该节点时即默认全部收起）；可调出库默认全部展开。</li>
                     <li>ABS 证券基本信息中的“证券分析”随内容自动增高，最少 3 行、最多 20 行；超过 20 行时在框内滚动，最大输入长度为 5000 字。</li>
                     <li>步骤：<code>absAdjustStep</code> 1 选池、2 校验结果 <code>absAdjustReviewList</code> + 原因建议；从 absDetail 返回保持 <code>listTab='abs'</code>。</li>
@@ -422,7 +422,7 @@
         <div class="logic">
             <article class="card"><h3>主体与债券</h3>
                 <ul>
-                    <li>列表、详情、完整校验及提交均读取 <code>ais_inv_ods.wind_compintroduction</code>，以 <code>COMP_ID</code> 确认主体，显示 <code>COMP_NAME</code> 全称；按代码、全称、统一社会信用代码筛选。展示信用代码、主体类型、企业性质、省份、城市，详情另含成立日期、注册地址及旗下债券数量；不再读取旧表行业和金融机构属性。</li>
+                    <li>列表、详情、完整校验及提交均读取 <code>ais_inv_ods.wind_compintroduction</code>，以 <code>COMP_ID</code> 确认主体，显示 <code>COMP_NAME</code> 全称；列表按主体代码、统一社会信用代码的前缀筛选，主体全称按包含匹配。展示信用代码、主体类型、企业性质、省份、城市，详情另含成立日期、注册地址及旗下债券数量；不再读取旧表行业和金融机构属性。</li>
                     <li>旗下债券数量（主数据总数）：<code>issuer_code</code> + <code>category_type=bond</code>，含 <code>crmw</code>，仅排除 <code>security_status=D</code>（<code>company</code> 本就非 bond）。对比证券池时用主体全称填「发行人」；禁投侧按主体代码精确统计。ABS 同样只按发行人编码统计，不按担保人、差额支付承诺人、债务主体、原始权益人四类关系扩展。</li>
                     <li>旗下债券在池：普通池 <code>ip_pool_status</code> + CRMW 池 <code>ip_pool_status_crmw</code>（按 <code>crmw_scode</code>）；分组 <code>bondCount</code> 为该池在池数。与数量、明细统一只按 <code>issuer_code</code> 关联。</li>
                     <li>旗下债券明细：<code>queryCompanyBondList</code> 与对应池 <code>bondCount</code> 条数一致（同样含 CRMW，同样只按 <code>issuer_code</code>）。</li>

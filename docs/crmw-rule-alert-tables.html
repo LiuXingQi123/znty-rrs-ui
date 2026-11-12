@@ -32,7 +32,7 @@
 <ol><li>去CRMW调库：凭证和标的一起定位到CRMW申请页，研究员人工发起出库</li><li>主体禁投调整：使用创设方代码定位主体，人工选择禁止库并发起审批</li><li>标记已处理：仅保存处理人和时间，保留本次依据，不自动改池；跳转本身不改变提醒状态</li></ol></section>
 <section><h2>3. 待办生命周期</h2><p>组合键为凭证＋标的＋当前池。依据还包含入库日志、主体、最新内评及原因。待处理记录刷新；最近记录已处理且依据未变时不再重复提醒；依据变化后重新生成。恢复合规或退出扫描范围时旧待处理失效。状态：00待处理、20已处理、99已失效。</p><p>每次新增、刷新、失效、人工处理均保存完整事件快照。任务摘要区分本轮命中、沿用已处理、本轮失效及仍待处理。</p></section>
 <section><h2>4. API</h2><p>提醒页面使用独立的CrmwRuleAlertController → CrmwRuleAlertService → CrmwRuleAlertMapper，只负责分页和人工处理。定时任务另由CrmwRuleAlertTaskService及Task Mapper执行；execute()包装计时、日志、失败结果及事务回滚，私有doScanCrmwRuleAlerts()执行扫描，沿用doAutoOutExpired的结构。</p><table><thead><tr><th>POST接口</th><th>请求</th><th>返回</th></tr></thead><tbody>
-<tr><td><code>/api/v1/crmwRuleAlert/queryAlertPage</code></td><td>crmwScode、securityCode（模糊）、alertStatus、pageIndex、pageSize</td><td>ApiResponse&lt;PageResult&lt;CrmwRuleAlertDto&gt;&gt;</td></tr>
+<tr><td><code>/api/v1/crmwRuleAlert/queryAlertPage</code></td><td>crmwScode（包含匹配）、securityCode（前缀匹配）、alertStatus、pageIndex、pageSize</td><td>ApiResponse&lt;PageResult&lt;CrmwRuleAlertDto&gt;&gt;</td></tr>
 <tr><td><code>/api/v1/crmwRuleAlert/editAlertProcessed</code></td><td>id、currentUserId、currentUserName必传</td><td>更新后的提醒</td></tr></tbody></table></section>
 <section><h2>5. 独立表结构</h2><p><code>ip_crmw_rule_alert</code> 保存当前提醒，<code>ip_crmw_rule_alert_evt</code> 包含主表全部字段，另有evt_id、opter_id、opt_time、oprt_type。任务操作人为0；人工操作保留处理人。无物理外键及二级索引。</p>
 <table><thead><tr><th>字段</th><th>类型</th><th>含义</th></tr></thead><tbody><tr><td><code>id</code></td><td>BIGINT</td><td>主键 ID</td></tr>

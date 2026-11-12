@@ -734,7 +734,7 @@
 
         <section id="list-query" class="section">
             <h2 class="section-title">主页面证券查询逻辑</h2>
-            <p>证券列表支持“主体编码”（<code>issuerCode</code>）和“证券全称”（<code>securityFullName</code>）查询，分别按证券主档 <code>issuer_code</code>、<code>full_name</code> 包含式模糊匹配；留空不限制，与其他条件按 AND 组合。输入框支持回车查询，查询回到第一页，重置时一并清空。表格展示“主体编码”（<code>issuerCode</code>）和“证券全称”（<code>fullName</code>），为空留白；原“发行人”或“发行主体全称”的查询条件和列表列统一显示为“主体全称”（<code>issuer</code>）。证券基础信息区保持原样。</p>
+            <p>证券列表支持“主体编码”（<code>issuerCode</code>）和“证券全称”（<code>securityFullName</code>）查询，证券代码、主体编码按前缀匹配，证券全称按包含匹配；留空不限制，与其他条件按 AND 组合。输入框支持回车查询，查询回到第一页，重置时一并清空。表格展示“主体编码”（<code>issuerCode</code>）和“证券全称”（<code>fullName</code>），为空留白；原“发行人”或“发行主体全称”的查询条件和列表列统一显示为“主体全称”（<code>issuer</code>）。证券基础信息区保持原样。</p>
         <p>“是否特征”支持“是否标准信用债”（<code>bondYesFlags</code> 选项 <code>stdCredit</code>），勾选仅筛选证券主档 <code>std_credit_flag=1</code>，多选按 AND；不勾选不限制。对应表格追加 <code>stdCreditFlag</code> 列，沿用 <code>isYesFlag</code> 先转布尔值：1 显示“是”Tag，其他值（含 NULL）显示“否”Tag；接口与其他标识一样返回原始数值。只使用上游原始标志，不根据其他特征或 <code>std_clause_flag</code> 推断；CRMW 使用标的证券字段。</p>
             <p class="section-subtitle">主页面先定位需要调库的证券，再进入详情页加载池状态、可调池和历史流程。</p>
             <div class="logic-header">
@@ -762,7 +762,7 @@
                         <li>主档包含标准条款判定 <code>std_clause_flag</code>（返回 <code>stdClauseFlag</code>：1=条款合格 / 0=条款不合格 / NULL=未判定）和标准信用债标识 <code>std_credit_flag</code>（返回 <code>stdCreditFlag</code>：1=标准信用债 / 0=非标准信用债 / NULL=未判定）。两列均为 <code>INT DEFAULT NULL</code>，保留原始值；简易流程的独立方法 <code>isStandardCreditBond</code> 仅判断 <code>std_credit_flag==1</code>，标准信用债定义由上游维护，<code>std_clause_flag</code> 和其他标志不参与该方法。标准条款字段不新增页面展示；标准信用债字段在主列表展示并支持筛选。</li>
                         <li>Demo 全部 52 条主档记录显式填写两列：XYB001～XYB003、普通公司债/中票/短融/担保债为 1/1；私募债和定向工具为 1/0；永续/次级/含权及 XYB004 条款不合格样本为 0/0；ABS/资产证券化/CRMW/存单/国债/Govt债/可转债为 NULL/0；XYB005 未判定信用债、Corp债和临时代码（含 Wind 换码样例 WCTMP001.IB）为 NULL/NULL。这些是演示场景，不是系统按类型自动判定的规则，也不按评级高低判定。</li>
                         <li>内连接 <code>dict_security_type</code> 取名称，并限制 <code>category_type=bond</code>（本页仅债券；股/基等走其它入口）。</li>
-                        <li>证券代码、简称、全称、主体编码、主体全称均使用包含式模糊匹配：<code>LIKE %条件%</code>；证券类型为精确匹配 <code>si.security_type = #{securityType}</code>。</li>
+                        <li>证券代码、主体编码按前缀匹配 <code>LIKE '条件%'</code>；简称、全称、主体全称按包含匹配；证券类型为精确匹配 <code>si.security_type = #{securityType}</code>。</li>
                         <li>候选证券查询无固定 <code>ORDER BY</code>（与需求 04「列表无固定排序」一致），分页结果顺序不作保证。</li>
                         <li>人工候选排除 <code>security_type='crmw'</code> 的 CRMW 凭证；凭证经主体入池旗下证券跟随或证券池 Excel 导入进入普通池；可调入库、可调出库仍排除 <code>pool_type='crmw'</code>，凭证+标的组合通过独立 CRMW 池调整办理。主体 <code>company</code> 由大类过滤。</li>
                         <li>固定排除退市：<code>si.security_status != 'D'</code>（上市状态 <code>SecurityStatus</code>：<code>L</code>上市中 / <code>N</code>待上市 / <code>D</code>退市 / <code>U</code>未知；仅排除 <code>D</code>，<code>U</code> 可查；勿留 <code>NULL</code>，否则三值逻辑滤行）。</li>
@@ -961,7 +961,7 @@
                 </div>
 
                 <h3 class="filter-heading">3. 后端主流程（按执行顺序）</h3>
-                <div class="callout">具体主体的结果字段展示为“主体内评分”；准入矩阵的分类字典及档位比较仍称“内评分档”，评分取值和档位编码保持不变。页面通过 <code>queryRelatedRatingCompanyList</code> 查询当前证券在 <code>ais_inv_ods.wind_cbondissuer</code> 中的四类关系主体：<code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115200000=债务主体</code>、<code>115201000=原始权益人</code>；与公共担保人查询一致，不按 <code>used</code> 过滤，主体内评左关联，无内评主体仍可作为候选且评分为空。同一主体兼多类关系时按类型分别返回，仅对同证券、同主体、同类型去重；四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条，用户可改选。非 ABS 页面将其作为“担保人”候选，ABS 页面将其作为“权益人”候选。ABS 还可通过 <code>querySelfSelectedRightsHolderPage</code> 从 <code>ais_inv_analysis.t_inv_company</code> 以 <code>wind_code</code> 分页查询自选权益人，名称优先取 <code>full_name</code>、为空时取 <code>short_names</code>，默认每页 20 条，可切换 10/20/30/50 条，分页包含总数、页码和跳转，并显示跨页连续序号；单选列位于序号列左侧，编码/名称支持模糊查询。ABS 的“担保人主体内评分”优先显示自选权益人内评；没有自选时显示当前权益人内评，切换或清除选择后即时刷新。选择变化会清空原调入选择并重新查询可调入池。校验和提交直接使用页面已查询并选中的主体代码、名称、内外评及机构，不重复查询候选。自选权益人弹窗采用带标签的主体编码/名称查询区；点击行或单选框选择主体，选中行高亮，最新内评以标签展示；底部显示已选主体名称和编码。确认前仅暂存选择，取消保留原值。主体编码、主体名称和内评列按弹窗可用宽度自适应分配。</div>
+                <div class="callout">具体主体的结果字段展示为“主体内评分”；准入矩阵的分类字典及档位比较仍称“内评分档”，评分取值和档位编码保持不变。页面通过 <code>queryRelatedRatingCompanyList</code> 查询当前证券在 <code>ais_inv_ods.wind_cbondissuer</code> 中的四类关系主体：<code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115200000=债务主体</code>、<code>115201000=原始权益人</code>；与公共担保人查询一致，不按 <code>used</code> 过滤，主体内评左关联，无内评主体仍可作为候选且评分为空。同一主体兼多类关系时按类型分别返回，仅对同证券、同主体、同类型去重；四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条，用户可改选。非 ABS 页面将其作为“担保人”候选，ABS 页面将其作为“权益人”候选。ABS 还可通过 <code>querySelfSelectedRightsHolderPage</code> 从 <code>ais_inv_analysis.t_inv_company</code> 以 <code>wind_code</code> 分页查询自选权益人，名称优先取 <code>full_name</code>、为空时取 <code>short_names</code>，默认每页 20 条，可切换 10/20/30/50 条，分页包含总数、页码和跳转，并显示跨页连续序号；单选列位于序号列左侧，主体编码按前缀、名称按包含匹配。ABS 的“担保人主体内评分”优先显示自选权益人内评；没有自选时显示当前权益人内评，切换或清除选择后即时刷新。选择变化会清空原调入选择并重新查询可调入池。校验和提交直接使用页面已查询并选中的主体代码、名称、内外评及机构，不重复查询候选。自选权益人弹窗采用带标签的主体编码/名称查询区；点击行或单选框选择主体，选中行高亮，最新内评以标签展示；底部显示已选主体名称和编码。确认前仅暂存选择，取消保留原值。主体编码、主体名称和内评列按弹窗可用宽度自适应分配。</div>
                 <div class="callout">方法：<code>queryAdjustPoolList</code>。任一步滤空则返回空列表。</div>
                 <div class="logic-card" style="margin-top: 12px;">
                     <ol>
