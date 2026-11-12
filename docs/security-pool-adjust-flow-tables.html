@@ -747,7 +747,7 @@
                     <h3>请求与分页</h3>
                     <ul>
                         <li>筛选字段：<code>securityCode</code>、<code>securityShortName</code>、<code>securityFullName</code>、<code>issuerCode</code>、<code>securityType</code>、<code>issuer</code>。Service 将完整的 <code>SecurityPoolAdjustReq</code> 传给 Mapper，避免新增字段在参数拆分时遗漏。</li>
-                        <li>证券类型下拉来自 <code>POST /api/v1/securityPoolAdjust/querySecurityTypeList</code>，关联 <code>rrs_securityinfo</code> 与有效 <code>dict_security_type</code>，与列表同口径：仅 <code>category_type=bond</code>，排除 CRMW 凭证和退市证券；主体、股票、基金由大类过滤。</li>
+                        <li>证券类型下拉来自 <code>POST /api/v1/securityPoolAdjust/querySecurityTypeList</code>，关联 <code>rrs_securityinfo</code> 与有效 <code>dict_security_type</code>，与列表同口径：<code>category_type=bond</code>，包含 CRMW 凭证，排除退市证券；主体、股票、基金由大类过滤。</li>
                         <li>分页字段：<code>pageIndex</code>、<code>pageSize</code>。</li>
                         <li>初始化走 <code>applyUrlSecurityOrList</code>：URL 带 <code>securityCode</code>（事宜「去调库」等）时写入筛选并进入该券详情；无参数才只加载列表。</li>
                         <li>查询、重置、切换页码或每页条数都会重新调用接口；新查询回到第 1 页。</li>
@@ -764,7 +764,7 @@
                         <li>内连接 <code>dict_security_type</code> 取名称，并限制 <code>category_type=bond</code>（本页仅债券；股/基等走其它入口）。</li>
                         <li>证券代码、主体编码按前缀匹配 <code>LIKE '条件%'</code>；简称、全称、主体全称按包含匹配；证券类型为精确匹配 <code>si.security_type = #{securityType}</code>。</li>
                         <li>候选证券查询无固定 <code>ORDER BY</code>（与需求 04「列表无固定排序」一致），分页结果顺序不作保证。</li>
-                        <li>人工候选排除 <code>security_type='crmw'</code> 的 CRMW 凭证；凭证经主体入池旗下证券跟随或证券池 Excel 导入进入普通池；可调入库、可调出库仍排除 <code>pool_type='crmw'</code>，凭证+标的组合通过独立 CRMW 池调整办理。主体 <code>company</code> 由大类过滤。</li>
+                        <li>人工候选包含 CRMW 凭证，可按单券选择 CRMW 池调入或调出。主体 <code>company</code> 由大类过滤。</li>
                         <li>固定排除退市：<code>si.security_status != 'D'</code>（上市状态 <code>SecurityStatus</code>：<code>L</code>上市中 / <code>N</code>待上市 / <code>D</code>退市 / <code>U</code>未知；仅排除 <code>D</code>，<code>U</code> 可查；勿留 <code>NULL</code>，否则三值逻辑滤行）。</li>
                         <li>与禁投池「旗下债券数量」主数据统计同口径；对比时证券池侧按<strong>发行人名称</strong>模糊筛，禁投侧按<strong>主体代码 issuer_code</strong>精确关联。</li>
                         <li>主列表在操作列前由前端展示是否类字段（后端 <code>SELECT si.*</code> 已带回原始标志，不做中文映射）：是否担保（<code>guarantFlag=1</code>）、是否含权（<code>inrightFlag=1</code>）、是否永续（<code>yxFlag=1</code>）、是否私募（发行方式或内部分类含「私募」，对齐 <code>isPrivateBond</code>）、是否ABS（<code>absFlag=1</code> 或证券类型 <code>abs</code>；<code>abs_all</code> 不算）、是否次级（<code>cjFlag=1</code>）、是否标准信用债（<code>stdCreditFlag=1</code> 为是，0 与 NULL 均按现有标识展示为否）。展示「是/否」Tag；详情页证券基本信息不增加这些字段。</li>
@@ -859,7 +859,7 @@
                     <tbody>
                         <tr><td>1</td><td>查询投资池</td><td>读取<strong>未删除</strong>的投资池，按配置顺序返回；本接口不额外按“启用”状态筛选。</td></tr>
                         <tr><td>2</td><td>按人员权限过滤</td><td>管理员（用户ID为1）保留全量；普通用户只保留本人或所属启用角色有<strong>可调整权限</strong>的池，并保留这些池的上级。无权限时返回空列表。</td></tr>
-                        <tr><td>3</td><td>按池类型与品种过滤</td><td>排除<strong>CRMW池</strong>，只保留投资品种包含<strong>债券</strong>的池及其上级。禁投池、观察池、黑名单等不因池类型被直接排除。</td></tr>
+                        <tr><td>3</td><td>按池类型与品种过滤</td><td>保留投资品种包含<strong>债券</strong>的池及其上级，符合原选池条件的 CRMW 池也可选择。禁投池、观察池、黑名单等不因池类型被直接排除。</td></tr>
                         <tr><td>4</td><td>应用信用债准入规则</td><td>仅“调入”方向执行信用债大库1～5级过滤，见下表；非信用债池不套用这套矩阵规则。</td></tr>
                         <tr><td>5</td><td>补充展示信息</td><td>查询调入／调出互斥关系和各池当前有效在池数量，连同上限数量、池名称、上级ID等一起返回。</td></tr>
                         <tr><td>6</td><td>前端排除已在池项</td><td>根据证券当前有效在池记录，去掉<strong>已经所在的池</strong>；父节点的直接子项全部已在池时，也不再显示该父节点。</td></tr>
@@ -967,7 +967,7 @@
                     <ol>
                         <li>查 <code>ip_investment_pool</code>，条件仅 <code>is_deleted=0</code>，按 <code>outer_sort</code> / <code>parent_id</code> / <code>inner_sort</code> 排序。本接口<strong>不按</strong> <code>status=enabled</code> 再筛一层。</li>
                         <li><strong>人员权限</strong>：管理员 <code>currentUserId=1</code> 不过滤。普通用户查「可调整」权限（<code>ip_pool_permission.permission_type=adjustable</code>）：处理人是本人，或处理人是其启用角色。命中的池及其全部上级都保留，方便页面按层级展示。一个权限都没有则返回空。</li>
-                        <li><strong>排除 CRMW 池</strong>：<code>pool_type=crmw</code> 的入、出都去掉（CRMW 走独立链路）。禁投池、观察池、黑名单、重点观察名单等<strong>不在这一步排除</strong>，单券仍可调这些池。</li>
+                        <li><strong>CRMW 池选池</strong>：CRMW 池的调入、调出沿用现有选池条件。禁投池、观察池、黑名单、重点观察名单等<strong>不在这一步排除</strong>，单券仍可调这些池。</li>
                         <li><strong>投资品种</strong>：只保留 <code>variety_codes</code> 包含 <code>bond</code> 的池及其上级，父级本身可以不含债券品种。</li>
                         <li><strong>仅 <code>adjustDirection=in</code></strong>：再走第 4 节「调入过滤信用债 1～5 级」。<code>out</code> 跳过。</li>
                         <li>查全部调入互斥（<code>in_mutex</code>）、调出互斥（<code>out_mutex</code>），按池 ID 挂到返回对象上。</li>
@@ -1491,6 +1491,7 @@
 
     <section id="abs-identity">
         <h2>ABS 跨池唯一主体与主体联动</h2>
+        <p>普通 ABS 单券申请在途时从普通证券快照读取主体，目标为 CRMW 池也适用。CRMW 组合申请从组合快照读取主体。</p>
         <p>同一 ABS 的已确认身份和未结束申请必须使用同一个主体代码。普通权益人、自选权益人一次返回名称、代码、内评、最新认可外评及其机构；自选优先，后续复用已查询候选。选择时不更新主档，申请快照保留本次五字段，审核通过或直通生效时才保存主档。人工主体调库落池与定时任务使用同一套判断：未确认主体时任一权益人入池都当场生成 ABS 主体联动提醒和一条 audit_status=00 的待确认调库日志，不写入 ip_pool_status 或主档五字段，也不形成永久绑定，研究员在“我的事宜—规则提醒”中即可看到；确认主体后才转为 audit_status=20 并正式入池，成功确认后才永久固定身份，同一主体的名称和评级仍可更新。已确认主体后只按确认主体判断，其他权益人的进出不再影响该 ABS。</p>
         <p>选择主体和查询候选时不因身份占用提前报错。已有在库或在途主体冲突、同批同一 ABS 不同主体，均在下一步的“调整说明”中展示原因，校验结果为“不可调整”，同组联动、互斥和关联项一起阻断，其他独立证券继续校验。Excel 中不可调整行显示“未通过”，普通可放行原因仍显示“调整提示”；Excel 提示放行和放开规则均不能绕过身份约束，提交及审批继续强制校验。非 ABS 保留原主体选择规则。候选可短期复用，动态在库和在途状态始终实时校验。</p>
         <p>主体进入任意普通池时：已确认身份的 ABS 只跟随该确认主体，其他权益人的进出既不触发入池也不生成提醒；尚未确认主体的 ABS 只要四类权益人之一入池，就生成 audit_status=00 的待确认调库日志并写入“我的事宜—规则提醒”，不写入 ip_pool_status，研究员确认主体后才正式入池并处理关系池。主体退出同理：已确认身份时只判断确认主体，其他权益人仍在池不构成保留依据，直接按原逻辑出库；尚未确认时任一其他主体仍在该池、存在债级独立依据或未结束流程时只提醒，不直接出库。限制池、观察池和黑名单质押库的主体判断同样在确认后只使用确认主体，未确认时四类权益人全部参与。确认主体后才固定身份，忽略入池则将待确认日志置为无效；现有17等出库硬限制保留。ABS 不提供快速入库候选，简易与产品库快速资格直接判为不匹配。</p>
@@ -1512,7 +1513,7 @@
 </section>
 <section class="section">
     <h2>CRMW 进入普通池的方式</h2>
-    <p>仅证券池调整主列表、类型下拉和证券池批量调入/调出候选排除 CRMW；通用选池、校验、提交及终审不额外按凭证类型拦截，CRMW 组合字段与赋值保留。主体入池时旗下证券跟随、证券池 Excel 导入仍允许 CRMW 进入普通池，Excel 原规则仅作调整提示。CRMW 专用批量调入仍从债券产品库1及其下级池中已生效在池的债券和凭证组成候选；普通池数量统计及历史记录继续保留已有 CRMW。证券 Excel 清空出库也保留原校验原因，仅提醒不拦截；在途证券仍纳入清空提示，同组配套项、提交和最终落池采用相同口径。</p>
+    <p>CRMW 凭证可在证券池调整、批量调整和证券池 Excel 导入中按单券办理。存量证券批量调整也支持凭证，目标限定在债券产品库。前三个入口开放 CRMW 池作为目标池，沿用原调库校验。单券审批通过后写入 <code>ip_pool_status</code>。凭证与标的组合继续走专用 CRMW 调库，状态写入 <code>ip_pool_status_crmw</code>。 证券 Excel 清空出库包含 CRMW 凭证，并保留原有校验提示。</p>
 </section>
 <section class="section"><h2>未选择 ABS 主体时的财报</h2><p>权益人和自选权益人均为空时，立即清空财报及编辑缓存，不按证券代码或历史主体回查；旧主体的异步响应不能重新填回页面。四期数值保持空白，暂不可编辑或保存。清除自选后仍有普通权益人时，改用普通权益人的财报。清空选择不弹出主体名称错误，下一步再提示必须选择主体；成功入库后固定的主体代码不因页面清空或全部出库解除。</p></section>
 </body>

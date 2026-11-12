@@ -388,7 +388,7 @@
             <article class="card"><h3>目标池查询</h3>
                 <ul>
                     <li>管理员可查看全部；普通用户依据 <code>ip_pool_permission</code> 的 adjustable 权限过滤。</li>
-                    <li>只返回 <code>status='enabled'</code>、未删除、没有启用子节点，且 <code>variety_codes</code> 包含 <code>bond</code> 的叶子池。筛选树同样排除 CRMW 并只保留债券品种，打开时默认收起。</li>
+                    <li>只返回 <code>status='enabled'</code>、未删除、没有启用子节点，且 <code>variety_codes</code> 包含 <code>bond</code> 的叶子池。筛选树保留债券品种，包含 CRMW 池，打开时默认收起。</li>
                     <li>汇总 <code>ip_pool_status</code> 有效在池数量时按类型分项（<code>countByType</code>：主体/CRMW/债券等）：用池状态 <code>security_type</code> 关联字典大类，<strong>不经</strong> <code>rrs_securityinfo</code>；前端多行展示「类型：n只」；并回填完整池路径。</li>
                 </ul>
             </article>
@@ -396,7 +396,7 @@
                 <ul>
                     <li>目标池必须存在、启用、为叶子池且当前用户有调整权限。</li>
                     <li>调入使用 NOT EXISTS 排除目标池有效状态；调出使用 EXISTS 仅保留目标池有效状态。</li>
-                    <li>调入、调出均支持主体编码、主体全称、证券代码、简称、全称、市场和“是否特征”过滤；主体全称通过 <code>issuer</code> 入参仅按名称模糊匹配，与其他条件按 AND 组合，留空不限制；点击查询或在主体全称输入框按回车回到第一页，重置及重新进入工作台时清空主体全称条件。特征可多选 ABS/担保/永续/次级/私募/含权/标准信用债，勾选即筛“是”、多选 AND；固定排除 <code>security_type IN ('company', 'crmw')</code>，目标池仍排除 <code>pool_type='crmw'</code>。</li>
+                    <li>调入、调出均支持主体编码、主体全称、证券代码、简称、全称、市场和“是否特征”过滤；主体全称通过 <code>issuer</code> 入参仅按名称模糊匹配，与其他条件按 AND 组合，留空不限制；点击查询或在主体全称输入框按回车回到第一页，重置及重新进入工作台时清空主体全称条件。特征可多选 ABS/担保/永续/次级/私募/含权/标准信用债，勾选即筛“是”、多选 AND；候选包含 CRMW 凭证，排除主体。CRMW 池的调入和调出候选沿用现有的在池状态与查询条件。</li>
                     <li>候选表以“是/否” Tag 展示六项证券特征，私募按发行方式或内部分类含“私募”判定，ABS 兼容 <code>abs_flag=1</code> 或证券类型 <code>abs</code>。</li>
                     <li>候选证券查询无固定 <code>ORDER BY</code>，分页顺序不作保证；跨页多选由前端 <code>selectedSecurityMap</code> 缓存。</li>
                 </ul>
@@ -572,7 +572,7 @@
 </section>
 <section class="section">
     <h2>CRMW 进入普通池的方式</h2>
-    <p>仅证券池调整主列表、类型下拉和证券池批量调入/调出候选排除 CRMW；通用选池、校验、提交及终审不额外按凭证类型拦截，CRMW 组合字段与赋值保留。主体入池时旗下证券跟随、证券池 Excel 导入仍允许 CRMW 进入普通池，Excel 原规则仅作调整提示。CRMW 专用批量调入仍从债券产品库1及其下级池中已生效在池的债券和凭证组成候选；普通池数量统计及历史记录继续保留已有 CRMW。证券 Excel 清空出库也保留原校验原因，仅提醒不拦截；在途证券仍纳入清空提示，同组配套项、提交和最终落池采用相同口径。</p>
+    <p>CRMW 凭证可在证券池调整、批量调整和证券池 Excel 导入中按单券办理。存量证券批量调整也支持凭证，目标限定在债券产品库。前三个入口开放 CRMW 池作为目标池，沿用原调库校验。单券审批通过后写入 <code>ip_pool_status</code>。凭证与标的组合继续走专用 CRMW 调库，状态写入 <code>ip_pool_status_crmw</code>。 证券 Excel 清空出库包含 CRMW 凭证，并保留原有校验提示。</p>
 </section>
 </body>
 </html>
