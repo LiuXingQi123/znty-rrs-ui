@@ -66,6 +66,25 @@ test('无法识别的数据仍不混入可提交项，有效且带提示的行�
     assert.equal(page.validCheckItems[0].failReasons.length, 2);
 });
 
+test('提交响应中的清空项按页面选项键回显无需审批', () => {
+    const page = harness();
+    const row = {
+        ...manual(),
+        sourceItemId: null, itemTag: 'clear', adjustMode: '调出',
+        flowId: null, flowKey: null, flowType: 'normalOutbound', directFlow: true,
+        selectedFlowKey: '0_normalOutbound_1',
+        flowOptions: [
+            { flowId: 107, flowKey: 'bond:batch-out', flowType: 'batchOutbound', selectable: true, recommended: true },
+            { flowType: 'normalOutbound', selectable: true },
+        ],
+    };
+    page.applyTask({ impId: 'EXCEL_CLEAR', saveRslt: '1', chkRslt: '1', checkDone: true, checkItems: [row] });
+
+    assert.equal(page.checkItems[0].selectedFlowKey, '0_normalOutbound_1');
+    assert.equal(page.checkItems[0].flowName, '无需审批');
+    assert.equal(page.checkItems[0].directFlow, true);
+});
+
 test('可调整行展示调整提示，主体冲突等不可调整行展示未通过', () => {
     assert.match(html, /v-if="row\.failReasons && row\.failReasons\.length"/);
     assert.doesNotMatch(html, /v-if="!row\.canAdjust && row\.failReasons/);

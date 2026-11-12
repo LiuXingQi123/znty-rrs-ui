@@ -400,7 +400,7 @@
             <div class="step"><b>1. 导入参数</b><span>选目标 CRMW 叶子池、调入/调出；选填原因与意见。</span></div>
             <div class="step"><b>2. 下载并上传</b><span>下载 CRMW 模板后拖入 xls/xlsx；解析 CRMW代码 / 证券代码写入临时表。</span></div>
             <div class="step"><b>3. 导入明细</b><span>分页查看凭证+标的主数据回填；可按校验状态筛选后点击校验。</span></div>
-            <div class="step"><b>4. 调库校验</b><span>每行执行 checkExcelAdjust；业务失败保留为调整提示。</span></div>
+            <div class="step"><b>4. 调库校验</b><span>使用明细中的主体逐行校验；允许放行的业务失败显示为调整提示。</span></div>
             <div class="step"><b>5. 选流程提交</b><span>弹窗与批量 CRMW 一致；确认后写申请/步骤，仅 20 落池。</span></div>
         </div>
     </section>
@@ -442,10 +442,16 @@
                 <h3>导入明细与调库校验</h3>
                 <ul>
                     <li>明细分页 <code>queryItemPage</code>：可按 CRMW 代码或证券代码、校验结果（待校验 / 通过 / 失败）筛选。</li>
-                    <li>导入明细列：CRMW代码、CRMW全称、CRMW市场、证券代码、证券全称、证券类型、证券市场、校验、校验说明。</li>
+                    <li>导入明细列：序号、CRMW代码、CRMW全称、证券代码、证券全称、担保人/权益人、自选权益人、担保人主体内评分、CRMW市场、证券类型、证券市场、校验、校验说明。</li>
+                    <li>有调整提示的可提交行仍显示「通过」，「校验说明」汇总该来源行和展开项的调整提示。摘要最长 500 字符，完整原因可在「调库校验结果」查看。</li>
+                    <li>上传时为标的证券默认选中首个关联主体，已有身份的 ABS 使用原主体。非 ABS 有候选时须选担保人，无候选可留空。</li>
+                    <li>仅 ABS 可在弹窗按代码或名称分页查找全市场自选权益人。ABS 至少选一种权益人，自选优先用于评级，清除后恢复关联主体内评。</li>
+                    <li>主体选择按导入行保存，改选后清除本批旧校验结果和流程选择，须重新校验。提交前重新复核来源行保存的主体资格，申请快照使用复核后的主体。同一 ABS 搭配不同凭证仍须选择同一主体。</li>
+                    <li>同批 ABS 主体冲突时保留手工、联动、互斥和关联项的原调整提示，在「调整说明」中追加冲突原因，整组标为不可调整。</li>
                     <li>每行调用 <code>CrmwPoolAdjustService.checkExcelAdjust</code>（凭证 + 标的 + 目标池 + 方向）。</li>
                     <li>保留 linkage / mutex / related 展开项；无清空目标池。</li>
-                    <li>校验结果列：CRMW代码、CRMW全称、CRMW市场、证券代码、证券全称、证券类型、证券市场、调整类型、调整方向、审批流程、调整说明、校验结果。</li>
+                    <li>校验结果列：序号、CRMW代码、CRMW全称、证券代码、证券全称、审批流程、调整说明、调整类型、调整方向、投资池名称、权益人/担保人名称、权益人/担保人代码、CRMW市场、证券类型、证券市场、校验结果。投资池名称显示每条调整项的实际目标池。</li>
+                    <li>权益人/担保人按来源导入行展示，ABS 自选优先。联动、互斥和关联项沿用来源行主体，校验失败时也能核对已保存的选择。</li>
                     <li>校验结果调整类型：手工主项「Excel导入」；联动/互斥/关联与单笔一致。</li>
                 </ul>
             </article>
@@ -453,6 +459,8 @@
                 <h3>提交、流程与权限</h3>
                 <ul>
                     <li>提交弹出「选择调库流程」；交互形态对齐证券池 Excel 导入 / CRMW 批量。</li>
+                    <li>提交成功返回时，「调库校验结果」回显本次实际选定的流程。</li>
+                    <li>提交前检查各条可提交调整项实际目标池的 Excel 导入权限，包括联动、互斥和关联项。任一池无权限时本批提交失败。</li>
                     <li>流程候选由 <code>checkExcelAdjust</code> 保留单笔候选并追加已配置的 batchIn/batchOut；配置批量时推荐批量，未配置时保留单笔推荐。</li>
                     <li>按组合键 <code>crmwScode|securityCode</code> 分组调用 <code>submitAdjustLog</code>；整批共享附件上下文与批次号；存在直通项时先 <code>recheckBeforeFinalApproval</code>。</li>
                     <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status_crmw</code>；目标池须 <code>excel_importable</code>；管理员 <code>userId=1</code> 放行。</li>
@@ -484,7 +492,7 @@
                 </tr>
                 <tr>
                     <td><span class="name">sys_imp_tmp_detl</span></td>
-                    <td>导入临时明细；fld001=CRMW代码，fld002=CRMW全称，fld003=CRMW市场，fld004=证券代码，fld005=证券全称，fld006=证券类型，fld007=证券市场，fld009=目标池 ID</td>
+                    <td>导入临时明细；fld001=CRMW代码，fld002=CRMW全称，fld003=CRMW市场，fld004=证券代码，fld005=证券全称，fld006=证券类型，fld007=证券市场，fld009=目标池 ID，fld012/013=关联主体代码/名称，fld014/015=自选权益人代码/名称</td>
                     <td><span class="tag w">新增</span> <span class="tag u">更新</span> <span class="tag r">查询</span></td>
                     <td>上传解析行、明细分页、校验结果回写</td>
                 </tr>
