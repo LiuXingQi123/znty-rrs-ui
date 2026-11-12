@@ -80,6 +80,27 @@ for (const [name, form, load, reset] of pages) {
     });
 }
 
+test('存量证券批量调整筛选树只保留债券产品库及其子节点', async () => {
+    const { page } = harness('stock_security_batch_adjust');
+    page.apiPost = async (url) => {
+        if (url === '/api/v1/common/queryPoolTreeList') {
+            return [
+                { id: 1, poolCode: 'bond_product_root', poolName: '债券产品库' },
+                { id: 2, parentId: 1, poolName: '产品 A' },
+                { id: 3, poolCode: 'other_product_root', poolName: '债券产品库1' },
+                { id: 4, parentId: 3, poolName: '产品 B' }
+            ];
+        }
+        if (url.endsWith('/querySourcePoolList')) return [];
+        return { records: [], total: 0 };
+    };
+
+    await page.initPage();
+
+    assert.deepEqual(Array.from(page.poolTreeData, node => node.id), [1]);
+    assert.deepEqual(Array.from(page.poolTreeData[0].children, node => node.id), [2]);
+});
+
 test('CRMW 批量调入和调出均向对应候选接口发送标准信用债筛选', async () => {
     const { page, requests } = harness('batch_crmw_pool_adjust');
     page.securitySearchForm.bondYesFlags = ['stdCredit'];
