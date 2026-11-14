@@ -29,7 +29,8 @@
 <tr><td>创设方已在观察或重点观察名单</td><td>独立触发，研究员决定组合出库或主体进入禁止库</td></tr></tbody></table>
 <p>按启用内评档位的sort_no比较；每天按当前风险状态扫描，包含存量风险。凭证、唯一主体、最新有效内评或3档配置缺失时整轮报错回滚，不猜主体，不把无内评算作低评级。</p></section>
 <section><h2>2. 列表与人工处理</h2><p>凭证代码、标的代码及提醒状态支持筛选，独立分页和角标。列表展示凭证、标的、创设方代码和名称、最新内评、当前池、原因、扫描及处理时间。仅债券业务显示，沿用共享提醒范围。</p>
-<ol><li>去CRMW调库：凭证和标的一起定位到CRMW申请页，研究员人工发起出库</li><li>主体禁投调整：使用创设方代码定位主体，人工选择禁止库并发起审批</li><li>标记已处理：仅保存处理人和时间，保留本次依据，不自动改池；跳转本身不改变提醒状态</li></ol></section>
+<ol><li>去CRMW调库：凭证和标的一起定位到CRMW申请页，研究员人工发起出库</li><li>主体禁投调整：使用创设方代码定位主体，人工选择禁止库并发起审批</li><li>标记已处理：仅保存处理人和时间，保留本次依据，不自动改池；跳转本身不改变提醒状态</li></ol>
+<p>两个调整入口优先打开工作台页签，页签未打开时在当前页面直接跳转。迁移时在 <code>my_matters.html</code> 的 <code>pagePaths</code> 中修改对应的 <code>crmwPoolAdjust</code> 或 <code>forbiddenPoolAdjust</code>，两种跳转共用该路径。</p></section>
 <section><h2>3. 待办生命周期</h2><p>组合键为凭证＋标的＋当前池。依据还包含入库日志、主体、最新内评及原因。待处理记录刷新；最近记录已处理且依据未变时不再重复提醒；依据变化后重新生成。恢复合规或退出扫描范围时旧待处理失效。状态：00待处理、20已处理、99已失效。</p><p>每次新增、刷新、失效、人工处理均保存完整事件快照。任务摘要区分本轮命中、沿用已处理、本轮失效及仍待处理。</p></section>
 <section><h2>4. API</h2><p>提醒页面使用独立的CrmwRuleAlertController → CrmwRuleAlertService → CrmwRuleAlertMapper，只负责分页和人工处理。定时任务另由CrmwRuleAlertTaskService及Task Mapper执行；execute()包装计时、日志、失败结果及事务回滚，私有doScanCrmwRuleAlerts()执行扫描，沿用doAutoOutExpired的结构。</p><table><thead><tr><th>POST接口</th><th>请求</th><th>返回</th></tr></thead><tbody>
 <tr><td><code>/api/v1/crmwRuleAlert/queryAlertPage</code></td><td>crmwScode（包含匹配）、securityCode（前缀匹配）、alertStatus、pageIndex、pageSize</td><td>ApiResponse&lt;PageResult&lt;CrmwRuleAlertDto&gt;&gt;</td></tr>

@@ -412,6 +412,24 @@ test('CRMW调库携带凭证和标的，主体禁投调整携带创设方编码�
     assert.equal(pending.length, 0);
 });
 
+test('CRMW提醒两个入口的页签和直接跳转共用页面路径配置', () => {
+    const { page, window } = harness();
+    const tabs = [];
+    window.RrsWorkbench.openDetailTab = tab => { tabs.push(tab); return false; };
+    page.pagePaths.crmwPoolAdjust = 'adjust/crmw.html';
+    page.pagePaths.forbiddenPoolAdjust = 'adjust/forbidden.html';
+    const row = { crmwScode: 'C1', securityCode: 'B1', issuerCode: 'CREATOR' };
+    const login = { loginUserId: '2', loginUserName: '测试' };
+
+    page.openCrmwAlertAdjust(row);
+    assert.equal(tabs[0].page, page.pagePaths.crmwPoolAdjust);
+    assert.equal(window.location.href, page.pagePaths.crmwPoolAdjust + '?' + new URLSearchParams({ crmwScode: 'C1', securityCode: 'B1', ...login }));
+
+    page.openCrmwAlertCompany(row);
+    assert.equal(tabs[1].page, page.pagePaths.forbiddenPoolAdjust);
+    assert.equal(window.location.href, page.pagePaths.forbiddenPoolAdjust + '?' + new URLSearchParams({ companyCode: 'CREATOR', ...login }));
+});
+
 test('CRMW人工处理可取消，确认后调用独立接口并刷新列表', async () => {
     const { page } = harness();
     page.activeTab = 'crmwRuleAlert';
