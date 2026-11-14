@@ -182,12 +182,13 @@
 
     <section class="panel" id="tables">
         <h2>涉及表（摘要）</h2>
-        <p class="sub">与批量/单券同构读写；调入候选来源统一读取 <code>ip_pool_status</code>，调出仅判断目标池在池状态。</p>
+        <p class="sub">调入勾选 CRMW 库时，按组合表的标的证券代码筛选，同一标的只列一次。多个来源池之间按任一命中筛选。</p>
         <table>
             <thead><tr><th>表</th><th>用途</th></tr></thead>
             <tbody>
             <tr><td><code>ip_investment_pool</code></td><td>产品库子树目标池；调入来源池白名单解析</td></tr>
-            <tr><td><code>ip_pool_status</code></td><td>调入候选来源、目标池在池、容量、落池</td></tr>
+            <tr><td><code>ip_pool_status</code></td><td>其他调入候选来源、目标池在池、容量、落池</td></tr>
+            <tr><td><code>ip_pool_status_crmw</code></td><td>CRMW 库候选按 <code>security_code</code> 匹配有效组合的标的证券</td></tr>
             <tr><td><code>rrs_securityinfo</code></td><td>证券主数据</td></tr>
             <tr><td><code>ip_adjust_log</code> / <code>ip_adjust_step</code></td><td>申请与审批步骤</td></tr>
             <tr><td><code>ip_pool_relation</code></td><td>来源/限制/联动/互斥</td></tr>
@@ -213,10 +214,10 @@
 
 <section class="panel" id="inbound-material-exemption">
     <h2>快速入库与材料豁免</h2>
-    <p>信用债简易资格在下一步沿用原方法计算；产品库快速资格独立判断，目标为 bond_product_root 子树启用叶子，当前有效来源为信用债一至三级、转债核心/重点或信用风险缓释工具库。本次待申请来源不计入当前在库。</p>
+    <p>产品库快速资格适用于 <code>bond_product_root</code> 子树启用叶子。信用债一至三级、转债核心/重点按普通在池记录判断。CRMW 库默认认可 <code>ip_pool_status</code> 的有效记录和 <code>ip_pool_status_crmw.security_code</code> 的有效组合标的，任一命中即可。本次待申请来源不计入资格。</p>
     <p>满足快速资格即免除本次信评报告、报告引用及其他附件要求，与选择快速、一般、特殊或批量流程无关。同组联动、互斥和关联市场项跟随主项；关联码逐码判断，任一不符则整组无快速材料豁免。无资格主项和独立调出沿用原材料规则。</p>
     <p>行级 materialExemptionType 为 creditBondSimple / productSource，无资格时为空；申请、详情调库、审核页下一步及三个批量入口统一按行级资格提示“本次免提交材料（信评报告及其他附件）”。切换流程不改变资格和提示，详情/审核补齐批量调入、批量调出标签。不显示合同范围确认提示，不增加勾选，现有材料入口及内容保留。</p>
-    <p>单笔推荐保留原规则；批量、存量和 Excel 追加配置的批量候选并统一推荐批量。材料豁免不改变所选流程 ID、Key、类型，人工审批继续办理。提交不重查信用债矩阵、入库经历或历史报告；产品来源复用已有在库集合。补充的报告引用仍验证并保存，原准入、落池复核及整批事务保持不变，不改表。</p>
+    <p>批量、存量和 Excel 追加并优先推荐已配置的批量流程。材料豁免跟随主项资格，所选流程决定实际审批。提交时按相同口径复核主券及关联市场代码的产品来源，信用债简易资格沿用校验结果，补充的报告引用仍需验证并保存。</p>
 </section>
 <section><h2>ABS 主体一致性</h2><p>ABS 在所有有效在库和在途申请中只允许一个主体代码；人工申请审核通过或直通成功入库后永久固定主体代码，全部出清也不更换；主体联动自动入池只生成 audit_status=00 的待确认调库日志，暂不写入 ip_pool_status 和主档五字段，也不形成永久绑定；研究员确认主体后才转为 audit_status=20 并正式入池，成功确认后才固定身份。审核通过才保存主档五字段。任意池主体联动和退出提醒共用同一规则，见<a href="security-pool-adjust-flow-tables.html#abs-identity">ABS 跨池唯一主体与主体联动</a>。</p></section>
 </main>
