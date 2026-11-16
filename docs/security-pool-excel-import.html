@@ -406,7 +406,7 @@
                     <li>导入类型：<code>security</code> 证券 / <code>company</code> 主体；调整方向：<code>in</code> 调入 / <code>out</code> 调出。</li>
                     <li>调整原因、调整意见均为选填，整批共享，写入临时主表 <code>fld002</code> / <code>fld003</code>。</li>
                     <li>「首先清空目标池」仅调入可见。每个目标池至少有一条可提交的 Excel 调入主项时，才为名单外的主体和证券生成调出项。</li>
-                    <li>「允许联动与互斥调整」默认勾选；不勾选则校验结果只保留手工项（证券导入）。</li>
+                    <li>证券和主体都可以勾选「允许联动与互斥调整」，默认勾选。取消勾选时，校验结果只保留手工项及启用清空时生成的清空出库主项。</li>
                     <li>已生成批次（存在 <code>impId</code>）后参数锁定，需先清空再改类型或方向。</li>
                 </ul>
             </article>
@@ -430,7 +430,7 @@
     <section class="panel" id="logic-2">
         <h2>校验与提交</h2>
         <p><strong>强担保豁免开关：</strong>统一使用 <code>common/constants/BusinessSwitches.java</code> 中的代码常量 <code>BusinessSwitches.STRONG_GUARANTEE_ENABLED</code>，当前为 <code>false</code>。改为 <code>true</code> 可恢复豁免，修改后需重新编译并重启服务生效。关闭时，非 ABS 担保人内评 1 档也执行重点观察名单限制；开启时恢复原有重点观察名单准入及池间 <code>in_restrict</code> 豁免。普通担保债评级矩阵不变，ABS、禁止池及其他限制池不享受该豁免。 证券导入继续把原业务失败作为可提交提示，关闭开关不改变该策略。</p>
-        <p class="sub">先校验导入行，再复用单券 / 主体调库校验；证券流程策略与证券池批量、存量批量一致：完整单笔候选加配置的批量流程，统一推荐批量。</p>
+        <p class="sub">证券和主体导入均保留单笔调库校验返回的流程候选，并默认推荐目标池已配置的批量调入或调出流程。批量流程留空或选「不需要审批」时，沿用单笔校验结果。单笔未返回候选时，列表只显示已配置的批量流程。</p>
         <span class="api">POST /api/v1/securityPoolExcelImport/queryItemPage · editRatingCompany · checkImport · queryTask · submitImport · cancelImport</span>
         <div class="logic">
             <article class="card">
@@ -442,7 +442,7 @@
                     <li>各导入行独立保存担保人/权益人和 ABS 自选权益人。同一证券导入不同池时仅上传默认值相同，修改或清除某行不影响其他行，分页和刷新后保留各行选择。修改调用 <code>editRatingCompany</code>，以 <code>impId + itemId</code> 定位当前行，并清空本批旧行级校验、调库展开结果及流程选择，须重新校验；已提交批次不可修改。修改、校验、提交与取消串行处理，禁止旧校验结果绕过重新校验提交。</li>
                     <li>证券每行复用 <code>SecurityPoolAdjustService.checkAdjust</code>，主体每行复用 <code>ForbiddenPoolAdjustService.checkCompanyAdjust</code>。ABS 的关联选择写入 <code>rightsHolderCode</code>，自选写入 <code>selfSelectedRightsHolderCode</code>；非 ABS 写入 <code>guarantorCode</code>。主体代码和标准名称由后端复核，提交读取本批已通过校验的持久化选择并再次校验候选资格；校验结果展示最终用于评级的主体全称和代码。ABS 最终采用的权益人（自选优先）无内评时，调入信用债分级库的校验提示“所选权益人无内评分”，与单券调整一致。</li>
                     <li>勾选联动互斥时保留 linkage / mutex / related 展开项；不勾选仅手工项。</li>
-                    <li>清空时，证券走 Excel 提示放行校验，在途、锁定、冻结期等原因保留在调整说明中。主体走禁投池主体调出规则，跳过在途主体。</li>
+                    <li>勾选清空后，可调整的证券和主体清空出库主项默认推荐目标池已配置的批量调出流程。名单内的导入主项始终按所选导入方向匹配流程。清空时，证券和主体执行各自的调出校验，在途、锁定、冻结期等业务失败原因显示为调整提示，可以继续提交。</li>
                     <li>校验结果列调整类型：手工主项「Excel导入」，清空项「Excel清空」。</li>
                     <li>某证券导入行主券或任一同券关联项失败时，整个调库组均不可提交，保留失败代码和具体原因，不影响其他独立校验通过行；提交复用已有校验结果的关联代码集合，不重新查询同券关系。</li>
                     <li><strong>item_tag 生命周期：</strong>校验态清空主项 <code>itemTag=clear</code>（<code>ItemType.CLEAR</code>）；提交时因调库服务不识别 clear，清空项 <code>item_tag</code> <strong>改写为 manual</strong>，靠 <code>adjust_type=Excel清空</code> 区分渠道。</li>
@@ -454,10 +454,10 @@
                     <li>提交弹出「选择调库流程」；弹窗结构、卡片层级、间距与底部操作区完全对齐证券池调整页，候选规则仍按 Excel 导入规则处理。</li>
                     <li>提交成功返回时，「调库校验结果」回显手工项和清空项本次实际选定的流程。</li>
                     <li><strong>证券流程策略：</strong>完整执行原单笔校验，包含产品库快速资格及信用债简易资格；Excel 专用入口将原业务未通过项统一设为可提交，保留原因并继续生成流程候选。带有产品库材料豁免资格的主项在提交时复核主券和关联市场代码的有效来源。通过公共方法 <code>BatchAdjustFlowOptionHelper.appendConfiguredBatchFlow</code> 追加目标池配置的 <code>batchIn</code>/<code>batchOut</code> 并设为唯一推荐。未配置 ID/Key 时保留单笔推荐。同定义的快速与批量选项按类型分别保留。</li>
-                    <li><strong>调整提示不阻断：</strong>禁止池、调入限制池、容量、在途等原校验照常执行，结果在“调整说明”显示“调整提示（共 N 项）”，这些行及同组配套项均显示“可调整”并随提交携带。原原因和可提交状态保存在导入快照中，重新打开仍可查看。证券或目标池无法识别等数据错误仍不可提交；证券清空出库与导入行均仅提醒不拦截；主体导入和其他调库入口保持原规则。</li>
+                    <li><strong>调整提示不阻断：</strong>证券和主体的 Excel 调入、调出及清空出库均保留原业务校验原因，在“调整说明”显示“调整提示（共 N 项）”，可提交状态及原原因保存在导入快照中。全部可调整但存在调整提示时，弹窗显示“全部可调整，其中 N 条存在调整提示”。证券、主体或目标池无法识别、缺少导入权限等错误仍不可提交。</li>
                     <li><strong>提交与落池一致：</strong>证券导入不会在提交或审批结束时再被原业务失败及报告必填要求阻断，实际仍按所选流程审批。重复调入先结束旧有效状态再写入，调出已不在库的证券按已完成处理；数据对象、来源明细、关联组完整性和数据库写入异常仍检查，异常整批回滚。</li>
                     <li><strong>材料按资格豁免：</strong>满足快速资格时，本次信评报告及其他附件免提交，与选择快速、一般、特殊或批量流程无关；行级 materialExemptionType 随提交透传，同组配套项跟随主项。切换流程不改变豁免和提示，所选审批流程仍照常执行。不展示合同投资范围确认提示。证券池批量、存量批量和 Excel 共用追加方法；单笔入口保持原候选。</li>
-                    <li>证券按来源导入行 <code>sourceItemId</code> 分组，通过 <code>addExcelImportAdjustLogList</code> 复用单券提交步骤。非 ABS 同码不同池可独立选择；同一 ABS 跨行主体必须一致；本行主项及联动、互斥、关联项使用该行保存的选择和流程，并分别保存本笔证券快照。整批先检查已有在途流程，再逐行创建流程，避免同批新流程阻断其他行。主体仍按主体分组 <code>addCompanyAdjustLog</code>；清空出库先于导入提交。主体池状态生效后，旗下债券由独立任务同步。</li>
+                    <li>证券按来源导入行 <code>sourceItemId</code> 分组，通过 <code>addExcelImportAdjustLogList</code> 复用单券提交步骤。非 ABS 同码不同池可独立选择；同一 ABS 跨行主体必须一致；本行主项及联动、互斥、关联项使用该行保存的选择和流程，并分别保存本笔证券快照。主体按主体分组通过 <code>addCompanyExcelAdjustLog</code> 提交，直通或审批通过后更新池状态。调入已在池主体时先结束旧有效状态再写入新状态，已出池主体的调出按完成处理。清空出库先于导入提交，主体池状态生效后，旗下债券由独立任务同步。</li>
                     <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；目标池须 <code>excel_importable</code>；管理员 <code>userId=1</code> 放行。</li>
                     <li>导入批次号仅管理员可见；<code>impId</code> 仍用于后续校验 / 提交。</li>
                 </ul>
@@ -556,7 +556,7 @@
             <li>页面不选择目标池：父池 / 子池名称必须能解析到启用叶子池，否则该行校验失败。</li>
             <li>调整类型：Excel 手工主项 <code>Excel导入</code>，清空项 <code>Excel清空</code>；联动/互斥/关联与单笔一致。字典 <code>DICT_ADJUST_TYPE</code> 已登记。</li>
             <li>同一目标池有调入主项随本次提交时，才提交该池的清空项及配套项。清空先提交，导入随后提交，各项按所选流程生效。清空校验用 <code>item_tag=clear</code>，提交改写为 <code>manual</code> 并以调整类型区分。</li>
-            <li>证券校验复用单券 <code>checkAdjust</code>，主体校验复用 <code>checkCompanyAdjust</code>；证券 Excel 模板仅四列，页面默认首个关联主体并允许修改，ABS 支持全市场自选权益人且自选优先。改选择后须重新校验。联动、互斥与关联项展示来源主券选择；首先清空目标池自动生成的出库成员沿用原有默认主体逻辑。证券流程候选：完整单笔匹配加配置的 batchIn/Out，统一推荐批量；批量/存量见
+            <li>证券和主体分别使用 <code>checkExcelAdjust</code> 和 <code>checkCompanyExcelAdjust</code> 执行单笔业务规则并生成提示；证券 Excel 模板仅四列，页面默认首个关联主体并允许修改，ABS 支持全市场自选权益人且自选优先。改选择后须重新校验。联动、互斥与关联项展示来源主券选择；首先清空目标池自动生成的出库成员沿用原有默认主体逻辑。证券和主体导入的流程候选均保留单笔匹配，并追加及推荐已配置的批量流程。证券池批量调整和存量证券批量调整见
                 <a href="batch-security-pool-adjust-tables.html">证券池批量调整</a>（共用追加方法）。</li>
             <li>仅 <code>audit_status=20</code> 落地 <code>ip_pool_status</code>；驳回 / 撤回只改日志与步骤。</li>
             <li>导入批次号仅管理员可见；目标池须具备 <code>excel_importable</code>，管理员放行。</li>
