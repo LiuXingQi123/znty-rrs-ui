@@ -360,7 +360,7 @@
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>禁投池调整</h1>
         <p class="desc">
-            页面列表区双 Tab：<strong>主体</strong> / <strong>ABS债</strong>。主体链路以发行主体为调整对象，对债券禁止库(15)/观察池(16)/黑名单质押库(17)/重点观察名单(23)调入/调出；主体在任意目标池出入生效（20）时，同步旗下未退市、未到期（含当天）的 bond 大类债券（<code>security_status!='D'</code>，含普通债、ABS、crmw）。17 统一按“主体在15 / 近一年认可外评孰低AA-及以下 / 主体在23”三个条件判定。ABS 链路仍提供单只 ABS 独立调整入口。仅 <code>audit_status=20</code> 落地池状态。具体主体的结果字段展示为“主体内评分”；准入矩阵的分类字典及档位比较仍称“内评分档”，评分取值和档位编码保持不变。</p>
+            页面列表区双 Tab：<strong>主体</strong> / <strong>ABS债</strong>。主体链路以发行主体为调整对象，对债券禁止库(15)/观察池(16)/黑名单质押库(17)/重点观察名单(23)调入/调出；主体出入池生效后，旗下债券由独立定时任务同步。17 统一按“主体在15 / 近一年认可外评孰低AA-及以下 / 主体在23”三个条件判定。ABS 链路仍提供单只 ABS 独立调整入口。仅 <code>audit_status=20</code> 落地池状态。具体主体的结果字段展示为“主体内评分”；准入矩阵的分类字典及档位比较仍称“内评分档”，评分取值和档位编码保持不变。</p>
         <div class="stats"><span class="stat">双 Tab 主体+ABS</span><span class="stat">主体+ABS 两套接口</span><span
                 class="stat">依据当前代码实现</span></div>
     </div>
@@ -406,7 +406,7 @@
                 <ul>
                     <li>API 前缀：<code>/api/v1/forbiddenAbsPoolAdjust</code>；附件 <code>/api/v1/attachments/*</code>，报告 <code>/api/v1/reports/*</code>。</li>
                     <li>列表/校验强制 <code>abs_flag=1</code>（仅 ABS 债）；可调池同样限定 15/16/17/23，前端按在池状态生成调入/调出树。</li>
-                    <li>校验 <code>checkAdjust</code>、提交 <code>addAdjustLogWithFiles</code> 与证券池单笔同构；<strong>不</strong>做主体级 <code>syncCompanyBonds</code>（不同步同主体其它债）。</li>
+                    <li>校验 <code>checkAdjust</code>、提交 <code>addAdjustLogWithFiles</code> 与证券池单笔同构，仅处理当前 ABS 债券。</li>
                     <li>直通或初始步骤自动结束时，落池成功后与正常审批共用 <code>ReportService.addInternalReportsOnFinish</code>：每条有手工信评附件的记录生成一份内部报告（<code>data_source=uploaded</code>），该记录下全部手工信评附件绑定为 <code>rrs_report_in + report_in</code> 库附件；其他材料和库引用附件不生成新报告。落池、报告与附件写入同事务，失败整体回滚。</li>
                     <li>单只 ABS 调入17时，发行主体须命中三个条件之一；调出17时须三个条件全部不满足。该门槛不替代原有锁池、容量、限制和互斥校验。</li>
                     <li>事宜场景：ABS 债 <code>category_type≠company</code>，待办归证券审核页（见我的事宜文档），不进主体禁投审核。</li>
@@ -449,10 +449,9 @@
                     <li>弹性禁投池（<code>soft_restrict</code>）写 <code>warnings</code> 不阻断；互斥配套调出失败<strong>反阻断</strong>同组手工调入。</li>
                     <li>自动扩展调入联动 / 调出联动 / 调入互斥调出项；手工项选流程，自动项继承同组流程与批次。</li>
                     <li>流程名称（校验结果下拉、选流程弹窗、审核/详情页审批流程列与「当前流程状态」标签）统一支持悬停查看流程描述：页面单独调用 <code>POST /api/v1/flows/queryFlowList</code> 读取 <code>wf_flow_definition.description</code>，按流程 ID（主键）直接取值；描述为空不弹气泡，接口异常静默降级不影响调库。</li>
-                    <li>主体调入任意目标池时，校验结果逐券展示将从直接互斥池或反向调入限制池调出的债券；每条互斥项携带债券代码、简称和类型，与主体手工项同批提交和审批。</li>
                     <li>提交阶段按调整对象证券代码分别复核配套互斥调出；主体与旗下不同债券的调出池互不干扰，同一调整对象同时调出互斥池仍会被拦截。</li>
                     <li>前端展示证券代码、证券简称、投资池、调整类型和方向；失败时分条展示 failReasons；同组行底色区分；提交用 <code>submitLoading</code> 防重复。</li>
-                    <li>直通 / 终审：锁池 + <code>recheckBeforeFinalApproval</code>（动态子集，见下）后落池；主体通过后按规则 <code>syncCompanyBonds</code>。仅最终 <code>audit_status=20</code> 落池。</li>
+                    <li>直通 / 终审：锁池 + <code>recheckBeforeFinalApproval</code>（动态子集，见下）后落池；主体落池后，旗下债券由独立定时任务处理。仅最终 <code>audit_status=20</code> 落池。</li>
                     <li>主体调库直通、初始步骤自动结束与正常终审，均在落池成功后调用统一报告生成方法。每条有手工信评附件的记录生成一份内部报告（<code>data_source=uploaded</code>），全部手工信评附件绑定为 <code>rrs_report_in + report_in</code>；其他材料及库引用附件不生成新报告。主体报告的 <code>companyCode</code> 使用主体代码，报告、附件与落池同事务，失败整体回滚。</li>
                 </ul>
             </article>
@@ -460,18 +459,18 @@
                 <ul>
                     <li><strong>checkAdjust</strong>：全量通用规则（主体跳过品种/市场）+ 联动互斥扩展 + 流程候选；行业已注释；开放日/pending 在 check 阶段执行。</li>
                     <li><strong>submit / 直通</strong>：不整单重跑 check；直通项走 recheck 子集再落池。</li>
-                    <li><strong>recheckBeforeFinalApproval</strong>（主体）：锁目标池后——调入：池锁 / 已在目标池 / 来源 / 限制 / 全局禁止 + 容量（含同批同步债预占）；调出：池锁 / 未在目标池 / 限制 / 冻结。<strong>不再跑</strong>：pending、同请求互斥、弹性警告、开放日、行业等。</li>
+                    <li><strong>recheckBeforeFinalApproval</strong>（主体）：锁目标池后——调入：池锁 / 已在目标池 / 来源 / 限制 / 全局禁止 + 容量（按主体调整计）；调出：池锁 / 未在目标池 / 限制 / 冻结。<strong>不再跑</strong>：pending、同请求互斥、弹性警告、开放日、行业等。</li>
                     <li>ABS 链路 recheck 另含品种等证券向子集，与主体略有差异；分层意图与证券池调库一致。</li>
                 </ul>
             </article>
-            <article class="card"><h3>主体级生效（syncCompanyBonds）</h3>
+            <article class="card"><h3>主体调库生效</h3>
                 <ul>
-                    <li>先写/软删主体 <code>ip_pool_status</code>；所有主体目标池均同方向同步旗下债，容量包含待同步债券，失败整批回滚。</li>
+                    <li>先写/软删主体 <code>ip_pool_status</code>；旗下债券由独立任务处理，容量按主体调整计。</li>
                     <li><b>调入</b>：未退市、未到期、bond 大类（<strong>当前含 ABS/crmw</strong>）、当前不在目标池 → 自动调入日志 + 入池。</li>
                     <li><b>调出</b>：未退市、未到期、bond 大类（含 ABS/crmw）、当前在目标池 → 自动调出日志 + 软删在池。</li>
-                    <li>主体调入/调出15或23后重新判定17；任一条件成立则主体及旗下债保留/进入17，三个条件全部不成立才调出17。</li>
-                    <li>同步范围统一为 <code>security_status!='D'</code> 且未到期（含当天）的 bond 大类，包含普通债、ABS、crmw；上市中 L、待上市 N、未知 U 均参与；<code>maturity_date</code> 按 <code>yyyyMMdd</code> 与数据库当前日比较；驳回/终止不改池、不同步债券。</li>
-                    <li>自动日志与主体共用 <code>submit_time</code> / 批次语义，便于历史同批聚拢。</li>
+                    <li>主体调入/调出15或23后重新判定17；任一条件成立则主体保留或进入17，旗下债券由独立任务处理，三个条件全部不成立才调出17。</li>
+                    <li>旗下债券由独立任务按实际主体池状态同步。</li>
+                    <li>脚本工具「禁投池主体审批通过」场景仅生成 C10006 的主体审批记录和 15、17 池状态。符合条件的旗下债券由独立定时任务补入。</li>
                 </ul>
             </article>
         </div>
@@ -594,9 +593,9 @@
             <li>主体调库日志 <code>security_type</code> 固定为 <code>company</code>；对象代码为公司简介 <code>COMP_ID</code>（与发行人主体码对应），不是债券 wind_code；详情、校验及提交主体主数据读 <code>ais_inv_ods.wind_compintroduction</code>，不再关联旧发行人表。</li>
             <li>ABS 调库走 <code>/api/v1/forbiddenAbsPoolAdjust/*</code>，仅 <code>abs_flag=1</code>；可调池 15/16/17/23；不同步同主体其它债。</li>
             <li>主体级校验<strong>跳过</strong>品种、市场、债券到期；保留池锁定、pending、容量、来源/限制、互斥、全局禁止、开放日等；行业校验调用已注释。</li>
-            <li>主体调入任意目标池的下一步校验页会逐券展示旗下债券互斥调出；每条互斥项均以具体债券作为真实调整对象，与主体手工项同批提交和审批，最终审批前按债券最新池状态复核。</li>
+            <li>下一步校验页展示主体手工项及主体在关系池的配套调整。旗下债券由独立定时任务按主体生效后的池状态处理。</li>
             <li>check 全量 vs 终审 recheck 动态子集见上「校验分层」；仅 <code>audit_status=20</code> 落池。</li>
-            <li>主体生效后<strong>债券禁止库15 / 黑名单质押库17</strong>同步旗下未退市、未到期（含当天）的 bond 大类债券，包含普通债、ABS、crmw；15/23 变化后按三个条件重新判定17。</li>
+            <li>主体生效后即时更新主体状态，旗下债券由定时任务同步。</li>
             <li>债券自动同步日志为大类 bond，会出现在<strong>禁投池历史</strong>，但<strong>不会</strong>进入「主体池调整历史」（按 company 过滤）。</li>
             <li>发起人不能参与后续审批节点（管理员与发起/修改语义节点除外）；会签全员完成，抢占跳过同节点其他待办。</li>
             <li>修改节点 resubmit；附件变更仅允许修改节点重提。</li>
