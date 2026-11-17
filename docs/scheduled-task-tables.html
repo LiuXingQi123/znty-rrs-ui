@@ -571,11 +571,11 @@
                 <p>ABS 进出池的唯一入口：按池把「应在池」与「实际在池」求差集，替代原先散落在各主体联动任务里的 ABS 判断。</p>
                 <ul>
                     <li>每 10 分钟执行一次（Cron：<code>0 5/10 * * * ?</code>，第 5/15/25/35/45/55 分），与「在池主体旗下债券自动入池（已排除ABS债）（仅债券）」错开</li>
-                    <li>参数：<code>{"enableIn":false,"enableOut":true,"minDaysToMaturity":0}</code>；可再加 <code>poolIds</code>、<code>mappings</code></li>
+                    <li>参数：<code>{"enableIn":false,"enableOut":true,"enableUnconfirmedIssuerIn":false,"minDaysToMaturity":0}</code>；可再加 <code>poolIds</code>、<code>mappings</code></li>
                     <li>开关：<code>enableIn</code> 控制入池、<code>enableOut</code> 控制出池，省略时入池默认关闭、出池默认开启，<strong>同时关闭则本轮失败</strong>；<code>minDaysToMaturity</code> 为距到期最小剩余天数，不足则不再补入池，<code>0</code> 表示到期当天仍可入（默认值，与改造前一致）</li>
                     <li>扫描池：参数 <code>poolIds</code> ∪ 关系绑定池 ∪ 已有生效主体的普通池 ∪ 当前已有 ABS 在池的池；CRMW 组合池跳过</li>
                     <li><strong>已确认发行人</strong>（主档 <code>issuer_code</code> 有值）→ 直接跟随该主体在该池的进出自动入池、出池</li>
-                    <li><strong>未确认发行人</strong> → 按担保人 / 差额支付承诺人 / 债务主体 / 原始权益人四类关系匹配池内主体，<strong>只生成规则提醒与待确认日志</strong>，不自动落池</li>
+                    <li><strong>未确认发行人</strong> → <code>enableUnconfirmedIssuerIn</code> 默认关闭。与 <code>enableIn</code> 同时开启时，按担保人 / 差额支付承诺人 / 债务主体 / 原始权益人四类关系匹配池内主体，<strong>只生成规则提醒与待确认日志</strong>，不自动落池</li>
                     <li>出池保护：债级独立入库依据（手工、批量、Excel 入池）、未结束调库流程、未确认时其他关联主体仍在池，命中则只提醒不自动出池</li>
                     <li>17 入出池均校验主体三条件；入池按 <code>market_codes</code> 校验市场，缺失或不受支持时跳过该只并记告警</li>
                     <li>每个目标池先出后入。两个阶段分别批量读最新联动提醒，出池批量读在途审批，入池批量读所在池和待确认入池日志。</li>
@@ -688,7 +688,7 @@ TempSecurityCodeService.editWindCodeChangeByJob(change)
         <div class="note">
             <ul class="notes">
                 <li>新增任务步骤：① <b>先评估执行顺序</b>（需求 29 第 4.1 / 4.2 节）再定 cron；② 页面新增配置记下 task_code；③ 实现 <code>RrsScheduledTask</code> 并覆盖 <code>getParamHelp</code>；④ 部署后执行。</li>
-                <li>不同 taskCode 无全局锁。Demo 中，临时代码替换每天 04:40、08:40、09:40、13:40、18:40、22:40 执行。晚间依次执行 22:00 债券类型变更、23:00 到期债股、23:05 CRMW 到期、23:10 外评主体出池和 23:15 外评主体入池，次日 06:00 同步主体观察名单，09:00 并行执行两项提醒。普通债补入、Wind 换码、普通债跟随出池和 ABS 对账每 10 分钟分别在第 1、2、3、5 分钟执行。三项恒生池 Excel 导出任务只读。</li>
+                <li>不同 taskCode 无全局锁。Demo 中，临时代码替换每天 04:40、08:40、09:40、13:40、18:40、22:40 执行。晚间依次执行 22:00 债券类型变更、23:00 到期债股、23:05 CRMW 到期、23:10 外评主体出池和 23:15 外评主体入池，次日 06:00 同步主体观察名单，09:00 并行执行两项提醒。普通债补入、Wind 换码、普通债跟随出池和「主体下ABS债券自动入库（区分已确认发行人和未确认发行人）（仅债券）」每 10 分钟分别在第 1、2、3、5 分钟执行。三项恒生池 Excel 导出任务只读。</li>
                 <li>演示数据：<code>rrs_scheduled_task_demo_data.sql</code>（脚本工具可初始化；<b>cron</b> 须与上述执行顺序一致，列表 id 不要求）。</li>
             </ul>
         </div>
