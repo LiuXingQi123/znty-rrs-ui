@@ -94,9 +94,9 @@
     <div class="wrap">
         <p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>存量证券批量调整</h1>
-        <p class="desc">调入从指定来源池圈选证券、调出不限制来源池，目标为「债券产品库」下的启用叶子；校验/提交与证券池批量调整同构，委托单券服务，在单笔候选基础上追加并推荐配置的批量流程。具体主体的结果字段展示为“主体内评分”；准入矩阵的分类字典及档位比较仍称“内评分档”，评分取值和档位编码保持不变。</p>
+        <p class="desc">调入从指定来源池圈选证券、调出不限制来源池，目标为「债券产品库」下的启用叶子；校验与证券池批量调整共用批量取数和规则判定，在原有候选中追加并推荐配置的批量流程。具体主体的结果字段展示为“主体内评分”；准入矩阵的分类字典及档位比较仍称“内评分档”，评分取值和档位编码保持不变。</p>
         <div class="stats">
-            <span class="stat">委托单券 check/submit</span>
+            <span class="stat">批量校验 · 按券提交</span>
             <span class="stat">目标=产品库子树</span>
             <span class="stat">调入来源池必选</span>
             <span class="stat">调出不限制来源池</span>
@@ -141,7 +141,7 @@
         <h2>同构复用（与证券池批量一致）</h2>
         <p><strong>强担保豁免开关：</strong>统一使用 <code>common/constants/BusinessSwitches.java</code> 中的代码常量 <code>BusinessSwitches.STRONG_GUARANTEE_ENABLED</code>，当前为 <code>false</code>。改为 <code>true</code> 可恢复豁免，修改后需重新编译并重启服务生效。关闭时，非 ABS 担保人内评 1 档也执行重点观察名单限制；开启时恢复原有重点观察名单准入及池间 <code>in_restrict</code> 豁免。普通担保债评级矩阵不变，ABS、禁止池及其他限制池不享受该豁免。</p>
         <p>同券跨市场按调库组整体校验：主券或任一关联券失败，整组不可调整，其他独立组不受影响。“放开规则”同步传递给所有关联券，仅跳过既有主体债入库矩阵，其余硬限制仍逐券执行。提交复用已有校验结果中的实际代码集合检查同池调入完整性，不再查询同券关系。</p>
-        <p class="sub">编排在 Stock 服务，规则与落库在单券 <code>SecurityPoolAdjustService</code>。</p>
+        <p class="sub">存量页面先批量查证券、池状态和评级数据，再按统一规则校验。提交继续按券办理。</p>
         <span class="api">checkAdjust · addAdjustLogWithFiles → SecurityPoolAdjustService</span>
         <div class="logic">
             <article class="card">
@@ -174,7 +174,7 @@
             <tr><td><code>queryPoolPage</code></td><td>产品库叶子池分页 + 现有数量分项</td></tr>
             <tr><td><code>querySourcePoolList</code></td><td>调入来源池白名单下拉</td></tr>
             <tr><td><code>querySecurityPage</code></td><td>候选证券（调入按来源池过滤，调出不限制）</td></tr>
-            <tr><td><code>checkAdjust</code></td><td>逐券校验，委托单券</td></tr>
+            <tr><td><code>checkAdjust</code></td><td>整批取数，逐券执行共用规则</td></tr>
             <tr><td><code>addAdjustLogWithFiles</code></td><td>整批提交（可带附件）</td></tr>
             </tbody>
         </table>

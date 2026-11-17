@@ -375,7 +375,7 @@
         <div class="flow">
             <div class="step"><b>1. 选择目标池</b><span>按可调整权限查询投资品种包含债券的启用叶子池；筛选树默认收起。</span></div>
             <div class="step"><b>2. 筛选证券</b><span>步骤1：选券+材料；调入排除已在池，调出仅已在池；滚动区为固定底栏预留空间，分页保持可见。</span></div>
-            <div class="step"><b>3. 批量校验</b><span>步骤2：逐券复用单券校验，展示结果表与材料汇总。</span></div>
+            <div class="step"><b>3. 批量校验</b><span>步骤2：集中读取本批数据，展示逐券校验结果与材料汇总。</span></div>
             <div class="step"><b>4. 批量提交</b><span>整批事务按证券分组写申请/步骤/附件，统一 submit_time。</span></div>
             <div class="step"><b>5. 审批生效</b><span>仅 audit_status=20 落池；直通亦先锁池复核。</span></div>
         </div>
@@ -405,12 +405,12 @@
     </section>
     <section class="panel" id="logic-2"><h2>批量校验与提交</h2>
         <p><strong>强担保豁免开关：</strong>统一使用 <code>common/constants/BusinessSwitches.java</code> 中的代码常量 <code>BusinessSwitches.STRONG_GUARANTEE_ENABLED</code>，当前为 <code>false</code>。改为 <code>true</code> 可恢复豁免，修改后需重新编译并重启服务生效。关闭时，非 ABS 担保人内评 1 档也执行重点观察名单限制；开启时恢复原有重点观察名单准入及池间 <code>in_restrict</code> 豁免。普通担保债评级矩阵不变，ABS、禁止池及其他限制池不享受该豁免。</p>
-        <p class="sub">批量层负责聚合，单券规则与证券池调库一致；页面步骤2侧重结果展示与流程选择。</p><span class="api">POST /api/v1/batchSecurityPoolAdjust/checkAdjust · addAdjustLogWithFiles</span>
+        <p class="sub">批量校验先集中读取池关系、容量和证券等数据，再按与单券一致的规则给出结果。页面步骤 2 展示原因和流程候选。</p><span class="api">POST /api/v1/batchSecurityPoolAdjust/checkAdjust · addAdjustLogWithFiles</span>
         <div class="logic">
             <article class="card"><h3>逐券校验与页面展示</h3>
                 <ul>
-                    <li>每个证券转换为单证券 <code>AdjustCheckReq</code>，调用 <code>securityPoolAdjustService.checkBatchAdjust</code>，复用完整单笔校验及匹配，再追加配置的批量流程。</li>
-                    <li><strong>调入顺序</strong>（与 <code>checkCommonIn</code> 一致）：池锁定 → 品种 → 市场 → pending → 已在目标池 → 容量 → 来源池 → 调入限制池 → 同请求互斥 → 弹性禁投（警告）→ 全局禁止池 → 行业限制（已注释）→ 开放日 →（债券）到期 → 主体内评矩阵 /（股票）退市 → 评级限制（空实现）/（基金）评分（仅 check）。页面按当前页证券代码批量查询 <code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115200000=债务主体</code>、<code>115201000=原始权益人</code> 四类关系主体；主体内评左关联，无内评主体仍返回且评分为空。同一主体兼多类关系时按类型分别返回，仅对同证券、同主体、同类型去重；四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条。非 ABS 展示为担保人，ABS 展示为权益人，并可从 <code>t_inv_company</code> 以 <code>wind_code</code> 分页选择自选权益人；表格使用带搜索图标的可清空输入框，聚焦或点击图标打开选择弹窗，清空后解除自选；弹窗与单笔调库完全一致，单选列位于序号列左侧。ABS 的“担保人主体内评分”自选优先，否则使用普通权益人内评；校验和提交均透传三个主体编码并由后端重新查询校验。自选权益人弹窗采用带标签的主体编码/名称查询区；点击行或单选框选择主体，选中行高亮，最新内评以标签展示；底部显示已选主体全称和编码。确认前仅暂存选择，取消保留原值。主体编码、主体全称和内评列按弹窗可用宽度自适应分配。</li>
+                    <li>后端由 <code>BatchSecurityCheckService</code> 集中获取本批池配置、主档、市场、在池、在途和评级等数据，再通过 <code>SecurityPoolAdjustService</code> 执行单券规则并追加配置的批量流程。页面保留原有返回结构及流程选项。</li>
+                    <li><strong>调入顺序</strong>（与 <code>checkCommonIn</code> 一致）：池锁定 → 品种 → 市场 → pending → 已在目标池 → 容量 → 来源池 → 调入限制池 → 同请求互斥 → 弹性禁投（警告）→ 全局禁止池 → 行业限制（已注释）→ 开放日 →（债券）到期 → 主体内评矩阵 /（股票）退市 → 评级限制（空实现）/（基金）评分（仅 check）。页面按当前页证券代码批量查询 <code>115004000=担保人</code>、<code>115203000=差额支付承诺人</code>、<code>115200000=债务主体</code>、<code>115201000=原始权益人</code> 四类关系主体；主体内评左关联，无内评主体仍返回且评分为空。同一主体兼多类关系时按类型分别返回，仅对同证券、同主体、同类型去重；四类依次映射排序号 <code>1/2/3/4</code> 升序，同类型按内评时间倒序，页面默认选中第一条。非 ABS 展示为担保人，ABS 展示为权益人，并可通过批量接口 <code>querySelfSelectedRightsHolderPage</code> 分页选择自选权益人；表格使用带搜索图标的可清空输入框，聚焦或点击图标打开选择弹窗，清空后解除自选；弹窗与单笔调库完全一致，单选列位于序号列左侧。ABS 的“担保人主体内评分”自选优先，否则使用普通权益人内评；校验和提交均透传三个主体编码并由后端重新查询校验。自选权益人弹窗采用带标签的主体编码/名称查询区；点击行或单选框选择主体，选中行高亮，最新内评以标签展示；底部显示已选主体全称和编码。确认前仅暂存选择，取消保留原值。主体编码、主体全称和内评列按弹窗可用宽度自适应分配。</li>
                     <li><strong>调出顺序</strong>（与 <code>checkCommonOut</code> 一致）：池锁定 → pending → 未入池 → 冻结期（入池时间缺失报「证券入池生效时间缺失」）→ 调出限制池 → 调出互斥池 → 同请求互斥 → 弹性禁投（警告）→ 开放日 → 到期/退市。</li>
                     <li>流程候选保留单笔完整匹配（白名单/信用债简易/产品库快速/默认/特殊/升降级等），通过公共方法追加目标池配置的 batchIn/batchOut，统一推荐批量流程；证券池批量、存量批量和 Excel 导入共用该规则。未配置批量流程时保留单笔推荐，操作员可改选。</li>
                     <li>步骤2 chips 汇总报告/附件/放开规则/条数；「调整说明」失败分条展示 failReasons；同组 <code>adjustGroupKey</code> 底色区分。</li>
@@ -448,7 +448,7 @@
                     <td><span class="name">ip_investment_pool</span></td>
                     <td>目标池定义、容量及流程配置；校验保留完整单笔候选并追加已配置的 batchIn/Out，统一推荐批量，提交沿用所选流程</td>
                     <td><span class='tag r'>查询</span></td>
-                    <td>池分页、叶子池校验；流程候选来自单券 checkAdjust</td>
+                    <td>池分页、叶子池校验；批量校验按共用规则匹配流程候选</td>
                 </tr>
                 <tr>
                     <td><span class="name">ip_pool_permission</span></td>
