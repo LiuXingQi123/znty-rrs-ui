@@ -1120,21 +1120,6 @@
             flowDesc(flow) {
                 return this.flowDescMap[flow.flowId] || '';
             },
-            // 直接传递页面已查询的主体名称及评级，后端不重复查询候选
-            buildSelectedRatingCompany(detail, options, ordinaryCode, selfSelected) {
-                const ordinary = (options || []).find(option => option.code === ordinaryCode);
-                const selected = selfSelected || ordinary || {};
-                return {
-                    companyCode: selected.companyCode || selected.code || null,
-                    companyName: selected.companyName != null ? selected.companyName : (selected.name || null),
-                    innerRating: selected.innerRating != null ? selected.innerRating : (selected.rating == null ? null : selected.rating),
-                    ratingBondissuer: selected.ratingBondissuer == null ? null : selected.ratingBondissuer,
-                    ratingBondissuerAgency: selected.ratingBondissuerAgency == null ? null : selected.ratingBondissuerAgency,
-                    rightsHolderName: this.isAbsBond(detail) && ordinary ? ordinary.name : null,
-                    selfSelectedRightsHolderName: selfSelected ? selfSelected.companyName : null
-                };
-            },
-
             // 普通权益人和全市场自选权益人使用同一字段映射
             buildAbsIdentityFields(candidate) {
                 const row = candidate || {};
@@ -1667,13 +1652,7 @@
             // 清空当前证券的自选权益人
             clearSelfRightsHolder(row) { this.$set(row, 'selectedSelfRightsHolder', null); this.$set(row, 'selectedSelfSelectedRightsHolderCode', ''); if (this.selectedSecurityMap[row.securityCode]) this.$set(this.selectedSecurityMap, row.securityCode, row) },
 
-            // 获取指定证券提交校验所需的评级主体编码
-            // 从步骤一保留的主券直接取得完整评级选择
-            selectedRatingCompanySelectionFor(securityCode) {
-                const row = this.selectedSecurities.find(item => item.securityCode === securityCode);
-                return row ? this.buildSelectedRatingCompany(row, row.guarantorOptions, row.selectedRelatedCompanyCode, row.selectedSelfRightsHolder) : null;
-            },
-
+            // 取步骤一保留的主体编码供后端批量复核
             selectedRatingCompanyCodesFor(securityCode) {
                 const selected = this.selectedSecurityMap[securityCode]
                 if (!selected) return { guarantorCode: '', rightsHolderCode: '', selfSelectedRightsHolderCode: '' }
@@ -1706,7 +1685,6 @@
                             securityCode: item.securityCode,
                             securityShortName: item.securityShortName || '',
                             securityType: item.securityType || '',
-                            selectedRatingCompany: this.buildSelectedRatingCompany(item, item.guarantorOptions, item.selectedRelatedCompanyCode, item.selectedSelfRightsHolder),
                             guarantorCode: this.isAbsBond(item) ? '' : (item.selectedRelatedCompanyCode || ''),
                             rightsHolderCode: this.isAbsBond(item) ? (item.selectedRelatedCompanyCode || '') : '',
                             selfSelectedRightsHolderCode: this.isAbsBond(item) ? (item.selectedSelfSelectedRightsHolderCode || '') : ''
@@ -1874,7 +1852,6 @@
                             securityCode: item.securityCode,
                             securityShortName: item.securityShortName || '',
                             securityType: item.securityType || '',
-                            selectedRatingCompany: this.selectedRatingCompanySelectionFor(item.sourceSecurityCode || item.securityCode),
                             sourceSecurityCode: item.sourceSecurityCode || item.securityCode,
                             targetPoolId: item.poolId,
                             targetPoolName: item.poolName,
