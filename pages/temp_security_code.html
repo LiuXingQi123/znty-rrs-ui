@@ -227,23 +227,15 @@
                     </el-col>
                     <el-col :span="12">
                         <el-form-item label="发行主体" prop="tempCompanyCode">
-                            <el-select
-                                v-model="addForm.tempCompanyCode"
-                                filterable
-                                remote
-                                clearable
-                                reserve-keyword
-                                placeholder="输入主体全称或代码搜索"
-                                :remote-method="searchCompanyOptions"
-                                :loading="companyLoading"
-                                style="width: 100%;">
-                                <el-option
-                                    v-for="item in companyOptions"
-                                    :key="item.companyCode"
-                                    :label="companyLabel(item)"
-                                    :value="item.companyCode">
-                                </el-option>
-                            </el-select>
+                            <el-input id="tempCompanyCode" class="issuer-picker-input" :value="companyLabel(selectedIssuer)"
+                                      placeholder="请选择发行主体" readonly aria-haspopup="dialog"
+                                      @click.native="openIssuerDialog" @keydown.enter.native.prevent="openIssuerDialog">
+                                <template slot="suffix">
+                                    <el-button v-if="selectedIssuer" class="issuer-clear-button" type="text" icon="el-icon-circle-close"
+                                               aria-label="清除发行主体" @click.stop="clearIssuer" @keydown.enter.native.stop></el-button>
+                                    <i v-else class="el-input__icon el-icon-search"></i>
+                                </template>
+                            </el-input>
                         </el-form-item>
                     </el-col>
                 </el-row>
@@ -277,6 +269,61 @@
             <el-button size="small" @click="addDialogVisible = false">取消</el-button>
             <el-button size="small" type="primary" :loading="submitLoading" @click="submitAdd">确认</el-button>
         </span>
+    </el-dialog>
+
+    <el-dialog title="选择发行主体" :visible.sync="issuerDialogVisible" width="820px" top="8vh"
+               custom-class="issuer-dialog" :close-on-click-modal="false">
+        <div class="issuer-search">
+            <div>
+                <label for="temp_issuer_company_code">主体代码</label>
+                <el-input id="temp_issuer_company_code" v-model.trim="issuerFilters.companyCode" size="small" clearable
+                          placeholder="请输入主体代码" @keyup.enter.native="searchIssuers"></el-input>
+            </div>
+            <div>
+                <label for="temp_issuer_company_name">主体全称</label>
+                <el-input id="temp_issuer_company_name" v-model.trim="issuerFilters.companyFullName" size="small" clearable
+                          placeholder="请输入主体全称" @keyup.enter.native="searchIssuers"></el-input>
+            </div>
+            <div>
+                <label for="temp_issuer_register_number">社会统一信用代码</label>
+                <el-input id="temp_issuer_register_number" v-model.trim="issuerFilters.registerNumber" size="small" clearable
+                          placeholder="请输入社会统一信用代码" @keyup.enter.native="searchIssuers"></el-input>
+            </div>
+            <div class="issuer-actions">
+                <el-button type="primary" size="small" icon="el-icon-search" @click="searchIssuers">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" @click="resetIssuerSearch">重置</el-button>
+            </div>
+        </div>
+        <el-table class="issuer-table" v-loading="issuerLoading" :data="issuerRows" row-key="companyCode"
+                  border stripe size="small" height="min(400px, 42vh)" empty-text="暂无数据"
+                  :row-class-name="issuerRowClassName" @row-click="selectPendingIssuer">
+            <el-table-column label="选择" width="56" align="center">
+                <template slot-scope="{ row }">
+                    <el-radio :value="pendingIssuer && pendingIssuer.companyCode" :label="row.companyCode"
+                              :aria-label="'选择' + companyLabel(row)" @input="selectPendingIssuer(row)"><span></span></el-radio>
+                </template>
+            </el-table-column>
+            <el-table-column type="index" label="序号" width="60" align="center"></el-table-column>
+            <el-table-column prop="companyCode" label="主体代码" min-width="120" show-overflow-tooltip></el-table-column>
+            <el-table-column prop="companyFullName" label="主体全称" min-width="220" show-overflow-tooltip></el-table-column>
+            <el-table-column prop="registerNumber" label="社会统一信用代码" min-width="170" show-overflow-tooltip></el-table-column>
+        </el-table>
+        <div slot="footer" class="issuer-footer">
+            <div class="issuer-summary">
+                <template v-if="pendingIssuer">
+                    <span>已选主体</span>
+                    <div class="issuer-summary-detail">
+                        <div class="issuer-summary-name" :title="pendingIssuer.companyFullName || pendingIssuer.companyShortName">{{ pendingIssuer.companyFullName || pendingIssuer.companyShortName }}</div>
+                        <div>{{ pendingIssuer.companyCode }}</div>
+                    </div>
+                </template>
+                <span v-else>尚未选择发行主体</span>
+            </div>
+            <div class="issuer-actions">
+                <el-button size="small" @click="issuerDialogVisible = false">取消</el-button>
+                <el-button type="primary" size="small" :disabled="!pendingIssuer" @click="confirmIssuer">确认选择</el-button>
+            </div>
+        </div>
     </el-dialog>
 
     <!-- ── 更新弹窗（临时证券信息只读 + 正式证券远程选券） ── -->
@@ -402,8 +449,13 @@
                 addDialogVisible: false,    // 新增弹窗状态
                 updateDialogVisible: false, // 更新弹窗状态
                 tableData: [],              // 列表数据
-                companyOptions: [],         // 发行主体选项（远程搜索，最多 50 条）
-                companyLoading: false,      // 发行主体远程搜索 loading
+                issuerDialogVisible: false, // 发行主体选择弹窗状态
+                issuerLoading: false,       // 主体列表加载状态
+                issuerRequestId: 0,         // 最近一次主体查询请求编号
+                issuerRows: [],             // 当前查询的发行主体
+                issuerFilters: { companyCode: '', companyFullName: '', registerNumber: '' }, // 待查询条件
+                selectedIssuer: null,       // 已确认回填的主体
+                pendingIssuer: null,        // 弹窗中暂选的主体
                 formalSecurityOptions: [],  // 正式证券选项（远程搜索，最多 50 条）
                 formalSecurityLoading: false, // 正式证券远程搜索 loading
                 securityTypeOptions: [],    // 证券类型选项
@@ -536,27 +588,64 @@
                 });
             },
 
-            // 加载下拉选项（证券类型全量；主体按需远程搜索）
+            // 加载证券类型选项
             async loadOptions() {
                 const data = await this.apiPost('/api/v1/tempSecurityCode/queryTempSecurityCodeOptions', {})
                 this.securityTypeOptions = data.securityTypes || []
-                // 初始预拉 50 条主体，便于直接点选
-                await this.searchCompanyOptions('')
             },
 
-            // 远程搜索发行主体（wind_cbondissuer，关键字模糊，最多 50 条）
-            async searchCompanyOptions(keyword) {
-                this.companyLoading = true
+            // 打开弹窗，以新增表单上已确认的主体作为初始选项
+            openIssuerDialog() {
+                this.pendingIssuer = this.selectedIssuer
+                this.issuerDialogVisible = true
+                return this.resetIssuerSearch()
+            },
+
+            // 查询最多 100 条主体，只用最近一次查询更新列表
+            async searchIssuers() {
+                const requestId = ++this.issuerRequestId
+                this.issuerLoading = true
                 try {
-                    const data = await this.apiPost('/api/v1/tempSecurityCode/queryTempSecurityCodeOptions', {
-                        companyKeyword: keyword || ''
+                    const rows = await this.apiPost('/api/v1/tempSecurityCode/queryIssuerOptionList', {
+                        ...this.issuerFilters
                     })
-                    this.companyOptions = data.companies || []
-                } catch (e) {
-                    this.companyOptions = []
+                    if (requestId !== this.issuerRequestId) return
+                    this.issuerRows = rows
+                } catch {
+                    if (requestId !== this.issuerRequestId) return
+                    this.issuerRows = []
                 } finally {
-                    this.companyLoading = false
+                    if (requestId === this.issuerRequestId) this.issuerLoading = false
                 }
+            },
+
+            // 清空筛选条件并重新查询
+            resetIssuerSearch() {
+                this.issuerFilters = { companyCode: '', companyFullName: '', registerNumber: '' }
+                return this.searchIssuers()
+            },
+
+            // 暂存单选结果，确认后再回填新增表单
+            selectPendingIssuer(row) {
+                this.pendingIssuer = row
+            },
+
+            // 高亮当前暂选的主体
+            issuerRowClassName({ row }) {
+                return this.pendingIssuer && row.companyCode === this.pendingIssuer.companyCode ? 'issuer-selected' : ''
+            },
+
+            // 确认选择并回填发行主体代码
+            confirmIssuer() {
+                this.selectedIssuer = this.pendingIssuer
+                this.addForm.tempCompanyCode = this.selectedIssuer.companyCode
+                this.issuerDialogVisible = false
+            },
+
+            // 清除新增表单中已确认的发行主体
+            clearIssuer() {
+                this.selectedIssuer = null
+                this.addForm.tempCompanyCode = ''
             },
 
             // 执行查询
@@ -592,9 +681,8 @@
                     tempIssueDate: moment().format('YYYY-MM-DD'),
                     tempMaturityDate: '2999-12-31'
                 }
-                this.companyOptions = []
+                this.selectedIssuer = null
                 this.addDialogVisible = true
-                this.searchCompanyOptions('')
                 this.$nextTick(() => {
                     this.$refs.addFormRef.clearValidate()
                 })
@@ -827,7 +915,7 @@
                 if (!item) {
                     return ''
                 }
-                const name = item.fullName || item.shortName || ''
+                const name = item.companyFullName || item.companyShortName || ''
                 const code = item.companyCode || ''
                 if (name && code) {
                     return name + '（' + code + '）'

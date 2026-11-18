@@ -372,7 +372,7 @@
         <p class="sub">从页面操作到数据库读写的主要路径。</p>
         <div class="flow">
             <div class="step"><b>1. 查询列表</b><span>按临时代码、名称分页并展示临时及正式信息。</span></div>
-            <div class="step"><b>2. 加载选项</b><span>查询发行主体和证券类型；转正时远程搜正式证券。</span></div>
+            <div class="step"><b>2. 选择主体与类型</b><span>新增时打开弹窗单选发行主体，并选择证券类型；转正时远程搜正式证券。</span></div>
             <div class="step"><b>3. 新增临时证券</b><span>写主表 + 同步 rrs_securityinfo 占位（security_source=temporary）。</span></div>
             <div class="step"><b>4. 转正式</b><span>选正式主数据；在途改字段、已在池出/入；临时占位置 D。</span></div>
             <div class="step"><b>5. 取消/删除</b><span>取消仅 temporary；删除仅 temporary 且无核心引用。</span></div>
@@ -384,18 +384,19 @@
             <article class="card"><h3>列表查询</h3>
                 <ul>
                     <li>主表为 <code>rrs_temp_security_code</code>，关联两次证券类型字典。</li>
-                    <li>临时证券代码按前缀查询，临时证券名称按包含查询；主体下拉和正式证券下拉按代码前缀或名称片段查询；状态多选 <code>statusList</code>（temporary / updated / cancelled / deleted）。</li>
+                    <li>临时证券代码按前缀查询，临时证券名称按包含查询；状态多选 <code>statusList</code>（temporary / updated / cancelled / deleted）。</li>
                     <li>操作来源多选 <code>oprtSourceList</code>（manual=人工 / job=定时任务 / other=其他），默认 <code>['manual']</code>；重置后恢复该默认。</li>
                     <li>表格在「状态」后展示「操作来源」Tag。</li>
                     <li>排序对齐老系统状态优先（CASE）。</li>
                     <li>列表未过滤 is_deleted，已删除记录仍可显示；详情按 ID 过滤已删除。</li>
                 </ul>
             </article>
-            <article class="card"><h3>选项与正式选券</h3>
+            <article class="card"><h3>发行主体、证券类型与正式选券</h3>
                 <ul>
-                    <li>发行主体来自 <code>ais_inv_ods.wind_compintroduction</code>（远程搜索公司简介全量主体，展示全称，最多 50 条）。</li>
+                    <li>新增时点击「发行主体」打开弹窗，默认查询最多 100 条。主体代码和社会统一信用代码按前缀、主体全称按包含查询。重置清空条件并重新查询。</li>
+                    <li>主体弹窗调用 <code>POST /api/v1/tempSecurityCode/queryIssuerOptionList</code>，传入 <code>companyCode</code>、<code>companyFullName</code>、<code>registerNumber</code>，从 <code>ais_inv_ods.wind_compintroduction</code> 最多读取 100 条匹配记录。表格内滚动查看结果，依次显示单选、序号、主体代码、主体全称和社会统一信用代码。确认选择后回填主体名称和代码，取消保留已有表单值。</li>
                     <li>证券类型来自未删除且 category_type!='company' 的字典。</li>
-                    <li>转正正式证券：<code>queryFormalSecurityOptionList</code> 搜 <code>rrs_securityinfo</code>——排除 temporary 占位、退市，以及 <code>security_type IN ('crmw','company')</code>，最多 50 条。</li>
+                    <li>转正通过 <code>queryFormalSecurityOptionList</code> 按代码前缀或名称片段查询 <code>rrs_securityinfo</code>，排除 temporary 占位、退市，以及 <code>security_type IN ('crmw','company')</code>，最多 50 条。</li>
                 </ul>
             </article>
         </div>
@@ -515,7 +516,7 @@
                 </tr>
                 <tr>
                     <td><span class="name">ais_inv_ods.wind_compintroduction</span></td>
-                    <td>发行主体选项与主体全称</td>
+                    <td>主体代码、主体全称、主体简称与社会统一信用代码</td>
                     <td><span class='tag r'>查询</span></td>
                     <td>新增关联主体</td>
                 </tr>
@@ -532,7 +533,7 @@
             <li>关联：调入信用债大库时，临时占位无内评默认 grade_code=4 再走矩阵；正式无内评禁止入 1～5 级（见证券池调库，非本 Service 内实现）。</li>
             <li>列表未过滤软删除而详情过滤软删除，是当前实现的明确不一致点；已删除行仍可在列表看到「已删除」标签（配合 statusList 可筛）。</li>
             <li>临时主体代码不变时保留名称快照，即使主体主数据名称后来变化也不会自动刷新。</li>
-            <li>前端投资市场与 MarketCode、docs/dict.js 统一为 11 码：SSE、SZSE、NIB、BSE、COMPANY、OTC、HKEX、QDII、JWCW、UNKNOWN、OTHER；HKEX 显示为“香港交易所”。发行主体远程搜索公司简介全量主体，最多 50 条。</li>
+            <li>前端投资市场与 MarketCode、docs/dict.js 统一为 11 码：SSE、SZSE、NIB、BSE、COMPANY、OTC、HKEX、QDII、JWCW、UNKNOWN、OTHER；HKEX 显示为“香港交易所”。</li>
         </ul>
         <div class="note">本页依据当前 Controller、Service、Mapper
             XML、需求文档 24-temp-security-code 与老系统 TempSecurityInfoTableAction 对照整理；后续代码规则变化时应同步维护。
