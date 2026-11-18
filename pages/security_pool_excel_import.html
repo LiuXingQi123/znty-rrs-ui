@@ -41,32 +41,25 @@
                     <div class="field field-row">
                         <div class="field field-inline field-col">
                             <span class="field-label"><span class="req">*</span>导入类型</span>
-                            <el-radio-group v-model="form.importType" size="small" class="dir-group" :disabled="!!impId">
-                                <el-radio-button label="security">证券</el-radio-button>
-                                <el-radio-button label="company">主体</el-radio-button>
+                            <el-radio-group v-model="form.importType" :disabled="!!impId">
+                                <el-radio label="company">主体</el-radio>
+                                <el-radio label="security">证券</el-radio>
                             </el-radio-group>
                         </div>
                         <div class="field field-inline field-col">
                             <span class="field-label"><span class="req">*</span>调整方向</span>
-                            <el-radio-group v-model="form.direction" size="small" class="dir-group" :disabled="!!impId"
-                                            @change="onDirectionChange">
-                                <el-radio-button label="in">调入</el-radio-button>
-                                <el-radio-button label="out">调出</el-radio-button>
+                            <el-radio-group v-model="form.direction" :disabled="!!impId">
+                                <el-radio label="in">调入</el-radio>
+                                <el-radio label="out">调出</el-radio>
                             </el-radio-group>
                         </div>
                     </div>
                     <div class="field field-inline">
                         <span class="field-label">导入选项</span>
                         <div class="option-inline">
-                            <span v-if="form.direction === 'in'" class="clear-wrap">
-                                <el-checkbox v-model="form.clearTarget" size="small"
-                                             :disabled="!!impId">首先清空目标池</el-checkbox>
-                                <el-tooltip placement="top"
-                                            content="目标池至少有一条可调入的 Excel 明细时，才为本批名单以外的在池主体和证券生成调出项">
-                                    <i class="el-icon-info clear-tip-icon"></i>
-                                </el-tooltip>
-                            </span>
                             <el-checkbox v-model="form.allowLinkMutex" size="small" :disabled="!!impId">允许联动与互斥调整</el-checkbox>
+                            <el-button size="small" type="danger" plain :disabled="busy || clearPoolLoading"
+                                       @click="openClearPoolDialog">清空目标池</el-button>
                         </div>
                     </div>
                     <div class="field field-row field-last">
@@ -337,6 +330,68 @@
         </section>
     </div>
 
+    <el-dialog title="清空目标池" :visible.sync="clearPoolDialogVisible" width="820px"
+               custom-class="clear-pool-dialog" top="8vh" :close-on-click-modal="false"
+               :close-on-press-escape="!clearPoolSubmitting" :show-close="!clearPoolSubmitting">
+        <div class="clear-pool-search">
+            <div class="clear-pool-field">
+                <label for="security_pool_excel_import_clear_pool_filter">投资池</label>
+                <el-popover v-model="clearPoolTreeVisible" placement="bottom-start" width="340" :append-to-body="false">
+                    <el-input v-model.trim="clearPoolTreeKeyword" size="small" clearable prefix-icon="el-icon-search"
+                              placeholder="搜索投资池名称" @input="$refs.clearPoolTree.filter($event)"></el-input>
+                    <el-tree ref="clearPoolTree" class="clear-pool-tree" :data="clearPoolTree" node-key="id"
+                             :props="{ label: 'poolName' }" show-checkbox check-strictly
+                             :filter-node-method="filterClearPoolNode" @check="updateClearPoolFilter"></el-tree>
+                    <div class="clear-pool-tree-actions">
+                        <el-button size="mini" @click="clearPoolTreeVisible = false">完成</el-button>
+                    </div>
+                    <el-button id="security_pool_excel_import_clear_pool_filter" slot="reference" size="small"
+                               class="clear-pool-filter-trigger" icon="el-icon-folder-opened"
+                               :disabled="clearPoolLoading || clearPoolSubmitting">
+                        {{ clearPoolSearchIds.length ? '已选 ' + clearPoolSearchIds.length + ' 个池' : '请选择投资池' }}
+                        <i class="el-icon-arrow-down clear-pool-filter-arrow"></i>
+                    </el-button>
+                </el-popover>
+            </div>
+            <div class="clear-pool-actions">
+                <el-button type="primary" size="small" icon="el-icon-search" :disabled="clearPoolLoading || clearPoolSubmitting"
+                           @click="searchClearPools">查询</el-button>
+                <el-button size="small" icon="el-icon-refresh" :disabled="clearPoolLoading || clearPoolSubmitting"
+                           @click="resetClearPoolSearch">重置</el-button>
+            </div>
+        </div>
+        <el-table ref="clearPoolTable" class="clear-pool-table" :data="pagedClearPools" row-key="id"
+                  size="small" border stripe :max-height="360" v-loading="clearPoolLoading || clearPoolSubmitting"
+                  empty-text="暂无符合条件的投资池" @selection-change="clearPoolSelection = $event">
+            <el-table-column type="selection" reserve-selection width="52" align="center"></el-table-column>
+            <el-table-column label="序号" width="50" align="center">
+                <template slot-scope="{ $index }">{{ (clearPoolPagination.pageIndex - 1) * clearPoolPagination.pageSize + $index + 1 }}</template>
+            </el-table-column>
+            <el-table-column prop="poolFullName" label="投资池名称" min-width="180" show-overflow-tooltip>
+                <template slot-scope="{ row }">{{ row.poolFullName || row.poolName || '' }}</template>
+            </el-table-column>
+            <el-table-column prop="companyCount" label="在池主体数量" width="112" align="right"></el-table-column>
+            <el-table-column prop="bondCount" label="在池债券数量" width="112" align="right"></el-table-column>
+        </el-table>
+        <div class="clear-pool-pagination">
+            <el-pagination background layout="total, sizes, prev, pager, next, jumper"
+                           :current-page.sync="clearPoolPagination.pageIndex" :page-size="clearPoolPagination.pageSize"
+                           :page-sizes="[10, 20, 30, 50]" :total="filteredClearPools.length"
+                           :disabled="clearPoolLoading || clearPoolSubmitting"
+                           @size-change="handleClearPoolSizeChange"></el-pagination>
+        </div>
+        <div slot="footer" class="clear-pool-footer">
+            <span class="clear-pool-selection">
+                {{ clearPoolSelection.length ? '已勾选 ' + clearPoolSelection.length + ' 个池，确认后直通出库' : '尚未勾选投资池' }}
+            </span>
+            <div class="clear-pool-actions">
+                <el-button size="small" :disabled="clearPoolSubmitting" @click="clearPoolDialogVisible = false">取消</el-button>
+                <el-button size="small" type="danger" :loading="clearPoolSubmitting"
+                           :disabled="clearPoolLoading || !clearPoolSelection.length" @click="submitClearPools">确认清空</el-button>
+            </div>
+        </div>
+    </el-dialog>
+
     <!-- 选择调库流程弹窗 -->
     <el-dialog :visible.sync="flowDialogVisible" width="760px"
                custom-class="flow-dialog"
@@ -476,10 +531,21 @@ new Vue({
             selfRightsHolderPagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 主体候选分页
             pendingSelfRightsHolder: null,  // 弹窗暂存的主体
             pendingSelfRightsHolderCode: '', // 弹窗暂存的主体代码
+            clearPoolDialogVisible: false,  // 清空目标池弹窗
+            clearPoolLoading: false,        // 加载投资池数据
+            clearPoolSubmitting: false,     // 正在清空目标池
+            clearPoolRows: [],              // 可清空的投资池
+            clearPoolSelection: [],         // 表格中选中的目标池
+            clearPoolTree: [],              // 投资池筛选树
+            clearPoolTreeNodes: {},         // 按 ID 索引池树节点
+            clearPoolTreeVisible: false,    // 投资池树弹层
+            clearPoolTreeKeyword: '',       // 树搜索词
+            clearPoolSearchIds: [],         // 池树当前勾选的查询条件
+            clearPoolFilterIds: [],         // 最近一次查询应用的池
+            clearPoolPagination: { pageIndex: 1, pageSize: 10 }, // 清空目标池列表分页
             form: {                         // 导入参数
-                importType: 'security',     // 导入类型：security / company
+                importType: 'company',     // 导入类型：security / company
                 direction: 'in',            // 调整方向：in / out
-                clearTarget: false,         // 是否先清空目标池
                 allowLinkMutex: true,       // 是否允许联动与互斥（默认勾选）
                 adjustReason: '',           // 调整原因
                 adjustAdvice: '',           // 调整意见
@@ -504,6 +570,26 @@ new Vue({
         }
     },
     computed: {
+        // 父节点筛选包含所属叶子池
+        filteredClearPools() {
+            if (!this.clearPoolFilterIds.length) return this.clearPoolRows
+            const ids = new Set(this.clearPoolFilterIds)
+            return this.clearPoolRows.filter(row => {
+                let poolId = row.id
+                while (poolId != null) {
+                    if (ids.has(poolId)) return true
+                    const node = this.clearPoolTreeNodes[poolId]
+                    poolId = node ? node.parentId : null
+                }
+                return false
+            })
+        },
+        // 对筛选后的投资池列表分页
+        pagedClearPools() {
+            const { pageIndex, pageSize } = this.clearPoolPagination
+            const start = (pageIndex - 1) * pageSize
+            return this.filteredClearPools.slice(start, start + pageSize)
+        },
         // 顶栏日期
         currentDateText() {
             return moment().format('YYYY-MM-DD')
@@ -779,12 +865,119 @@ new Vue({
             this.downloadBase64File(data.contentBase64, data.fileName || (templateCode + '.xlsx'), data.contentType)
             return data
         },
-        // 调整方向变更：调出时取消「首先清空目标池」
-        onDirectionChange(dir) {
-            if (dir === 'out') {
-                this.form.clearTarget = false
+        // 加载可操作池及筛选树
+        async openClearPoolDialog() {
+            this.clearPoolDialogVisible = true
+            this.clearPoolLoading = true
+            this.clearPoolRows = []
+            this.clearPoolSelection = []
+            this.resetClearPoolSearch()
+            try {
+                const [rows, pools] = await Promise.all([
+                    this.apiPost('/api/v1/securityPoolExcelImport/queryClearPoolList', {
+                        currentUserId: this.currentUserId
+                    }),
+                    this.apiPost('/api/v1/common/queryPoolTreeList', { includeVarietyCodes: ['bond', 'company'] })
+                ])
+                const poolList = pools || []
+                const roots = []
+                const nodes = {}
+                poolList.forEach(pool => {
+                    nodes[pool.id] = Object.assign({}, pool, { children: [] })
+                })
+                Object.values(nodes).forEach(node => {
+                    const parent = nodes[node.parentId]
+                    if (parent) {
+                        parent.children.push(node)
+                    } else {
+                        roots.push(node)
+                    }
+                })
+                // 投资池全称与证券池批量调整共用池树接口的标准字段
+                this.clearPoolRows = (rows || []).map(row => ({
+                    ...row,
+                    poolFullName: nodes[row.id] && nodes[row.id].poolFullName
+                }))
+                this.clearPoolTreeNodes = nodes
+                this.clearPoolTree = roots
+                this.$nextTick(() => {
+                    this.$refs.clearPoolTable.clearSelection()
+                    this.resetClearPoolSearch()
+                })
+            } catch (e) {
+                this.clearPoolDialogVisible = false
+            } finally {
+                this.clearPoolLoading = false
             }
         },
+
+        // 按投资池名称过滤树节点
+        filterClearPoolNode(keyword, node) {
+            return !keyword || (node.poolFullName || node.poolName).toLowerCase().includes(keyword.toLowerCase())
+        },
+
+        // 暂存池树条件，点击查询后才筛选表格
+        updateClearPoolFilter(node, { checkedKeys }) {
+            this.clearPoolSearchIds = checkedKeys
+        },
+
+        // 按当前池树条件查询并回到第一页
+        searchClearPools() {
+            this.clearPoolFilterIds = this.clearPoolSearchIds.slice()
+            this.clearPoolPagination.pageIndex = 1
+            this.clearPoolTreeVisible = false
+        },
+
+        // 清除查询条件并恢复全部可操作池
+        resetClearPoolSearch() {
+            this.clearPoolTreeKeyword = ''
+            this.clearPoolSearchIds = []
+            if (this.$refs.clearPoolTree) {
+                this.$refs.clearPoolTree.setCheckedKeys([])
+                this.$refs.clearPoolTree.filter('')
+            }
+            this.searchClearPools()
+        },
+
+        // 调整每页数量时回到第一页
+        handleClearPoolSizeChange(pageSize) {
+            this.clearPoolPagination.pageSize = pageSize
+            this.clearPoolPagination.pageIndex = 1
+        },
+
+        // 二次确认后直通清空表格所选投资池
+        async submitClearPools() {
+            const poolIds = this.clearPoolSelection.map(row => row.id)
+            if (!poolIds.length || this.clearPoolSubmitting) return
+            try {
+                await this.$confirm(
+                    '将对已勾选的 ' + poolIds.length + ' 个投资池中的在池主体和债券执行出库。校验通过后立即生效，无需审批。',
+                    '确认清空目标池',
+                    {
+                        type: 'warning',
+                        confirmButtonText: '确认清空',
+                        cancelButtonText: '取消',
+                        closeOnClickModal: false
+                    }
+                )
+            } catch (e) {
+                // 取消或关闭确认框时保留勾选
+                return
+            }
+            this.clearPoolSubmitting = true
+            try {
+                const logIds = await this.apiPost('/api/v1/securityPoolExcelImport/clearPools', {
+                    poolIds,
+                    currentUserId: this.currentUserId,
+                    currentUserName: this.currentUserName
+                })
+                this.clearPoolDialogVisible = false
+                this.$message.success(logIds.length ? '已生效 ' + logIds.length + ' 条调库记录' : '所选池无在池成员')
+            } catch (e) { /* api 已提示 */ } finally {
+                this.clearPoolSubmitting = false
+            }
+        },
+
         // 下载证券/主体模板
         async handleDownloadTemplate(type) {
             try {
@@ -856,9 +1049,8 @@ new Vue({
             this.loading = true
             try {
                 const request = {
-                    importType: this.form.importType || 'security',
+                    importType: this.form.importType || 'company',
                     direction: this.form.direction,
-                    clearTarget: !!this.form.clearTarget,
                     allowLinkMutex: !!this.form.allowLinkMutex,
                     adjustReason: this.form.adjustReason || null,
                     adjustAdvice: this.form.adjustAdvice || null,
@@ -1032,12 +1224,11 @@ new Vue({
             this.filterChkRslt = ''
             this.keyword = ''
             this.pagination = { pageIndex: 1, pageSize: 20, total: 0 }
-            this.form.clearTarget = false
             this.form.allowLinkMutex = true
         },
-        // 是否需选择审批流程的主项（手工 / 清空出库）
+        // 是否需选择审批流程的主项（手工）
         isManualItem(row) {
-            return !row.itemTag || row.itemTag === 'manual' || row.itemTag === '' || row.itemTag === 'clear'
+            return !row.itemTag || row.itemTag === 'manual' || row.itemTag === ''
         },
         // 规范化校验结果（流程候选、默认选中、分组底色）
         normalizeCheckItems(list) {
@@ -1191,7 +1382,6 @@ new Vue({
         adjustTypeTagType(adjustType) {
             if (adjustType === '联动调整') return 'warning'
             if (adjustType === '互斥调整') return 'danger'
-            if (adjustType === 'Excel清空' || adjustType === '清空出库') return 'warning'
             if (adjustType === 'Excel导入') return 'info'
             return 'info'
         },

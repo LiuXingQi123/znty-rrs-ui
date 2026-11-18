@@ -66,23 +66,96 @@ test('无法识别的数据仍不混入可提交项，有效且带提示的行�
     assert.equal(page.validCheckItems[0].failReasons.length, 2);
 });
 
-test('提交响应中的清空项按页面选项键回显无需审批', () => {
+test('导入默认选主体，池树只筛选，清空按表格勾选提交', async () => {
     const page = harness();
-    const row = {
-        ...manual(),
-        sourceItemId: null, itemTag: 'clear', adjustMode: '调出',
-        flowId: null, flowKey: null, flowType: 'normalOutbound', directFlow: true,
-        selectedFlowKey: '0_normalOutbound_1',
-        flowOptions: [
-            { flowId: 107, flowKey: 'bond:batch-out', flowType: 'batchOutbound', selectable: true, recommended: true },
-            { flowType: 'normalOutbound', selectable: true },
-        ],
+    assert.equal(page.form.importType, 'company');
+    assert.match(html, /<el-radio label="company">主体<\/el-radio>/);
+    assert.match(html, /<el-radio label="out">调出<\/el-radio>/);
+    assert.doesNotMatch(html, /form\.clearTarget/);
+    page.clearPoolRows = [{ id: 16 }, { id: 17 }, { id: 23 }];
+    page.clearPoolTreeNodes = { 16: { parentId: 3 }, 17: { parentId: 4 }, 23: { parentId: 3 } };
+    page.clearPoolFilterIds = [3];
+    assert.deepEqual(Array.from(page.filteredClearPools, row => row.id), [16, 23]);
+    page.clearPoolSelection = [{ id: 23 }];
+    let request;
+    page.apiPost = async (url, body) => {
+        request = { url, body };
+        return [100];
     };
-    page.applyTask({ impId: 'EXCEL_CLEAR', saveRslt: '1', chkRslt: '1', checkDone: true, checkItems: [row] });
+    let confirm;
+    page.$confirm = (message, title, options) => {
+        assert.match(message, /已勾选的 1 个投资池/);
+        assert.equal(title, '确认清空目标池');
+        assert.equal(options.type, 'warning');
+        return new Promise(resolve => { confirm = resolve; });
+    };
+    const pending = page.submitClearPools();
+    assert.equal(request, undefined);
+    confirm();
+    await pending;
+    assert.equal(request.url, '/api/v1/securityPoolExcelImport/clearPools');
+    assert.deepEqual(Array.from(request.body.poolIds), [23]);
+    assert.equal(page.impId, '');
+});
 
-    assert.equal(page.checkItems[0].selectedFlowKey, '0_normalOutbound_1');
-    assert.equal(page.checkItems[0].flowName, '无需审批');
-    assert.equal(page.checkItems[0].directFlow, true);
+test('取消或关闭清空确认时不提交并保留勾选', async () => {
+    const page = harness();
+    page.clearPoolDialogVisible = true;
+    const selected = [{ id: 23 }, { id: 24 }];
+    page.clearPoolSelection = selected;
+    let calls = 0;
+    page.apiPost = async () => { calls++; };
+    for (const action of ['cancel', 'close']) {
+        page.$confirm = () => Promise.reject(action);
+        await page.submitClearPools();
+    }
+    assert.equal(calls, 0);
+    assert.equal(page.clearPoolDialogVisible, true);
+    assert.equal(page.clearPoolSelection, selected);
+    assert.equal(page.clearPoolSubmitting, false);
+});
+
+test('清空弹窗用池树全称，查询和重置刷新分页，翻页保留勾选', async () => {
+    const page = harness();
+    const fullName = '转债产品库/兴业国企改革可转债库';
+    const sequence = html.match(/type="selection" reserve-selection[^>]*><\/el-table-column>\s*<el-table-column label="序号"[^>]*>\s*<template[^>]*>\{\{([^}]+)\}\}/);
+    assert.ok(sequence);
+    const rowNumber = $index => vm.runInNewContext(sequence[1], { clearPoolPagination: page.clearPoolPagination, $index });
+    page.$refs = {
+        clearPoolTree: { setCheckedKeys() {}, filter() {} },
+        clearPoolTable: { clearSelection() {} }
+    };
+    const rows = Array.from({ length: 12 }, (_, index) => ({ id: index + 2, poolName: '子池' + (index + 1) }));
+    page.apiPost = async url => {
+        if (url.endsWith('/queryClearPoolList')) return rows;
+        if (url.endsWith('/queryPoolTreeList')) return [
+            { id: 1, poolName: '转债产品库', poolFullName: '转债产品库' },
+            { id: 2, parentId: 1, poolName: '兴业国企改革可转债库', poolFullName: fullName }
+        ];
+        assert.fail(url);
+    };
+
+    await page.openClearPoolDialog();
+    assert.equal(page.pagedClearPools.length, 10);
+    assert.equal(page.pagedClearPools[0].poolFullName, fullName);
+    assert.equal(rowNumber(0), 1);
+    page.clearPoolSelection = [page.pagedClearPools[0]];
+    page.clearPoolPagination.pageIndex = 2;
+    assert.deepEqual(Array.from(page.pagedClearPools, row => row.id), [12, 13]);
+    assert.equal(rowNumber(0), 11);
+    page.clearPoolSelection.push(page.pagedClearPools[0]);
+
+    page.updateClearPoolFilter(null, { checkedKeys: [1] });
+    assert.equal(page.filteredClearPools.length, 12);
+    page.searchClearPools();
+    assert.equal(page.clearPoolPagination.pageIndex, 1);
+    assert.deepEqual(Array.from(page.pagedClearPools, row => row.id), [2]);
+
+    page.resetClearPoolSearch();
+    assert.equal(page.filteredClearPools.length, 12);
+    page.handleClearPoolSizeChange(20);
+    assert.equal(page.pagedClearPools.length, 12);
+    assert.deepEqual(Array.from(page.clearPoolSelection, row => row.id), [2, 12]);
 });
 
 test('可调整行展示调整提示，主体冲突等不可调整行展示未通过', () => {
