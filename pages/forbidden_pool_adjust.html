@@ -962,6 +962,21 @@
                                 :value="securityMasterFieldValue('ratingOutlook')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input v-model.trim="absBondDetail.ratingOutlook" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="10"></el-input>
                         </el-descriptions-item>
+                        <el-descriptions-item v-if="absBondDetail.guarantFlag == 1" label="担保人">
+                            <security-master-diff-label slot="label" label="担保人" field="guarantor"
+                                :value="(absSelectedGuarantor || {}).name" :comparison="securityMasterComparison"></security-master-diff-label>
+                            <el-select v-model="absBondDetail.selectedAbsGuarantorCode" size="small" placeholder="请选择担保人" style="width:100%;"
+                                       popper-class="guarantor-select-dropdown" :popper-append-to-body="false"
+                                       clearable :disabled="absAdjustStep === 2">
+                                <el-option v-for="opt in absGuarantorOptions" :key="opt.optionKey" :label="opt.label" :value="opt.code">
+                                    <span class="guarantor-option">
+                                        <span class="guarantor-option-name">{{ opt.name }}</span>
+                                        <el-tag v-if="opt.typeName" size="mini" type="info" class="guarantor-type-tag">{{ opt.typeName }}</el-tag>
+                                        <span class="guarantor-option-rating">{{ opt.rating }}</span>
+                                    </span>
+                                </el-option>
+                            </el-select>
+                        </el-descriptions-item>
                         <el-descriptions-item label="权益人*">
                             <el-select v-if="absGuarantorOptions.length > 0" v-model="absBondDetail.selectedGuarantorCode"
                                        size="small" placeholder="请选择权益人" style="width:100%;"
@@ -1000,10 +1015,10 @@
                                 :value="securityMasterFieldValue('dateCallExists')" :comparison="securityMasterComparison"></security-master-diff-label>
                             <el-input type="number" v-model="absBondDetail.dateCallExists" size="small" placeholder="请输入" :disabled="absAdjustStep === 2" maxlength="10"></el-input>
                         </el-descriptions-item>
-                        <el-descriptions-item label="担保人主体内评分">
+                        <el-descriptions-item v-if="absBondDetail.guarantFlag == 1" label="担保人主体内评分">
                             <security-master-diff-label slot="label" label="担保人主体内评分" field="innerGuarantorRating"
-                                :value="securityMasterFieldValue('innerGuarantorRating')" :comparison="securityMasterComparison"></security-master-diff-label>
-                            <el-input v-model="absBondDetail.selectedGuarantorRating" size="small" disabled maxlength="20"></el-input>
+                                :value="(absSelectedGuarantor || {}).rating" :comparison="securityMasterComparison"></security-master-diff-label>
+                            <el-input :value="(absSelectedGuarantor || {}).rating" size="small" disabled maxlength="20"></el-input>
                         </el-descriptions-item>
                         <el-descriptions-item label="含权债剩余期限(年)">
                             <security-master-diff-label slot="label" label="含权债剩余期限(年)" field="dateInrightExists"
@@ -2272,7 +2287,7 @@
 
     new Vue({
         mixins: [issuerFinancialReadonlyMixin, issuerFinancialEditableMixin,
-            window.RrsSecurityMasterDiff.createMixin('absBondDetail', 'absDetail', { innerGuarantorRating: 'selectedGuarantorRating' })],
+            window.RrsSecurityMasterDiff.createMixin('absBondDetail', 'absDetail', { guarantor: 'guarantor', innerGuarantorRating: 'innerGuarantorRating' })],
         el: '#forbidden_pool_adjust',
         data() {
             return {
@@ -2447,6 +2462,10 @@
             };
         },
         computed: {
+            // 当前选中的担保人用于独立显示名称和内评
+            absSelectedGuarantor() {
+                return this.absGuarantorOptions.find(option => option.code === this.absBondDetail.selectedAbsGuarantorCode);
+            },
             // ABS 暂未选择主体时，财报仅留空白，不允许编辑或保存
             financialUnavailable() {
                 return !(this.absSelectedSelfRightsHolder && this.absSelectedSelfRightsHolder.companyCode) && !this.absBondDetail.selectedGuarantorCode;
@@ -2765,7 +2784,6 @@
                 if (this.financialIssuerKey !== this._financialRequestIssuerKey) this.clearSelectedFinancialData();
                 this._absPreviousOrdinary = guarantorCode;
                 const selected = this.absGuarantorOptions.find(option => option.code === guarantorCode);
-                if (!this.absSelectedSelfRightsHolder) this.$set(this.absBondDetail, 'selectedGuarantorRating', selected ? selected.rating : '');
                 this.applyAbsIdentitySelection(this.absBondDetail, selected, this.absSelectedSelfRightsHolder);
             },
             // 打开 ABS 证券的自选权益人弹窗
@@ -2796,7 +2814,6 @@
                     return;
                 }
                 this.absSelectedSelfRightsHolder = Object.assign({}, this.absPendingSelfRightsHolder);
-                this.$set(this.absBondDetail, 'selectedGuarantorRating', this.absSelectedSelfRightsHolder.innerRating || '');
                 this.handleAbsGuarantorChange(this.absBondDetail.selectedGuarantorCode);
                 this.absSelfRightsHolderDialogVisible = false;
             },
@@ -4395,13 +4412,14 @@
                     this.absBondDetail = detail || {};
                     // 担保人关系以 Wind 按证券代码查询结果为准，不读取证券主数据中的担保人逗号串
                     this.absGuarantorGradeMap = await this.queryGuarantorGradeMap(securityCode);
-                    // 担保人下拉默认值：单担保人默认选中，多担保人默认不选（下一步校验提示选择）
-                    const absGuarantorOpts = Object.keys(this.absGuarantorGradeMap)
-                        .map(code => this.absGuarantorGradeMap[code]);
+                    // ABS 恢复已确认或在途权益人，首次选择首个权益人
+                    const absGuarantorOpts = this.absGuarantorOptions;
                     const initial = this.resolveInitialAbsIdentity(this.absBondDetail, absGuarantorOpts);
-                    const selectedAbsGuarantor = absGuarantorOpts.find(option => option.code === initial.ordinaryCode);
                     this.absSelectedSelfRightsHolder = initial.selfSelected;
                     this.$set(this.absBondDetail, 'selectedGuarantorCode', initial.ordinaryCode);
+                    const guarantor = this.absBondDetail.guarantFlag == 1
+                        ? (absGuarantorOpts.find(option => option.code === this.absBondDetail.guarantorId) || absGuarantorOpts[0]) : null;
+                    this.$set(this.absBondDetail, 'selectedAbsGuarantorCode', guarantor ? guarantor.code : '');
                     this.handleAbsGuarantorChange(initial.ordinaryCode);
                     inPoolParams.rightsHolderCode = initial.ordinaryCode;
                     inPoolParams.selfSelectedRightsHolderCode = initial.selfSelected ? initial.selfSelected.companyCode : '';
@@ -4731,6 +4749,10 @@
                     this.$message.warning('请至少选择一个调入或调出投资池');
                     return;
                 }
+                if (this.absBondDetail.guarantFlag == 1 && this.absGuarantorOptions.length && !this.absBondDetail.selectedAbsGuarantorCode) {
+                    this.$message.warning('请选择担保人');
+                    return;
+                }
                 if (!this.absBondDetail.selectedGuarantorCode && !this.absSelectedSelfRightsHolder) {
                     this.$message.warning('请选择权益人或自选权益人');
                     return;
@@ -4744,7 +4766,7 @@
                         securityCode: this.absBondDetail.windCode || '',
                         securityShortName: this.absBondDetail.shortName || '',
                         securityType: this.absBondDetail.securityType || '',
-                        guarantorCode: '',
+                        guarantorCode: this.absBondDetail.selectedAbsGuarantorCode || '',
                         rightsHolderCode: this.absBondDetail.selectedGuarantorCode || '',
                         selfSelectedRightsHolderCode: this.absSelectedSelfRightsHolder ? this.absSelectedSelfRightsHolder.companyCode : '',
                         securityInfo: this.absBondDetail,
@@ -4859,7 +4881,7 @@
                     agencyName: this.absBondDetail.agencyName,
                     innerIssuerRating: this.absBondDetail.innerIssuerRating,
                     dateCallExists: this.toNullableNumber(this.absBondDetail.dateCallExists),
-                    innerGuarantorRating: this.absBondDetail.selectedGuarantorRating || '',
+                    innerGuarantorRating: (this.absSelectedGuarantor || {}).rating,
                     dateExists: this.toNullableNumber(this.absBondDetail.dateExists),
                     dateExistsStr: this.absBondDetail.dateExistsStr || null,
                     fundUse: this.absBondDetail.fundUse,
@@ -4871,7 +4893,7 @@
                     relatedMarketCodes: this.absBondDetail.relatedMarketCodes || [],
                     securityShortName: this.absBondDetail.shortName || '',
                     securityType: this.absBondDetail.securityType || '',
-                    guarantorCode: '',
+                    guarantorCode: this.absBondDetail.selectedAbsGuarantorCode || '',
                     rightsHolderCode: this.absBondDetail.selectedGuarantorCode || '',
                     selfSelectedRightsHolderCode: this.absSelectedSelfRightsHolder ? this.absSelectedSelfRightsHolder.companyCode : '',
                     selectedRatingCompany: this.buildSelectedRatingCompany(this.absBondDetail, this.absGuarantorOptions, this.absBondDetail.selectedGuarantorCode, this.absSelectedSelfRightsHolder),

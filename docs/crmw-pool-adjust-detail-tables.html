@@ -348,14 +348,14 @@
         <p class="sub">按当前前后端实现归纳主要触发场景。</p>
         <div class="logic-grid">
             <article class="logic-card"><h3>查看模式</h3>
-                <p>调库记录固定按 <code>securityCode</code> + <code>crmwScode</code> + <code>crmwStype</code> 且 <code>pool_type=crmw</code> 查询当前“标的证券 + CRMW 凭证”组合的全部历史，不按批次或状态过滤，按提交时间倒序展示调整原因和提交时间；URL 带 <code>adjustBatchNo</code> 时，同批记录以浅蓝底色高亮；批次仅用于流程步骤与申请快照定位。附件按全部日志 ID 去重后一次批量查询，并按返回的 <code>mainId</code> 回填；标的证券基本信息共 29 项且顺序与证券池调库页一致，「剩余期限(天)」隐藏保留，新增只读「证券期限」展示 <code>date_exists_str</code>，在展望评级后只读展示担保人；不触发 check 或写表。</p>
+                <p>调库记录固定按 <code>securityCode</code> + <code>crmwScode</code> + <code>crmwStype</code> 且 <code>pool_type=crmw</code> 查询当前“标的证券 + CRMW 凭证”组合的全部历史，不按批次或状态过滤，按提交时间倒序展示调整原因和提交时间；URL 带 <code>adjustBatchNo</code> 时，同批记录以浅蓝底色高亮；批次仅用于流程步骤与申请快照定位。附件按全部日志 ID 去重后一次批量查询，并按返回的 <code>mainId</code> 回填；标的证券基本信息共 29 项且顺序与证券池调库页一致，「剩余期限(天)」隐藏保留，新增只读「证券期限」展示 <code>date_exists_str</code>，仅 ABS 展示快照中的权益人和自选权益人。仅担保债展示快照中的担保人和担保人主体内评分。ABS 担保债同时展示两组字段，「主体内评分」取当笔生效的权益人内评。查看详情时只读展示。</p>
                 <p>证券基本信息中的“证券分析”随内容自动增高，最少 3 行、最多 20 行；超过 20 行时在框内滚动，最大输入长度为 5000 字。</p>
                 <p>调库记录表格列顺序为：序号、CRMW凭证、投资池名称、调整类型、调整方向、调整原因、信评报告、其他材料、提交时间、审批流程、审核状态。</p>
             </article>
             <article class="logic-card"><h3>发行主体财务数据</h3><p>证券基本信息下方调用 <code>queryIssuerFinancialList</code>，直接只读展示返回的四期。按中国标准时间的当前自然年确定四期：默认前三列为前三年年报，第四列为数据库最新一期；最新一期恰好为上一年年报，或主体完全没有财报时，显示前四年年报。缺失期保留报告日期，指标为空，不以季报或其他年份替代。城投债/产业债按钮仅切换指标口径，不提供报告期编辑或保存，不参与审批提交。</p></article>
             <article class="logic-card"><h3>导出 PDF</h3><p>底部操作栏「导出 PDF」调用公共 <code>js/print_export.js</code>，打印证券基本信息、财务数据、CRMW 基本信息、当前所在池、调库记录、原因和建议；页面展示「当前流程状态」时，同时导出流程名称和完整步骤表（步骤名称、步骤结果、开始时间、处理人、处理结果、处理时间、处理意见），包含暂无流程步骤的空状态。导出前自动展开流程状态区，打印结束或取消后恢复原折叠状态；页面未展示该区块时不导出。样式在 <code>css/common.css</code>。</p></article>
             <article class="logic-card"><h3>调整模式</h3>
-                <p>可调池仅 <code>pool_type=crmw</code>（in/out 同集合，无内评矩阵）；按组合当前在池过滤。担保人候选沿用证券池调库的类型及排序口径，页面默认选中第一条，用户可改选，变更后联动 AIS 最新主体内评分；选池/方向后携带 <code>guarantorCode</code> 调用 <code>checkCrmwAdjust</code>。</p></article>
+                <p>可调池仅 <code>pool_type=crmw</code>（in/out 同集合，无内评矩阵）；按组合当前在池过滤。仅 ABS 展示权益人和自选权益人，首次可编辑时默认选择首个权益人，已确认或在途主体优先回显。仅担保债展示担保人和担保人主体内评分。可编辑时从该券关系主体候选中选择一名担保人，内评分随选择更新。ABS 担保债分别选择担保人与权益人。担保人优先回显已保存且仍有效的选择，否则默认选中首项，可手动改选。ABS 担保债同时展示两组字段，权益人内评展示在「主体内评分」。选池/方向后携带 <code>guarantorCode</code> 调用 <code>checkCrmwAdjust</code>。</p></article>
             <article class="logic-card"><h3>校验返回</h3>
                 <p>手工+联动/互斥/关联；failReasons/warnings 分列；失败分条编号；同组底色。仅通过手工项可选流程。</p>
             </article>
@@ -472,7 +472,7 @@
     <section id="rules" class="panel"><h2>关键规则与边界</h2>
         <p class="sub">帮助区分当前状态、历史记录和流程实例。</p>
         <div class="rules">
-            <article class="rule"><h3>ABS 详情</h3><p>CRMW 详情与审核页展示普通权益人、自选权益人和实际生效主体内评；非 ABS 仍展示担保人。</p></article>
+            <article class="rule"><h3>ABS 详情</h3><p>CRMW 详情调整模式提供与申请页一致的自选权益人弹窗。</p></article>
             <article class="rule"><h3>模式边界</h3>
                 <p>view 模式始终只读；adjust 模式仅负责首次申请。</p></article>
             <article class="rule"><h3>当前状态口径</h3>

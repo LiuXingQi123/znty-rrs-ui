@@ -311,11 +311,30 @@
                     <el-table-column prop="dateExistsStr" label="证券期限" min-width="120" align="left">
                         <template slot-scope="{ row }">{{ row.dateExistsStr }}</template>
                     </el-table-column>
-                    <el-table-column label="担保人/权益人*" min-width="190">
+                    <el-table-column label="担保人" v-if="securityTableData.some(row => row.guarantFlag == 1)" key="guarantor" min-width="190">
                         <template slot-scope="{ row }">
-                            <el-select v-if="row.guarantorOptions && row.guarantorOptions.length > 0"
+                            <el-select v-if="row.guarantFlag == 1 && (row.guarantorOptions && row.guarantorOptions.length > 0)"
+                                       v-model="row.selectedGuarantorCode" size="small"
+                                       placeholder="请选择担保人" style="width:100%;"
+                                       popper-class="guarantor-select-dropdown" clearable
+                                       @change="handleRelatedCompanyChange(row)">
+                                <el-option v-for="opt in row.guarantorOptions" :key="opt.optionKey"
+                                           :label="opt.label" :value="opt.code">
+                                    <span class="guarantor-option">
+                                        <span class="guarantor-option-name">{{ opt.name }}</span>
+                                        <el-tag v-if="opt.typeName" size="mini" type="info" class="guarantor-type-tag">{{ opt.typeName }}</el-tag>
+                                        <span class="guarantor-option-rating">{{ opt.rating }}</span>
+                                    </span>
+                                </el-option>
+                            </el-select>
+                            <span v-else-if="row.guarantFlag == 1">{{ row.guarantor }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="权益人" v-if="securityTableData.some(isAbsBond)" key="rights-holder" min-width="190">
+                        <template slot-scope="{ row }">
+                            <el-select v-if="isAbsBond(row) && (row.guarantorOptions && row.guarantorOptions.length > 0)"
                                        v-model="row.selectedRelatedCompanyCode" size="small"
-                                       :placeholder="isAbsBond(row) ? '请选择权益人' : '请选择担保人'" style="width:100%;"
+                                       placeholder="请选择权益人" style="width:100%;"
                                        popper-class="guarantor-select-dropdown" clearable
                                        @change="handleRelatedCompanyChange(row)">
                                 <el-option v-for="opt in row.guarantorOptions" :key="opt.optionKey"
@@ -329,7 +348,7 @@
                             </el-select>
                         </template>
                     </el-table-column>
-                    <el-table-column label="自选权益人" min-width="190">
+                    <el-table-column label="自选权益人" v-if="securityTableData.some(isAbsBond)" key="self-rights-holder" min-width="190">
                         <template slot-scope="{ row }">
                             <div v-if="isAbsBond(row)" class="rights-holder-picker">
                                 <el-input :value="row.selectedSelfRightsHolder ? row.selectedSelfRightsHolder.companyName : ''"
@@ -345,9 +364,9 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column label="担保人主体内评分" min-width="140">
+                    <el-table-column label="担保人主体内评分" v-if="securityTableData.some(row => row.guarantFlag == 1)" key="guarantor-rating" min-width="140">
                         <template slot-scope="{ row }">
-                            <el-tag v-if="effectiveRelatedCompanyRating(row)" size="mini">{{ effectiveRelatedCompanyRating(row) }}</el-tag>
+                            <el-tag v-if="row.guarantFlag == 1 && guarantorRating(row)" size="mini">{{ guarantorRating(row) }}</el-tag>
                             <span v-else style="color:var(--c-text-3);"></span>
                         </template>
                     </el-table-column>
@@ -1408,13 +1427,15 @@
                     const records = data.records || []
                     // 当前页全部证券代码合并查询四类关系主体及 AIS 内评
                     const guarantorOptionsBySecurityCode = await this.queryGuarantorGradeMapByRecords(records)
-                    // 担保人/权益人下拉预置选项；保留跨页选择，首次按查询顺序选中首条
+                    // 保留跨页选择，首次按适用字段选择候选首项
                     records.forEach(r => {
                         const opts = guarantorOptionsBySecurityCode[r.securityCode] || []
                         const saved = this.selectedSecurityMap[r.securityCode]
                         r.guarantorOptions = opts
-                        r.selectedRelatedCompanyCode = saved
-                            ? (saved.selectedRelatedCompanyCode || '') : (opts.length > 0 ? opts[0].code : '')
+                        const guarantor = r.guarantFlag == 1
+                            ? (opts.find(option => option.code === r.guarantorId) || opts[0]) : null
+                        r.selectedGuarantorCode = saved ? (saved.selectedGuarantorCode || '') : (guarantor ? guarantor.code : '')
+                        r.selectedRelatedCompanyCode = saved ? (saved.selectedRelatedCompanyCode || '') : ''
                         r.selectedSelfRightsHolder = saved ? (saved.selectedSelfRightsHolder || null) : null
                         r.selectedSelfSelectedRightsHolderCode = saved
                             ? (saved.selectedSelfSelectedRightsHolderCode || '') : ''
@@ -1567,14 +1588,10 @@
                 return yes ? 'success' : 'info'
             },
 
-            // 当前行最终展示内评：ABS 自选优先，否则普通权益人；非 ABS 为担保人
-            effectiveRelatedCompanyRating(row) {
-                if (!row) return ''
-                if (this.isAbsBond(row) && row.selectedSelfRightsHolder) {
-                    return row.selectedSelfRightsHolder.innerRating || ''
-                }
-                const selected = (row.guarantorOptions || []).find(option => option.code === row.selectedRelatedCompanyCode)
-                return selected ? (selected.rating || '') : ''
+            // 担保评分随独立的担保人选择变化
+            guarantorRating(row) {
+                const selected = row.guarantorOptions.find(option => option.code === row.selectedGuarantorCode)
+                return selected ? selected.rating : ''
             },
 
             // 同步当前行评级主体选择到跨页已选记录
@@ -1689,14 +1706,15 @@
                     this.$message.warning('请至少选择一只证券')
                     return
                 }
-                // 默认首条仍可逐券改选；清空后按原校验阻止进入下一步
-                const missingRelatedCompany = this.selectedSecurities.find(item => this.isAbsBond(item)
-                    ? !item.selectedRelatedCompanyCode && !item.selectedSelfSelectedRightsHolderCode
-                    : item.guarantorOptions && item.guarantorOptions.length > 0 && !item.selectedRelatedCompanyCode)
-                if (missingRelatedCompany) {
-                    const companyRoleName = this.isAbsBond(missingRelatedCompany) ? '权益人或自选权益人' : '担保人'
-                    this.$message.warning('请为证券「' + (missingRelatedCompany.securityShortName || missingRelatedCompany.securityCode)
-                        + '」选择' + companyRoleName)
+                // 根据证券属性检查该行需选择的主体
+                const missingRightsHolder = this.selectedSecurities.find(item => this.isAbsBond(item)
+                    && !item.selectedRelatedCompanyCode && !item.selectedSelfSelectedRightsHolderCode)
+                const missingGuarantor = this.selectedSecurities.find(item => item.guarantFlag == 1
+                    && item.guarantorOptions && item.guarantorOptions.length > 0 && !item.selectedGuarantorCode)
+                const missing = missingRightsHolder || missingGuarantor
+                if (missing) {
+                    this.$message.warning('请为证券「' + (missing.securityShortName || missing.securityCode)
+                        + '」选择' + (missingRightsHolder ? '权益人或自选权益人' : '担保人'))
                     return
                 }
                 this.checkLoading = true
@@ -1712,7 +1730,7 @@
                             securityCode: item.securityCode,
                             securityShortName: item.securityShortName || '',
                             securityType: item.securityType || '',
-                            guarantorCode: this.isAbsBond(item) ? '' : (item.selectedRelatedCompanyCode || ''),
+                            guarantorCode: item.selectedGuarantorCode || '',
                             rightsHolderCode: this.isAbsBond(item) ? (item.selectedRelatedCompanyCode || '') : '',
                             selfSelectedRightsHolderCode: this.isAbsBond(item)
                                 ? (item.selectedSelfSelectedRightsHolderCode || '') : ''
@@ -1918,12 +1936,12 @@
                 }
                 return this.isAbsBond(selected)
                     ? {
-                        guarantorCode: '',
+                        guarantorCode: selected.selectedGuarantorCode || '',
                         rightsHolderCode: selected.selectedRelatedCompanyCode || '',
                         selfSelectedRightsHolderCode: selected.selectedSelfSelectedRightsHolderCode || ''
                     }
                     : {
-                        guarantorCode: selected.selectedRelatedCompanyCode || '',
+                        guarantorCode: selected.selectedGuarantorCode || '',
                         rightsHolderCode: '',
                         selfSelectedRightsHolderCode: ''
                     }
