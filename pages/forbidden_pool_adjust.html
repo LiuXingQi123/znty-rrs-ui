@@ -1622,7 +1622,7 @@
                 <div class="self-rights-holder-actions">
                     <el-button size="small" @click="absSelfRightsHolderDialogVisible = false">取消</el-button>
                     <el-button type="primary" size="small"
-                               :disabled="!absPendingSelfRightsHolderCode" @click="confirmAbsSelfRightsHolder">确认选择</el-button>
+                               :disabled="absSelfRightsHolderLoading || !absPendingSelfRightsHolderCode" @click="confirmAbsSelfRightsHolder">确认选择</el-button>
                 </div>
             </div>
         </el-dialog>
@@ -2789,7 +2789,23 @@
             // 打开 ABS 证券的自选权益人弹窗
             async openAbsSelfRightsHolderDialog() { this.absPendingSelfRightsHolder = this.absSelectedSelfRightsHolder; this.absPendingSelfRightsHolderCode = this.absPendingSelfRightsHolder ? this.absPendingSelfRightsHolder.companyCode : ''; this.absSelfRightsHolderDialogVisible = true; this.absSelfRightsHolderPagination.pageIndex = 1; await this.loadAbsSelfRightsHolderPage() },
             // 分页查询 ABS 自选权益人候选列表
-            async loadAbsSelfRightsHolderPage() { this.absSelfRightsHolderLoading = true; try { const data = await this.apiPost('/api/v1/securityPoolAdjust/querySelfSelectedRightsHolderPage', { companyCode: this.absSelfRightsHolderFilters.companyCode || '', companyName: this.absSelfRightsHolderFilters.companyName || '', pageIndex: this.absSelfRightsHolderPagination.pageIndex, pageSize: this.absSelfRightsHolderPagination.pageSize }); this.absSelfRightsHolderData = data.records || []; this.absSelfRightsHolderPagination.total = data.total || 0 } finally { this.absSelfRightsHolderLoading = false } },
+            async loadAbsSelfRightsHolderPage() {
+                this.absSelfRightsHolderLoading = true
+                try {
+                    const data = await this.apiPost('/api/v1/securityPoolAdjust/querySelfSelectedRightsHolderPage', {
+                        companyCode: this.absSelfRightsHolderFilters.companyCode || '',
+                        companyName: this.absSelfRightsHolderFilters.companyName || '',
+                        pageIndex: this.absSelfRightsHolderPagination.pageIndex,
+                        pageSize: this.absSelfRightsHolderPagination.pageSize
+                    })
+                    this.absSelfRightsHolderData = data.records || []
+                    const selected = this.absSelfRightsHolderData.find(item => item.companyCode === this.absPendingSelfRightsHolderCode)
+                    if (selected) this.absPendingSelfRightsHolder = selected
+                    this.absSelfRightsHolderPagination.total = data.total || 0
+                } finally {
+                    this.absSelfRightsHolderLoading = false
+                }
+            },
             // 按查询条件搜索 ABS 自选权益人
             searchAbsSelfRightsHolders() { this.absSelfRightsHolderPagination.pageIndex = 1; this.loadAbsSelfRightsHolderPage() },
             // 重置 ABS 自选权益人查询条件
