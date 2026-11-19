@@ -100,6 +100,27 @@ test('所有调库页接入公共入口；详情页保留完整附件列表和�
     assert.ok(html.includes('/api/v1/attachments/downloadAttachment'));
 });
 
+test('选池的报告引用和手工附件共用标签样式，保留来源和移除入口', () => {
+    const pages = path.join(__dirname, '../pages');
+    const adjustPages = fs.readdirSync(pages).filter(name => /^(security|forbidden|crmw|fund|stock)_pool_adjust(?:_approve|_detail)?\.html$/.test(name));
+    for (const name of adjustPages) {
+        const html = fs.readFileSync(path.join(pages, name), 'utf8');
+        const panels = html.matchAll(/<div class="adjust-panel panel-(in|out)">([\s\S]*?)<\/el-table>/g);
+        for (const [, direction, panel] of panels) {
+            const reports = Array.from(panel.matchAll(/<div v-for="[^"\r\n]*ReportSelections\([^"\r\n]*"([^>]*)>([\s\S]*?)<\/div>/gi));
+            assert.equal(reports.length, 1, `${name} ${direction} 信评报告`);
+            const materials = Array.from(panel.matchAll(/<div v-for="[^"\r\n]*MaterialSelections\([^"\r\n]*"([^>]*)>([\s\S]*?)<\/div>/gi));
+            assert.equal(materials.length, 1, `${name} ${direction} 其他材料`);
+            for (const [, attrs, contents] of [...reports, ...materials]) {
+                assert.match(attrs, /class="upload-file-tag"/, name);
+                assert.match(contents, /<rrs-report-title\b/, name);
+                assert.match(contents, /class="manual-source-badge"[^\n]*'内' : '外'/, name);
+                assert.match(contents, /class="el-icon-close" @click="[^"\n]*remove\w+Selection\(/i, name);
+            }
+        }
+    }
+});
+
 // 加载调库页面的真实方法，提交请求由测试截获，不上传文件或写入业务数据
 function bondAdjustPage(name) {
     let options;
