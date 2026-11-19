@@ -19,6 +19,14 @@ function harness() {
         if (match[1].trim()) vm.runInContext(match[1], context);
     }
     const page = { ...options.data(), $nextTick() {}, $set(object, key, value) { object[key] = value; } };
+    let tableData = page.tableData;
+    Object.defineProperty(page, 'tableData', {
+        get() { return tableData; },
+        set(value) {
+            tableData = value;
+            options.watch.tableData.call(page);
+        }
+    });
     Object.entries(options.methods).forEach(([key, method]) => { page[key] = method.bind(page); });
     Object.entries(options.computed).forEach(([key, method]) => {
         Object.defineProperty(page, key, { get: method.bind(page) });
@@ -26,6 +34,24 @@ function harness() {
     page.$message = { success() {}, warning(message) { assert.fail(message); } };
     return page;
 }
+
+test('上传回填明细后，在下一次渲染同步固定列', () => {
+    const page = harness();
+    const pendingLayouts = [];
+    let layoutCount = 0;
+    page.$nextTick = callback => pendingLayouts.push(callback);
+    page.$refs = { importTable: { doLayout() { layoutCount++; } } };
+
+    page.applyTask({ impId: 'EXCEL_LAYOUT', importType: 'security', items: {
+        records: [{ guarantFlag: 1 }, { absFlag: 1 }], total: 2
+    } });
+
+    assert.equal(page.tableData.length, 2);
+    assert.equal(pendingLayouts.length, 1);
+    assert.equal(layoutCount, 0);
+    pendingLayouts[0]();
+    assert.equal(layoutCount, 1);
+});
 
 function manual() {
     return {
