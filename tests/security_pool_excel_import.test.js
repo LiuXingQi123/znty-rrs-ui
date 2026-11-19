@@ -43,9 +43,9 @@ test('有业务调整提示的行仍进入提交集合，同组关联项一并�
     const related = { ...row, securityCode: 'RELATED.SH', itemTag: 'related', flowOptions: [] };
     page.applyTask({ impId: 'EXCEL_TIPS', saveRslt: '0', chkRslt: '1', checkDone: true,
         checkItems: [row, related], checkPassCount: 2, checkFailCount: 0 });
-    assert.equal(page.validCheckCount, 2);
+    assert.equal(page.selectedCheckCount, 2);
     assert.equal(page.canSubmit, true);
-    assert.equal(page.allValidRowsHaveFlow, true);
+    assert.equal(page.allSelectedRowsHaveFlow, true);
     let captured;
     page.apiPost = async (url, body) => { captured = { url, body }; return {}; };
     await page.confirmFlowSelection();
@@ -61,9 +61,72 @@ test('无法识别的数据仍不混入可提交项，有效且带提示的行�
     const page = harness();
     page.applyTask({ impId: 'EXCEL_MIXED', saveRslt: '0', chkRslt: '2', checkDone: true,
         checkItems: [manual(), { securityCode: 'UNKNOWN', canAdjust: false, failReasons: ['证券不存在'] }] });
-    assert.equal(page.validCheckCount, 1);
-    assert.equal(page.validCheckItems[0].securityCode, '108008901.IB');
-    assert.equal(page.validCheckItems[0].failReasons.length, 2);
+    assert.equal(page.selectedCheckCount, 1);
+    assert.equal(page.selectedCheckItems[0].securityCode, '108008901.IB');
+    assert.equal(page.selectedCheckItems[0].failReasons.length, 2);
+});
+
+for (const importType of ['security', 'company']) {
+    test(`${importType} 校验结果逐条勾选，同组配套项可以单独提交`, async () => {
+        const page = harness();
+        const main = { ...manual(), securityCode: importType === 'company' ? 'C10003' : '108008901.IB' };
+        const linked = { ...main, itemTag: 'linkage', targetPoolId: 17, adjustGroupKey: 'linked', flowOptions: [] };
+        const otherPool = { ...main, sourceItemId: 11, targetPoolId: 18, flowId: null, flowKey: '', flowType: '', flowOptions: [] };
+        const failedRelated = { ...linked, itemTag: 'related', canAdjust: false };
+        const task = { impId: 'EXCEL_SELECTION', importType, saveRslt: '0', checkDone: true,
+            checkItems: [main, linked, otherPool, failedRelated] };
+        page.applyTask(task);
+        assert.equal(page.selectedCheckCount, 3);
+        assert.equal(page.allCheckItemsSelected, true);
+        assert.equal(page.allSelectedRowsHaveFlow, false);
+        assert.equal(page.isCheckRowSelected(page.checkItems[3]), false);
+
+        page.setCheckItemSelected(linked, false);
+        assert.deepEqual(Array.from(page.selectedCheckItems, row => row.targetPoolId), [5, 18]);
+        assert.equal(page.allCheckItemsSelected, false);
+        page.setCheckItemSelected(linked, true);
+        page.setCheckItemSelected(otherPool, false);
+        page.setCheckItemSelected(main, false);
+        assert.equal(page.allSelectedRowsHaveFlow, true);
+        page.openSubmitDialog();
+        assert.equal(page.flowDialogVisible, true);
+        assert.equal(page.selectedManualCheckItems.length, 0);
+
+        let request;
+        page.apiPost = async (url, body) => {
+            request = { url, body };
+            return { ...task, saveRslt: '1' };
+        };
+        await page.confirmFlowSelection();
+        assert.equal(request.url, '/api/v1/securityPoolExcelImport/submitImport');
+        assert.deepEqual(Array.from(request.body.checkItems, row => row.itemTag), ['linkage']);
+        assert.equal(page.selectedCheckCount, 1);
+        assert.equal(page.canSubmit, false);
+    });
+}
+
+test('校验结果支持全选和取消全选，明细分页保留勾选，重新校验恢复全选', async () => {
+    const page = harness();
+    const checkTable = html.slice(html.indexOf('class="table-wrap table-wrap-check"'));
+    assert.match(checkTable, /@change="setAllCheckItemsSelected"[\s\S]*@change="setCheckItemSelected\(row, \$event\)"[\s\S]*<el-table-column label="序号"/);
+    const row = { ...manual(), failReasons: [] };
+    const task = { impId: 'EXCEL_SELECT_ALL', saveRslt: '0', checkDone: true, chkRslt: '1', checkItems: [row] };
+    page.applyTask(task);
+    page.setAllCheckItemsSelected(false);
+    assert.equal(page.canSubmit, false);
+    assert.equal(page.submitDisabledTip, '请先勾选要提交的调库项');
+    page.apiPost = async url => {
+        assert.doesNotMatch(url, /submitImport$/);
+        return url.endsWith('queryItemPage') ? { records: [], total: 1 } : task;
+    };
+    await page.confirmFlowSelection();
+    await page.loadItemPage();
+    assert.equal(page.selectedCheckCount, 0);
+    page.setAllCheckItemsSelected(true);
+    assert.equal(page.canSubmit, true);
+    page.setAllCheckItemsSelected(false);
+    await page.handleCheck();
+    assert.equal(page.allCheckItemsSelected, true);
 });
 
 test('导入默认选主体，池树只筛选，清空按表格勾选提交', async () => {
@@ -172,7 +235,7 @@ test('主体冲突留在调整说明中，并从可提交集合排除', () => {
     ] };
     page.applyTask({ impId: 'EXCEL_ABS_CONFLICT', saveRslt: '0', chkRslt: '2', checkDone: true,
         checkItems: [conflict], checkPassCount: 0, checkFailCount: 1 });
-    assert.equal(page.validCheckCount, 0);
+    assert.equal(page.selectedCheckCount, 0);
     assert.equal(page.canSubmit, false);
     assert.match(page.checkItems[0].failReasons[0], /C10008.*C10010/);
 });

@@ -266,7 +266,7 @@
                                         <el-button size="small" type="primary" icon="el-icon-check"
                                                    :disabled="!canSubmit" @click="openSubmitDialog" :loading="submitting">
                                             提交
-                                            <span v-if="validCheckCount > 0" class="btn-count">{{ validCheckCount }}</span>
+                                            <span v-if="selectedCheckCount > 0" class="btn-count">{{ selectedCheckCount }}</span>
                                         </el-button>
                                     </span>
                                 </el-tooltip>
@@ -278,6 +278,22 @@
                                       height="100%" style="width:100%;"
                                       :header-cell-style="{ background: '#F7F8FA' }"
                                       :row-class-name="getAdjustReviewRowClass">
+                                <el-table-column width="48" align="center" class-name="check-selection-column"
+                                                 label-class-name="check-selection-column">
+                                    <template slot="header" slot-scope="scope">
+                                        <el-checkbox :value="allCheckItemsSelected"
+                                                     :indeterminate="selectedCheckCount > 0 && !allCheckItemsSelected"
+                                                     :disabled="busy || task.saveRslt === '1' || !selectableCheckItems.length"
+                                                     aria-label="全选可调整项"
+                                                     @change="setAllCheckItemsSelected"></el-checkbox>
+                                    </template>
+                                    <template slot-scope="{ row }">
+                                        <el-checkbox :value="isCheckRowSelected(row)"
+                                                     :disabled="busy || task.saveRslt === '1' || !row.canAdjust"
+                                                     :aria-label="'勾选调库项 ' + (row.securityCode || '')"
+                                                     @change="setCheckItemSelected(row, $event)"></el-checkbox>
+                                    </template>
+                                </el-table-column>
                                 <el-table-column label="序号" width="50" align="center">
                                     <template slot-scope="{ $index }">{{ $index + 1 }}</template>
                                 </el-table-column>
@@ -417,10 +433,10 @@
                :close-on-click-modal="false" :show-close="false">
         <span slot="title" class="flow-dialog-title">
             <span class="flow-dialog-title-text">选择调库流程</span>
-            <span class="flow-dialog-submit-hint" v-if="validManualCheckItems.length > 0">本次共 {{ validManualCheckItems.length }} 项将选择流程并提交</span>
+            <span class="flow-dialog-submit-hint">本次提交 {{ selectedCheckCount }} 项</span>
         </span>
         <div class="flow-option-list">
-            <div v-for="(row, rowIndex) in validManualCheckItems"
+            <div v-for="(row, rowIndex) in selectedManualCheckItems"
                  :key="(row.securityCode || '') + '_' + (row.targetPoolId || '') + '_' + rowIndex"
                  class="flow-option-card flow-row-card"
                  :class="getFlowRowColorClass(rowIndex)">
@@ -457,14 +473,14 @@
                     </el-radio>
                 </el-radio-group>
             </div>
-            <div v-if="validManualCheckItems.length === 0" style="color:var(--c-text-3);font-size:13px;">
-                暂无可选择流程的手工调库项
+            <div v-if="selectedManualCheckItems.length === 0" style="color:var(--c-text-3);font-size:13px;">
+                所选配套项沿用来源主项的默认流程
             </div>
         </div>
         <span slot="footer">
             <el-button size="small" :disabled="submitting" @click="flowDialogVisible = false">取消</el-button>
             <el-button type="primary" size="small"
-                       :disabled="!allValidRowsHaveFlow || submitting"
+                       :disabled="!allSelectedRowsHaveFlow || submitting"
                        :loading="submitting"
                        @click="confirmFlowSelection">确认</el-button>
         </span>
@@ -575,6 +591,7 @@ new Vue({
             task: {},                       // 批次任务信息
             tableData: [],                  // 导入明细表格数据
             checkItems: [],                 // 调库校验结果
+            uncheckedCheckItemKeys: new Set(), // 用户取消勾选的校验项
             activeResultTab: 'import',      // 结果区 Tab：import / check
             flowDialogVisible: false,       // 选择调库流程弹窗
             filterChkRslt: '',              // 明细校验结果筛选
@@ -640,24 +657,25 @@ new Vue({
         canEditRatingCompanies() {
             return !!this.impId && !this.busy && this.task.saveRslt !== '1'
         },
-        // 可调整的校验项
-        validCheckItems() {
-            return (this.checkItems || []).filter(item => item && item.canAdjust)
+        selectableCheckItems() {
+            return this.checkItems.filter(row => row.canAdjust)
         },
-        // 可调整的手工项（需选流程）
-        validManualCheckItems() {
-            return this.validCheckItems.filter(item => this.isManualItem(item))
+        allCheckItemsSelected() {
+            return this.selectedCheckCount > 0 && this.selectedCheckCount === this.selectableCheckItems.length
         },
-
-        // 可提交条数
-        validCheckCount() {
-            return this.validCheckItems.length
+        selectedCheckItems() {
+            return this.selectableCheckItems.filter(row => this.isCheckRowSelected(row))
         },
-        // 手工项是否均已选流程
-        allValidRowsHaveFlow() {
-            const manuals = this.validManualCheckItems
-            if (manuals.length === 0) return this.validCheckCount > 0
-            return manuals.every(row => !!row.selectedFlowKey)
+        selectedManualCheckItems() {
+            return this.selectedCheckItems.filter(item => this.isManualItem(item))
+        },
+        selectedCheckCount() {
+            return this.selectedCheckItems.length
+        },
+        // 只校验本次勾选的手工项流程，单独提交的配套项沿用默认流程
+        allSelectedRowsHaveFlow() {
+            return this.selectedCheckCount > 0
+                && this.selectedManualCheckItems.every(row => !!row.selectedFlowKey)
         },
         // 是否允许提交
         canSubmit() {
@@ -665,14 +683,15 @@ new Vue({
                 && !this.busy
                 && this.task.checkDone
                 && this.task.saveRslt !== '1'
-                && this.validCheckCount > 0
+                && this.selectedCheckCount > 0
         },
         // 提交按钮禁用提示
         submitDisabledTip() {
             if (!this.impId) return '请先上传 Excel'
             if (this.task.saveRslt === '1') return '该批次已提交'
             if (!this.task.checkDone) return '请先点击校验'
-            if (this.validCheckCount === 0) return '没有可提交的校验结果'
+            if (!this.selectableCheckItems.length) return '没有可提交的校验结果'
+            if (!this.selectedCheckCount) return '请先勾选要提交的调库项'
             return ''
         },
         // 校验结果区提示文案
@@ -1053,6 +1072,7 @@ new Vue({
             this.task = {}
             this.tableData = []
             this.checkItems = []
+            this.uncheckedCheckItemKeys = new Set()
             this.activeResultTab = 'import'
             this.flowDialogVisible = false
             this.selfRightsHolderDialogVisible = false
@@ -1098,7 +1118,7 @@ new Vue({
             this.loading = false
         },
         // 回填批次任务与表格数据
-        applyTask(data) {
+        applyTask(data, keepCheckSelection = false) {
             if (!data) return
             this.impId = data.impId || ''
             this.task = data || {}
@@ -1115,6 +1135,7 @@ new Vue({
                 this.pagination.pageSize = page.pageSize || this.pagination.pageSize
             }
             this.checkItems = this.normalizeCheckItems(data.checkItems || [])
+            if (!keepCheckSelection) this.uncheckedCheckItemKeys = new Set()
         },
         // 明细筛选变更
         onFilterChange() {
@@ -1186,12 +1207,8 @@ new Vue({
         // 打开选择调库流程弹窗
         openSubmitDialog() {
             if (!this.canSubmit) return
-            if (this.validCheckCount === 0) {
-                this.$message.warning('没有可提交的调库项')
-                return
-            }
-            if (!this.allValidRowsHaveFlow) {
-                this.$message.warning('请为所有可提交的手工调整项选择审批流程')
+            if (!this.allSelectedRowsHaveFlow) {
+                this.$message.warning('请为勾选的手工调整项选择审批流程')
                 return
             }
             this.flowDialogVisible = true
@@ -1199,12 +1216,8 @@ new Vue({
         // 确认流程并提交
         async confirmFlowSelection() {
             if (!this.canSubmit) return
-            if (!this.allValidRowsHaveFlow) {
-                this.$message.warning('请为所有可提交的手工调整项选择审批流程')
-                return
-            }
-            if (this.validCheckCount === 0) {
-                this.$message.warning('没有可提交的调库项')
+            if (!this.allSelectedRowsHaveFlow) {
+                this.$message.warning('请为勾选的手工调整项选择审批流程')
                 return
             }
             this.flowDialogVisible = false
@@ -1217,11 +1230,11 @@ new Vue({
                     adjustAdvice: this.form.adjustAdvice,
                     currentUserId: this.currentUserId,
                     currentUserName: this.currentUserName,
-                    checkItems: this.validCheckItems,
+                    checkItems: this.selectedCheckItems,
                 })
                 const batchNo = data && data.adjustBatchNoList && data.adjustBatchNoList[0]
                 this.$message.success(batchNo ? ('调库提交成功，批次号 ' + batchNo) : '调库提交成功')
-                this.applyTask(Object.assign({}, this.task, data || {}))
+                this.applyTask(Object.assign({}, this.task, data || {}), true)
             } catch (e) { /* api 已提示 */ }
             this.submitting = false
         },
@@ -1237,6 +1250,7 @@ new Vue({
             this.task = {}
             this.tableData = []
             this.checkItems = []
+            this.uncheckedCheckItemKeys = new Set()
             this.activeResultTab = 'import'
             this.flowDialogVisible = false
             this.selfRightsHolderDialogVisible = false
@@ -1251,6 +1265,22 @@ new Vue({
         // 是否需选择审批流程的主项（手工）
         isManualItem(row) {
             return !row.itemTag || row.itemTag === 'manual' || row.itemTag === ''
+        },
+        checkItemKey(row) {
+            return JSON.stringify([row.sourceItemId, row.securityCode, row.targetPoolId, row.adjustMode, row.itemTag])
+        },
+        isCheckRowSelected(row) {
+            return row.canAdjust && !this.uncheckedCheckItemKeys.has(this.checkItemKey(row))
+        },
+        setCheckItemSelected(row, selected) {
+            const unchecked = new Set(this.uncheckedCheckItemKeys)
+            const key = this.checkItemKey(row)
+            if (selected) unchecked.delete(key)
+            else unchecked.add(key)
+            this.uncheckedCheckItemKeys = unchecked
+        },
+        setAllCheckItemsSelected(selected) {
+            this.uncheckedCheckItemKeys = selected ? new Set() : new Set(this.selectableCheckItems.map(row => this.checkItemKey(row)))
         },
         // 规范化校验结果（流程候选、默认选中、分组底色）
         normalizeCheckItems(list) {
