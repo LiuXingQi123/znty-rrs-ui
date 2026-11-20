@@ -659,6 +659,19 @@ new Vue({
 
         // 打开配置弹窗（编辑）
         openConfigDialog(row) {
+            let paramJson = row.paramJson || ''
+            const paramDefaults = row.paramDefaults
+            if (paramDefaults && Object.keys(paramDefaults).length) {
+                try {
+                    const savedParams = paramJson.trim() ? JSON.parse(paramJson) : {}
+                    if (savedParams && typeof savedParams === 'object' && !Array.isArray(savedParams)
+                            && Object.keys(paramDefaults).some(key => !Object.prototype.hasOwnProperty.call(savedParams, key))) {
+                        paramJson = JSON.stringify({ ...paramDefaults, ...savedParams }, null, 2)
+                    }
+                } catch (e) {
+                    // 保留无法解析的原文，方便继续编辑
+                }
+            }
             this.configMode = 'edit'
             this.configForm = {
                 taskCode: row.taskCode,
@@ -666,7 +679,7 @@ new Vue({
                 description: row.description || '',
                 cronExpression: row.cronExpression || '',
                 scheduleEnabled: !!row.scheduleEnabled,
-                paramJson: row.paramJson || '',
+                paramJson,
                 // 由后端任务实现 getParamHelp 返回，非前端写死
                 paramHelp: row.paramHelp || ''
             }
