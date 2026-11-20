@@ -24,10 +24,30 @@ function harness() {
     return page;
 }
 
+test('初始化时仅请求信用债类型的债券投资池筛选树', async () => {
+    const page = harness();
+    const requests = [];
+    page.apiPost = async (url, body) => {
+        requests.push({ url, body: JSON.parse(JSON.stringify(body)) });
+        return url === '/api/v1/common/queryPoolTreeList' ? [] : { records: [], total: 0 };
+    };
+    await page.initPage();
+    assert.deepEqual(requests, [
+        {
+            url: '/api/v1/common/queryPoolTreeList',
+            body: { includePoolTypes: ['credit_bond'], includeVarietyCodes: ['bond'] }
+        },
+        {
+            url: '/api/v1/batchSecurityPoolAdjust/queryPoolPage',
+            body: { currentUserId: '1', poolIds: null, pageIndex: 1, pageSize: 10 }
+        }
+    ]);
+});
+
 for (const direction of ['in', 'out']) {
     test(`${direction} 查询按发行人及其他条件请求后端，翻页保留发行人`, async () => {
         const page = harness();
-        assert.match(html, /v-model\.trim="securitySearchForm\.issuer"[^>]*placeholder="发行人"[^>]*clearable[^>]*@keyup\.enter\.native="handleSecuritySearch"/);
+        assert.match(html, /v-model\.trim="securitySearchForm\.issuer"[^>]*placeholder="主体全称"[^>]*clearable[^>]*@keyup\.enter\.native="handleSecuritySearch"/);
         page.currentPool = { id: 2 };
         page.direction = direction;
         Object.assign(page.securitySearchForm, {
@@ -48,7 +68,8 @@ for (const direction of ['in', 'out']) {
         assert.equal(requests[0].url, '/api/v1/batchSecurityPoolAdjust/querySecurityPage');
         assert.deepEqual(requests[0].body, {
             currentUserId: '1', poolId: 2, direction, issuer: '测试发行人', securityCode: '100',
-            securityShortName: '债', marketCodes: ['NIB'], bondYesFlags: ['abs'], pageIndex: 1, pageSize: 10
+            securityShortName: '债', securityFullName: null, issuerCode: null,
+            marketCodes: ['NIB'], bondYesFlags: ['abs'], pageIndex: 1, pageSize: 10
         });
         page.handleSecurityPageChange(2);
         await pending;

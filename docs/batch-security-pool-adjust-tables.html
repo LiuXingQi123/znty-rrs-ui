@@ -373,7 +373,7 @@
         <p>同券跨市场按调库组整体校验：主券或任一关联券失败，整组不可调整，不允许只提交部分市场，其他独立组不受影响。“放开规则”沿用主券本次选择，所有关联券一致跳过既有主体债入库矩阵；在途流程、市场、品种、到期、容量及其他硬限制仍逐券校验。单笔提交透传基本信息已查询的 <code>relatedMarketCodes</code>，后端使用传入集合检查同池调入是否带齐主券和关联券，提交阶段不再查询同券关系；批量及 Excel 入口复用已有校验结果中的实际代码集合。逐券活动流程检查继续执行。</p>
         <p class="sub">从页面操作到数据库读写的主要路径。页面为单页两步工作台（池列表 → 选券/校验/提交），不依赖独立选择页回传。</p>
         <div class="flow">
-            <div class="step"><b>1. 选择目标池</b><span>按可调整权限查询投资品种包含债券的启用叶子池；筛选树默认收起。</span></div>
+            <div class="step"><b>1. 选择目标池</b><span>按可调整权限查询投资品种包含债券的启用信用债叶子池。筛选树默认收起。</span></div>
             <div class="step"><b>2. 筛选证券</b><span>步骤1：选券+材料；调入排除已在池，调出仅已在池；滚动区为固定底栏预留空间，分页保持可见。</span></div>
             <div class="step"><b>3. 批量校验</b><span>步骤2：集中读取本批数据，展示逐券校验结果与材料汇总。</span></div>
             <div class="step"><b>4. 批量提交</b><span>整批事务按证券分组写申请/步骤/附件，统一 submit_time。</span></div>
@@ -381,14 +381,14 @@
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>目标池与候选证券查询</h2>
-        <p>可选证券区域支持“主体编码”（<code>issuerCode</code>）和“证券全称”（<code>securityFullName</code>）查询，证券代码、主体编码按前缀匹配，证券全称按包含匹配；留空不限制，与其他条件按 AND 组合。输入框支持回车查询，查询回到第一页，重置时一并清空。表格展示“主体编码”（<code>issuerCode</code>）和“证券全称”（<code>fullName</code>），为空留白；原“发行人”或“发行主体全称”的查询条件和列表列统一显示为“主体全称”（<code>issuer</code>）。证券基础信息区保持原样。初始投资池列表保持原样，重新进入调入/调出时清空上述条件。</p>
+        <p>可选证券区域支持“主体编码”（<code>issuerCode</code>）和“证券全称”（<code>securityFullName</code>）查询，证券代码、主体编码按前缀匹配，证券全称按包含匹配；留空不限制，与其他条件按 AND 组合。输入框支持回车查询，查询回到第一页，重置时一并清空。表格展示“主体编码”（<code>issuerCode</code>）和“证券全称”（<code>fullName</code>），为空留白；原“发行人”或“发行主体全称”的查询条件和列表列统一显示为“主体全称”（<code>issuer</code>）。重新进入调入/调出时清空上述条件。</p>
         <p>“是否特征”支持“是否标准信用债”（<code>bondYesFlags</code> 选项 <code>stdCredit</code>），勾选仅筛选证券主档 <code>std_credit_flag=1</code>，多选按 AND；不勾选不限制。对应表格追加 <code>stdCreditFlag</code> 列，沿用 <code>isYesFlag</code> 先转布尔值：1 显示“是”Tag，其他值（含 NULL）显示“否”Tag；接口与其他标识一样返回原始数值。只使用上游原始标志，不根据其他特征或 <code>std_clause_flag</code> 推断；CRMW 使用标的证券字段。</p>
         <p class="sub">先选有权限的启用叶子池，再按方向查询候选证券。</p><span class="api">POST /api/v1/batchSecurityPoolAdjust/queryPoolPage · querySecurityPage</span>
         <div class="logic">
             <article class="card"><h3>目标池查询</h3>
                 <ul>
-                    <li>管理员可查看全部；普通用户依据 <code>ip_pool_permission</code> 的 adjustable 权限过滤。</li>
-                    <li>只返回 <code>status='enabled'</code>、未删除、没有启用子节点，且 <code>variety_codes</code> 包含 <code>bond</code> 的叶子池。筛选树保留债券品种，包含 CRMW 池，打开时默认收起。</li>
+                    <li>普通用户依据 <code>ip_pool_permission</code> 的 adjustable 权限过滤，管理员可查看全部符合查询条件的池。</li>
+                    <li>列表只查询 <code>pool_type='credit_bond'</code>、<code>status='enabled'</code>、未删除、没有启用子节点，且 <code>variety_codes</code> 包含 <code>bond</code> 的叶子池。筛选树保留信用债类型下投资品种包含债券的池及其上级，打开时默认收起。</li>
                     <li>汇总 <code>ip_pool_status</code> 有效在池数量时按类型分项（<code>countByType</code>：主体/CRMW/债券等）：用池状态 <code>security_type</code> 关联字典大类，<strong>不经</strong> <code>rrs_securityinfo</code>；前端多行展示「类型：n只」；并回填完整池路径。</li>
                 </ul>
             </article>
@@ -573,7 +573,7 @@
 </section>
 <section class="section">
     <h2>CRMW 进入普通池的方式</h2>
-    <p>CRMW 凭证可在证券池调整、批量调整和证券池 Excel 导入中按单券办理。存量证券批量调整也支持凭证，目标限定在债券产品库。前三个入口开放 CRMW 池作为目标池，沿用原调库校验。单券审批通过后写入 <code>ip_pool_status</code>。凭证与标的组合继续走专用 CRMW 调库，状态写入 <code>ip_pool_status_crmw</code>。 证券 Excel 清空出库包含 CRMW 凭证，并保留原有校验提示。</p>
+    <p>CRMW 凭证可在证券池调整、批量调整和证券池 Excel 导入中按单券办理。证券池调整和证券池 Excel 导入开放 CRMW 池作为目标池，证券池批量调整页面查询的目标池类型为信用债。存量证券批量调整也支持凭证，目标限定在债券产品库。单券审批通过后写入 <code>ip_pool_status</code>。凭证与标的组合继续走专用 CRMW 调库，状态写入 <code>ip_pool_status_crmw</code>。证券 Excel 清空出库包含 CRMW 凭证，并保留原有校验提示。</p>
 </section>
 </body>
 </html>
