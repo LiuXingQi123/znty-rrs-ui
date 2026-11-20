@@ -74,7 +74,7 @@
 
     window.RrsSecurityMasterDiff = {
         // 统一开关：改为 false 后，所有接入页面均不请求主档、不显示提示。
-        enabled: true,
+        enabled: false,
         fields,
         normalize,
         differs,

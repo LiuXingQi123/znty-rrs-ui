@@ -50,6 +50,7 @@ test('日期和数字按业务值比较，空值与零不同，未知字段不�
 
 test('对比仅使用独立数据，不覆盖表单或传入申请定位信息，编辑后差异即时更新', async () => {
     const { page, feature, requests } = harness();
+    feature.enabled = true;
     page.bondDetail = { windCode: 'A.IB', ratingBondissuer: 'AA', maturityDate: '20290331' };
     page.selectedAdjustLogId = 99;
     const original = JSON.stringify(page.bondDetail);
@@ -62,16 +63,15 @@ test('对比仅使用独立数据，不覆盖表单或传入申请定位信息�
     assert.equal(feature.differs(page.securityMasterComparison, 'ratingBondissuer', page.bondDetail.ratingBondissuer), false);
 });
 
-test('统一开关关闭后无请求、无差异，返回列表和销毁均取消对比', async () => {
+test('统一开关默认关闭时无请求、无差异，开启后返回列表和销毁均取消对比', async () => {
     const { page, feature, mixin, requests } = harness();
     await page.loadSecurityMasterComparison('A.IB');
-    feature.enabled = false;
-    await page.loadSecurityMasterComparison('A.IB');
-    assert.equal(requests.length, 1);
+    assert.equal(requests.length, 0);
     assert.equal(page.securityMasterComparison.status, 'disabled');
     assert.equal(feature.differs(page.securityMasterComparison, 'maturityDate', '20290331'), false);
     feature.enabled = true;
     await page.loadSecurityMasterComparison('A.IB');
+    assert.equal(requests.length, 1);
     mixin.watch.currentPage.call(page, 'list');
     assert.equal(page.securityMasterComparison.status, 'disabled');
     mixin.beforeDestroy.call(page);
@@ -80,6 +80,7 @@ test('统一开关关闭后无请求、无差异，返回列表和销毁均取�
 
 test('请求失败和主档代码异常显示不可用，保持表单并不伪装无差异', async () => {
     const { page, feature } = harness();
+    feature.enabled = true;
     for (const response of [null, { windCode: 'OTHER.IB' }, new Error('请求失败')]) {
         page.apiPost = async () => { if (response instanceof Error) throw response; return response; };
         await page.loadSecurityMasterComparison('A.IB');
@@ -90,7 +91,8 @@ test('请求失败和主档代码异常显示不可用，保持表单并不伪�
 });
 
 test('快速换券、同券重新读取和返回列表后旧响应均不回写', async () => {
-    const { page, mixin } = harness();
+    const { page, feature, mixin } = harness();
+    feature.enabled = true;
     const pending = [];
     page.apiPost = async (url, body) => new Promise(resolve => pending.push({ body, resolve }));
     const old = page.loadSecurityMasterComparison('A.IB');
@@ -145,7 +147,11 @@ test('担保人和有效权益人内评比较控件实际显示值，保持原�
 });
 
 test('禁投池仅在 ABS 视图请求主档，与主体数据隔离，权益人评分读取原控件值', async () => {
-    const { page, mixin, requests } = harness(true);
+    const { page, feature, mixin, requests } = harness(true);
+    await page.loadSecurityMasterComparison('A.IB');
+    assert.equal(requests.length, 0);
+    assert.equal(page.securityMasterComparison.status, 'disabled');
+    feature.enabled = true;
     page.companyDetail = { companyCode: 'COMP1', innerIssuerRating: '3' };
     page.absBondDetail.selectedGuarantorRating = '2+';
     const companyBefore = JSON.stringify(page.companyDetail);

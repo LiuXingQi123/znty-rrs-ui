@@ -47,8 +47,16 @@ function harness(name) {
 }
 
 for (const name of ['crmw_pool_adjust', 'crmw_pool_adjust_detail', 'crmw_pool_adjust_approve']) {
+    test(name + ' 默认关闭主档对比', async () => {
+        const { page, requests } = harness(name);
+        await page.loadSecurityMasterComparison('BOND.IB');
+        assert.equal(requests.length, 0);
+        assert.equal(page.securityMasterComparison.status, 'disabled');
+    });
+
     test(name + ' 只读取标的主档，保留凭证、快照和业务定位，统一开关有效', async () => {
         const { page, feature, requests, html, tags } = harness(name);
+        feature.enabled = true;
         const before = JSON.stringify({ bond: page.bondDetail, crmw: page.crmwDetail });
         page.selectedAdjustLogId = 99;
         await page.loadSecurityMasterComparison('BOND.IB');
