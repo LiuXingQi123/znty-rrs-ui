@@ -47,6 +47,19 @@ function harness(fileName) {
     return { page, html, window, document, finishPrint: () => listeners.get('afterprint')() };
 }
 
+test('PDF 打印解除工作台内层业务容器的高度和溢出限制', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../css/common.css'), 'utf8');
+    const printStyles = css.match(/^@media print \{([\s\S]*?)^\}/m);
+    assert.ok(printStyles, '公共样式包含打印媒体查询');
+    const nestedContainer = printStyles[1].match(/html\.is-print-export body > div\[id\] div\[id\]\s*\{([^}]+)\}/);
+    assert.ok(nestedContainer, '容器规则限定于 PDF 导出状态');
+    const declarations = nestedContainer[1].split(';').map(declaration => declaration.trim());
+    for (const declaration of ['height: auto !important', 'min-height: 0 !important',
+        'max-height: none !important', 'overflow: visible !important']) {
+        assert.ok(declarations.includes(declaration), declaration);
+    }
+});
+
 test('基金审核 PDF 包含审核审批块、当前步骤和完整处理意见', () => {
     const { html } = harness('fund_pool_adjust_approve.html');
     const section = html.match(/<div\b[^>]*class="[^"]*section-audit-approval[^>]*>/);
