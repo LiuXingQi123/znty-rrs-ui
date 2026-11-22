@@ -468,8 +468,7 @@
                 statusFilterOptions: [      // 状态筛选选项
                     { value: 'temporary', label: '临时' },
                     { value: 'updated', label: '已更新' },
-                    { value: 'cancelled', label: '已取消' },
-                    { value: 'deleted', label: '已删除' }
+                    { value: 'cancelled', label: '已取消' }
                 ],
                 oprtSourceFilterOptions: [  // 操作来源筛选选项
                     { value: 'manual', label: '人工' },
@@ -499,8 +498,7 @@
                 statusOptions: {            // 状态字典
                     temporary: '临时',
                     updated: '已更新',
-                    cancelled: '已取消',
-                    deleted: '已删除'
+                    cancelled: '已取消'
                 },
                 oprtSourceOptions: {        // 操作来源字典
                     manual: '人工',
@@ -827,13 +825,16 @@
             // 删除临时代码
             async handleDelete(row) {
                 try {
-                    await this.$confirm('确认删除该临时代码？', '提示', { type: 'warning' })
+                    await this.$confirm('确认永久删除该临时代码及其临时主档？', '提示', { type: 'warning' })
                 } catch (err) {
                     return
                 }
                 try {
                     await this.apiPost('/api/v1/tempSecurityCode/deleteTempSecurityCode', { id: row.id })
                     this.$message.success('删除成功')
+                    if (this.tableData.length === 1 && this.pagination.pageIndex > 1) {
+                        this.pagination.pageIndex--
+                    }
                     this.loadList()
                 } catch (e) {
                     this.$message.error(e.message || '操作失败')
@@ -845,7 +846,7 @@
                 return row.status === 'temporary'
             },
 
-            // 判断是否允许删除（对齐老系统：仅「临时」状态可删，已更新/取消发行/已删除均无删除按钮）
+            // 仅临时状态允许删除
             canDelete(row) {
                 return row.status === 'temporary'
             },
@@ -885,7 +886,7 @@
 
             // 获取状态对应的 el-tag type
             statusTagType(status) {
-                const map = { temporary: 'info', updated: 'success', cancelled: 'warning', deleted: 'danger' }
+                const map = { temporary: 'info', updated: 'success', cancelled: 'warning' }
                 return map[status] || 'info'
             },
 

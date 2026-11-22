@@ -675,20 +675,23 @@ doSync()
   ↓
 TempSecurityCodeService.editWindCodeChangeByJob(change)
   │  单条事件的事务入口：以下操作一起提交，任一步失败全部回滚
-  │  按 SEC_ID 锁定主档，检查是否已完成或已是新码，使用主档当前代码直接换码
+  │  按 SEC_ID 查询主档，检查是否已完成或已是新码，再检查已存在目标主档的来源和状态
   │
   ├─ prepareWindRegistration()
-  │    查询主档当前代码对应的 rrs_temp_security_code 记录
-  │    无登记：按旧证券信息新增，temp_security_code=旧码、status=temporary
+  │    查询当前代码未完成的登记，已完成登记留作历史
+  │    无未完成登记：按旧证券信息新增，temp_security_code=旧码、status=temporary
   │            此时不填写正式码；temporary 主档缺少原登记时直接报错
   │    有登记：校验待转正状态、目标码、类型和市场后复用
   │    在 memo 中附加事件去重标记；复用记录的备注随后续转正更新一起保存
   │
+  ├─ windCodeSyncMapper.deleteWindHistoricalMaster()（仅目标为失效临时主档时）
+  │    按唯一目标代码删除失效的临时主档，保留其原创建时间用于重建
+  │
   ├─ windCodeSyncMapper.editSecurityWindCodeToTemporary()
-  │    先把旧主档改用临时 SEC_ID，释放正式 ID，并将状态置 D、来源置 temporary
+  │    把旧主档改用临时 SEC_ID，释放正式 ID，并将状态置 D、来源置 temporary
   │
   ├─ windCodeSyncMapper.addSecurityWindCodeMaster()
-  │    再使用原正式 SEC_ID 新增新代码主档
+  │    使用原正式 SEC_ID 插入目标主档
   │    来源 temporary 改为 temp_converted，official/temp_converted 保持不变
   │
   └─ editTempSecurityCodeToUpdated(..., true)
@@ -718,9 +721,10 @@ TempSecurityCodeService.editWindCodeChangeByJob(change)
                 <h4>扫描、处理规则与演示数据</h4>
                 <ul>
                     <li>每 10 分钟执行一次（Demo Cron：<code>0 2/10 * * * ?</code>）。编辑任务，在“扩展参数”填写 <code>{"scanDays":3}</code> 可从数据库当前日期的 3 天前开始扫描；Demo 预置 <code>{"scanDays":1}</code>。保存后下一次执行生效。</li>
-                    <li><code>scanDays</code> 须为 int 范围内的正整数，扩展参数留空或省略该字段时默认 1 天；填 NULL、0、负数、小数、字符串、布尔值、未知字段或错误 JSON 时，扫描前报错。SQL 使用 <code>CHANGE_DATE &gt;= DATE_FORMAT(TIMESTAMPADD(DAY, -#{scanDays}, NOW()), '%Y%m%d')</code>，仅绑定天数，日期由数据库计算，不增加今天上限；按八位日期筛选，包含起始日期。同一 SEC_ID 按 CHANGE_DATE 取最新，S_INFO_WINDCODE 可重复，OPDATE 不决定变更先后。</li>
-                    <li>完成标记由 <code>SEC_ID + 变更记录旧代码 + 新代码 + CHANGE_DATE</code> 组成，<code>OBJECT_ID</code> 不参与判重，也不做必填校验；仅 OBJECT_ID 不同、为空或缺失的同一变更仍按重复处理。证券匹配始终使用 <code>SEC_ID</code>。临时代码记录指 <code>rrs_temp_security_code</code> 表中的一条数据。</li>
-                    <li>按 <code>SEC_ID</code> 锁定当前主档，同一事务内先让旧主档改用临时 ID，再插入承接原正式 ID 的新主档，兼容 <code>SEC_ID</code> 唯一约束。例如源记录为 A→B、B→C，主档仍为 A，就只做 A 出库、C 入库。主档缺失时 WARN 提示并跳过；主档已是新码时不新增业务记录，摘要单列“已是新码跳过”。</li>
+                    <li><code>scanDays</code> 须为 int 范围内的正整数，扩展参数留空或省略该字段时默认 1 天；填 NULL、0、负数、小数、字符串、布尔值、未知字段或错误 JSON 时，扫描前报错。SQL 使用 <code>CHANGE_DATE &gt;= DATE_FORMAT(TIMESTAMPADD(DAY, -#{scanDays}, NOW()), '%Y%m%d')</code>，仅绑定天数，日期由数据库计算，不增加今天上限；按八位日期筛选，包含起始日期。同一 SEC_ID 先按 CHANGE_DATE 取最新，同日取最新 OPDATE，空值排在有效时间之前。</li>
+                    <li>任务按完整标记去重。标记由 <code>SEC_ID + 变更记录旧代码 + 新代码 + CHANGE_DATE + OPDATE</code> 组成，<code>OPDATE</code> 缺失时保留空位。证券匹配始终使用 <code>SEC_ID</code>。临时代码记录指 <code>rrs_temp_security_code</code> 表中的一条数据。</li>
+                    <li>按 <code>SEC_ID</code> 查询当前主档。目标码已有主档时，只允许重建 <code>security_source=temporary</code> 且 <code>security_status=D</code> 的记录，普通定时转正留下的失效临时主档也适用。任务在同一事务内按唯一 <code>wind_code</code> 删除符合条件的目标行，释放仍持有本次正式 ID 的旧主档，再插入目标行并带回原创建时间。目标码首次换入时直接插入。有效的临时主档和正式主档占用目标码时会报错。</li>
+                    <li>源记录为 A→B、B→C 而主档仍为 A 时，直接执行 A→C。逐次执行 A→B→C→B→A 时，保留 A、B、C 三条主档和四次登记，正式 ID 回到 A。失效临时主档的市场优先读与其临时 ID 匹配的最近成功登记。缺主档和已是新码的事件分别计入跳过。</li>
                     <li><code>official</code> 只补转换登记并保留来源；<code>temporary</code> 复用原登记并转为 <code>temp_converted</code>，使用登记中已核实的市场；<code>temp_converted</code> 新增本次登记、保留原转换历史。</li>
                     <li>Wind 换码允许同步退市证券的代码。旧主档为 <code>D</code> 时，新码沿用 <code>D</code>，已有在池和在途记录按原规则迁移。人工转正和临时代码定时转正仍要求目标证券未退市。</li>
                     <li>仅替换本次旧新码，不扩展同券其他市场。复用普通池、CRMW 标的及在途申请转换：已在池生成系统出入库记录，在途保留原审批，历史终态不改码；无业务引用不制造调库流水。</li>
@@ -729,7 +733,7 @@ TempSecurityCodeService.editWindCodeChangeByJob(change)
                     <li>每次实际换码成功，固定写一条 <code>rrs_temp_security_code_update_log</code> 登记映射（<code>replace_table_name=rrs_temp_security_code</code>、<code>replace_record_id=登记ID</code>），记录主档实际旧码到新码；无业务引用也记录。有业务引用另存原有明细，跳过或重复事件不追加；日志写入失败时整次回滚。</li>
                     <li>每条事件独立事务，主档、登记、池状态、日志和快照一起提交或回滚；备注保留原内容并追加源记录的完成标记（B→C）；实际转换记录保存主档当前码到新码（A→C），成功后供重复扫描去重。失败项在扫描窗口内重试，超窗需核查并专项补执行。</li>
                     <li>任务状态与单条换码结果分别统计：正常完成扫描和逐条处理即显示“任务结束（成功）”，单条失败仍记录 ERROR、失败数量及原因，影响条数仅计实际成功数；只有扫描或任务级异常导致执行未完成才显示任务失败。</li>
-                    <li>同一 SEC_ID 最新日期有多条记录且新代码相同，只处理一次；新代码不同时记录 ERROR 并核查源数据。新码占用其他主档、临时代码记录状态或目标冲突、来源不一致、日期无效仍报错；源记录旧码不在主档中不再作为跳过理由。</li>
+                    <li>同一 SEC_ID 的最新 CHANGE_DATE 和 OPDATE 并列时，新代码相同只处理一次，新代码不同时记录 ERROR 并核查源数据。新码占用其他主档、临时代码记录状态或目标冲突、来源不一致、日期无效仍报错；源记录旧码不在主档中不再作为跳过理由。</li>
                     <li>与 <code>bond_temp_code_replace</code> 使用独立任务编码、独立扫描入口，共用业务转换组件；后者仍按原规则扩展同券全部市场。</li>
                     <li>换码演示预置 16 条变更记录，日期按数据库时间生成。取最新记录后有 12 条候选，11 条成功、1 条因主档缺失跳过。再次执行时 11 条因重复跳过，缺失主档仍跳过。</li>
                     <li>配套数据：表结构就绪后可用脚本工具完整初始化 Demo（<code>INIT_ALL_DEMO</code>）；按模块需同时恢复外部证券主档、临时代码、字典、投资池配置、证券调库运行态、CRMW 池状态和 AIS ODS Demo。无论哪种方式，从头演示前还须清空普通/CRMW 调库快照，这两张表不由 Demo 脚本灌数。任务先保持关闭，恢复完整后手动执行；从头演示需恢复相同范围，只重置 ODS 不会恢复业务数据。</li>

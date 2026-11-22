@@ -121,3 +121,25 @@ test('连续查询时较早的响应不会覆盖当前结果', async () => {
     assert.deepEqual(page.issuerRows, [issuer]);
     assert.equal(page.issuerLoading, false);
 });
+
+test('临时代码删除采用永久删除确认，清空当前页后返回上一页', async () => {
+    const { page, requests } = harness();
+    assert.deepEqual(Array.from(page.statusFilterOptions, item => item.value), ['temporary', 'updated', 'cancelled']);
+    const row = { id: 123, status: 'temporary' };
+    page.tableData = [row];
+    page.pagination.pageIndex = 2;
+    let confirmations = 0;
+    let reloads = 0;
+    page.$confirm = async message => {
+        assert.match(message, /永久删除.*临时主档/);
+        confirmations++;
+    };
+    page.loadList = () => reloads++;
+
+    await page.handleDelete(row);
+
+    assert.deepEqual(requests, [{ url: '/api/v1/tempSecurityCode/deleteTempSecurityCode', body: { id: 123 } }]);
+    assert.equal(confirmations, 1);
+    assert.equal(page.pagination.pageIndex, 1);
+    assert.equal(reloads, 1);
+});

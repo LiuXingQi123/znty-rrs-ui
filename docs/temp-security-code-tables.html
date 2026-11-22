@@ -359,7 +359,7 @@
 <header>
     <div class="wrap"><p class="kicker">ZNTY RRS · MODULE DATA MAP</p>
         <h1>临时代码管理</h1>
-        <p class="desc">维护未取得正式 Wind 代码的临时证券；转正式时按老系统分叉处理在途日志与已在池出/入，也可取消发行或软删除。</p>
+        <p class="desc">维护未取得正式 Wind 代码的临时证券；转正式时按老系统分叉处理在途日志与已在池出/入，也可取消发行或永久删除临时登记及对应的临时占位主档。</p>
         <div class="stats"><span class="stat">7 项表/表组</span><span class="stat">7 个主要接口</span><span
                 class="stat">对齐老系统转正分叉</span></div>
     </div>
@@ -379,16 +379,16 @@
         </div>
     </section>
     <section class="panel" id="logic-1"><h2>查询与下拉选项</h2>
-        <p class="sub">列表与详情的删除过滤口径存在差异。</p><span class="api">POST /api/v1/tempSecurityCode/queryTempSecurityCodePage · queryTempSecurityCodeOptions · queryFormalSecurityOptionList</span>
+        <p class="sub">列表和详情统一查询有效登记。</p><span class="api">POST /api/v1/tempSecurityCode/queryTempSecurityCodePage · queryTempSecurityCodeOptions · queryFormalSecurityOptionList</span>
         <div class="logic">
             <article class="card"><h3>列表查询</h3>
                 <ul>
                     <li>主表为 <code>rrs_temp_security_code</code>，关联两次证券类型字典。</li>
-                    <li>临时证券代码按前缀查询，临时证券名称按包含查询；状态多选 <code>statusList</code>（temporary / updated / cancelled / deleted）。</li>
+                    <li>临时证券代码按前缀查询，临时证券名称按包含查询；状态多选 <code>statusList</code>（temporary / updated / cancelled）。</li>
                     <li>操作来源多选 <code>oprtSourceList</code>（manual=人工 / job=定时任务 / other=其他），默认 <code>['manual']</code>；重置后恢复该默认。</li>
                     <li>表格在「状态」后展示「操作来源」Tag。</li>
                     <li>排序对齐老系统状态优先（CASE）。</li>
-                    <li>列表未过滤 is_deleted，已删除记录仍可显示；详情按 ID 过滤已删除。</li>
+                    <li>列表与详情统一按 <code>is_deleted=0</code> 过滤历史软删登记。</li>
                 </ul>
             </article>
             <article class="card"><h3>发行主体、证券类型与正式选券</h3>
@@ -407,7 +407,7 @@
             <article class="card"><h3>新增</h3>
                 <ul>
                     <li>状态固定 temporary，仅写临时字段。新增代码框提示需带市场后缀；名称必填并有输入提示。</li>
-                    <li>新增时额外写入 <code>sec_id = TEMP_ + 临时代码</code>，并同步到占位主档。例如代码 <code>001.IB</code> 对应 ID <code>TEMP_001.IB</code>。该字段仅供外部使用，当前页面和接口不展示、不返回，也不新增专门校验或业务判断；转正、取消和软删除不改 ID。</li>
+                    <li>新增时额外写入 <code>sec_id = TEMP_ + 临时代码</code>，并同步到占位主档。例如代码 <code>001.IB</code> 对应 ID <code>TEMP_001.IB</code>。该字段仅供外部使用，当前页面和接口不展示、不返回，也不新增专门校验或业务判断；转正和取消保留该 ID。页面删除会移除对应的临时登记和占位主档。</li>
                     <li>同步插入 <code>rrs_securityinfo</code>（wind_code=临时代码，security_source=temporary，<code>market</code> 取表单选择的临时市场编码，与临时代码表的 <code>temp_security_market</code> 一致，<code>security_status=L</code> 上市中，issuer_code 取主体代码，发行/到期取表单并格式化为 <code>yyyyMMdd</code>；起息/止息/剩余期限未知不写）。上市状态枚举 <code>SecurityStatus</code>：<code>L</code>/<code>N</code>/<code>D</code>/<code>U</code>；占位须写明确值（临时代码用 <code>L</code>，来源无状态用 <code>U</code>）。留 <code>NULL</code> 时调库列表 <code>security_status != 'D'</code> 会因三值逻辑查不到。</li>
                     <li>新增时选择「资产支持证券」（<code>abs</code>），占位主档写入 <code>abs_flag=1</code>，可在「禁投池调整 → ABS」中查询。其他类型（含「资产证券化」<code>abs_all</code>）的占位标识为空。</li>
                     <li>若临时码已在主数据存在则拒绝新增。</li>
@@ -432,13 +432,14 @@
                     <li><b>快照份数</b>：快照跟调库日志关联。T 在一个池、正式码只有 B.IB，新增 1 份；正式码为 B.IB/B.SH，新增 2 份；T 在两个池、正式码只有 B.IB，也新增 2 份。T 只有登记、既不在池也无在途申请时不新增调库快照，正式券先读主档，首次提交调库后才生成该笔快照。</li>
                     <li><b>未接入的独立转换组件</b>：SecurityCodeConversionService 同样保留旧快照并按最终日志的证券主档新增快照。调用前正式主档须已准备好，临时主档仍保留；不负责主档覆盖或合并。同一日志的证券和 CRMW 凭证同时改码，只新增一份最终快照；仅凭证改码时仍取实际标的主档。</li>
                     <li>正式主数据已存在则不再 upsert；临时占位置 security_status=D。</li>
-                    <li>定时入口 <code>bond_temp_code_replace</code> 扫描已由外部数据补齐正式 <code>security_code</code> 的 temporary 记录，复用上述完整分叉，来源记为 <code>job</code>；与 <code>wind_code_sync</code> 独立。Wind 任务按页面扩展参数 scanDays 指定的天数扫描（省略默认 1 天），日期由数据库计算、按 SEC_ID 取 CHANGE_DATE 最新记录，并将主档当前码直接改为最新代码：official 补登记、temporary 复用原登记、temp_converted 新增本次登记保留原历史，再以单码模式复用业务转换，不扩展其他市场。事件完成标记追加在登记备注中；主档与业务写入同事务回滚。主档缺失时特别提示并跳过；源记录旧码不存在也继续按 SEC_ID 换码，实际出入库使用主档当前码。主档已是最新码则跳过，已完成事件优先按源记录标记判重。</li>
+                    <li>定时入口 <code>bond_temp_code_replace</code> 扫描已由外部数据补齐正式 <code>security_code</code> 的 temporary 记录，复用上述完整分叉，来源记为 <code>job</code>；与 <code>wind_code_sync</code> 独立。Wind 任务按页面扩展参数 scanDays 指定的天数扫描（省略默认 1 天），日期由数据库计算，按 SEC_ID 先取最新 CHANGE_DATE，同日取最新 OPDATE，并将主档当前码直接改为最新代码：official 补登记、temporary 复用原登记、temp_converted 新增本次登记保留原历史，再以单码模式复用业务转换，不扩展其他市场。事件完成标记追加在登记备注中；主档与业务写入同事务回滚。主档缺失时特别提示并跳过；源记录旧码不存在也继续按 SEC_ID 换码，实际出入库使用主档当前码。主档已是最新码则跳过，已完成事件优先按源记录标记判重。</li>
+                    <li>普通定时转正 <code>T → A</code> 后，Wind 可以换回仍保留为失效临时主档的 <code>T</code>。目标主档须为 <code>security_source=temporary</code> 且 <code>security_status=D</code>。任务在同一事务内按唯一 <code>wind_code</code> 删除符合条件的目标行，释放当前行的正式 SEC_ID，再插入目标主档。每次换出的成功登记独立保存。失效临时主档的市场优先取与其临时 SEC_ID 匹配的最近成功登记。</li>
                 </ul>
             </article>
             <article class="card"><h3>取消和删除</h3>
                 <ul>
                     <li>取消发行仅 temporary：主数据到期/止息以 <code>yyyyMMdd</code> 改为前一日并置 D，状态 cancelled。</li>
-                    <li>删除仅 temporary，且无调库/池引用；status=deleted、is_deleted=1。</li>
+                    <li>仅 <code>temporary</code> 且无调库引用的记录可删除。登记及对应的临时占位主档在同一事务内物理删除。</li>
                     <li>updated / cancelled 不可再删除（对齐老系统）。</li>
                 </ul>
             </article>
@@ -481,7 +482,7 @@
                     <td>临时与正式代码映射及状态主表</td>
                     <td><span class='tag r'>查询</span> <span class='tag w'>新增</span> <span class='tag u'>更新</span>
                     </td>
-                    <td>列表、新增、转正式、取消、软删除</td>
+                    <td>列表、新增、转正式、取消、物理删除</td>
                 </tr>
                 <tr>
                     <td><span class="name">rrs_temp_security_code_update_log</span></td>
@@ -528,12 +529,12 @@
     </section>
     <section class="panel" id="notes"><h2>关键规则与当前实现说明</h2>
         <ul class="notes">
-            <li>状态流转：temporary → updated / cancelled；删除仅 temporary → deleted。updated/cancelled 为冻结态，不可再转正式/取消/删除。</li>
+            <li>状态流转为 temporary → updated 或 cancelled。物理删除只适用于 temporary。</li>
             <li>转正式必须从主数据选已有正式券，不再对正式 wind_code 做 upsert 覆盖；正式码不能等于临时码。</li>
             <li>普通池转正按同券市场整组处理：在途（00/11）主项换码并补同批关联项；已在池（20）临时退出、正式组统一承接。CRMW 在同一凭证下对标的整组处理；即时出入库调整人为系统，终态历史日志不改码。</li>
             <li>O32 识别：按 <code>temp_security_code</code> + status=temporary 判断，临时代码转人工待处理（<code>pending</code>）——属调库审批侧逻辑，见证券池调库流程。</li>
             <li>关联：调入信用债大库时，临时占位无内评默认 grade_code=4 再走矩阵；正式无内评禁止入 1～5 级（见证券池调库，非本 Service 内实现）。</li>
-            <li>列表未过滤软删除而详情过滤软删除，是当前实现的明确不一致点；已删除行仍可在列表看到「已删除」标签（配合 statusList 可筛）。</li>
+            <li>页面确认删除后，代码可以重新新增，也可以由 Wind 后续换入。</li>
             <li>临时主体代码不变时保留名称快照，即使主体主数据名称后来变化也不会自动刷新。</li>
             <li>前端投资市场与 MarketCode、docs/dict.js 统一为 11 码：SSE、SZSE、NIB、BSE、COMPANY、OTC、HKEX、QDII、JWCW、UNKNOWN、OTHER；HKEX 显示为“香港交易所”。</li>
         </ul>

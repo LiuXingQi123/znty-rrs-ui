@@ -723,7 +723,6 @@ const DICT_TEMP_STATUS = {
     'temporary': '临时',
     'updated':   '已更新',
     'cancelled': '已取消',
-    'deleted':   '已删除',
 };
 
 // ── 49. 临时代码操作来源（oprt_source）────────────────

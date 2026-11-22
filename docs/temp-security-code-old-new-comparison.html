@@ -535,7 +535,7 @@ new Vue({
                 '登记表 + 证券主数据占位，调库可选',
                 '在途改码 / 在池出再入 / CRMW 字段替换',
                 '登记取消态 + 主数据到期/退市标记',
-                '有引用则拒绝；登记软删或 status=100',
+                '有引用则拒绝；新系统在同一事务删除登记及临时占位主档',
             ],
             tables: [
                 {
@@ -564,7 +564,7 @@ new Vue({
                         },
                         {
                             q: '整体业务是否一致？',
-                            a: '登记→主数据占位→调库可用→转正替换在途/在池→取消/删除：主链路一致。删除主数据清理、非调库模块联动：不一致。',
+                            a: '登记→主数据占位→调库可用→转正替换在途/在池→取消/删除：主链路一致。新系统删除时同时清理登记与临时主档，非调库模块的联动范围存在差异。',
                             status: '大体对齐',
                         },
                     ],
@@ -606,8 +606,8 @@ new Vue({
                         {
                             concept: '状态',
                             oldTable: '1=临时 / 2=更新 / 3=取消发行 / 100=已删除',
-                            newTable: 'temporary / updated / cancelled / deleted',
-                            note: '新系统删除另有 is_deleted=1',
+                            newTable: 'temporary / updated / cancelled',
+                            note: '新系统删除时物理移除记录',
                         },
                         {
                             concept: '市场 / 类型',
@@ -756,14 +756,14 @@ new Vue({
                         {
                             action: '删除-登记',
                             oldScope: 'status=100',
-                            newScope: 'status=deleted + is_deleted=1 软删',
+                            newScope: '物理删除临时代码登记',
                             status: '意图对齐',
                         },
                         {
                             action: '删除-主数据',
                             oldScope: '物理 deleteSecurity + deleteBondBase',
-                            newScope: '不删 rrs_securityinfo（可能残留 temporary 占位）',
-                            status: '不一致',
+                            newScope: '按代码删除 rrs_securityinfo 的 temporary 占位行',
+                            status: '意图对齐',
                         },
                     ],
                 },
@@ -807,9 +807,9 @@ new Vue({
             findings: [
                 {
                     level: 'P1',
-                    title: '删除后临时主数据可能残留',
-                    desc: '老系统删除会物理清理 sdc_security 与 sdc_bondbase；新系统仅软删登记表，rrs_securityinfo 中 temporary 行可能仍在。若后续同码再新增，会命中「已存在于证券主数据」而失败。',
-                    suggestion: '删除成功后对 security_source=temporary 且 wind_code=临时码的行同步禁用或物理/逻辑清理，并与转正禁用策略统一。',
+                    title: '历史软删除的占位主档',
+                    desc: '旧版软删除留下的临时占位主档可能仍在。新版页面删除会清理本次登记和对应临时占位主档。',
+                    suggestion: '存量旧记录按临时代码及实际业务引用核对后处理。',
                 },
                 {
                     level: 'P2',
@@ -853,7 +853,7 @@ new Vue({
                 },
                 {
                     scene: '删除有引用拦截',
-                    expected: '存在调库日志或当前池引用时不可删；无引用时登记软删。确认是否需同步清理主数据占位。',
+                    expected: '存在调库日志或当前池引用时拒绝。无引用的临时登记与对应占位主档在同一事务内物理删除。',
                 },
             ],
             sources: [
