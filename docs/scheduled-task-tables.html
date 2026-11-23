@@ -403,6 +403,7 @@
                     <li>展示字段含 cron、启停、param_json、最近执行摘要。</li>
                     <li><code>codeRegistered</code>：Spring 是否已注册同编码 <code>RrsScheduledTask</code>。</li>
                     <li><code>paramHelp</code>：已注册实现时由 <code>getParamHelp()</code> 提供；后端以 <code>[[TOOLTIP]]</code> 前缀标记仅悬浮展示的行，配置页正文显示其余内容，标题旁提示图标展示参数示例、配置含义和字段说明。</li>
+                    <li>参数说明提到 Demo 风险池 15（债券禁止库）、16（观察池）、17（黑名单质押库）、23（重点观察名单）中的任一池时，池 ID 对照展示全部四项。18（CRMW库）在参数说明提到时单独列出。实际扫描范围以任务配置为准。</li>
                 </ul>
             </article>
             <article class="card">
@@ -621,10 +622,11 @@
             <article class="card">
                 <h3>在池主体旗下债券自动入池（已排除ABS债）（仅债券） company_inpool_bond_auto_in</h3>
                 <p>Demo 每十分钟第 1 分钟执行，按主体已生效的池状态及同池、跨池映射筛选普通债和 CRMW，ABS 单独对账。普通主体依据共用手工单券准入口径，包括禁止库、市场、容量、调入限制和 17 主体三条件。</p>
+                <p>联动调入仅因证券已在联动池而失败时，视为该联动已满足，继续办理同组仍需执行的调库项。其他校验失败仍跳过整组。</p>
                 <p>Demo 参数 <code>{"poolIds":[15,16,17,23],"minDaysToMaturity":0}</code>。<code>poolIds</code> 用于同池，跨池用 <code>mappings</code> 配置 <code>companyInPoolId</code> 和 <code>bondTargetPoolId</code>。规则绑定与已有生效主体的池按同池加入，并兼容旧同池任务配置。</p>
                 <p><code>minDaysToMaturity</code> 须为非负整数，省略或填 0 时到期当天仍可补入，填 1 时到期当天不补入。已退市债券和已转正的临时旧码跳过。</p>
-                <p>候选合并后交给 <code>BatchSecurityCheckService</code> 批量读取数据，证券主档与补债品种、到期及临时代码资格同时查询。同券关联、联动调入、互斥调出和反向限制池调出整组校验。普通候选须同时满足直通和材料要求，任务明细记录跳过的券、池和原因。</p>
-                <p>主体 Excel 调入及同批联动生效后，旗下普通债按主体决定优先补入，跳过评级、到期天数、材料和常规直通条件。联动、互斥、关联券及在途校验继续执行。</p>
+                <p>候选合并后交给 <code>BatchSecurityCheckService</code> 批量读取数据，证券主档与补债品种、到期及临时代码资格同时查询。同券关联、联动调入、互斥调出和反向限制池调出整组校验。普通候选继续校验材料，整组通过后由系统自动调整并直接生效。任务明细记录跳过的券、池和原因。</p>
+                <p>主体 Excel 调入及同批联动生效后，旗下普通债按主体决定优先补入，跳过评级、到期天数和材料校验。联动、互斥、关联券及在途校验继续执行。</p>
                 <p>本轮已随同券关联或联动实际进入目标池的候选，只计实际入池，不计未处理。</p>
             </article>
             <article class="card">

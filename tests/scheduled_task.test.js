@@ -15,16 +15,43 @@ function loadPage() {
     for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) {
         if (match[1].trim()) vm.runInContext(match[1], context);
     }
-    return {
+    const page = {
         ...options.data(),
         ...options.methods,
         $nextTick: callback => callback(),
         $refs: {},
     };
+    Object.defineProperty(page, 'paramPoolIdLabels', {
+        get: () => options.computed.paramPoolIdLabels.call(page),
+    });
+    return page;
 }
 
 const fullDefaults = { poolIds: [], exportEmptyPool: true, exportPoolWithoutHsName: false, outputDir: null };
 const incrementDefaults = { ...fullDefaults, initialStartTime: null };
+
+test('参数说明命中任一 Demo 风险池时展示完整的四池对照', () => {
+    const page = loadPage();
+    const labels = ['15（债券禁止库）', '16（观察池）', '17（黑名单质押库）', '23（重点观察名单）'];
+    for (const poolId of [15, 16, 17, 23]) {
+        const paramJson = JSON.stringify({ poolIds: [poolId] });
+        page.openConfigDialog({ paramHelp: '参数示例：' + paramJson, paramJson });
+        assert.deepEqual(Array.from(page.paramPoolIdLabels), labels);
+        assert.equal(page.configForm.paramJson, paramJson);
+    }
+});
+
+test('CRMW 库单独识别，和 Demo 风险池同现时一并展示', () => {
+    const page = loadPage();
+    page.openConfigDialog({ paramHelp: '扫描 18（CRMW库）' });
+    assert.deepEqual(Array.from(page.paramPoolIdLabels), ['18（CRMW库）']);
+    page.openConfigDialog({ paramHelp: '扫描 18 和 15' });
+    assert.deepEqual(Array.from(page.paramPoolIdLabels), [
+        '15（债券禁止库）', '16（观察池）', '17（黑名单质押库）', '18（CRMW库）', '23（重点观察名单）',
+    ]);
+    page.openConfigDialog({ paramHelp: '无需池参数' });
+    assert.deepEqual(Array.from(page.paramPoolIdLabels), []);
+});
 
 test('配置弹窗在扩展参数为空时显示全部可编辑的默认值', () => {
     const page = loadPage();
