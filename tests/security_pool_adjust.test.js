@@ -46,9 +46,11 @@ function harness(search = '', rows = []) {
     return { page, requests };
 }
 
-test('公司工作台的固定底栏以右侧内容区定位，仅用于屏幕布局', () => {
+test('公司工作台只调整调库底栏定位，右侧内容区不隔离弹窗层级', () => {
     const css = fs.readFileSync(path.join(__dirname, '../css/common.css'), 'utf8');
-    assert.match(css, /@media screen\s*\{\s*#app \.znty-aside \+ section\.el-container\.is-vertical\s*\{[^}]*\bcontain:\s*layout\s*;/);
+    assert.match(css, /@media screen\s*\{\s*#app \.znty-aside \+ section\.el-container\.is-vertical:has\([^{}]+\)\s*\{\s*position: relative;\s*\}/);
+    assert.match(css, /#app \.znty-aside \+ section\.el-container\.is-vertical\s+:is\([^{}]+\)\s+:is\(\.action-footer, \.submit-area, \.detail-bottom-actions, \.selected-confirm-row\)\s*\{\s*position: absolute;\s*\}/);
+    assert.doesNotMatch(css, /#app \.znty-aside \+ section\.el-container\.is-vertical[^{}]*\{[^}]*\bcontain\s*:/);
 });
 
 test('ABS 已占用 A 时默认恢复 A，并直接显示候选五字段', async () => {
