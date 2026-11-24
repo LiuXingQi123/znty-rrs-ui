@@ -493,7 +493,7 @@
                     <li>每天 01:10 执行（Cron：<code>0 10 1 * * ?</code>）</li>
                     <li>打开配置时，「扩展参数」会补齐缺失的字段 <code>{"poolIds":[],"exportEmptyPool":true,"exportPoolWithoutHsName":false,"outputDir":null}</code>，已有的值优先。<code>poolIds</code> 省略或为空时从全部叶子池中筛选。<code>exportEmptyPool</code> 设为 <code>false</code> 时跳过无数据的池。</li>
                     <li><code>exportPoolWithoutHsName</code> 省略或设为 <code>false</code> 时，跳过恒生池名称为 NULL、空字符串或纯空白的池。执行历史的过程日志会列出被跳过的投资池 ID、名称及原因。设为 <code>true</code> 时，这些池使用投资池完整名称生成 Sheet。筛选后若未生成任何 Sheet，保留「（空池）」表头页。</li>
-                    <li>导出当前已生效的非主体证券和 CRMW。普通证券排除到期日早于当天的记录，CRMW 按老系统定时任务口径不校验到期日。</li>
+                    <li>导出当前已生效的非主体证券和 CRMW。普通证券排除摘牌日早于当天的记录，保留空摘牌日和摘牌日当天，独立 CRMW 组合不校验摘牌日。</li>
                     <li>恒生池名称可用竖线拆分多个 Sheet；同名 Sheet 合并并记录警告。市场输出恒生编码，按实际状态或日志代码所属市场输出，不展开同券其他市场。</li>
                     <li><code>outputDir</code> 可指定输出根目录，为 <code>null</code> 或省略时使用系统配置。主文件固定为 <code>yyyyMMdd/hs_pool_full.xlsx</code>。同日覆盖前，将旧主文件归档到同日 <code>bak</code> 目录，历史文件名带时间戳，同秒重名时追加序号。完成日志只在归档时显示历史备份路径。FTP 暂未接入。</li>
                 </ul>
@@ -503,7 +503,7 @@
                 <ul>
                     <li>每天 01:20 执行（Cron：<code>0 20 1 * * ?</code>）</li>
                     <li>参数与不含已到期全量任务一致，包括 <code>poolIds</code>、<code>exportEmptyPool</code>、<code>exportPoolWithoutHsName</code>、<code>outputDir</code>。</li>
-                    <li>导出当前已生效的非主体证券和 CRMW；普通证券包含仍在池的已到期数据，CRMW 不校验到期日。</li>
+                    <li>导出当前已生效的非主体证券和 CRMW；普通证券包含仍在池的已到期数据，独立 CRMW 组合不校验摘牌日。</li>
                     <li>对应老系统 <code>ExportStatusToHsJob2</code>，主文件固定为 <code>yyyyMMdd/hs_pool_full_including_expired.xlsx</code>。</li>
                     <li>Sheet、实际代码市场、日期目录和 bak 备份规则与不含已到期全量任务一致；FTP 暂未接入。</li>
                 </ul>
@@ -522,7 +522,7 @@
                 <ul>
                     <li>每天 09:00 执行（Cron：<code>0 0 9 * * ?</code>），对应老系统 <code>BlackPoolRemindJob</code>。</li>
                     <li>参数 <code>{"poolIds":[17]}</code>。首次从当天 00:00:00 扫描，之后以上次成功执行开始时间为下界，以本次开始时间为上界。审核时间须达到下界且早于上界。</li>
-                    <li>读取指定池在时间窗口内审批通过的债券、主体调入调出流水；债券到期日须为空或晚于当天。</li>
+                    <li>读取指定池在时间窗口内审批通过的债券、主体调入调出流水；债券摘牌日须为 NULL 或晚于当天。</li>
                     <li>当前生成提醒候选和过程日志；通知通道尚未接入，任务摘要明确显示“未发送”，不会伪报成功。</li>
                 </ul>
             </article>
@@ -550,12 +550,12 @@
                 <ul>
                     <li>每天 23:00 执行（Cron：<code>0 0 23 * * ?</code>）</li>
                     <li>参数：<code>{"poolIds":[15],"maturityOffsetDays":1}</code> 或 <code>{"poolIds":[10,15],"maturityOffsetDays":3}</code>；<code>poolIds</code> 可选，与投资池关系配置中绑定本任务的池取并集。</li>
-                    <li><code>maturityOffsetDays</code> 为到期日期偏移天数，省略默认 1，支持 int 范围内整数（含 0、负数）；每轮按当前保存的参数执行。到期日严格早于“数据库当前日期减去该天数”才出池，不含截止当天：1=早于昨天（原 T-2），0=早于今天，3=早于三天前，-1=早于明天；NULL、小数、字符串、布尔值、超范围整数及错误 JSON 均在扫描前报错。</li>
-                    <li>扫描 <code>ip_pool_status</code> 中已生效且未删除的债券，包含 ABS、CRMW。按证券代码关联 <code>rrs_securityinfo</code>，用主数据 <code>maturity_date</code> 和截止日期比较。<code>ip_pool_status_crmw</code> 中的凭证与标的组合由 CRMW 到期任务扫描。</li>
+                    <li>证券主档摘牌日 <code>delist_date</code>（<code>yyyyMMdd</code>）有值且严格早于数据库当前日期减去 <code>maturityOffsetDays</code> 天时进入候选。偏移天数省略时为 1，默认摘牌日早于昨天（T-2）自动出池。偏移天数可填 int 范围内的整数，包含 0 和负数。</li>
+                    <li>扫描 <code>ip_pool_status</code> 中已生效且未删除的债券，包含 ABS、CRMW。按证券代码关联 <code>rrs_securityinfo</code>，读取证券主档摘牌日。<code>ip_pool_status_crmw</code> 中的凭证与标的组合由 CRMW 到期任务扫描。</li>
                     <li>先按在池记录 ID 剔除 Excel 保护项，再跳过当前在调出限制池、已提前出池或缺少证券编码的记录。仅软删除成功才写业务调库记录并计入实际出池。</li>
                     <li>扫描候选时同时判断配置的调出限制池。执行结果按“扫描候选、实际出池、未处理”汇总，并按目标池列出数量；过程日志逐行说明未处理证券及原因，例如“证券【110001】：当前已不在目标池，本轮不处理”。</li>
                     <li>只处理一类对象的任务在名称末尾显示「（仅主体）」或「（仅债券）」，已有配置也会按任务编码补上标注。</li>
-                    <li>定时任务生成的调库日志只写调整原因，调整建议保持为空；人工调库及人工临时代码转正不受影响。新生成的调库记录在调整原因开头用 <code>【任务名称：任务名称】</code> 标注来源，优先使用定时任务管理页配置的名称。旗下债券、联动和互斥记录沿用同一名称，并保留各自的判断依据，例如 <code>【任务名称：到期证券自动出池】（到期日：2026-09-01；出池口径：到期日早于当前日期减去 1 天）</code>。主体旗下债券任务同时展示发行主体与主体所在/未在池，关系池联动出池展示调入池与被调出池，临时代码替换定时任务展示临时代码与正式代码。</li>
+                    <li>定时任务生成的调库日志只写调整原因，调整建议保持为空；人工调库及人工临时代码转正不受影响。新生成的调库记录在调整原因开头用 <code>【任务名称：任务名称】</code> 标注来源，优先使用定时任务管理页配置的名称。旗下债券、联动和互斥记录沿用同一名称，并保留各自的判断依据，例如 <code>【任务名称：到期证券自动出池】（摘牌日：2026-09-01；出池口径：摘牌日早于当前日期减去 1 天）</code>。主体旗下债券任务同时展示发行主体与主体所在/未在池，关系池联动出池展示调入池与被调出池，临时代码替换定时任务展示临时代码与正式代码。</li>
                 </ul>
             </article>
             <article class="card">
@@ -563,10 +563,10 @@
                 <ul>
                     <li>每天 23:05 执行（Cron：<code>0 5 23 * * ?</code>）</li>
                     <li>对应老 IP_RULE <code>AdjustRuleCrmwDueOutPool</code></li>
-                    <li>参数：<code>{"poolIds":[18],"maturityOffsetDays":1}</code>；<code>poolIds</code> 可选，与投资池关系配置绑定本任务的池取并集；<code>maturityOffsetDays</code> 的默认值、整数校验和日期含义同上，两个任务分别保存、独立生效。</li>
+                    <li>参数：<code>{"poolIds":[18],"maturityOffsetDays":1}</code>。<code>poolIds</code> 可选，与投资池关系配置绑定本任务的池取并集。<code>maturityOffsetDays</code> 按上一任务的规则解析，两条任务独立保存。</li>
                     <li>扫描 <code>ip_pool_status_crmw</code> 中已生效且未删除的凭证与标的组合，包含 ABS 债券作为标的的组合。<code>ip_pool_status</code> 中的 CRMW 券由到期证券自动出池任务扫描。</li>
-                    <li>按凭证代码关联 <code>rrs_securityinfo</code> 读取凭证到期日。凭证到期日严格早于数据库当前日期减去 <code>maturityOffsetDays</code> 天时调出整条组合。省略默认 1（原 T-2）。</li>
-                    <li>凭证未达到出池阈值时，即使标的证券已到期，本任务也不会调出该组合。</li>
+                    <li>按凭证代码取 <code>rrs_securityinfo.delist_date</code>。凭证摘牌日有值且严格早于截止日时调出整条组合。默认凭证摘牌日早于昨天（T-2）自动出池。</li>
+                    <li>CRMW 组合以凭证摘牌日为准。标的债券单独达到日期条件时，组合不会出池。</li>
                     <li>扫描时按标的证券代码、凭证代码和凭证类型匹配调出限制池。命中限制则跳过，仅软删成功才写日志。</li>
                 </ul>
             </article>
@@ -609,7 +609,7 @@
                 <ul>
                     <li>每 10 分钟执行一次（Cron：<code>0 5/10 * * * ?</code>，第 5/15/25/35/45/55 分），与「在池主体旗下债券自动入池（已排除ABS债）（仅债券）」错开</li>
                     <li>Demo 参数 <code>{"enableIn":true,"enableOut":true,"enableUnconfirmedIssuerIn":false,"minDaysToMaturity":0}</code>。可用 <code>poolIds</code> 配置同池，用 <code>mappings</code> 中的 <code>bondPoolId</code>、<code>companyPoolId</code> 配置跨池。显式跨池映射覆盖该债券池的同池口径。</li>
-                    <li>开关：<code>enableIn</code> 控制入池、<code>enableOut</code> 控制出池，省略时入池默认关闭、出池默认开启，<strong>同时关闭则本轮失败</strong>；<code>minDaysToMaturity</code> 为距到期最小剩余天数，不足则不再补入池，<code>0</code> 表示到期当天仍可入（默认值，与改造前一致）</li>
+                    <li>开关：<code>enableIn</code> 控制入池、<code>enableOut</code> 控制出池，省略时入池默认关闭、出池默认开启，<strong>同时关闭则本轮失败</strong>。补入排除主档状态为 D 的 ABS，并按摘牌日计算剩余天数。小于 <code>minDaysToMaturity</code> 时跳过，默认 0 时摘牌当天可入。</li>
                     <li>扫描池：参数 <code>poolIds</code> ∪ 关系绑定池 ∪ 已有生效主体的普通池 ∪ 当前已有 ABS 在池的池；CRMW 组合池跳过</li>
                     <li><strong>已确认发行人</strong>（主档 <code>issuer_code</code> 有值）→ 直接跟随该主体在该池的进出自动入池、出池</li>
                     <li><strong>未确认发行人</strong> → <code>enableUnconfirmedIssuerIn</code> 默认关闭。与 <code>enableIn</code> 同时开启时，按担保人 / 差额支付承诺人 / 债务主体 / 原始权益人四类关系匹配池内主体，<strong>只生成规则提醒与待确认日志</strong>，不自动落池</li>
@@ -624,8 +624,8 @@
                 <p>Demo 每十分钟第 1 分钟执行，按主体已生效的池状态及同池、跨池映射筛选普通债和 CRMW，ABS 单独对账。普通主体依据共用手工单券准入口径，包括禁止库、市场、容量、调入限制和 17 主体三条件。</p>
                 <p>联动调入仅因证券已在联动池而失败时，视为该联动已满足，继续办理同组仍需执行的调库项。其他校验失败仍跳过整组。</p>
                 <p>Demo 参数 <code>{"poolIds":[15,16,17,23],"minDaysToMaturity":0}</code>。<code>poolIds</code> 用于同池，跨池用 <code>mappings</code> 配置 <code>companyInPoolId</code> 和 <code>bondTargetPoolId</code>。规则绑定与已有生效主体的池按同池加入，并兼容旧同池任务配置。</p>
-                <p><code>minDaysToMaturity</code> 须为非负整数，省略或填 0 时到期当天仍可补入，填 1 时到期当天不补入。已退市债券和已转正的临时旧码跳过。</p>
-                <p>候选合并后交给 <code>BatchSecurityCheckService</code> 批量读取数据，证券主档与补债品种、到期及临时代码资格同时查询。同券关联、联动调入、互斥调出和反向限制池调出整组校验。普通候选继续校验材料，整组通过后由系统自动调整并直接生效。任务明细记录跳过的券、池和原因。</p>
+                <p>已退市债券（主档状态 D）和已转正的临时旧码跳过。<code>minDaysToMaturity</code> 须为非负整数，按摘牌日判断最少剩余天数，省略或填 0 时摘牌当天可入，填 1 时摘牌当天不入。</p>
+                <p>候选合并后交给 <code>BatchSecurityCheckService</code> 批量读取数据，同时查询主档和补债资格，主券初筛与关联券复核共用同一个摘牌日截止日期。同券关联、联动调入、互斥调出和反向限制池调出整组校验。普通候选继续校验材料，整组通过后由系统自动调整并直接生效。任务明细记录跳过的券、池和原因。</p>
                 <p>主体 Excel 调入及同批联动生效后，旗下普通债按主体决定优先补入，跳过评级、到期天数和材料校验。联动、互斥、关联券及在途校验继续执行。</p>
                 <p>本轮已随同券关联或联动实际进入目标池的候选，只计实际入池，不计未处理。</p>
             </article>

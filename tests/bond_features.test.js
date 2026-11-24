@@ -41,6 +41,17 @@ function harness(name) {
     return { html, context, page, requests };
 }
 
+test('禁投池查询到期日列显示 maturityDate，空值留白', () => {
+    const { html, context } = harness('forbidden_pool_query');
+    const column = html.match(/<el-table-column prop="maturityDate" label="到期日"[^>]*>([\s\S]*?)<\/el-table-column>/);
+    assert.ok(column);
+    const expression = column[1].match(/\{\{\s*(.*?)\s*\}\}/)[1];
+    context.row = { maturityDate: '20310101', delistDate: '20290318' };
+    assert.equal(vm.runInContext(expression, context), '20310101');
+    context.row.maturityDate = null;
+    assert.equal(vm.runInContext(expression, context), '');
+});
+
 for (const [name, form, load, reset] of pages) {
     test(name + ' 标准信用债选项传递、与已有特征组合及重置', async () => {
         const { page, requests } = harness(name);

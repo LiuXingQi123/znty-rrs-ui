@@ -240,7 +240,7 @@ const DICT_REPORT_RESTRICTION = {
 };
 
 // ── 16. 证券存续状态（bond_status）───────────────────────
-// 枚举：BondStatus
+// 枚举：BondStatus（D 到期，其他状态为存续）
 // 前端查询条件，根据到期日与当前日期比较计算，无独立 DB 字段
 // 注意：forbidden_pool_query 使用中文值（存续/到期），
 //       security_pool_query 使用英文值（active/matured），建议统一为英文值

@@ -373,7 +373,7 @@
         <div class="flow">
             <div class="step"><b>1. 初始化筛选</b><span>加载投资池树、证券类型和页面状态选项。</span></div>
             <div class="step"><b>2. 组合查询</b><span>按池、证券、日期、调整人、发行人等条件分页。</span></div>
-            <div class="step"><b>3. 状态计算</b><span>根据到期日计算存续或到期。</span></div>
+            <div class="step"><b>3. 证券状态</b><span>按主档状态显示，D 表示到期。</span></div>
             <div class="step"><b>4. 路径回填</b><span>将叶子池名称转换为完整投资池路径。</span></div>
             <div class="step"><b>5. 收藏维护</b><span>按用户新增或逻辑取消我的证券收藏。</span></div>
         </div>
@@ -398,7 +398,7 @@
                 <ul>
                     <li>支持多池树、证券代码/简称/类型、入池日期区间、调整人、主体全称和“是否特征”。特征可多选 ABS/担保/永续/次级/私募/含权/标准信用债，勾选即筛“是”、多选 AND。</li>
                     <li>列表展示六项证券特征“是/否” Tag；私募按发行方式或内部分类含“私募”判定，ABS 兼容 <code>abs_flag=1</code> 或证券类型 <code>abs</code>。</li>
-                    <li>存续/到期由 <code>yyyyMMdd</code> 格式的 <code>maturity_date</code> 与 <code>DATE_FORMAT(CURDATE(), '%Y%m%d')</code> 比较（动态计算）。前端证券状态默认<strong>不限</strong>（空，不传筛选）；可选存续、到期、未知。未知表示到期日为空。</li>
+                    <li>列表和导出分别展示到期日 <code>maturity_date</code>、摘牌日 <code>delist_date</code>，格式均为 <code>yyyyMMdd</code>。摘牌日用于记录业务到期日。主档状态 D 为到期，其余状态为存续（未到期）。筛选默认不限。</li>
                     <li>「我的证券」通过当前用户有效 <code>my_security_pool</code> 记录过滤。</li>
                     <li>导出不受当前分页影响，复用全部筛选条件查询所有命中记录；Excel 第一行为楷体字段表头，第二行起按原有模板字段顺序填充数据（不含序号、收藏操作列；「证券期限」导出 <code>dateExistsStr</code> 展示串，与列表一致）。</li>
                     <li>投资池树：<code>/api/v1/common/queryPoolTreeList</code>，前端传 <code>includeVarietyCodes: ['bond']</code>，默认收起；搜索时展开匹配节点。类型选项来自本模块接口。</li>
@@ -476,7 +476,7 @@
         <ul class="notes">
             <li>正式池查询只认 <code>ip_pool_status.audit_status='20'</code> 且 <code>is_deleted=0</code>，范围为 <code>category_type='bond'</code>（含 crmw 跟债记录；主体在主体池查询）。CRMW 库组合仍在独立 CRMW 查询页。对比：调整历史默认<strong>全</strong> audit_status。</li>
             <li>本页<strong>无 VIEWABLE</strong> 过滤；池树 exclude crmw/forbidden。与主体/禁投查询（有 viewable）不同。</li>
-            <li>证券状态不是独立表字段，由 <code>yyyyMMdd</code> 到期日动态计算；默认不限（不传筛选），空到期日边界见上。</li>
+            <li>证券状态直接取主档 <code>security_status</code>；默认不限（不传筛选）。</li>
             <li>收藏表与正式证券池状态完全分离，取消收藏不会调出证券。</li>
             <li>前端状态下拉用本地字典；后端有 <code>querySecurityStatusList</code>，当前页面<strong>未调用</strong>该接口。</li>
             <li>本页只读查询 + 收藏维护。点证券名称/代码走 <code>openSecurityAdjustDetail</code>，工作台新开详情（<code>resolveAdjustLogId(row, false)</code> 用状态表 <code>adjust_log_id</code>，不是本行 <code>id</code>）；调库请走证券池调整/批量调整。</li>
