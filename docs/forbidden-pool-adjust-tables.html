@@ -451,7 +451,7 @@
                     <li>流程名称（校验结果下拉、选流程弹窗、审核/详情页审批流程列与「当前流程状态」标签）统一支持悬停查看流程描述：页面单独调用 <code>POST /api/v1/flows/queryFlowList</code> 读取 <code>wf_flow_definition.description</code>，按流程 ID（主键）直接取值；描述为空不弹气泡，接口异常静默降级不影响调库。</li>
                     <li>提交阶段按调整对象证券代码分别复核配套互斥调出；主体与旗下不同债券的调出池互不干扰，同一调整对象同时调出互斥池仍会被拦截。</li>
                     <li>前端展示证券代码、证券简称、投资池、调整类型和方向；失败时分条展示 failReasons；同组行底色区分；提交用 <code>submitLoading</code> 防重复。</li>
-                    <li>直通 / 终审：锁池 + <code>recheckBeforeFinalApproval</code>（动态子集，见下）后落池；主体落池后，旗下债券由独立定时任务处理。仅最终 <code>audit_status=20</code> 落池。</li>
+                    <li>直通 / 终审：<code>recheckBeforeFinalApproval</code>（动态子集，见下）后落池；主体落池后，旗下债券由独立定时任务处理。仅最终 <code>audit_status=20</code> 落池。</li>
                     <li>主体调库直通、初始步骤自动结束与正常终审，均在落池成功后调用统一报告生成方法。每条有手工信评附件的记录生成一份内部报告（<code>data_source=uploaded</code>），全部手工信评附件绑定为 <code>rrs_report_in + report_in</code>；其他材料及库引用附件不生成新报告。主体报告的 <code>companyCode</code> 使用主体代码，报告、附件与落池同事务，失败整体回滚。</li>
                 </ul>
             </article>
@@ -459,7 +459,7 @@
                 <ul>
                     <li><strong>checkAdjust</strong>：全量通用规则（主体跳过品种/市场）+ 联动互斥扩展 + 流程候选；行业已注释；开放日/pending 在 check 阶段执行。</li>
                     <li><strong>submit / 直通</strong>：不整单重跑 check；直通项走 recheck 子集再落池。</li>
-                    <li><strong>recheckBeforeFinalApproval</strong>（主体）：锁目标池后——调入：池锁 / 已在目标池 / 来源 / 限制 / 全局禁止 + 容量（按主体调整计）；调出：池锁 / 未在目标池 / 限制 / 冻结。<strong>不再跑</strong>：pending、同请求互斥、弹性警告、开放日、行业等。</li>
+                    <li><strong>recheckBeforeFinalApproval</strong>（主体）：调入：池锁 / 已在目标池 / 来源 / 限制 / 全局禁止 + 容量（按主体调整计）；调出：池锁 / 未在目标池 / 限制 / 冻结。<strong>不再跑</strong>：pending、同请求互斥、弹性警告、开放日、行业等。</li>
                     <li>ABS 链路 recheck 另含品种等证券向子集，与主体略有差异；分层意图与证券池调库一致。</li>
                 </ul>
             </article>

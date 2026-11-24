@@ -348,7 +348,7 @@
             <article class="step"><b>4. 创建申请</b>
                 <p>写 ip_adjust_log/step，批次号 CRMW 前缀，统一 submit_time。</p></article>
             <article class="step"><b>5. 审批生效</b>
-                <p>仅 audit_status=20 写/软删 ip_pool_status_crmw；直通亦先锁池复核。</p></article>
+                <p>仅 audit_status=20 写/软删 ip_pool_status_crmw；直通也先进行落池复核。</p></article>
         </div>
     </section>
     <section id="logic" class="panel"><h2>查询、校验与操作逻辑</h2>
@@ -368,7 +368,7 @@
                 <p>通用：池锁定、品种/市场、pending（同组合 securityCode+crmwScode+crmwStype 下 audit∈{00,11} 且存在 pending 步骤，再映射顶级池组；提交阶段同口径整单拒绝）、重复入/未入池、容量、来源/限制、互斥、全局禁止、开放日；弹性 soft_restrict 警告不阻断。行业限制调用<strong>已注释</strong>。自动联动/互斥；互斥调出失败反阻断。特殊审批默认排除信用债大库目标池。<strong>不做</strong>信用债主体内评×期限矩阵（流程解析代码仍含信用债分支，但目标池强制 crmw，实际不进入）。标的为债时 check 仅到期等类型规则，不套分级矩阵/特殊债下调。</p>
             </article>
             <article class="logic-card"><h3>提交与流转</h3>
-                <p>直通/终审：锁池 + <code>recheckBeforeFinalApproval</code> 后写/软删 <code>ip_pool_status_crmw</code>。非直通 <code>audit_status=00</code>，仅 20 落池。批次前缀 <code>CRMW</code>。带附件的 multipart 请求随 <code>files</code> 传同序 <code>originalFileNameListJson</code>，用于保留中文原始文件名。约 30s 防重复；failReasons 分条展示。</p>
+                <p>直通/终审：<code>recheckBeforeFinalApproval</code> 后写/软删 <code>ip_pool_status_crmw</code>。非直通 <code>audit_status=00</code>，仅 20 落池。批次前缀 <code>CRMW</code>。带附件的 multipart 请求随 <code>files</code> 传同序 <code>originalFileNameListJson</code>，用于保留中文原始文件名。约 30s 防重复；failReasons 分条展示。</p>
                 <p>直通、初始步骤自动结束与正常终审，均在落池成功后调用 <code>ReportService.addInternalReportsOnFinish</code>。每条有手工信评附件的记录生成一份内部报告（<code>data_source=uploaded</code>），全部手工信评附件绑定为 <code>rrs_report_in + report_in</code>；其他材料及库引用附件不生成新报告。报告仍关联标的证券及其发行主体，与落池同事务，失败整体回滚。</p>
             </article>
             <article class="logic-card"><h3>校验分层（check / recheck）</h3>

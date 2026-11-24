@@ -177,7 +177,7 @@ new Vue({
                         { dim: '校验架构', old: 'securityResult 预览(type=1) + addAdjustLog 再校验(type=8)，同一方法跑两遍', now: 'checkAdjust 预览(只读) + submitAdjustLog 落地(不重跑结构校验)', status: '⚠️ 差异' },
                         { dim: '流程候选', old: 'addAdjustLog 内根据规则选流程(workflowType/whiteWorkFlow/simpleWorkFlow)', now: 'checkAdjust 返回 flowOptions，前端选定后回传 flowId/flowKey/flowType', status: '🆕 优化' },
                         { dim: '直通判断', old: 'getWfModeId()==0/null -> approveStatus=100', now: 'isDirectFlow：沿主路径仅经 start/end/auto 节点、initiator 及 approval_strategy=auto 审批节点即可到 end（含发起人->多层 auto->结束）；存在 preempt/all 人工审批则非直通', status: '⚠️ 差异' },
-                        { dim: '落地路径', old: 'A 批量简易 / B 单条债券 + LimitAction', now: '直通与最终审批统一锁池、整批动态复核，再集中写入状态', status: '🆕 优化' },
+                        { dim: '落地路径', old: 'A 批量简易 / B 单条债券 + LimitAction', now: '直通与最终审批统一进行整批动态复核，再集中写入状态', status: '🆕 优化' },
                         { dim: '审批流转', old: 'IWorkflowAction 异步回调(InvestPoolApproveAction/BondAction)', now: 'FlowService 同步自驱(submitAdjustAudit -> processAdjustAudit -> advanceToNextAvailableStep)', status: '🆕 优化' },
                         { dim: '节点语义', old: 'StepStage.key 数字(32=O32)', now: 'approval_strategy(o32/initiator/preempt/all)', status: '✅ 已对齐' },
                         { dim: '状态码', old: 'approveStatus -1/10/50/100/150/350', now: 'AuditStatus -1/00/11/20/21/32/99（无150终止）', status: '⚠️ 差异' },
@@ -261,7 +261,7 @@ new Vue({
                     rows: [
                         { dim: '提交（submit）重跑校验', old: 'addAdjustLog 调 checkBasisAndProductInPool(type=8) 完整重跑', now: '不重跑静态规则；保留近期防重复和池组待处理（pending）', status: '既定分层' },
                         { dim: '报告必填', old: '预览+落地都查（bondfileflag 跳过）', now: '提交（submit）校验none/any/internal及附件真实来源；历史豁免要求有效报告', status: '✅ 已补强' },
-                        { dim: '直通落地', old: 'approveStatus=100 + saveInvestPoolStatus', now: '锁池并按最终审批口径动态复核后，audit_status=20并落池', status: '✅ 已补强' },
+                        { dim: '直通落地', old: 'approveStatus=100 + saveInvestPoolStatus', now: '按最终审批口径动态复核后，audit_status=20并落池', status: '✅ 已补强' },
                         { dim: '非直通', old: 'approveStatus=10 + startProcess', now: 'audit_status=00 + createInitialSteps', status: '✅ 已对齐' },
                         { dim: '评级联动', old: 'inquestInvestPoolByAccordMaingrade(adjustType=15) 跳过校验', now: 'redirectPoolId 改判（校验矩阵允许范围）', status: '✅ 优化替代' },
                         { dim: '主体同步', old: 'adjustBondByCompanyCode(stype==250)', now: '禁投池主体级[债券禁止库(15)/观察池(16)/黑名单质押库(17)/重点观察名单(23)] + ABS债级独立链路[26](仅abs_flag=1)；债券禁止库(15)与黑名单质押库(17)同步旗下主档状态非 D 的bond大类债券(含普通债、ABS、crmw)，17按主体在15、近一年认可外评孰低AA-及以下、主体在23三个条件统一判定', status: '⚠️ 同步范围新老差异' },
@@ -302,7 +302,7 @@ new Vue({
                 },
             ],
             findings: [
-                { level: 'P2', cat: '既定差异', title: '提交（submit）与最终落池按动态性分层', desc: '新系统不在提交（submit）重跑开放日、市场、行业等静态规则；提交保留防重复和池组待处理（pending），直通/最终审批落池前锁池复核当前状态、容量、来源池、限制池和冻结期。', suggestion: '维持已确认口径，配置变化不回溯申请快照' },
+                { level: 'P2', cat: '既定差异', title: '提交（submit）与最终落池按动态性分层', desc: '新系统不在提交（submit）重跑开放日、市场、行业等静态规则；提交保留防重复和池组待处理（pending），直通/最终审批落池前复核当前状态、容量、来源池、限制池和冻结期。', suggestion: '维持已确认口径，配置变化不回溯申请快照' },
                 { level: 'P1', cat: '架构差异', title: '联动级联无后端兜底', desc: '新项目联动/互斥前移到 checkAdjust 生成自动项(不落库)，依赖前端把自动项作为 items 一起提交。前端绕过则联动/互斥不生效。老项目 autoInAdjust/autoOutAdjust 落地后二次扫描兜底。', suggestion: 'finishAdjustBatch 落地后补二次扫描兜底' },
                 { level: 'P2', cat: '未迁移', title: '股票分管(stype=2)', desc: '老项目 stockAssignExists 校验股票分管，新项目无。债券链路不用。', suggestion: '确认是否需要，债券链路可跳过' },
                 { level: 'P2', cat: '已补强', title: '半年历史报告豁免已校验真实附件', desc: '只有同主体最近6个月审批通过调入且日志真实关联未删除合法信评报告时才允许豁免。', suggestion: '继续覆盖无附件、已删除和分类错误附件测试' },
