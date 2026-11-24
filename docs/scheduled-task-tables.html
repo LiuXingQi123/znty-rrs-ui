@@ -493,7 +493,7 @@
                     <li>每天 01:10 执行（Cron：<code>0 10 1 * * ?</code>）</li>
                     <li>打开配置时，「扩展参数」会补齐缺失的字段 <code>{"poolIds":[],"exportEmptyPool":true,"exportPoolWithoutHsName":false,"outputDir":null}</code>，已有的值优先。<code>poolIds</code> 省略或为空时从全部叶子池中筛选。<code>exportEmptyPool</code> 设为 <code>false</code> 时跳过无数据的池。</li>
                     <li><code>exportPoolWithoutHsName</code> 省略或设为 <code>false</code> 时，跳过恒生池名称为 NULL、空字符串或纯空白的池。执行历史的过程日志会列出被跳过的投资池 ID、名称及原因。设为 <code>true</code> 时，这些池使用投资池完整名称生成 Sheet。筛选后若未生成任何 Sheet，保留「（空池）」表头页。</li>
-                    <li>导出当前已生效的非主体证券和 CRMW。普通证券排除摘牌日早于当天的记录，保留空摘牌日和摘牌日当天，独立 CRMW 组合不校验摘牌日。</li>
+                    <li>导出当前已生效的非主体证券和 CRMW。普通证券排除状态为 D 或摘牌日早于当天的记录。其余普通证券保留空摘牌日和摘牌日当天。独立 CRMW 组合沿用原导出范围。</li>
                     <li>恒生池名称可用竖线拆分多个 Sheet；同名 Sheet 合并并记录警告。市场输出恒生编码，按实际状态或日志代码所属市场输出，不展开同券其他市场。</li>
                     <li><code>outputDir</code> 可指定输出根目录，为 <code>null</code> 或省略时使用系统配置。主文件固定为 <code>yyyyMMdd/hs_pool_full.xlsx</code>。同日覆盖前，将旧主文件归档到同日 <code>bak</code> 目录，历史文件名带时间戳，同秒重名时追加序号。完成日志只在归档时显示历史备份路径。FTP 暂未接入。</li>
                 </ul>
@@ -522,7 +522,7 @@
                 <ul>
                     <li>每天 09:00 执行（Cron：<code>0 0 9 * * ?</code>），对应老系统 <code>BlackPoolRemindJob</code>。</li>
                     <li>参数 <code>{"poolIds":[17]}</code>。首次从当天 00:00:00 扫描，之后以上次成功执行开始时间为下界，以本次开始时间为上界。审核时间须达到下界且早于上界。</li>
-                    <li>读取指定池在时间窗口内审批通过的债券、主体调入调出流水；债券摘牌日须为 NULL 或晚于当天。</li>
+                    <li>读取指定池在时间窗口内审批通过的债券、主体调入调出流水。债券须关联证券主档、状态不为 D，且摘牌日为 NULL 或晚于当天。</li>
                     <li>当前生成提醒候选和过程日志；通知通道尚未接入，任务摘要明确显示“未发送”，不会伪报成功。</li>
                 </ul>
             </article>
@@ -550,8 +550,8 @@
                 <ul>
                     <li>每天 23:00 执行（Cron：<code>0 0 23 * * ?</code>）</li>
                     <li>参数：<code>{"poolIds":[15],"maturityOffsetDays":1}</code> 或 <code>{"poolIds":[10,15],"maturityOffsetDays":3}</code>；<code>poolIds</code> 可选，与投资池关系配置中绑定本任务的池取并集。</li>
-                    <li>证券主档摘牌日 <code>delist_date</code>（<code>yyyyMMdd</code>）有值且严格早于数据库当前日期减去 <code>maturityOffsetDays</code> 天时进入候选。偏移天数省略时为 1，默认摘牌日早于昨天（T-2）自动出池。偏移天数可填 int 范围内的整数，包含 0 和负数。</li>
-                    <li>扫描 <code>ip_pool_status</code> 中已生效且未删除的债券，包含 ABS、CRMW。按证券代码关联 <code>rrs_securityinfo</code>，读取证券主档摘牌日。<code>ip_pool_status_crmw</code> 中的凭证与标的组合由 CRMW 到期任务扫描。</li>
+                    <li>证券主档 <code>security_status = 'D'</code> 直接进入到期候选。其余证券的摘牌日 <code>delist_date</code>（<code>yyyyMMdd</code>）须有值且严格早于数据库当前日期减去 <code>maturityOffsetDays</code> 天。偏移天数省略时为 1，即摘牌日早于昨天（T-2）。偏移天数可填 int 范围内的整数，包含 0 和负数。</li>
+                    <li>扫描 <code>ip_pool_status</code> 中已生效且未删除的债券，包含 ABS、CRMW。按证券代码关联 <code>rrs_securityinfo</code>，读取证券主档状态和摘牌日。<code>ip_pool_status_crmw</code> 中的凭证与标的组合由 CRMW 到期任务扫描。</li>
                     <li>先按在池记录 ID 剔除 Excel 保护项，再跳过当前在调出限制池、已提前出池或缺少证券编码的记录。仅软删除成功才写业务调库记录并计入实际出池。</li>
                     <li>扫描候选时同时判断配置的调出限制池。执行结果按“扫描候选、实际出池、未处理”汇总，并按目标池列出数量；过程日志逐行说明未处理证券及原因，例如“证券【110001】：当前已不在目标池，本轮不处理”。</li>
                     <li>只处理一类对象的任务在名称末尾显示「（仅主体）」或「（仅债券）」，已有配置也会按任务编码补上标注。</li>
@@ -565,8 +565,8 @@
                     <li>对应老 IP_RULE <code>AdjustRuleCrmwDueOutPool</code></li>
                     <li>参数：<code>{"poolIds":[18],"maturityOffsetDays":1}</code>。<code>poolIds</code> 可选，与投资池关系配置绑定本任务的池取并集。<code>maturityOffsetDays</code> 按上一任务的规则解析，两条任务独立保存。</li>
                     <li>扫描 <code>ip_pool_status_crmw</code> 中已生效且未删除的凭证与标的组合，包含 ABS 债券作为标的的组合。<code>ip_pool_status</code> 中的 CRMW 券由到期证券自动出池任务扫描。</li>
-                    <li>按凭证代码取 <code>rrs_securityinfo.delist_date</code>。凭证摘牌日有值且严格早于截止日时调出整条组合。默认凭证摘牌日早于昨天（T-2）自动出池。</li>
-                    <li>CRMW 组合以凭证摘牌日为准。标的债券单独达到日期条件时，组合不会出池。</li>
+                    <li>按凭证代码读取主档状态与摘牌日。凭证状态为 D 或凭证摘牌日有值且严格早于截止日时进入到期候选。日期范围默认早于昨天（T-2）。</li>
+                    <li>CRMW 组合按凭证状态和摘牌日判断。标的债券单独到期时，组合不会出池。</li>
                     <li>扫描时按标的证券代码、凭证代码和凭证类型匹配调出限制池。命中限制则跳过，仅软删成功才写日志。</li>
                 </ul>
             </article>
