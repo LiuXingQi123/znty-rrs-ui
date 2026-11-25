@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="../css/common.css">
 </head>
 <body class="my-matters-page">
+
 <div id="my_matters">
     <!-- ── 顶栏 ── -->
     <div class="topbar">
@@ -364,993 +365,993 @@
 </div>
 
 <script>
-new Vue({
-    el: '#my_matters',
-    data() {
-        return {
-            // 流程 ID → 流程描述，悬停展示用
-            flowDescMap: {},
-            businessDomains: [], // 后端计算的可展示业务入口
-            businessDomain: '', // 当前选中的业务
-            businessLoading: false, // 业务入口加载状态
-            businessReady: false, // 业务入口初始化是否完成
-            viewRevision: 0, // 业务、筛选、页签变化时递增，忽略旧响应
-            listRequestId: 0, // 同视图并发列表查询序号
-            crmwAlertRequestId: 0, // CRMW独立提醒查询序号
-            crmwAlertSearchForm: { crmwScode: '', securityCode: '', alertStatus: '00' }, // CRMW筛选
-            crmwAlertPagination: { pageIndex: 1, pageSize: 20, total: 0 }, // CRMW分页
-            crmwAlertTableData: [], // CRMW提醒列表
-            crmwAlertLoading: false, // CRMW提醒加载状态
-            crmwAlertOpenCount: 0, // CRMW提醒角标
-            alertRequestId: 0, // 提醒查询序号
-            flowRequestId: 0, // 流程下拉查询序号
-            matterRoutes: { // 各场景独立页面及定位参数
-                securityAdjust: { domain: 'bond', codeParam: 'securityCode', approve: 'security_pool_adjust_approve.html', detail: 'security_pool_adjust_detail.html' },
-                forbiddenCompanyAdjust: { domain: 'bond', codeParam: 'companyCode', approve: 'forbidden_pool_adjust_approve.html', detail: 'forbidden_pool_adjust_detail.html' },
-                crmwAdjust: { domain: 'bond', codeParam: 'securityCode', approve: 'crmw_pool_adjust_approve.html', detail: 'crmw_pool_adjust_detail.html' },
-                fundAdjust: { domain: 'fund', codeParam: 'fundCode', approve: 'fund_pool_adjust_approve.html', detail: 'fund_pool_adjust_detail.html' },
-                stockAdjust: { domain: 'stock', codeParam: 'stockCode', approve: 'stock_pool_adjust_approve.html', detail: 'stock_pool_adjust_detail.html' },
-            },
-            moment: moment, // 日期处理工具
-            pagePaths: { // 页面跳转路径
-                securityPoolAdjustApprove: 'security_pool_adjust_approve.html', // 证券池调整审核页
-                securityPoolAdjustDetail: 'security_pool_adjust_detail.html', // 证券池调整详情页
-                forbiddenPoolAdjustApprove: 'forbidden_pool_adjust_approve.html', // 禁投池调整审核页
-                forbiddenPoolAdjustDetail: 'forbidden_pool_adjust_detail.html', // 禁投池调整详情页
-                crmwPoolAdjustApprove: 'crmw_pool_adjust_approve.html', // CRMW池调整审核页
-                crmwPoolAdjustDetail: 'crmw_pool_adjust_detail.html', // CRMW池调整详情页
-                securityPoolAdjust: 'security_pool_adjust.html', // 证券池调整页（提醒去调库）
-                crmwPoolAdjust: 'crmw_pool_adjust.html', // CRMW池调整页（CRMW提醒去调库）
-                forbiddenPoolAdjust: 'forbidden_pool_adjust.html', // 禁投池调整页（CRMW提醒主体禁投调整）
-            },
-            today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
-            currentUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
-            currentUserName: window.RrsAuth.getCurrentUser().userName, // 当前登录用户名称
-            searchForm: {             // 查询条件
-                flowIds: [],              // 流程 ID 多选
-                securityCode: '',         // 证券编码关键词
-                securityShortName: '',    // 证券名称关键词
-                startDateRange: null,     // 开始日期范围
-                processDescription: '',   // 流程描述关键词
-                auditStatus: '',          // 审核状态
-                initiatorName: '',        // 发起人姓名关键词
-            },
-            auditStatusOptions: [     // 审核状态筛选选项
-                { value: '-1', label: '无效调整' },
-                { value: '00', label: '流程中' },
-                { value: '11', label: '驳回待修改' },
-                { value: '20', label: '审批通过' },
-                { value: '21', label: '审批驳回' },
-                { value: '32', label: 'O32自动审批' },
-                { value: '99', label: '发起人已撤回' },
-            ],
-            flowOptions: [],              // 流程名称下拉选项
-            activeTab: 'pending',         // 当前事宜页签：pending=待处理 / completed=已完成 / initiated=我发起的 / gradeRuleAlert=规则提醒 / crmwRuleAlert=CRMW规则提醒
-            tableData: [],                // 当前页审批事宜数据
-            loading: false,               // 审批表格加载状态
-            pagination: {             // 审批分页参数
-                pageIndex: 1,             // 当前页码
-                pageSize: 20,             // 每页条数
-                total: 0,                 // 总记录数
-            },
-            alertSearchForm: {            // 规则提醒筛选
-                securityCode: '',         // 证券代码
-                ruleType: '',             // 规则类型
-                alertStatus: '00',        // 待办状态，默认待处理
-            },
-            alertRuleTypeOptions: [       // 规则提醒类型
-                { value: 'grade', label: '分级规则' },
-                { value: 'absCompanySync', label: 'ABS主体联动' },
-            ],
-            alertTableData: [],           // 规则提醒列表
-            alertLoading: false,          // 提醒表格加载状态
-            absSelfDialogVisible: false,  // ABS 自选权益人弹窗
-            absSelfTarget: null,          // 当前选择自选权益人的提醒行
-            absSelfLoading: false,        // 自选权益人加载状态
-            absSelfCandidates: [],        // 自选权益人候选
-            absSelfSearch: { companyCode: '', companyName: '' }, // 自选权益人查询条件
-            absSelfPendingCandidate: null, // 弹窗中暂存的自选权益人
-            absSelfPendingCode: '',        // 弹窗中暂存的主体编码
-            absSelfPagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 自选权益人分页
-            pendingCount: 0,              // 待处理 Tab 角标（取该 Tab 列表查询 total）
-            completedCount: 0,            // 已完成 Tab 角标（取该 Tab 列表查询 total）
-            initiatedCount: 0,            // 我发起的 Tab 角标（取该 Tab 列表查询 total）
-            alertOpenCount: 0,            // 规则提醒 Tab 角标（取该 Tab 列表查询 total）
-            alertPagination: {            // 提醒分页
-                pageIndex: 1,             // 当前页码
-                pageSize: 20,             // 每页条数
-                total: 0,                 // 总记录数
-            },
-        };
-    },
-    computed: {
-        // 当前业务的代码筛选与列表文案
-        objectCodeLabel() { return { fund: '基金代码', stock: '股票代码', bond: '证券编码' }[this.businessDomain] || '证券编码'; },
-        // 当前业务的名称筛选与列表文案
-        objectNameLabel() { return { fund: '基金名称', stock: '股票名称', bond: '证券名称' }[this.businessDomain] || '证券名称'; },
-        // 是否在规则提醒页签
-        isAlertTab() {
-            return this.activeTab === 'gradeRuleAlert';
-        },
-        // 是否在CRMW独立提醒页签
-        isCrmwAlertTab() { return this.activeTab === 'crmwRuleAlert'; },
-        // 两类提醒共享筛选区位置，各自维护数据和请求
-        isAnyAlertTab() { return this.isAlertTab || this.isCrmwAlertTab; },
-        // 右上角条数文案
-        listTotalText() {
-            if (this.isCrmwAlertTab) return '共 ' + this.crmwAlertPagination.total + ' 条CRMW规则提醒';
-            if (this.isAlertTab) {
-                return '共 ' + this.alertPagination.total + ' 条规则提醒';
-            }
-            const tabLabelMap = {
-                pending: '待处理',
-                completed: '已完成',
-                initiated: '我发起的',
-            };
-            return '共 ' + this.pagination.total + ' 条' + (tabLabelMap[this.activeTab] || '') + '事宜';
-        },
-    },
-    mounted() {
-        this.loadFlowDescriptions();
-        const tab = new URLSearchParams(window.location.search).get('tab');
-        if (tab === 'gradeRuleAlert' || tab === 'crmwRuleAlert' || tab === 'initiated') {
-            this.activeTab = tab;
-        }
-        // 页面实例初始化时读取一次业务入口，再加载当前业务事项
-        this.loadBusinessDomains();
-        // 从审核/详情页签返回时，仅刷新当前业务的流程、列表和角标
-        window.RrsPageOnShow = async () => {
-            if (!this.businessReady || !this.businessDomain) return;
-            this.viewRevision++;
-            await Promise.all([this.loadFlowOptions(), this.loadAllTabsOnEnter()]);
-        };
-        this.handleWindowResize = () => {
-            window.clearTimeout(this.resizeLayoutTimer);
-            this.resizeLayoutTimer = window.setTimeout(() => {
-                // 窗口尺寸变化后同步所有表格固定列布局
-                this.refreshAllTableLayout();
-            }, 120);
-        };
-        window.addEventListener('resize', this.handleWindowResize);
-    },
-    beforeDestroy() {
-        if (window.RrsPageOnShow) {
-            window.RrsPageOnShow = null;
-        }
-        window.removeEventListener('resize', this.handleWindowResize);
-        window.clearTimeout(this.resizeLayoutTimer);
-    },
-    methods: {
-
-        // 流程 ID 是主键，直接按 ID 建描述索引
-        loadFlowDescriptions() {
-            this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
-                const map = {};
-                (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
-                this.flowDescMap = map;
-            }).catch(() => {});
-        },
-        flowDesc(flow) {
-            return this.flowDescMap[flow.flowId] || '';
-        },
-        // 审核状态码转中文
-        auditStatusLabel(code) {
-            const map = {
-                '-1': '无效调整',
-                '00': '流程中', '11': '驳回待修改',
-                '20': '审批通过',
-                '21': '审批驳回',
-                '32': 'O32自动审批',
-                '99': '发起人已撤回',
-            };
-            return map[String(code)] || code || '';
-        },
-
-        // 审核状态对应标签颜色
-        auditStatusType(code) {
-            const map = {
-                '-1': 'danger',
-                '00': 'warning',
-                '11': 'warning',
-                '20': 'success',
-                '21': 'danger',
-                '32': 'success',
-                '99': 'info',
-            };
-            return map[String(code)] || 'info';
-        },
-
-        // 步骤状态码转中文
-        stepStatusLabel(code) {
-            const map = {
-                pending: '待处理',
-                approve: '通过',
-                reject: '驳回',
-                submit: '提交',
-                auto_process: '自动处理',
-                canceled: '已撤回',
-            };
-            return map[String(code)] || code || '';
-        },
-
-        // 历史分级提醒的类型为空，仍按分级规则展示
-        alertRuleTypeLabel(code) {
-            const map = { grade: '分级规则', absCompanySync: 'ABS主体联动' };
-            return map[code || 'grade'] || code;
-        },
-
-        // 规则提醒类型颜色，与参考字典保持一致
-        alertRuleTypeTag(code) {
-            const map = { grade: 'info', absCompanySync: 'warning' };
-            return map[code || 'grade'] || 'info';
-        },
-
-        // 规则提醒状态文案
-        alertStatusLabel(code) {
-            const map = { '00': '待处理', '20': '已处理', '99': '已失效' };
-            return map[String(code)] || code || '';
-        },
-
-        // 规则提醒状态颜色
-        alertStatusType(code) {
-            const map = { '00': 'warning', '20': 'success', '99': 'info' };
-            return map[String(code)] || 'info';
-        },
-
-        // 步骤状态对应标签颜色
-        stepStatusType(code) {
-            const map = {
-                pending: 'warning',
-                approve: 'success',
-                reject: 'danger',
-                submit: 'primary',
-                auto_process: 'info',
-                canceled: 'info',
-            };
-            return map[String(code)] || 'info';
-        },
-
-        // 业务编码展示名称
-        businessDomainLabel(code) {
-            const labels = { bond: '债券', fund: '基金', stock: '股票' };
-            return labels[code] || code;
-        },
-
-        // 当前页面实例只初始化一次业务入口，刷新 iframe 后由新实例重新查询
-        async loadBusinessDomains() {
-            if (this.businessReady || this.businessLoading) return;
-            this.businessLoading = true;
-            try {
-                const domains = await this.apiPost('/api/v1/myMatters/queryBusinessDomainList', { currentUserId: this.currentUserId });
-                this.businessDomains = domains;
-                this.businessDomain = domains.length ? domains[0].businessDomain : '';
-                this.resetBusinessView();
-                if (this.isAnyAlertTab && this.businessDomain !== 'bond') this.activeTab = 'pending';
-                if (this.businessDomain) await Promise.all([this.loadFlowOptions(), this.loadAllTabsOnEnter()]);
-            } catch (e) {
-                this.businessDomains = [];
-                this.businessDomain = '';
-                this.resetBusinessView();
-            } finally {
-                this.businessLoading = false;
-                this.businessReady = true;
-            }
-        },
-
-        // 切换业务，重置筛选、分页、角标及旧请求版本
-        async handleBusinessChange() {
-            this.resetBusinessView();
-            this.activeTab = 'pending';
-            await Promise.all([this.loadFlowOptions(), this.loadAllTabsOnEnter()]);
-        },
-
-        // 清空当前业务视图
-        resetBusinessView() {
-            this.viewRevision++;
-            this.crmwAlertSearchForm = { crmwScode: '', securityCode: '', alertStatus: '00' };
-            this.crmwAlertPagination = { pageIndex: 1, pageSize: 20, total: 0 };
-            this.crmwAlertTableData = []; this.crmwAlertOpenCount = 0; this.crmwAlertLoading = false;
-            this.searchForm = { flowIds: [], securityCode: '', securityShortName: '', startDateRange: null, processDescription: '', auditStatus: '', initiatorName: '' };
-            this.alertSearchForm = { securityCode: '', alertStatus: '00' };
-            this.pagination = { pageIndex: 1, pageSize: 20, total: 0 };
-            this.alertPagination = { pageIndex: 1, pageSize: 20, total: 0 };
-            this.tableData = []; this.alertTableData = []; this.flowOptions = [];
-            this.pendingCount = 0; this.completedCount = 0; this.initiatedCount = 0; this.alertOpenCount = 0;
-            this.loading = false; this.alertLoading = false;
-        },
-
-        // 生成当前请求的视图快照
-        captureView() { return { domain: this.businessDomain, revision: this.viewRevision, tab: this.activeTab }; },
-
-        // 判断响应是否仍属于当前业务与筛选版本
-        isCurrentView(view) { return view.domain === this.businessDomain && view.revision === this.viewRevision; },
-
-        // 当前业务审批查询参数；字段按摘要语义使用，各 Mapper 独立映射到领域列
-        buildMatterQuery(stepStatus, totalOnly = false) {
+    new Vue({
+        el: '#my_matters',
+        data() {
             return {
-                businessDomain: this.businessDomain,
-                currentUserId: this.currentUserId,
-                flowIds: this.searchForm.flowIds.length ? this.searchForm.flowIds : null,
-                securityCode: this.searchForm.securityCode || null,
-                securityShortName: this.searchForm.securityShortName || null,
-                startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
-                startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
-                processDescription: this.searchForm.processDescription || null,
-                auditStatus: this.searchForm.auditStatus || null,
-                initiatorName: stepStatus ? this.searchForm.initiatorName || null : null,
-                stepStatus: stepStatus || null,
-                pageIndex: totalOnly ? 1 : this.pagination.pageIndex,
-                pageSize: totalOnly ? 1 : this.pagination.pageSize,
+                // 流程 ID → 流程描述，悬停展示用
+                flowDescMap: {},
+                businessDomains: [], // 后端计算的可展示业务入口
+                businessDomain: '', // 当前选中的业务
+                businessLoading: false, // 业务入口加载状态
+                businessReady: false, // 业务入口初始化是否完成
+                viewRevision: 0, // 业务、筛选、页签变化时递增，忽略旧响应
+                listRequestId: 0, // 同视图并发列表查询序号
+                crmwAlertRequestId: 0, // CRMW独立提醒查询序号
+                crmwAlertSearchForm: { crmwScode: '', securityCode: '', alertStatus: '00' }, // CRMW筛选
+                crmwAlertPagination: { pageIndex: 1, pageSize: 20, total: 0 }, // CRMW分页
+                crmwAlertTableData: [], // CRMW提醒列表
+                crmwAlertLoading: false, // CRMW提醒加载状态
+                crmwAlertOpenCount: 0, // CRMW提醒角标
+                alertRequestId: 0, // 提醒查询序号
+                flowRequestId: 0, // 流程下拉查询序号
+                matterRoutes: { // 各场景独立页面及定位参数
+                    securityAdjust: { domain: 'bond', codeParam: 'securityCode', approve: 'security_pool_adjust_approve.html', detail: 'security_pool_adjust_detail.html' },
+                    forbiddenCompanyAdjust: { domain: 'bond', codeParam: 'companyCode', approve: 'forbidden_pool_adjust_approve.html', detail: 'forbidden_pool_adjust_detail.html' },
+                    crmwAdjust: { domain: 'bond', codeParam: 'securityCode', approve: 'crmw_pool_adjust_approve.html', detail: 'crmw_pool_adjust_detail.html' },
+                    fundAdjust: { domain: 'fund', codeParam: 'fundCode', approve: 'fund_pool_adjust_approve.html', detail: 'fund_pool_adjust_detail.html' },
+                    stockAdjust: { domain: 'stock', codeParam: 'stockCode', approve: 'stock_pool_adjust_approve.html', detail: 'stock_pool_adjust_detail.html' },
+                },
+                moment: moment, // 日期处理工具
+                pagePaths: { // 页面跳转路径
+                    securityPoolAdjustApprove: 'security_pool_adjust_approve.html', // 证券池调整审核页
+                    securityPoolAdjustDetail: 'security_pool_adjust_detail.html', // 证券池调整详情页
+                    forbiddenPoolAdjustApprove: 'forbidden_pool_adjust_approve.html', // 禁投池调整审核页
+                    forbiddenPoolAdjustDetail: 'forbidden_pool_adjust_detail.html', // 禁投池调整详情页
+                    crmwPoolAdjustApprove: 'crmw_pool_adjust_approve.html', // CRMW池调整审核页
+                    crmwPoolAdjustDetail: 'crmw_pool_adjust_detail.html', // CRMW池调整详情页
+                    securityPoolAdjust: 'security_pool_adjust.html', // 证券池调整页（提醒去调库）
+                    crmwPoolAdjust: 'crmw_pool_adjust.html', // CRMW池调整页（CRMW提醒去调库）
+                    forbiddenPoolAdjust: 'forbidden_pool_adjust.html', // 禁投池调整页（CRMW提醒主体禁投调整）
+                },
+                today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
+                currentUserId: window.RrsAuth.getCurrentUser().userId, // 当前登录用户 ID
+                currentUserName: window.RrsAuth.getCurrentUser().userName, // 当前登录用户名称
+                searchForm: {             // 查询条件
+                    flowIds: [],              // 流程 ID 多选
+                    securityCode: '',         // 证券编码关键词
+                    securityShortName: '',    // 证券名称关键词
+                    startDateRange: null,     // 开始日期范围
+                    processDescription: '',   // 流程描述关键词
+                    auditStatus: '',          // 审核状态
+                    initiatorName: '',        // 发起人姓名关键词
+                },
+                auditStatusOptions: [     // 审核状态筛选选项
+                    { value: '-1', label: '无效调整' },
+                    { value: '00', label: '流程中' },
+                    { value: '11', label: '驳回待修改' },
+                    { value: '20', label: '审批通过' },
+                    { value: '21', label: '审批驳回' },
+                    { value: '32', label: 'O32自动审批' },
+                    { value: '99', label: '发起人已撤回' },
+                ],
+                flowOptions: [],              // 流程名称下拉选项
+                activeTab: 'pending',         // 当前事宜页签：pending=待处理 / completed=已完成 / initiated=我发起的 / gradeRuleAlert=规则提醒 / crmwRuleAlert=CRMW规则提醒
+                tableData: [],                // 当前页审批事宜数据
+                loading: false,               // 审批表格加载状态
+                pagination: {             // 审批分页参数
+                    pageIndex: 1,             // 当前页码
+                    pageSize: 20,             // 每页条数
+                    total: 0,                 // 总记录数
+                },
+                alertSearchForm: {            // 规则提醒筛选
+                    securityCode: '',         // 证券代码
+                    ruleType: '',             // 规则类型
+                    alertStatus: '00',        // 待办状态，默认待处理
+                },
+                alertRuleTypeOptions: [       // 规则提醒类型
+                    { value: 'grade', label: '分级规则' },
+                    { value: 'absCompanySync', label: 'ABS主体联动' },
+                ],
+                alertTableData: [],           // 规则提醒列表
+                alertLoading: false,          // 提醒表格加载状态
+                absSelfDialogVisible: false,  // ABS 自选权益人弹窗
+                absSelfTarget: null,          // 当前选择自选权益人的提醒行
+                absSelfLoading: false,        // 自选权益人加载状态
+                absSelfCandidates: [],        // 自选权益人候选
+                absSelfSearch: { companyCode: '', companyName: '' }, // 自选权益人查询条件
+                absSelfPendingCandidate: null, // 弹窗中暂存的自选权益人
+                absSelfPendingCode: '',        // 弹窗中暂存的主体编码
+                absSelfPagination: { pageIndex: 1, pageSize: 20, total: 0 }, // 自选权益人分页
+                pendingCount: 0,              // 待处理 Tab 角标（取该 Tab 列表查询 total）
+                completedCount: 0,            // 已完成 Tab 角标（取该 Tab 列表查询 total）
+                initiatedCount: 0,            // 我发起的 Tab 角标（取该 Tab 列表查询 total）
+                alertOpenCount: 0,            // 规则提醒 Tab 角标（取该 Tab 列表查询 total）
+                alertPagination: {            // 提醒分页
+                    pageIndex: 1,             // 当前页码
+                    pageSize: 20,             // 每页条数
+                    total: 0,                 // 总记录数
+                },
             };
         },
-
-        // 加载流程名称下拉选项
-        async loadFlowOptions() {
-            if (!this.businessDomain) return;
-            const view = this.captureView();
-            const requestId = ++this.flowRequestId;
-            try {
-                const options = await this.apiPost('/api/v1/myMatters/queryFlowOptionList', { businessDomain: view.domain, currentUserId: this.currentUserId });
-                if (this.isCurrentView(view) && requestId === this.flowRequestId) this.flowOptions = options;
-            } catch (e) {
-                if (this.isCurrentView(view) && requestId === this.flowRequestId) this.flowOptions = [];
-            }
-        },
-
-        // 按当前页签加载审批或提醒
-        reloadCurrentTab() {
-            if (this.isCrmwAlertTab) { this.loadCrmwAlertList(); return; }
-            if (this.isAlertTab) {
-                this.loadAlertList();
-            } else if (this.activeTab === 'initiated') {
-                this.loadInitiatedList();
-            } else {
-                this.loadList();
-            }
-        },
-
-        // 进入页面：各事宜 Tab 并行各查一次；当前 Tab 加载列表，其余只取 total
-        async loadAllTabsOnEnter() {
-            if (!this.businessDomain) return;
-            const tasks = [];
-            for (const tab of ['pending', 'completed', 'initiated']) {
-                if (this.activeTab === tab) tasks.push(tab === 'initiated' ? this.loadInitiatedList() : this.loadList());
-                else tasks.push(tab === 'initiated' ? this.queryInitiatedTabTotal() : this.queryMatterTabTotal(tab));
-            }
-            if (this.businessDomain === 'bond') {
-                tasks.push(this.isAlertTab ? this.loadAlertList() : this.queryAlertTabTotal());
-                tasks.push(this.loadCrmwAlertList(!this.isCrmwAlertTab));
-            }
-            await Promise.all(tasks);
-        },
-
-        // 仅查询待处理 / 已完成 Tab 的 total（进入页预载角标用）
-        async queryMatterTabTotal(stepStatus) {
-            const view = this.captureView();
-            try {
-                const data = await this.apiPost('/api/v1/myMatters/queryMyMattersPage', this.buildMatterQuery(stepStatus, true));
-                if (!this.isCurrentView(view)) return;
-                this[stepStatus === 'pending' ? 'pendingCount' : 'completedCount'] = Number(data.total || 0);
-            } catch (e) {
-                if (this.isCurrentView(view)) this[stepStatus === 'pending' ? 'pendingCount' : 'completedCount'] = 0;
-            }
-        },
-
-        // 仅查询「我发起的」Tab 的 total（独立接口）
-        async queryInitiatedTabTotal() {
-            const view = this.captureView();
-            try {
-                const data = await this.apiPost('/api/v1/myMatters/queryMyInitiatedMattersPage', this.buildMatterQuery(null, true));
-                if (this.isCurrentView(view)) this.initiatedCount = Number(data.total || 0);
-            } catch (e) {
-                if (this.isCurrentView(view)) this.initiatedCount = 0;
-            }
-        },
-
-        // 仅查询规则提醒 Tab 的 total（进入页预载角标用）
-        async queryAlertTabTotal() {
-            if (this.businessDomain !== 'bond') return;
-            const view = this.captureView();
-            try {
-                const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
-                    currentUserId: this.currentUserId, securityCode: this.alertSearchForm.securityCode || null,
-                    ruleType: this.alertSearchForm.ruleType || null,
-                    alertStatus: this.alertSearchForm.alertStatus || null, pageIndex: 1, pageSize: 1,
-                });
-                if (this.isCurrentView(view)) this.alertOpenCount = Number(data.total || 0);
-            } catch (e) {
-                if (this.isCurrentView(view)) this.alertOpenCount = 0;
-            }
-        },
-
-        // 加载待处理 / 已完成列表
-        async loadList() {
-            await this.loadMatterList(this.activeTab);
-        },
-
-        // 加载「我发起的」列表（独立接口）
-        async loadInitiatedList() {
-            await this.loadMatterList('initiated');
-        },
-
-        // 同一视图只有最后一次列表请求可以更新结果和加载状态
-        async loadMatterList(tab) {
-            if (!this.businessDomain) return;
-            const view = this.captureView();
-            const requestId = ++this.listRequestId;
-            this.loading = true;
-            try {
-                const initiated = tab === 'initiated';
-                const path = initiated ? '/api/v1/myMatters/queryMyInitiatedMattersPage' : '/api/v1/myMatters/queryMyMattersPage';
-                const data = await this.apiPost(path, this.buildMatterQuery(initiated ? null : tab));
-                if (!this.isCurrentView(view) || requestId !== this.listRequestId || tab !== this.activeTab) return;
-                this.tableData = data.records || [];
-                this.pagination.total = Number(data.total || 0);
-                const countFields = { pending: 'pendingCount', completed: 'completedCount', initiated: 'initiatedCount' };
-                this[countFields[tab]] = this.pagination.total;
-            } catch (e) {
-                if (this.isCurrentView(view) && requestId === this.listRequestId) {
-                    this.tableData = [];
-                    this.pagination.total = 0;
-                    this[{ pending: 'pendingCount', completed: 'completedCount', initiated: 'initiatedCount' }[tab]] = 0;
+        computed: {
+            // 当前业务的代码筛选与列表文案
+            objectCodeLabel() { return { fund: '基金代码', stock: '股票代码', bond: '证券编码' }[this.businessDomain] || '证券编码'; },
+            // 当前业务的名称筛选与列表文案
+            objectNameLabel() { return { fund: '基金名称', stock: '股票名称', bond: '证券名称' }[this.businessDomain] || '证券名称'; },
+            // 是否在规则提醒页签
+            isAlertTab() {
+                return this.activeTab === 'gradeRuleAlert';
+            },
+            // 是否在CRMW独立提醒页签
+            isCrmwAlertTab() { return this.activeTab === 'crmwRuleAlert'; },
+            // 两类提醒共享筛选区位置，各自维护数据和请求
+            isAnyAlertTab() { return this.isAlertTab || this.isCrmwAlertTab; },
+            // 右上角条数文案
+            listTotalText() {
+                if (this.isCrmwAlertTab) return '共 ' + this.crmwAlertPagination.total + ' 条CRMW规则提醒';
+                if (this.isAlertTab) {
+                    return '共 ' + this.alertPagination.total + ' 条规则提醒';
                 }
-            } finally {
-                if (this.isCurrentView(view) && requestId === this.listRequestId) {
-                    this.loading = false;
-                    this.refreshTableLayout('mattersTableRef');
-                }
+                const tabLabelMap = {
+                    pending: '待处理',
+                    completed: '已完成',
+                    initiated: '我发起的',
+                };
+                return '共 ' + this.pagination.total + ' 条' + (tabLabelMap[this.activeTab] || '') + '事宜';
+            },
+        },
+        mounted() {
+            this.loadFlowDescriptions();
+            const tab = new URLSearchParams(window.location.search).get('tab');
+            if (tab === 'gradeRuleAlert' || tab === 'crmwRuleAlert' || tab === 'initiated') {
+                this.activeTab = tab;
             }
+            // 页面实例初始化时读取一次业务入口，再加载当前业务事项
+            this.loadBusinessDomains();
+            // 从审核/详情页签返回时，仅刷新当前业务的流程、列表和角标
+            window.RrsPageOnShow = async () => {
+                if (!this.businessReady || !this.businessDomain) return;
+                this.viewRevision++;
+                await Promise.all([this.loadFlowOptions(), this.loadAllTabsOnEnter()]);
+            };
+            this.handleWindowResize = () => {
+                window.clearTimeout(this.resizeLayoutTimer);
+                this.resizeLayoutTimer = window.setTimeout(() => {
+                    // 窗口尺寸变化后同步所有表格固定列布局
+                    this.refreshAllTableLayout();
+                }, 120);
+            };
+            window.addEventListener('resize', this.handleWindowResize);
         },
+        beforeDestroy() {
+            if (window.RrsPageOnShow) {
+                window.RrsPageOnShow = null;
+            }
+            window.removeEventListener('resize', this.handleWindowResize);
+            window.clearTimeout(this.resizeLayoutTimer);
+        },
+        methods: {
 
-        // 重新计算指定表格固定列布局（数据渲染后 $nextTick + doLayout）
-        refreshTableLayout(refName) {
-            this.$nextTick(() => {
-                const table = this.$refs[refName];
-                if (table && typeof table.doLayout === 'function') {
-                    table.doLayout();
+            // 流程 ID 是主键，直接按 ID 建描述索引
+            loadFlowDescriptions() {
+                this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                    const map = {};
+                    (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                    this.flowDescMap = map;
+                }).catch(() => {});
+            },
+            flowDesc(flow) {
+                return this.flowDescMap[flow.flowId] || '';
+            },
+            // 审核状态码转中文
+            auditStatusLabel(code) {
+                const map = {
+                    '-1': '无效调整',
+                    '00': '流程中', '11': '驳回待修改',
+                    '20': '审批通过',
+                    '21': '审批驳回',
+                    '32': 'O32自动审批',
+                    '99': '发起人已撤回',
+                };
+                return map[String(code)] || code || '';
+            },
+
+            // 审核状态对应标签颜色
+            auditStatusType(code) {
+                const map = {
+                    '-1': 'danger',
+                    '00': 'warning',
+                    '11': 'warning',
+                    '20': 'success',
+                    '21': 'danger',
+                    '32': 'success',
+                    '99': 'info',
+                };
+                return map[String(code)] || 'info';
+            },
+
+            // 步骤状态码转中文
+            stepStatusLabel(code) {
+                const map = {
+                    pending: '待处理',
+                    approve: '通过',
+                    reject: '驳回',
+                    submit: '提交',
+                    auto_process: '自动处理',
+                    canceled: '已撤回',
+                };
+                return map[String(code)] || code || '';
+            },
+
+            // 历史分级提醒的类型为空，仍按分级规则展示
+            alertRuleTypeLabel(code) {
+                const map = { grade: '分级规则', absCompanySync: 'ABS主体联动' };
+                return map[code || 'grade'] || code;
+            },
+
+            // 规则提醒类型颜色，与参考字典保持一致
+            alertRuleTypeTag(code) {
+                const map = { grade: 'info', absCompanySync: 'warning' };
+                return map[code || 'grade'] || 'info';
+            },
+
+            // 规则提醒状态文案
+            alertStatusLabel(code) {
+                const map = { '00': '待处理', '20': '已处理', '99': '已失效' };
+                return map[String(code)] || code || '';
+            },
+
+            // 规则提醒状态颜色
+            alertStatusType(code) {
+                const map = { '00': 'warning', '20': 'success', '99': 'info' };
+                return map[String(code)] || 'info';
+            },
+
+            // 步骤状态对应标签颜色
+            stepStatusType(code) {
+                const map = {
+                    pending: 'warning',
+                    approve: 'success',
+                    reject: 'danger',
+                    submit: 'primary',
+                    auto_process: 'info',
+                    canceled: 'info',
+                };
+                return map[String(code)] || 'info';
+            },
+
+            // 业务编码展示名称
+            businessDomainLabel(code) {
+                const labels = { bond: '债券', fund: '基金', stock: '股票' };
+                return labels[code] || code;
+            },
+
+            // 当前页面实例只初始化一次业务入口，刷新 iframe 后由新实例重新查询
+            async loadBusinessDomains() {
+                if (this.businessReady || this.businessLoading) return;
+                this.businessLoading = true;
+                try {
+                    const domains = await this.apiPost('/api/v1/myMatters/queryBusinessDomainList', { currentUserId: this.currentUserId });
+                    this.businessDomains = domains;
+                    this.businessDomain = domains.length ? domains[0].businessDomain : '';
+                    this.resetBusinessView();
+                    if (this.isAnyAlertTab && this.businessDomain !== 'bond') this.activeTab = 'pending';
+                    if (this.businessDomain) await Promise.all([this.loadFlowOptions(), this.loadAllTabsOnEnter()]);
+                } catch (e) {
+                    this.businessDomains = [];
+                    this.businessDomain = '';
+                    this.resetBusinessView();
+                } finally {
+                    this.businessLoading = false;
+                    this.businessReady = true;
                 }
-            });
-        },
+            },
 
-        // 重新计算当前页面所有表格固定列布局
-        refreshAllTableLayout() {
-            this.$nextTick(() => {
-                Object.keys(this.$refs || {}).forEach(refName => {
-                    const ref = this.$refs[refName];
-                    const table = Array.isArray(ref) ? ref[0] : ref;
+            // 切换业务，重置筛选、分页、角标及旧请求版本
+            async handleBusinessChange() {
+                this.resetBusinessView();
+                this.activeTab = 'pending';
+                await Promise.all([this.loadFlowOptions(), this.loadAllTabsOnEnter()]);
+            },
+
+            // 清空当前业务视图
+            resetBusinessView() {
+                this.viewRevision++;
+                this.crmwAlertSearchForm = { crmwScode: '', securityCode: '', alertStatus: '00' };
+                this.crmwAlertPagination = { pageIndex: 1, pageSize: 20, total: 0 };
+                this.crmwAlertTableData = []; this.crmwAlertOpenCount = 0; this.crmwAlertLoading = false;
+                this.searchForm = { flowIds: [], securityCode: '', securityShortName: '', startDateRange: null, processDescription: '', auditStatus: '', initiatorName: '' };
+                this.alertSearchForm = { securityCode: '', alertStatus: '00' };
+                this.pagination = { pageIndex: 1, pageSize: 20, total: 0 };
+                this.alertPagination = { pageIndex: 1, pageSize: 20, total: 0 };
+                this.tableData = []; this.alertTableData = []; this.flowOptions = [];
+                this.pendingCount = 0; this.completedCount = 0; this.initiatedCount = 0; this.alertOpenCount = 0;
+                this.loading = false; this.alertLoading = false;
+            },
+
+            // 生成当前请求的视图快照
+            captureView() { return { domain: this.businessDomain, revision: this.viewRevision, tab: this.activeTab }; },
+
+            // 判断响应是否仍属于当前业务与筛选版本
+            isCurrentView(view) { return view.domain === this.businessDomain && view.revision === this.viewRevision; },
+
+            // 当前业务审批查询参数；字段按摘要语义使用，各 Mapper 独立映射到领域列
+            buildMatterQuery(stepStatus, totalOnly = false) {
+                return {
+                    businessDomain: this.businessDomain,
+                    currentUserId: this.currentUserId,
+                    flowIds: this.searchForm.flowIds.length ? this.searchForm.flowIds : null,
+                    securityCode: this.searchForm.securityCode || null,
+                    securityShortName: this.searchForm.securityShortName || null,
+                    startDateStart: this.searchForm.startDateRange ? this.searchForm.startDateRange[0] : null,
+                    startDateEnd: this.searchForm.startDateRange ? this.searchForm.startDateRange[1] : null,
+                    processDescription: this.searchForm.processDescription || null,
+                    auditStatus: this.searchForm.auditStatus || null,
+                    initiatorName: stepStatus ? this.searchForm.initiatorName || null : null,
+                    stepStatus: stepStatus || null,
+                    pageIndex: totalOnly ? 1 : this.pagination.pageIndex,
+                    pageSize: totalOnly ? 1 : this.pagination.pageSize,
+                };
+            },
+
+            // 加载流程名称下拉选项
+            async loadFlowOptions() {
+                if (!this.businessDomain) return;
+                const view = this.captureView();
+                const requestId = ++this.flowRequestId;
+                try {
+                    const options = await this.apiPost('/api/v1/myMatters/queryFlowOptionList', { businessDomain: view.domain, currentUserId: this.currentUserId });
+                    if (this.isCurrentView(view) && requestId === this.flowRequestId) this.flowOptions = options;
+                } catch (e) {
+                    if (this.isCurrentView(view) && requestId === this.flowRequestId) this.flowOptions = [];
+                }
+            },
+
+            // 按当前页签加载审批或提醒
+            reloadCurrentTab() {
+                if (this.isCrmwAlertTab) { this.loadCrmwAlertList(); return; }
+                if (this.isAlertTab) {
+                    this.loadAlertList();
+                } else if (this.activeTab === 'initiated') {
+                    this.loadInitiatedList();
+                } else {
+                    this.loadList();
+                }
+            },
+
+            // 进入页面：各事宜 Tab 并行各查一次；当前 Tab 加载列表，其余只取 total
+            async loadAllTabsOnEnter() {
+                if (!this.businessDomain) return;
+                const tasks = [];
+                for (const tab of ['pending', 'completed', 'initiated']) {
+                    if (this.activeTab === tab) tasks.push(tab === 'initiated' ? this.loadInitiatedList() : this.loadList());
+                    else tasks.push(tab === 'initiated' ? this.queryInitiatedTabTotal() : this.queryMatterTabTotal(tab));
+                }
+                if (this.businessDomain === 'bond') {
+                    tasks.push(this.isAlertTab ? this.loadAlertList() : this.queryAlertTabTotal());
+                    tasks.push(this.loadCrmwAlertList(!this.isCrmwAlertTab));
+                }
+                await Promise.all(tasks);
+            },
+
+            // 仅查询待处理 / 已完成 Tab 的 total（进入页预载角标用）
+            async queryMatterTabTotal(stepStatus) {
+                const view = this.captureView();
+                try {
+                    const data = await this.apiPost('/api/v1/myMatters/queryMyMattersPage', this.buildMatterQuery(stepStatus, true));
+                    if (!this.isCurrentView(view)) return;
+                    this[stepStatus === 'pending' ? 'pendingCount' : 'completedCount'] = Number(data.total || 0);
+                } catch (e) {
+                    if (this.isCurrentView(view)) this[stepStatus === 'pending' ? 'pendingCount' : 'completedCount'] = 0;
+                }
+            },
+
+            // 仅查询「我发起的」Tab 的 total（独立接口）
+            async queryInitiatedTabTotal() {
+                const view = this.captureView();
+                try {
+                    const data = await this.apiPost('/api/v1/myMatters/queryMyInitiatedMattersPage', this.buildMatterQuery(null, true));
+                    if (this.isCurrentView(view)) this.initiatedCount = Number(data.total || 0);
+                } catch (e) {
+                    if (this.isCurrentView(view)) this.initiatedCount = 0;
+                }
+            },
+
+            // 仅查询规则提醒 Tab 的 total（进入页预载角标用）
+            async queryAlertTabTotal() {
+                if (this.businessDomain !== 'bond') return;
+                const view = this.captureView();
+                try {
+                    const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
+                        currentUserId: this.currentUserId, securityCode: this.alertSearchForm.securityCode || null,
+                        ruleType: this.alertSearchForm.ruleType || null,
+                        alertStatus: this.alertSearchForm.alertStatus || null, pageIndex: 1, pageSize: 1,
+                    });
+                    if (this.isCurrentView(view)) this.alertOpenCount = Number(data.total || 0);
+                } catch (e) {
+                    if (this.isCurrentView(view)) this.alertOpenCount = 0;
+                }
+            },
+
+            // 加载待处理 / 已完成列表
+            async loadList() {
+                await this.loadMatterList(this.activeTab);
+            },
+
+            // 加载「我发起的」列表（独立接口）
+            async loadInitiatedList() {
+                await this.loadMatterList('initiated');
+            },
+
+            // 同一视图只有最后一次列表请求可以更新结果和加载状态
+            async loadMatterList(tab) {
+                if (!this.businessDomain) return;
+                const view = this.captureView();
+                const requestId = ++this.listRequestId;
+                this.loading = true;
+                try {
+                    const initiated = tab === 'initiated';
+                    const path = initiated ? '/api/v1/myMatters/queryMyInitiatedMattersPage' : '/api/v1/myMatters/queryMyMattersPage';
+                    const data = await this.apiPost(path, this.buildMatterQuery(initiated ? null : tab));
+                    if (!this.isCurrentView(view) || requestId !== this.listRequestId || tab !== this.activeTab) return;
+                    this.tableData = data.records || [];
+                    this.pagination.total = Number(data.total || 0);
+                    const countFields = { pending: 'pendingCount', completed: 'completedCount', initiated: 'initiatedCount' };
+                    this[countFields[tab]] = this.pagination.total;
+                } catch (e) {
+                    if (this.isCurrentView(view) && requestId === this.listRequestId) {
+                        this.tableData = [];
+                        this.pagination.total = 0;
+                        this[{ pending: 'pendingCount', completed: 'completedCount', initiated: 'initiatedCount' }[tab]] = 0;
+                    }
+                } finally {
+                    if (this.isCurrentView(view) && requestId === this.listRequestId) {
+                        this.loading = false;
+                        this.refreshTableLayout('mattersTableRef');
+                    }
+                }
+            },
+
+            // 重新计算指定表格固定列布局（数据渲染后 $nextTick + doLayout）
+            refreshTableLayout(refName) {
+                this.$nextTick(() => {
+                    const table = this.$refs[refName];
                     if (table && typeof table.doLayout === 'function') {
                         table.doLayout();
                     }
                 });
-            });
-        },
+            },
 
-        // 加载规则提醒列表（后端 gradeRuleAlert 接口不变）
-        async loadAlertList() {
-            if (this.businessDomain !== 'bond') return;
-            const view = this.captureView();
-            const requestId = ++this.alertRequestId;
-            this.alertLoading = true;
-            try {
-                const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
-                    currentUserId: this.currentUserId, securityCode: this.alertSearchForm.securityCode || null,
-                    ruleType: this.alertSearchForm.ruleType || null,
-                    alertStatus: this.alertSearchForm.alertStatus || null,
-                    pageIndex: this.alertPagination.pageIndex, pageSize: this.alertPagination.pageSize,
-                });
-                if (!this.isCurrentView(view) || requestId !== this.alertRequestId) return;
-                this.alertTableData = (data.records || []).map(row => {
-                    row.selectedIssuerCode = row.issuerCode || '';
-                    row.absCandidates = [];
-                    row.selectedIssuer = null;
-                    return row;
-                });
-                this.alertPagination.total = Number(data.total || 0);
-                this.alertOpenCount = this.alertPagination.total;
-            } catch (e) {
-                if (this.isCurrentView(view) && requestId === this.alertRequestId) { this.alertTableData = []; this.alertPagination.total = 0; this.alertOpenCount = 0; }
-            } finally {
-                if (this.isCurrentView(view) && requestId === this.alertRequestId) { this.alertLoading = false; this.refreshTableLayout('alertTableRef'); }
-            }
-        },
-
-        // 查询CRMW提醒列表或角标，旧业务和旧页签响应不得覆盖当前列表
-        async loadCrmwAlertList(totalOnly = false) {
-            if (this.businessDomain !== 'bond') return;
-            const view = this.captureView();
-            const requestId = ++this.crmwAlertRequestId;
-            if (!totalOnly) this.crmwAlertLoading = true;
-            try {
-                // 1. 独立接口和分页，不复用主体债提醒的筛选条件
-                const data = await this.apiPost('/api/v1/crmwRuleAlert/queryAlertPage', {
-                    ...this.crmwAlertSearchForm, currentUserId: this.currentUserId,
-                    pageIndex: totalOnly ? 1 : this.crmwAlertPagination.pageIndex,
-                    pageSize: totalOnly ? 1 : this.crmwAlertPagination.pageSize,
-                });
-                if (!this.isCurrentView(view) || requestId !== this.crmwAlertRequestId) return;
-                // 2. 角标查询不改动列表，切换页签后不写入旧结果
-                this.crmwAlertOpenCount = Number(data.total || 0);
-                if (!totalOnly && this.isCrmwAlertTab) {
-                    this.crmwAlertTableData = data.records || [];
-                    this.crmwAlertPagination.total = Number(data.total || 0);
-                }
-            } catch (e) {
-                if (this.isCurrentView(view) && requestId === this.crmwAlertRequestId) {
-                    this.crmwAlertOpenCount = 0;
-                    if (!totalOnly) { this.crmwAlertTableData = []; this.crmwAlertPagination.total = 0; }
-                }
-            } finally {
-                // 3. 只结束本次视图的加载状态，并重算固定列布局
-                if (this.isCurrentView(view) && requestId === this.crmwAlertRequestId && !totalOnly) {
-                    this.crmwAlertLoading = false;
-                    this.refreshTableLayout('crmwAlertTableRef');
-                }
-            }
-        },
-
-        // CRMW提醒独立翻页
-        handleCrmwAlertPageChange(page) {
-            this.viewRevision++;
-            this.crmwAlertPagination.pageIndex = page;
-            this.loadCrmwAlertList();
-        },
-
-        // CRMW提醒切换每页条数
-        handleCrmwAlertSizeChange(size) {
-            this.viewRevision++;
-            this.crmwAlertPagination.pageSize = size;
-            this.crmwAlertPagination.pageIndex = 1;
-            this.loadCrmwAlertList();
-        },
-
-        // 按凭证和标的打开CRMW调库，不改变提醒状态
-        openCrmwAlertAdjust(row) {
-            if (this.businessDomain !== 'bond') return;
-            const params = new URLSearchParams({ crmwScode: row.crmwScode, securityCode: row.securityCode });
-            const opened = window.RrsWorkbench.openDetailTab({
-                index: window.RrsWorkbench.buildTabIndex('crmw-adjust', [row.crmwScode, row.securityCode]),
-                title: window.RrsWorkbench.formatDetailTitle(row.crmwName, row.crmwScode, '调库'),
-                page: this.pagePaths.crmwPoolAdjust,
-                query: params.toString(),
-            });
-            if (opened) return;
-            params.set('loginUserId', this.currentUserId);
-            params.set('loginUserName', this.currentUserName);
-            window.location.href = this.pagePaths.crmwPoolAdjust + '?' + params.toString();
-        },
-
-        // 进入创设方或保护方的主体禁投调整，是否入禁止库仍由人工决定
-        openCrmwAlertCompany(row) {
-            if (this.businessDomain !== 'bond') return;
-            const params = new URLSearchParams({ companyCode: row.issuerCode });
-            const opened = window.RrsWorkbench.openDetailTab({
-                index: window.RrsWorkbench.buildTabIndex('forbidden-adjust', [row.issuerCode]),
-                title: window.RrsWorkbench.formatDetailTitle(row.issuerName, row.issuerCode, '禁投调整'),
-                page: this.pagePaths.forbiddenPoolAdjust,
-                query: params.toString(),
-            });
-            if (opened) return;
-            params.set('loginUserId', this.currentUserId);
-            params.set('loginUserName', this.currentUserName);
-            window.location.href = this.pagePaths.forbiddenPoolAdjust + '?' + params.toString();
-        },
-
-        // 人工确认已处理，仅关闭本条CRMW提醒
-        async handleCrmwAlertProcessed(row) {
-            const view = this.captureView();
-            if (view.domain !== 'bond') return;
-            // 1. 说明操作只记录人工结论，不自动出库或修改主体池
-            try {
-                await this.$confirm('确认标记已处理？此操作只记录人工结论，不会自动出库或将主体纳入禁止库。', '提示', {
-                    type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消',
-                });
-            } catch (e) { return; }
-            if (!this.isCurrentView(view)) return;
-            // 2. 记录处理人，成功后刷新当前提醒
-            this.crmwAlertLoading = true;
-            try {
-                await this.apiPost('/api/v1/crmwRuleAlert/editAlertProcessed', {
-                    id: row.id, currentUserId: this.currentUserId, currentUserName: this.currentUserName,
-                });
-                this.$message.success('已标记处理');
-                if (this.isCurrentView(view)) await this.loadCrmwAlertList();
-            } finally {
-                // 3. 切换业务或页签后不修改新视图的加载状态
-                if (this.isCurrentView(view)) this.crmwAlertLoading = false;
-            }
-        },
-
-        // 触发查询
-        handleSearch() {
-            this.viewRevision++;
-            if (this.isCrmwAlertTab) { this.crmwAlertPagination.pageIndex = 1; this.loadCrmwAlertList(); return; }
-            if (this.isAlertTab) {
-                this.alertPagination.pageIndex = 1;
-                this.loadAlertList();
-            } else if (this.activeTab === 'initiated') {
-                this.pagination.pageIndex = 1;
-                this.loadInitiatedList();
-            } else {
-                this.pagination.pageIndex = 1;
-                this.loadList();
-            }
-        },
-
-        // 切换事宜页签
-        handleTabClick() {
-            this.viewRevision++;
-            if (this.isCrmwAlertTab) { this.crmwAlertPagination.pageIndex = 1; this.loadCrmwAlertList(); return; }
-            if (this.isAlertTab) {
-                this.alertPagination.pageIndex = 1;
-                this.loadAlertList();
-            } else if (this.activeTab === 'initiated') {
-                this.pagination.pageIndex = 1;
-                this.loadInitiatedList();
-            } else {
-                this.pagination.pageIndex = 1;
-                this.loadList();
-            }
-        },
-
-        // 重置查询条件
-        handleReset() {
-            this.viewRevision++;
-            if (this.isCrmwAlertTab) {
-                this.crmwAlertSearchForm = { crmwScode: '', securityCode: '', alertStatus: '00' };
-                this.crmwAlertPagination.pageIndex = 1;
-                this.loadCrmwAlertList();
-                return;
-            }
-            if (this.isAlertTab) {
-                this.alertSearchForm = {
-                    securityCode: '',
-                    ruleType: '',
-                    alertStatus: '00',
-                };
-                this.alertPagination.pageIndex = 1;
-                this.loadAlertList();
-                return;
-            }
-            this.searchForm = {
-                flowIds: [],
-                securityCode: '',
-                securityShortName: '',
-                startDateRange: null,
-                processDescription: '',
-                auditStatus: '',
-                initiatorName: '',
-            };
-            this.pagination.pageIndex = 1;
-            this.loadFlowOptions();
-            if (this.activeTab === 'initiated') {
-                this.loadInitiatedList();
-            } else {
-                this.loadList();
-            }
-        },
-
-        // 翻页
-        handlePageChange(page) {
-            this.viewRevision++;
-            this.pagination.pageIndex = page;
-            if (this.activeTab === 'initiated') {
-                this.loadInitiatedList();
-            } else {
-                this.loadList();
-            }
-        },
-
-        // 切换每页条数
-        handleSizeChange(size) {
-            this.viewRevision++;
-            this.pagination.pageSize = size;
-            this.pagination.pageIndex = 1;
-            if (this.activeTab === 'initiated') {
-                this.loadInitiatedList();
-            } else {
-                this.loadList();
-            }
-        },
-
-        // 提醒列表翻页
-        handleAlertPageChange(page) {
-            this.viewRevision++;
-            this.alertPagination.pageIndex = page;
-            this.loadAlertList();
-        },
-
-        // 提醒列表切换每页条数
-        handleAlertSizeChange(size) {
-            this.viewRevision++;
-            this.alertPagination.pageSize = size;
-            this.alertPagination.pageIndex = 1;
-            this.loadAlertList();
-        },
-
-        // 判断是否为需要选择权益人的 ABS 主体联动提醒
-        isAbsAlert(row) {
-            return !!row && row.ruleType === 'absCompanySync';
-        },
-
-        // 加载普通权益人候选，展示口径与证券池调整页的权益人下拉一致
-        async loadAbsCandidates(row) {
-            if (!this.isAbsAlert(row) || row.alertStatus !== '00' || row.absCandidatesLoading) return;
-            if (row.absCandidates && row.absCandidates.length) return;
-            this.$set(row, 'absCandidatesLoading', true);
-            try {
-                const candidates = await this.apiPost('/api/v1/gradeRuleAlert/queryAbsCandidates', {
-                    securityCode: row.securityCode,
-                });
-                // 四类关系类型由前端统一映射，选项展示主体全称、类型标签和最新内评
-                const typeNameMap = {
-                    '115004000': '担保人',
-                    '115203000': '差额支付承诺人',
-                    '115200000': '债务主体',
-                    '115201000': '原始权益人'
-                };
-                const options = (candidates || []).map((item, index) => {
-                    const typeName = typeNameMap[String(item.relationTypeCode)] || '';
-                    return Object.assign({}, item, {
-                        optionKey: String(item.companyCode || '') + '_' + String(item.relationTypeCode || '') + '_' + index,
-                        typeName,
-                        rating: item.innerIssuerRating || '',
-                        label: typeName ? item.companyName + '（' + typeName + '）' : item.companyName
+            // 重新计算当前页面所有表格固定列布局
+            refreshAllTableLayout() {
+                this.$nextTick(() => {
+                    Object.keys(this.$refs || {}).forEach(refName => {
+                        const ref = this.$refs[refName];
+                        const table = Array.isArray(ref) ? ref[0] : ref;
+                        if (table && typeof table.doLayout === 'function') {
+                            table.doLayout();
+                        }
                     });
                 });
-                this.$set(row, 'absCandidates', options);
-                if (row.selectedIssuerCode) this.handleAbsIssuerChange(row);
-            } catch (e) {
-                this.$message.error((e && e.message) || '权益人查询失败');
-            } finally {
-                this.$set(row, 'absCandidatesLoading', false);
-            }
-        },
+            },
 
-        // 同一 ABS 的多条提醒保持同一个主体选择
-        handleAbsIssuerChange(row) {
-            const selected = (row.absCandidates || []).find(item => item.companyCode === row.selectedIssuerCode) || null;
-            this.$set(row, 'selectedIssuer', selected);
-            this.alertTableData.filter(item => this.isAbsAlert(item) && item.securityCode === row.securityCode).forEach(item => {
-                if (selected && !(item.absCandidates || []).some(candidate => candidate.companyCode === selected.companyCode)) {
-                    this.$set(item, 'absCandidates', (item.absCandidates || []).concat([selected]));
+            // 加载规则提醒列表（后端 gradeRuleAlert 接口不变）
+            async loadAlertList() {
+                if (this.businessDomain !== 'bond') return;
+                const view = this.captureView();
+                const requestId = ++this.alertRequestId;
+                this.alertLoading = true;
+                try {
+                    const data = await this.apiPost('/api/v1/gradeRuleAlert/queryAlertPage', {
+                        currentUserId: this.currentUserId, securityCode: this.alertSearchForm.securityCode || null,
+                        ruleType: this.alertSearchForm.ruleType || null,
+                        alertStatus: this.alertSearchForm.alertStatus || null,
+                        pageIndex: this.alertPagination.pageIndex, pageSize: this.alertPagination.pageSize,
+                    });
+                    if (!this.isCurrentView(view) || requestId !== this.alertRequestId) return;
+                    this.alertTableData = (data.records || []).map(row => {
+                        row.selectedIssuerCode = row.issuerCode || '';
+                        row.absCandidates = [];
+                        row.selectedIssuer = null;
+                        return row;
+                    });
+                    this.alertPagination.total = Number(data.total || 0);
+                    this.alertOpenCount = this.alertPagination.total;
+                } catch (e) {
+                    if (this.isCurrentView(view) && requestId === this.alertRequestId) { this.alertTableData = []; this.alertPagination.total = 0; this.alertOpenCount = 0; }
+                } finally {
+                    if (this.isCurrentView(view) && requestId === this.alertRequestId) { this.alertLoading = false; this.refreshTableLayout('alertTableRef'); }
                 }
-                this.$set(item, 'selectedIssuerCode', row.selectedIssuerCode || '');
-                this.$set(item, 'selectedIssuer', selected);
-            });
-        },
+            },
 
-        // 打开自选权益人查询弹窗
-        async openAbsSelfPicker(row) {
-            this.absSelfTarget = row;
-            this.absSelfSearch = { companyCode: '', companyName: '' };
-            this.absSelfCandidates = [];
-            this.absSelfPendingCandidate = row.selectedIssuer || null;
-            this.absSelfPendingCode = row.selectedIssuerCode || '';
-            this.absSelfPagination.pageIndex = 1;
-            this.absSelfDialogVisible = true;
-            await this.loadAbsSelfCandidates();
-        },
+            // 查询CRMW提醒列表或角标，旧业务和旧页签响应不得覆盖当前列表
+            async loadCrmwAlertList(totalOnly = false) {
+                if (this.businessDomain !== 'bond') return;
+                const view = this.captureView();
+                const requestId = ++this.crmwAlertRequestId;
+                if (!totalOnly) this.crmwAlertLoading = true;
+                try {
+                    // 1. 独立接口和分页，不复用主体债提醒的筛选条件
+                    const data = await this.apiPost('/api/v1/crmwRuleAlert/queryAlertPage', {
+                        ...this.crmwAlertSearchForm, currentUserId: this.currentUserId,
+                        pageIndex: totalOnly ? 1 : this.crmwAlertPagination.pageIndex,
+                        pageSize: totalOnly ? 1 : this.crmwAlertPagination.pageSize,
+                    });
+                    if (!this.isCurrentView(view) || requestId !== this.crmwAlertRequestId) return;
+                    // 2. 角标查询不改动列表，切换页签后不写入旧结果
+                    this.crmwAlertOpenCount = Number(data.total || 0);
+                    if (!totalOnly && this.isCrmwAlertTab) {
+                        this.crmwAlertTableData = data.records || [];
+                        this.crmwAlertPagination.total = Number(data.total || 0);
+                    }
+                } catch (e) {
+                    if (this.isCurrentView(view) && requestId === this.crmwAlertRequestId) {
+                        this.crmwAlertOpenCount = 0;
+                        if (!totalOnly) { this.crmwAlertTableData = []; this.crmwAlertPagination.total = 0; }
+                    }
+                } finally {
+                    // 3. 只结束本次视图的加载状态，并重算固定列布局
+                    if (this.isCurrentView(view) && requestId === this.crmwAlertRequestId && !totalOnly) {
+                        this.crmwAlertLoading = false;
+                        this.refreshTableLayout('crmwAlertTableRef');
+                    }
+                }
+            },
 
-        // 查询自选权益人候选
-        async loadAbsSelfCandidates() {
-            this.absSelfLoading = true;
-            try {
-                const data = await this.apiPost('/api/v1/securityPoolAdjust/querySelfSelectedRightsHolderPage', {
-                    companyCode: this.absSelfSearch.companyCode || null,
-                    companyName: this.absSelfSearch.companyName || null,
-                pageIndex: this.absSelfPagination.pageIndex,
-                pageSize: this.absSelfPagination.pageSize,
+            // CRMW提醒独立翻页
+            handleCrmwAlertPageChange(page) {
+                this.viewRevision++;
+                this.crmwAlertPagination.pageIndex = page;
+                this.loadCrmwAlertList();
+            },
+
+            // CRMW提醒切换每页条数
+            handleCrmwAlertSizeChange(size) {
+                this.viewRevision++;
+                this.crmwAlertPagination.pageSize = size;
+                this.crmwAlertPagination.pageIndex = 1;
+                this.loadCrmwAlertList();
+            },
+
+            // 按凭证和标的打开CRMW调库，不改变提醒状态
+            openCrmwAlertAdjust(row) {
+                if (this.businessDomain !== 'bond') return;
+                const params = new URLSearchParams({ crmwScode: row.crmwScode, securityCode: row.securityCode });
+                const opened = window.RrsWorkbench.openDetailTab({
+                    index: window.RrsWorkbench.buildTabIndex('crmw-adjust', [row.crmwScode, row.securityCode]),
+                    title: window.RrsWorkbench.formatDetailTitle(row.crmwName, row.crmwScode, '调库'),
+                    page: this.pagePaths.crmwPoolAdjust,
+                    query: params.toString(),
                 });
-                this.absSelfCandidates = data.records || [];
-                this.absSelfPagination.total = Number(data.total || 0);
-            } catch (e) {
+                if (opened) return;
+                params.set('loginUserId', this.currentUserId);
+                params.set('loginUserName', this.currentUserName);
+                window.location.href = this.pagePaths.crmwPoolAdjust + '?' + params.toString();
+            },
+
+            // 进入创设方或保护方的主体禁投调整，是否入禁止库仍由人工决定
+            openCrmwAlertCompany(row) {
+                if (this.businessDomain !== 'bond') return;
+                const params = new URLSearchParams({ companyCode: row.issuerCode });
+                const opened = window.RrsWorkbench.openDetailTab({
+                    index: window.RrsWorkbench.buildTabIndex('forbidden-adjust', [row.issuerCode]),
+                    title: window.RrsWorkbench.formatDetailTitle(row.issuerName, row.issuerCode, '禁投调整'),
+                    page: this.pagePaths.forbiddenPoolAdjust,
+                    query: params.toString(),
+                });
+                if (opened) return;
+                params.set('loginUserId', this.currentUserId);
+                params.set('loginUserName', this.currentUserName);
+                window.location.href = this.pagePaths.forbiddenPoolAdjust + '?' + params.toString();
+            },
+
+            // 人工确认已处理，仅关闭本条CRMW提醒
+            async handleCrmwAlertProcessed(row) {
+                const view = this.captureView();
+                if (view.domain !== 'bond') return;
+                // 1. 说明操作只记录人工结论，不自动出库或修改主体池
+                try {
+                    await this.$confirm('确认标记已处理？此操作只记录人工结论，不会自动出库或将主体纳入禁止库。', '提示', {
+                        type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消',
+                    });
+                } catch (e) { return; }
+                if (!this.isCurrentView(view)) return;
+                // 2. 记录处理人，成功后刷新当前提醒
+                this.crmwAlertLoading = true;
+                try {
+                    await this.apiPost('/api/v1/crmwRuleAlert/editAlertProcessed', {
+                        id: row.id, currentUserId: this.currentUserId, currentUserName: this.currentUserName,
+                    });
+                    this.$message.success('已标记处理');
+                    if (this.isCurrentView(view)) await this.loadCrmwAlertList();
+                } finally {
+                    // 3. 切换业务或页签后不修改新视图的加载状态
+                    if (this.isCurrentView(view)) this.crmwAlertLoading = false;
+                }
+            },
+
+            // 触发查询
+            handleSearch() {
+                this.viewRevision++;
+                if (this.isCrmwAlertTab) { this.crmwAlertPagination.pageIndex = 1; this.loadCrmwAlertList(); return; }
+                if (this.isAlertTab) {
+                    this.alertPagination.pageIndex = 1;
+                    this.loadAlertList();
+                } else if (this.activeTab === 'initiated') {
+                    this.pagination.pageIndex = 1;
+                    this.loadInitiatedList();
+                } else {
+                    this.pagination.pageIndex = 1;
+                    this.loadList();
+                }
+            },
+
+            // 切换事宜页签
+            handleTabClick() {
+                this.viewRevision++;
+                if (this.isCrmwAlertTab) { this.crmwAlertPagination.pageIndex = 1; this.loadCrmwAlertList(); return; }
+                if (this.isAlertTab) {
+                    this.alertPagination.pageIndex = 1;
+                    this.loadAlertList();
+                } else if (this.activeTab === 'initiated') {
+                    this.pagination.pageIndex = 1;
+                    this.loadInitiatedList();
+                } else {
+                    this.pagination.pageIndex = 1;
+                    this.loadList();
+                }
+            },
+
+            // 重置查询条件
+            handleReset() {
+                this.viewRevision++;
+                if (this.isCrmwAlertTab) {
+                    this.crmwAlertSearchForm = { crmwScode: '', securityCode: '', alertStatus: '00' };
+                    this.crmwAlertPagination.pageIndex = 1;
+                    this.loadCrmwAlertList();
+                    return;
+                }
+                if (this.isAlertTab) {
+                    this.alertSearchForm = {
+                        securityCode: '',
+                        ruleType: '',
+                        alertStatus: '00',
+                    };
+                    this.alertPagination.pageIndex = 1;
+                    this.loadAlertList();
+                    return;
+                }
+                this.searchForm = {
+                    flowIds: [],
+                    securityCode: '',
+                    securityShortName: '',
+                    startDateRange: null,
+                    processDescription: '',
+                    auditStatus: '',
+                    initiatorName: '',
+                };
+                this.pagination.pageIndex = 1;
+                this.loadFlowOptions();
+                if (this.activeTab === 'initiated') {
+                    this.loadInitiatedList();
+                } else {
+                    this.loadList();
+                }
+            },
+
+            // 翻页
+            handlePageChange(page) {
+                this.viewRevision++;
+                this.pagination.pageIndex = page;
+                if (this.activeTab === 'initiated') {
+                    this.loadInitiatedList();
+                } else {
+                    this.loadList();
+                }
+            },
+
+            // 切换每页条数
+            handleSizeChange(size) {
+                this.viewRevision++;
+                this.pagination.pageSize = size;
+                this.pagination.pageIndex = 1;
+                if (this.activeTab === 'initiated') {
+                    this.loadInitiatedList();
+                } else {
+                    this.loadList();
+                }
+            },
+
+            // 提醒列表翻页
+            handleAlertPageChange(page) {
+                this.viewRevision++;
+                this.alertPagination.pageIndex = page;
+                this.loadAlertList();
+            },
+
+            // 提醒列表切换每页条数
+            handleAlertSizeChange(size) {
+                this.viewRevision++;
+                this.alertPagination.pageSize = size;
+                this.alertPagination.pageIndex = 1;
+                this.loadAlertList();
+            },
+
+            // 判断是否为需要选择权益人的 ABS 主体联动提醒
+            isAbsAlert(row) {
+                return !!row && row.ruleType === 'absCompanySync';
+            },
+
+            // 加载普通权益人候选，展示口径与证券池调整页的权益人下拉一致
+            async loadAbsCandidates(row) {
+                if (!this.isAbsAlert(row) || row.alertStatus !== '00' || row.absCandidatesLoading) return;
+                if (row.absCandidates && row.absCandidates.length) return;
+                this.$set(row, 'absCandidatesLoading', true);
+                try {
+                    const candidates = await this.apiPost('/api/v1/gradeRuleAlert/queryAbsCandidates', {
+                        securityCode: row.securityCode,
+                    });
+                    // 四类关系类型由前端统一映射，选项展示主体全称、类型标签和最新内评
+                    const typeNameMap = {
+                        '115004000': '担保人',
+                        '115203000': '差额支付承诺人',
+                        '115200000': '债务主体',
+                        '115201000': '原始权益人'
+                    };
+                    const options = (candidates || []).map((item, index) => {
+                        const typeName = typeNameMap[String(item.relationTypeCode)] || '';
+                        return Object.assign({}, item, {
+                            optionKey: String(item.companyCode || '') + '_' + String(item.relationTypeCode || '') + '_' + index,
+                            typeName,
+                            rating: item.innerIssuerRating || '',
+                            label: typeName ? item.companyName + '（' + typeName + '）' : item.companyName
+                        });
+                    });
+                    this.$set(row, 'absCandidates', options);
+                    if (row.selectedIssuerCode) this.handleAbsIssuerChange(row);
+                } catch (e) {
+                    this.$message.error((e && e.message) || '权益人查询失败');
+                } finally {
+                    this.$set(row, 'absCandidatesLoading', false);
+                }
+            },
+
+            // 同一 ABS 的多条提醒保持同一个主体选择
+            handleAbsIssuerChange(row) {
+                const selected = (row.absCandidates || []).find(item => item.companyCode === row.selectedIssuerCode) || null;
+                this.$set(row, 'selectedIssuer', selected);
+                this.alertTableData.filter(item => this.isAbsAlert(item) && item.securityCode === row.securityCode).forEach(item => {
+                    if (selected && !(item.absCandidates || []).some(candidate => candidate.companyCode === selected.companyCode)) {
+                        this.$set(item, 'absCandidates', (item.absCandidates || []).concat([selected]));
+                    }
+                    this.$set(item, 'selectedIssuerCode', row.selectedIssuerCode || '');
+                    this.$set(item, 'selectedIssuer', selected);
+                });
+            },
+
+            // 打开自选权益人查询弹窗
+            async openAbsSelfPicker(row) {
+                this.absSelfTarget = row;
+                this.absSelfSearch = { companyCode: '', companyName: '' };
                 this.absSelfCandidates = [];
-                this.absSelfPagination.total = 0;
-            } finally {
-                this.absSelfLoading = false;
-            }
-        },
+                this.absSelfPendingCandidate = row.selectedIssuer || null;
+                this.absSelfPendingCode = row.selectedIssuerCode || '';
+                this.absSelfPagination.pageIndex = 1;
+                this.absSelfDialogVisible = true;
+                await this.loadAbsSelfCandidates();
+            },
 
-        // 按查询条件搜索自选权益人
-        searchAbsSelfCandidates() {
-            this.absSelfPagination.pageIndex = 1;
-            this.loadAbsSelfCandidates();
-        },
+            // 查询自选权益人候选
+            async loadAbsSelfCandidates() {
+                this.absSelfLoading = true;
+                try {
+                    const data = await this.apiPost('/api/v1/securityPoolAdjust/querySelfSelectedRightsHolderPage', {
+                        companyCode: this.absSelfSearch.companyCode || null,
+                        companyName: this.absSelfSearch.companyName || null,
+                    pageIndex: this.absSelfPagination.pageIndex,
+                    pageSize: this.absSelfPagination.pageSize,
+                    });
+                    this.absSelfCandidates = data.records || [];
+                    this.absSelfPagination.total = Number(data.total || 0);
+                } catch (e) {
+                    this.absSelfCandidates = [];
+                    this.absSelfPagination.total = 0;
+                } finally {
+                    this.absSelfLoading = false;
+                }
+            },
 
-        // 重置自选权益人查询条件
-        resetAbsSelfSearch() {
-            this.absSelfSearch = { companyCode: '', companyName: '' };
-            this.absSelfPagination.pageIndex = 1;
-            this.loadAbsSelfCandidates();
-        },
+            // 按查询条件搜索自选权益人
+            searchAbsSelfCandidates() {
+                this.absSelfPagination.pageIndex = 1;
+                this.loadAbsSelfCandidates();
+            },
 
-        // 切换自选权益人列表页码
-        handleAbsSelfPageChange(pageIndex) {
-            this.absSelfPagination.pageIndex = pageIndex;
-            this.loadAbsSelfCandidates();
-        },
+            // 重置自选权益人查询条件
+            resetAbsSelfSearch() {
+                this.absSelfSearch = { companyCode: '', companyName: '' };
+                this.absSelfPagination.pageIndex = 1;
+                this.loadAbsSelfCandidates();
+            },
 
-        // 切换自选权益人列表每页数量
-        handleAbsSelfSizeChange(pageSize) {
-            this.absSelfPagination.pageSize = pageSize;
-            this.absSelfPagination.pageIndex = 1;
-            this.loadAbsSelfCandidates();
-        },
+            // 切换自选权益人列表页码
+            handleAbsSelfPageChange(pageIndex) {
+                this.absSelfPagination.pageIndex = pageIndex;
+                this.loadAbsSelfCandidates();
+            },
 
-        // 计算自选权益人跨页连续序号
-        absSelfIndex(index) {
-            return (this.absSelfPagination.pageIndex - 1) * this.absSelfPagination.pageSize + index + 1;
-        },
+            // 切换自选权益人列表每页数量
+            handleAbsSelfSizeChange(pageSize) {
+                this.absSelfPagination.pageSize = pageSize;
+                this.absSelfPagination.pageIndex = 1;
+                this.loadAbsSelfCandidates();
+            },
 
-        // 按暂存主体高亮选中行
-        absSelfRowClassName({ row }) {
-            return row.companyCode === this.absSelfPendingCode ? 'self-rights-holder-selected' : '';
-        },
+            // 计算自选权益人跨页连续序号
+            absSelfIndex(index) {
+                return (this.absSelfPagination.pageIndex - 1) * this.absSelfPagination.pageSize + index + 1;
+            },
 
-        // 暂存自选权益人单选结果
-        handleAbsSelfCurrentChange(row) {
-            this.absSelfPendingCandidate = row;
-            this.absSelfPendingCode = row ? row.companyCode : '';
-        },
+            // 按暂存主体高亮选中行
+            absSelfRowClassName({ row }) {
+                return row.companyCode === this.absSelfPendingCode ? 'self-rights-holder-selected' : '';
+            },
 
-        // 确认自选权益人并同步到同一 ABS 的提醒行
-        confirmAbsSelfCandidate() {
-            const selected = this.absSelfPendingCandidate;
-            if (!this.absSelfTarget || !selected || !this.absSelfPendingCode) return;
-            const normalized = {
-                companyCode: selected.companyCode,
-                companyName: selected.companyName,
-                innerIssuerRating: selected.innerIssuerRating || selected.innerRating || null,
-                ratingBondissuer: selected.ratingBondissuer || null,
-                ratingBondissuerAgency: selected.ratingBondissuerAgency || null,
-            };
-            const target = this.absSelfTarget;
-            const candidates = (target.absCandidates || []).filter(item => item.companyCode !== normalized.companyCode);
-            candidates.push(normalized);
-            this.$set(target, 'absCandidates', candidates);
-            this.$set(target, 'selectedIssuerCode', normalized.companyCode);
-            this.handleAbsIssuerChange(target);
-            this.absSelfDialogVisible = false;
-        },
+            // 暂存自选权益人单选结果
+            handleAbsSelfCurrentChange(row) {
+                this.absSelfPendingCandidate = row;
+                this.absSelfPendingCode = row ? row.companyCode : '';
+            },
 
-        // 确认 ABS 主体并保留当前在池状态
-        async confirmAbsAlert(row) {
-            const selected = row.selectedIssuer || (row.absCandidates || []).find(item => item.companyCode === row.selectedIssuerCode);
-            if (!selected) {
-                this.$message.warning('请选择权益人或自选权益人');
-                return;
-            }
-            try {
-                await this.apiPost('/api/v1/gradeRuleAlert/processAbsAlert', {
-                    id: row.id,
-                    decision: 'confirm',
-                    issuerCode: selected.companyCode,
-                    issuerName: selected.companyName,
+            // 确认自选权益人并同步到同一 ABS 的提醒行
+            confirmAbsSelfCandidate() {
+                const selected = this.absSelfPendingCandidate;
+                if (!this.absSelfTarget || !selected || !this.absSelfPendingCode) return;
+                const normalized = {
+                    companyCode: selected.companyCode,
+                    companyName: selected.companyName,
                     innerIssuerRating: selected.innerIssuerRating || selected.innerRating || null,
                     ratingBondissuer: selected.ratingBondissuer || null,
                     ratingBondissuerAgency: selected.ratingBondissuerAgency || null,
-                    currentUserId: this.currentUserId,
-                    currentUserName: this.currentUserName,
-                });
-                this.$message.success('主体已确认，保留当前入池状态');
-                this.loadAlertList();
-            } catch (e) {
-                this.$message.error((e && e.message) || '主体确认失败');
-            }
-        },
+                };
+                const target = this.absSelfTarget;
+                const candidates = (target.absCandidates || []).filter(item => item.companyCode !== normalized.companyCode);
+                candidates.push(normalized);
+                this.$set(target, 'absCandidates', candidates);
+                this.$set(target, 'selectedIssuerCode', normalized.companyCode);
+                this.handleAbsIssuerChange(target);
+                this.absSelfDialogVisible = false;
+            },
 
-        // 忽略本次自动入池并删除对应目标池的在池状态
-        async ignoreAbsAlert(row) {
-            try {
-                await this.$confirm('确认忽略本次 ABS 自动入池？将隐藏对应的自动/联动调入记录和在池状态，提醒保留为已处理。', '提示', {
-                    type: 'warning',
-                    confirmButtonText: '确定忽略',
-                    cancelButtonText: '取消',
-                });
-            } catch (e) {
-                return;
-            }
-            try {
-                await this.apiPost('/api/v1/gradeRuleAlert/processAbsAlert', {
-                    id: row.id,
-                    decision: 'noNeed',
-                    currentUserId: this.currentUserId,
-                    currentUserName: this.currentUserName,
-                });
-                this.$message.success('已忽略本次入池');
-                this.loadAlertList();
-            } catch (e) {
-                this.$message.error((e && e.message) || '忽略入池失败');
-            }
-        },
-
-        // 从提醒进入证券池调库，只提供调库入口，不改变提醒状态
-        openAlertAdjust(row) {
-            if (this.businessDomain !== 'bond') return;
-            const code = row.securityCode || '';
-            const name = row.securityShortName || code;
-            const params = new URLSearchParams();
-            if (code) params.set('securityCode', code);
-            const opened = window.RrsWorkbench.openDetailTab({
-                index: window.RrsWorkbench.buildTabIndex('security-adjust', [code]),
-                title: window.RrsWorkbench.formatDetailTitle(name, code, '调库'),
-                page: this.pagePaths.securityPoolAdjust,
-                query: params.toString(),
-            });
-            if (opened) return;
-            params.set('loginUserId', this.currentUserId);
-            params.set('loginUserName', this.currentUserName);
-            window.location.href = this.pagePaths.securityPoolAdjust + '?' + params.toString();
-        },
-
-        // 标记提醒已处理，不改池
-        async handleAlertProcessed(row) {
-            const view = this.captureView();
-            if (view.domain !== 'bond') return;
-            try {
-                await this.$confirm('确认将本条标记为已处理？不会自动改池，请先在证券池调库完成下调或出库。', '提示', {
-                    type: 'warning',
-                    confirmButtonText: '确定',
-                    cancelButtonText: '取消',
-                });
-            } catch (e) {
-                return;
-            }
-            if (!this.isCurrentView(view)) return;
-            this.alertLoading = true;
-            try {
-                await this.apiPost('/api/v1/gradeRuleAlert/editAlertProcessed', {
-                    id: row.id,
-                    currentUserId: this.currentUserId,
-                    currentUserName: this.currentUserName,
-                });
-                this.$message.success('已标记处理');
-                if (this.isCurrentView(view)) this.loadAlertList();
-            } catch (e) {
-                if (this.isCurrentView(view)) {
-                    this.alertLoading = false;
-                    this.$message.error((e && e.message) || '处理失败');
+            // 确认 ABS 主体并保留当前在池状态
+            async confirmAbsAlert(row) {
+                const selected = row.selectedIssuer || (row.absCandidates || []).find(item => item.companyCode === row.selectedIssuerCode);
+                if (!selected) {
+                    this.$message.warning('请选择权益人或自选权益人');
+                    return;
                 }
-            }
-        },
+                try {
+                    await this.apiPost('/api/v1/gradeRuleAlert/processAbsAlert', {
+                        id: row.id,
+                        decision: 'confirm',
+                        issuerCode: selected.companyCode,
+                        issuerName: selected.companyName,
+                        innerIssuerRating: selected.innerIssuerRating || selected.innerRating || null,
+                        ratingBondissuer: selected.ratingBondissuer || null,
+                        ratingBondissuerAgency: selected.ratingBondissuerAgency || null,
+                        currentUserId: this.currentUserId,
+                        currentUserName: this.currentUserName,
+                    });
+                    this.$message.success('主体已确认，保留当前入池状态');
+                    this.loadAlertList();
+                } catch (e) {
+                    this.$message.error((e && e.message) || '主体确认失败');
+                }
+            },
 
-        // 按后端实际处理资格统一按钮文案和流程描述链接入口
-        canProcessMatter(row) {
-            return !!row && row.canProcess === true;
-        },
+            // 忽略本次自动入池并删除对应目标池的在池状态
+            async ignoreAbsAlert(row) {
+                try {
+                    await this.$confirm('确认忽略本次 ABS 自动入池？将隐藏对应的自动/联动调入记录和在池状态，提醒保留为已处理。', '提示', {
+                        type: 'warning',
+                        confirmButtonText: '确定忽略',
+                        cancelButtonText: '取消',
+                    });
+                } catch (e) {
+                    return;
+                }
+                try {
+                    await this.apiPost('/api/v1/gradeRuleAlert/processAbsAlert', {
+                        id: row.id,
+                        decision: 'noNeed',
+                        currentUserId: this.currentUserId,
+                        currentUserName: this.currentUserName,
+                    });
+                    this.$message.success('已忽略本次入池');
+                    this.loadAlertList();
+                } catch (e) {
+                    this.$message.error((e && e.message) || '忽略入池失败');
+                }
+            },
 
-        // 打开对应审核/详情页（工作台内按记录新开页签，同键复用）
-        openMatterPage(row) {
-            const route = this.matterRoutes[row.businessScene];
-            if (!route || route.domain !== row.businessDomain || row.businessDomain !== this.businessDomain) {
-                this.$message.error('事项业务场景无效，请刷新后重试');
-                return;
-            }
-            const params = new URLSearchParams();
-            const canProcess = this.canProcessMatter(row);
-            const code = row.objectCode || '';
-            const name = row.objectName || code;
-            params.set('businessDomain', row.businessDomain);
-            if (code) params.set(route.codeParam, code);
-            if (row.crmwScode) params.set('crmwScode', row.crmwScode);
-            if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
-            if (row.adjustLogId) params.set('adjustLogId', row.adjustLogId);
-            if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
-            if (row.stepId) params.set('stepId', row.stepId);
-            params.set('entryMode', canProcess ? 'process' : 'view');
-            const page = canProcess ? route.approve : route.detail;
-            const opened = window.RrsWorkbench.openDetailTab({
-                index: window.RrsWorkbench.buildTabIndex('matter-' + (canProcess ? 'approve' : 'detail'), [row.businessDomain, row.businessScene, code, row.crmwScode, row.adjustLogId, row.adjustBatchNo, row.targetPoolId]),
-                title: window.RrsWorkbench.formatDetailTitle(name, code, canProcess ? '审核' : '详情'),
-                page: page, query: params.toString(),
-            });
-            if (opened) return;
-            params.set('loginUserId', this.currentUserId);
-            params.set('loginUserName', this.currentUserName);
-            window.location.href = page + '?' + params.toString();
-        },
-    }
-});
+            // 从提醒进入证券池调库，只提供调库入口，不改变提醒状态
+            openAlertAdjust(row) {
+                if (this.businessDomain !== 'bond') return;
+                const code = row.securityCode || '';
+                const name = row.securityShortName || code;
+                const params = new URLSearchParams();
+                if (code) params.set('securityCode', code);
+                const opened = window.RrsWorkbench.openDetailTab({
+                    index: window.RrsWorkbench.buildTabIndex('security-adjust', [code]),
+                    title: window.RrsWorkbench.formatDetailTitle(name, code, '调库'),
+                    page: this.pagePaths.securityPoolAdjust,
+                    query: params.toString(),
+                });
+                if (opened) return;
+                params.set('loginUserId', this.currentUserId);
+                params.set('loginUserName', this.currentUserName);
+                window.location.href = this.pagePaths.securityPoolAdjust + '?' + params.toString();
+            },
+
+            // 标记提醒已处理，不改池
+            async handleAlertProcessed(row) {
+                const view = this.captureView();
+                if (view.domain !== 'bond') return;
+                try {
+                    await this.$confirm('确认将本条标记为已处理？不会自动改池，请先在证券池调库完成下调或出库。', '提示', {
+                        type: 'warning',
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                    });
+                } catch (e) {
+                    return;
+                }
+                if (!this.isCurrentView(view)) return;
+                this.alertLoading = true;
+                try {
+                    await this.apiPost('/api/v1/gradeRuleAlert/editAlertProcessed', {
+                        id: row.id,
+                        currentUserId: this.currentUserId,
+                        currentUserName: this.currentUserName,
+                    });
+                    this.$message.success('已标记处理');
+                    if (this.isCurrentView(view)) this.loadAlertList();
+                } catch (e) {
+                    if (this.isCurrentView(view)) {
+                        this.alertLoading = false;
+                        this.$message.error((e && e.message) || '处理失败');
+                    }
+                }
+            },
+
+            // 按后端实际处理资格统一按钮文案和流程描述链接入口
+            canProcessMatter(row) {
+                return !!row && row.canProcess === true;
+            },
+
+            // 打开对应审核/详情页（工作台内按记录新开页签，同键复用）
+            openMatterPage(row) {
+                const route = this.matterRoutes[row.businessScene];
+                if (!route || route.domain !== row.businessDomain || row.businessDomain !== this.businessDomain) {
+                    this.$message.error('事项业务场景无效，请刷新后重试');
+                    return;
+                }
+                const params = new URLSearchParams();
+                const canProcess = this.canProcessMatter(row);
+                const code = row.objectCode || '';
+                const name = row.objectName || code;
+                params.set('businessDomain', row.businessDomain);
+                if (code) params.set(route.codeParam, code);
+                if (row.crmwScode) params.set('crmwScode', row.crmwScode);
+                if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
+                if (row.adjustLogId) params.set('adjustLogId', row.adjustLogId);
+                if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
+                if (row.stepId) params.set('stepId', row.stepId);
+                params.set('entryMode', canProcess ? 'process' : 'view');
+                const page = canProcess ? route.approve : route.detail;
+                const opened = window.RrsWorkbench.openDetailTab({
+                    index: window.RrsWorkbench.buildTabIndex('matter-' + (canProcess ? 'approve' : 'detail'), [row.businessDomain, row.businessScene, code, row.crmwScode, row.adjustLogId, row.adjustBatchNo, row.targetPoolId]),
+                    title: window.RrsWorkbench.formatDetailTitle(name, code, canProcess ? '审核' : '详情'),
+                    page: page, query: params.toString(),
+                });
+                if (opened) return;
+                params.set('loginUserId', this.currentUserId);
+                params.set('loginUserName', this.currentUserName);
+                window.location.href = page + '?' + params.toString();
+            },
+        }
+    });
 </script>
 </body>
 </html>

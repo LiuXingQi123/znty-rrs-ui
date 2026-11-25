@@ -46,7 +46,8 @@
 
 - `axios.defaults.baseURL = 'http://localhost:18090'` 在 `js/api.js` 中设置一次；业务页直接 `this.apiPost('/api/v1/xxx', body)` 即可，**禁止**再设 `Vue.prototype.apiBase` 或在业务页里重复写 `axios.defaults.baseURL`。
 - `Vue.prototype.apiPost(path, body, config)` 第 3 个 `config` 透传给 `axios`；传 `{ responseType: 'blob' }` 走文件下载分支，直接返回原始 `resp`、跳过 `success` 解析。
-- 业务页 `<head>` 引入顺序固定：Element UI CSS → Vue → Element UI → axios → **`js/api.js`**（根目录 `js/api.js`，`pages/` 下用 `../js/api.js`）→ 按需 **`js/print_export.js`**（导出 PDF 的页面）→ 按需 moment → 页面 CSS → `css/common.css`。`api.js` 必须在 axios 之后、页面脚本之前，否则 `apiPost` 未挂载。
+- 首页、登录页、业务页和文档页在 `<head>` 按以下固定顺序引入资源，按需跳过未使用的项：Element UI CSS → Vue → Element UI 脚本 → Axios → `js/api.js` → `js/report_materials.js` → `css/report_materials.css` → `js/print_export.js` → Moment.js → Moment.js 简体中文包 → 页面专用 CSS → `css/common.css` → `css/security_master_diff.css` → `js/security_master_diff.js`。
+- `api.js` 必须在 Axios 之后、页面脚本之前，否则 `apiPost` 未挂载。根目录页面使用 `js/api.js`，`pages/` 和 `docs/` 下的页面使用 `../js/api.js`。可用 `node --test tests/html_resource_order.test.js` 检查引入顺序。
 
 ### `css/common.css` 的 iframe 与打印公共样式职责
 
@@ -279,7 +280,7 @@ el → data() → computed → watch → created / mounted → methods
 <head>
   <meta charset="UTF-8" />
   <title>页面标题</title>
-  <!-- 引入顺序：Element UI CSS → Vue → Element UI → axios → api.js → 按需 print_export.js → 按需 moment → 页面 CSS → common.css -->
+  <!-- 按统一顺序引入页面所需的资源 -->
   <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css" />
   <script src="https://unpkg.com/vue@2.5.16/dist/vue.min.js"></script>
   <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>

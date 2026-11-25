@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="../css/common.css">
 </head>
 <body class="company-pool-query-page">
+
 <div id="company_pool_query">
     <!-- ── 顶栏 ── -->
     <div class="topbar">
@@ -174,260 +175,260 @@
 </div>
 
 <script>
-new Vue({
-    el: '#company_pool_query',
-    data() {
-        return {
-            moment: moment, // 日期处理工具
-            pagePaths: { // 页面跳转路径
-                forbiddenPoolAdjustDetail: 'forbidden_pool_adjust_detail.html', // 禁投池调整详情页
-            },
-            today: moment().format('YYYY年MM月DD日'), // 顶栏显示的当前日期文字
-            searchForm: { // 搜索表单
-                poolIds: [],            // 选中的池 ID 列表（多选）
-                companyCode: '',        // 主体代码关键词
-                companyName: '',        // 主体全称关键词
-                registerNumber: '',     // 统一社会信用代码关键词
-                entryTimeRange: null,   // 入池时间范围 [startDate, endDate]
-                adjusterName: '',       // 调整人姓名关键词
-            },
-            // 投资池树
-            poolTreeData: [],           // 投资池树形数据（嵌套结构）
-            poolTreeVisible: false,     // 投资池树弹窗是否显示
-            poolTreeKeyword: '',        // 投资池树搜索词
-            selectedPoolTags: [],       // 已选池标签列表 [{id, poolName}]，用于标签行展示
-            treeProps: {              // 投资池树字段配置
-                children: 'children',  // 子节点字段名
-                label: 'poolName',     // 节点显示文本字段名
-                disabled(data) {
-                    // 仅叶子节点可选，父节点（有子节点）禁止勾选
-                    return data.children && data.children.length > 0;
-                }
-            },
-            // 表格
-            tableData: [],              // 当前页主体池数据列表
-            loading: false,             // 表格加载状态
-            exporting: false,           // 导出处理中状态
-            pagination: {             // 分页参数
-                pageIndex: 1,           // 当前页码
-                pageSize: 20,           // 每页显示条数
-                total: 0,               // 查询结果总条数
-            },
-        };
-    },
-    // 页面挂载后：配置请求根地址，加载投资池树与主体池列表
-    mounted() {
-        this.loadPoolTree();
-        this.loadList();
-    },
-    methods: {
-        // 加载投资池树
-        async loadPoolTree() {
-            try {
-                const data = await this.apiPost('/api/v1/common/queryPoolTreeList', {
-                    currentUserId: window.RrsAuth.getCurrentUser().userId,
-                    permissionType: 'viewable',
-                    includePoolCodes: ['forbidden_root', 'observe_root', 'pledge_blacklist_root', 'key_watch_list_root'],
-                });
-                this.poolTreeData = this.buildPoolTree(data || []);
-            } catch (e) {}
-        },
-
-        // 构建树结构（扁平列表 → 嵌套树），同时为每个节点挂载 fullPath 用于标签展示
-        buildPoolTree(list) {
-            if (!list || list.length === 0) return [];
-            const map = {};
-            const roots = [];
-            list.forEach(function(item) {
-                map[item.id] = Object.assign({}, item, { children: [] });
-            });
-            list.forEach(function(item) {
-                const node = map[item.id];
-                if (item.parentId != null && map[item.parentId]) {
-                    const parent = map[item.parentId];
-                    node.fullPath = node.poolFullName || parent.poolName + '/' + node.poolName;
-                    parent.children.push(node);
-                } else {
-                    node.fullPath = node.poolFullName || node.poolName;
-                    roots.push(node);
-                }
-            });
-            return roots;
-        },
-
-        // 确认池树选择
-        handlePoolTreeConfirm() {
-            const checkedKeys = this.$refs.poolTreeRef.getCheckedKeys();
-            const halfCheckedKeys = this.$refs.poolTreeRef.getHalfCheckedKeys();
-            const allKeys = checkedKeys.concat(halfCheckedKeys);
-            this.searchForm.poolIds = allKeys;
-            const flatList = this.flattenTree(this.poolTreeData);
-            this.selectedPoolTags = flatList
-                .filter(function(n) { return allKeys.indexOf(n.id) !== -1; })
-                .map(function(n) { return { id: n.id, poolName: n.fullPath }; });
-            this.poolTreeVisible = false;
-            this.handleSearch();
-        },
-
-        // 按投资池名称过滤选择树
-        filterPoolTree(value) {
-            if (this.$refs.poolTreeRef) {
-                this.$refs.poolTreeRef.filter(value.trim());
-            }
-        },
-
-        // 判断投资池树节点是否匹配搜索词
-        filterPoolTreeNode(value, data) {
-            if (!value) return true;
-            const searchableText = data.fullPath || data.poolName || '';
-            return String(searchableText).toLowerCase().indexOf(value.toLowerCase()) !== -1;
-        },
-
-        // 关闭选择弹层后清空搜索条件
-        handlePoolTreeHide() {
-            this.poolTreeKeyword = '';
-            if (this.$refs.poolTreeRef) {
-                this.$refs.poolTreeRef.filter('');
-            }
-        },
-
-        // 移除已选池标签
-        removePoolTag(poolId) {
-            this.searchForm.poolIds = this.searchForm.poolIds.filter(function(id) { return id !== poolId; });
-            this.selectedPoolTags = this.selectedPoolTags.filter(function(p) { return p.id !== poolId; });
-            this.$refs.poolTreeRef.setCheckedKeys(this.searchForm.poolIds);
-            this.handleSearch();
-        },
-
-        // 清空全部已选投资池并同步取消树节点勾选
-        clearPoolSelection() {
-            this.searchForm.poolIds = [];
-            this.selectedPoolTags = [];
-            if (this.$refs.poolTreeRef) {
-                this.$refs.poolTreeRef.setCheckedKeys([]);
-            }
-            this.handleSearch();
-        },
-
-        // 树扁平化
-        flattenTree(nodes) {
-            const result = [];
-            (function walk(list) {
-                list.forEach(function(n) {
-                    result.push(n);
-                    if (n.children && n.children.length > 0) walk(n.children);
-                });
-            })(nodes);
-            return result;
-        },
-
-        // 打开禁投池主体调库详情页（工作台内按主体新开页签，同键复用）
-        openForbiddenPoolAdjustDetail(row) {
-            const companyCode = row.securityCode || row.companyCode || '';
-            if (!companyCode) return;
-            const name = row.securityShortName || row.companyName || companyCode;
-            const params = new URLSearchParams();
-            params.set('companyCode', companyCode);
-            if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
-            if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
-            const adjustLogId = window.RrsWorkbench.resolveAdjustLogId(row, false);
-            if (adjustLogId) params.set('adjustLogId', adjustLogId);
-            params.set('entryMode', 'view');
-            const opened = window.RrsWorkbench.openDetailTab({
-                index: window.RrsWorkbench.buildTabIndex('forbidden-detail', [companyCode, adjustLogId, row.adjustBatchNo, row.targetPoolId]),
-                title: window.RrsWorkbench.formatDetailTitle(name, companyCode),
-                page: this.pagePaths.forbiddenPoolAdjustDetail,
-                query: params.toString(),
-            });
-            if (opened) return;
-            window.RrsAuth.appendUserParams(params);
-            window.location.href = this.pagePaths.forbiddenPoolAdjustDetail + '?' + params.toString();
-        },
-
-        // 组装分页查询参数并调用接口，将结果填入 tableData 与 pagination.total
-        // 组装与列表一致的筛选参数（导出时不带分页）
-        buildQueryParams() {
+    new Vue({
+        el: '#company_pool_query',
+        data() {
             return {
-                currentUserId: window.RrsAuth.getCurrentUser().userId,
-                poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
-                companyCode: this.searchForm.companyCode || null,
-                companyName: this.searchForm.companyName || null,
-                registerNumber: this.searchForm.registerNumber || null,
-                entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
-                    ? this.searchForm.entryTimeRange[0] + ' 00:00:00' : null,
-                entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1]
-                    ? this.searchForm.entryTimeRange[1] + ' 23:59:59' : null,
-                adjusterName: this.searchForm.adjusterName || null,
+                moment: moment, // 日期处理工具
+                pagePaths: { // 页面跳转路径
+                    forbiddenPoolAdjustDetail: 'forbidden_pool_adjust_detail.html', // 禁投池调整详情页
+                },
+                today: moment().format('YYYY年MM月DD日'), // 顶栏显示的当前日期文字
+                searchForm: { // 搜索表单
+                    poolIds: [],            // 选中的池 ID 列表（多选）
+                    companyCode: '',        // 主体代码关键词
+                    companyName: '',        // 主体全称关键词
+                    registerNumber: '',     // 统一社会信用代码关键词
+                    entryTimeRange: null,   // 入池时间范围 [startDate, endDate]
+                    adjusterName: '',       // 调整人姓名关键词
+                },
+                // 投资池树
+                poolTreeData: [],           // 投资池树形数据（嵌套结构）
+                poolTreeVisible: false,     // 投资池树弹窗是否显示
+                poolTreeKeyword: '',        // 投资池树搜索词
+                selectedPoolTags: [],       // 已选池标签列表 [{id, poolName}]，用于标签行展示
+                treeProps: {              // 投资池树字段配置
+                    children: 'children',  // 子节点字段名
+                    label: 'poolName',     // 节点显示文本字段名
+                    disabled(data) {
+                        // 仅叶子节点可选，父节点（有子节点）禁止勾选
+                        return data.children && data.children.length > 0;
+                    }
+                },
+                // 表格
+                tableData: [],              // 当前页主体池数据列表
+                loading: false,             // 表格加载状态
+                exporting: false,           // 导出处理中状态
+                pagination: {             // 分页参数
+                    pageIndex: 1,           // 当前页码
+                    pageSize: 20,           // 每页显示条数
+                    total: 0,               // 查询结果总条数
+                },
             };
         },
+        // 页面挂载后：配置请求根地址，加载投资池树与主体池列表
+        mounted() {
+            this.loadPoolTree();
+            this.loadList();
+        },
+        methods: {
+            // 加载投资池树
+            async loadPoolTree() {
+                try {
+                    const data = await this.apiPost('/api/v1/common/queryPoolTreeList', {
+                        currentUserId: window.RrsAuth.getCurrentUser().userId,
+                        permissionType: 'viewable',
+                        includePoolCodes: ['forbidden_root', 'observe_root', 'pledge_blacklist_root', 'key_watch_list_root'],
+                    });
+                    this.poolTreeData = this.buildPoolTree(data || []);
+                } catch (e) {}
+            },
 
-        // 分页加载主体池列表
-        async loadList() {
-            this.loading = true;
-            try {
-                // 复用筛选参数并附带分页
-                const params = Object.assign({}, this.buildQueryParams(), {
-                    pageIndex: this.pagination.pageIndex,
-                    pageSize: this.pagination.pageSize,
+            // 构建树结构（扁平列表 → 嵌套树），同时为每个节点挂载 fullPath 用于标签展示
+            buildPoolTree(list) {
+                if (!list || list.length === 0) return [];
+                const map = {};
+                const roots = [];
+                list.forEach(function(item) {
+                    map[item.id] = Object.assign({}, item, { children: [] });
                 });
-                const data = await this.apiPost('/api/v1/companyPoolQuery/queryCompanyPoolPage', params);
-                this.tableData = data.records || [];
-                this.pagination.total = data.total || 0;
-            } catch (e) {}
-            this.loading = false;
-        },
+                list.forEach(function(item) {
+                    const node = map[item.id];
+                    if (item.parentId != null && map[item.parentId]) {
+                        const parent = map[item.parentId];
+                        node.fullPath = node.poolFullName || parent.poolName + '/' + node.poolName;
+                        parent.children.push(node);
+                    } else {
+                        node.fullPath = node.poolFullName || node.poolName;
+                        roots.push(node);
+                    }
+                });
+                return roots;
+            },
 
-        // 按当前筛选条件导出全部命中记录
-        async handleExport() {
-            this.exporting = true;
-            try {
-                // 导出接口不传分页，按当前筛选全量下载
-                const file = await this.apiPost('/api/v1/companyPoolQuery/exportCompanyPoolExcel', this.buildQueryParams());
-                // 触发浏览器下载
-                this.downloadBase64File(file.contentBase64, file.fileName, file.contentType);
-                this.$message.success('导出成功');
-            } finally {
-                this.exporting = false;
-            }
-        },
+            // 确认池树选择
+            handlePoolTreeConfirm() {
+                const checkedKeys = this.$refs.poolTreeRef.getCheckedKeys();
+                const halfCheckedKeys = this.$refs.poolTreeRef.getHalfCheckedKeys();
+                const allKeys = checkedKeys.concat(halfCheckedKeys);
+                this.searchForm.poolIds = allKeys;
+                const flatList = this.flattenTree(this.poolTreeData);
+                this.selectedPoolTags = flatList
+                    .filter(function(n) { return allKeys.indexOf(n.id) !== -1; })
+                    .map(function(n) { return { id: n.id, poolName: n.fullPath }; });
+                this.poolTreeVisible = false;
+                this.handleSearch();
+            },
 
-        // 点击查询按钮：重置页码为第 1 页并重新加载列表
-        handleSearch() {
-            this.pagination.pageIndex = 1;
-            this.loadList();
-        },
+            // 按投资池名称过滤选择树
+            filterPoolTree(value) {
+                if (this.$refs.poolTreeRef) {
+                    this.$refs.poolTreeRef.filter(value.trim());
+                }
+            },
 
-        // 点击重置按钮：清空所有搜索条件、清除池树勾选，并重新加载列表
-        handleReset() {
-            this.searchForm = {
-                poolIds: [],
-                companyCode: '',
-                companyName: '',
-                registerNumber: '',
-                entryTimeRange: null,
-                adjusterName: '',
-            };
-            this.selectedPoolTags = [];
-            this.pagination.pageIndex = 1;
-            if (this.$refs.poolTreeRef) {
-                this.$refs.poolTreeRef.setCheckedKeys([]);
-            }
-            this.loadList();
-        },
+            // 判断投资池树节点是否匹配搜索词
+            filterPoolTreeNode(value, data) {
+                if (!value) return true;
+                const searchableText = data.fullPath || data.poolName || '';
+                return String(searchableText).toLowerCase().indexOf(value.toLowerCase()) !== -1;
+            },
 
-        // 切换页码：更新当前页码并重新加载列表
-        handlePageChange(page) {
-            this.pagination.pageIndex = page;
-            this.loadList();
-        },
-        // 修改每页条数：重置到第 1 页并重新加载列表
-        handleSizeChange(size) {
-            this.pagination.pageSize = size;
-            this.pagination.pageIndex = 1;
-            this.loadList();
-        },
-    }
-});
+            // 关闭选择弹层后清空搜索条件
+            handlePoolTreeHide() {
+                this.poolTreeKeyword = '';
+                if (this.$refs.poolTreeRef) {
+                    this.$refs.poolTreeRef.filter('');
+                }
+            },
+
+            // 移除已选池标签
+            removePoolTag(poolId) {
+                this.searchForm.poolIds = this.searchForm.poolIds.filter(function(id) { return id !== poolId; });
+                this.selectedPoolTags = this.selectedPoolTags.filter(function(p) { return p.id !== poolId; });
+                this.$refs.poolTreeRef.setCheckedKeys(this.searchForm.poolIds);
+                this.handleSearch();
+            },
+
+            // 清空全部已选投资池并同步取消树节点勾选
+            clearPoolSelection() {
+                this.searchForm.poolIds = [];
+                this.selectedPoolTags = [];
+                if (this.$refs.poolTreeRef) {
+                    this.$refs.poolTreeRef.setCheckedKeys([]);
+                }
+                this.handleSearch();
+            },
+
+            // 树扁平化
+            flattenTree(nodes) {
+                const result = [];
+                (function walk(list) {
+                    list.forEach(function(n) {
+                        result.push(n);
+                        if (n.children && n.children.length > 0) walk(n.children);
+                    });
+                })(nodes);
+                return result;
+            },
+
+            // 打开禁投池主体调库详情页（工作台内按主体新开页签，同键复用）
+            openForbiddenPoolAdjustDetail(row) {
+                const companyCode = row.securityCode || row.companyCode || '';
+                if (!companyCode) return;
+                const name = row.securityShortName || row.companyName || companyCode;
+                const params = new URLSearchParams();
+                params.set('companyCode', companyCode);
+                if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
+                if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
+                const adjustLogId = window.RrsWorkbench.resolveAdjustLogId(row, false);
+                if (adjustLogId) params.set('adjustLogId', adjustLogId);
+                params.set('entryMode', 'view');
+                const opened = window.RrsWorkbench.openDetailTab({
+                    index: window.RrsWorkbench.buildTabIndex('forbidden-detail', [companyCode, adjustLogId, row.adjustBatchNo, row.targetPoolId]),
+                    title: window.RrsWorkbench.formatDetailTitle(name, companyCode),
+                    page: this.pagePaths.forbiddenPoolAdjustDetail,
+                    query: params.toString(),
+                });
+                if (opened) return;
+                window.RrsAuth.appendUserParams(params);
+                window.location.href = this.pagePaths.forbiddenPoolAdjustDetail + '?' + params.toString();
+            },
+
+            // 组装分页查询参数并调用接口，将结果填入 tableData 与 pagination.total
+            // 组装与列表一致的筛选参数（导出时不带分页）
+            buildQueryParams() {
+                return {
+                    currentUserId: window.RrsAuth.getCurrentUser().userId,
+                    poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
+                    companyCode: this.searchForm.companyCode || null,
+                    companyName: this.searchForm.companyName || null,
+                    registerNumber: this.searchForm.registerNumber || null,
+                    entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
+                        ? this.searchForm.entryTimeRange[0] + ' 00:00:00' : null,
+                    entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1]
+                        ? this.searchForm.entryTimeRange[1] + ' 23:59:59' : null,
+                    adjusterName: this.searchForm.adjusterName || null,
+                };
+            },
+
+            // 分页加载主体池列表
+            async loadList() {
+                this.loading = true;
+                try {
+                    // 复用筛选参数并附带分页
+                    const params = Object.assign({}, this.buildQueryParams(), {
+                        pageIndex: this.pagination.pageIndex,
+                        pageSize: this.pagination.pageSize,
+                    });
+                    const data = await this.apiPost('/api/v1/companyPoolQuery/queryCompanyPoolPage', params);
+                    this.tableData = data.records || [];
+                    this.pagination.total = data.total || 0;
+                } catch (e) {}
+                this.loading = false;
+            },
+
+            // 按当前筛选条件导出全部命中记录
+            async handleExport() {
+                this.exporting = true;
+                try {
+                    // 导出接口不传分页，按当前筛选全量下载
+                    const file = await this.apiPost('/api/v1/companyPoolQuery/exportCompanyPoolExcel', this.buildQueryParams());
+                    // 触发浏览器下载
+                    this.downloadBase64File(file.contentBase64, file.fileName, file.contentType);
+                    this.$message.success('导出成功');
+                } finally {
+                    this.exporting = false;
+                }
+            },
+
+            // 点击查询按钮：重置页码为第 1 页并重新加载列表
+            handleSearch() {
+                this.pagination.pageIndex = 1;
+                this.loadList();
+            },
+
+            // 点击重置按钮：清空所有搜索条件、清除池树勾选，并重新加载列表
+            handleReset() {
+                this.searchForm = {
+                    poolIds: [],
+                    companyCode: '',
+                    companyName: '',
+                    registerNumber: '',
+                    entryTimeRange: null,
+                    adjusterName: '',
+                };
+                this.selectedPoolTags = [];
+                this.pagination.pageIndex = 1;
+                if (this.$refs.poolTreeRef) {
+                    this.$refs.poolTreeRef.setCheckedKeys([]);
+                }
+                this.loadList();
+            },
+
+            // 切换页码：更新当前页码并重新加载列表
+            handlePageChange(page) {
+                this.pagination.pageIndex = page;
+                this.loadList();
+            },
+            // 修改每页条数：重置到第 1 页并重新加载列表
+            handleSizeChange(size) {
+                this.pagination.pageSize = size;
+                this.pagination.pageIndex = 1;
+                this.loadList();
+            },
+        }
+    });
 </script>
 </body>
 </html>

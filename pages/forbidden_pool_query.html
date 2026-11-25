@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="../css/common.css">
 </head>
 <body class="forbidden-pool-query-page">
+
 <div id="forbidden_pool_query">
     <!-- ── 顶栏 ── -->
     <div class="topbar">
@@ -179,181 +180,181 @@
 </div>
 
 <script>
-new Vue({
-    el: '#forbidden_pool_query',
-    data() {
-        return {
-            moment: moment, // 日期处理工具
-            pagePaths: { // 页面跳转路径
-                securityPoolAdjustDetail: 'security_pool_adjust_detail.html', // 证券池调整详情页
-                forbiddenPoolAdjustDetail: 'forbidden_pool_adjust_detail.html', // 禁投池调整详情页
-            },
-            today: moment().format('YYYY年MM月DD日'), // 顶栏显示的当前日期文字
-            searchForm: { // 搜索表单
-                securityCode: '',        // 证券代码关键词
-                securityShortName: '',   // 证券简称关键词
-                securityType: '',        // 证券类型代码（从下拉选项获取）
-                categoryType: '',        // 对象类型：company=主体 / bond=债券
-                securityStatus: '',      // 证券状态：active=存续 / matured=到期
-                entryTimeRange: null,    // 入池日期范围 [startDate, endDate]
-                adjusterName: '',        // 调整人姓名关键词
-                issuer: '',              // 发行主体全称关键词
-                registerNumber: '',      // 统一社会信用代码关键词
-            },
-            // 下拉选项
-            securityTypeOptions: [],     // 证券类型选项列表，从后端接口动态加载
-            categoryTypeOptions: [       // 对象类型筛选选项
-                { value: 'company', label: '主体' },
-                { value: 'bond', label: '债券' },
-            ],
-            securityStatusOptions: [   // 证券状态筛选选项
-                { value: 'active', label: '存续' },
-                { value: 'matured', label: '到期' },
-            ],
-            // 表格
-            tableData: [],              // 当前页禁投池证券数据列表
-            loading: false,             // 表格加载状态
-            exporting: false,           // 导出处理中状态
-            pagination: {             // 分页参数
-                pageIndex: 1,           // 当前页码
-                pageSize: 20,           // 每页显示条数
-                total: 0,               // 查询结果总条数
-            },
-        };
-    },
-    // 页面挂载后：配置请求根地址，加载证券类型下拉选项与禁投池列表
-    mounted() {
-        this.loadBondTypeOptions();
-        this.loadList();
-    },
-    methods: {
-        // 加载证券类型下拉选项（返回 [{securityType, securityTypeName}] 列表）
-        async loadBondTypeOptions() {
-            try {
-                this.securityTypeOptions = await this.apiPost('/api/v1/forbiddenPoolQuery/querySecurityTypeList', {
-                    currentUserId: window.RrsAuth.getCurrentUser().userId,
-                });
-            } catch (e) {}
-        },
-
-        // 组装分页查询参数并调用接口，将结果填入 tableData 与 pagination.total
-        // 组装与列表一致的筛选参数（导出时不带分页）
-        buildQueryParams() {
+    new Vue({
+        el: '#forbidden_pool_query',
+        data() {
             return {
-                currentUserId: window.RrsAuth.getCurrentUser().userId,
-                securityCode: this.searchForm.securityCode || null,
-                securityShortName: this.searchForm.securityShortName || null,
-                securityType: this.searchForm.securityType || null,
-                categoryType: this.searchForm.categoryType || null,
-                securityStatus: this.searchForm.securityStatus || null,
-                // 入池日期范围起止，无选择时传 null
-                entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
-                    ? this.searchForm.entryTimeRange[0] : null,
-                entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1]
-                    ? this.searchForm.entryTimeRange[1] : null,
-                adjusterName: this.searchForm.adjusterName || null,
-                issuer: this.searchForm.issuer || null,
-                registerNumber: this.searchForm.registerNumber || null,
+                moment: moment, // 日期处理工具
+                pagePaths: { // 页面跳转路径
+                    securityPoolAdjustDetail: 'security_pool_adjust_detail.html', // 证券池调整详情页
+                    forbiddenPoolAdjustDetail: 'forbidden_pool_adjust_detail.html', // 禁投池调整详情页
+                },
+                today: moment().format('YYYY年MM月DD日'), // 顶栏显示的当前日期文字
+                searchForm: { // 搜索表单
+                    securityCode: '',        // 证券代码关键词
+                    securityShortName: '',   // 证券简称关键词
+                    securityType: '',        // 证券类型代码（从下拉选项获取）
+                    categoryType: '',        // 对象类型：company=主体 / bond=债券
+                    securityStatus: '',      // 证券状态：active=存续 / matured=到期
+                    entryTimeRange: null,    // 入池日期范围 [startDate, endDate]
+                    adjusterName: '',        // 调整人姓名关键词
+                    issuer: '',              // 发行主体全称关键词
+                    registerNumber: '',      // 统一社会信用代码关键词
+                },
+                // 下拉选项
+                securityTypeOptions: [],     // 证券类型选项列表，从后端接口动态加载
+                categoryTypeOptions: [       // 对象类型筛选选项
+                    { value: 'company', label: '主体' },
+                    { value: 'bond', label: '债券' },
+                ],
+                securityStatusOptions: [   // 证券状态筛选选项
+                    { value: 'active', label: '存续' },
+                    { value: 'matured', label: '到期' },
+                ],
+                // 表格
+                tableData: [],              // 当前页禁投池证券数据列表
+                loading: false,             // 表格加载状态
+                exporting: false,           // 导出处理中状态
+                pagination: {             // 分页参数
+                    pageIndex: 1,           // 当前页码
+                    pageSize: 20,           // 每页显示条数
+                    total: 0,               // 查询结果总条数
+                },
             };
         },
+        // 页面挂载后：配置请求根地址，加载证券类型下拉选项与禁投池列表
+        mounted() {
+            this.loadBondTypeOptions();
+            this.loadList();
+        },
+        methods: {
+            // 加载证券类型下拉选项（返回 [{securityType, securityTypeName}] 列表）
+            async loadBondTypeOptions() {
+                try {
+                    this.securityTypeOptions = await this.apiPost('/api/v1/forbiddenPoolQuery/querySecurityTypeList', {
+                        currentUserId: window.RrsAuth.getCurrentUser().userId,
+                    });
+                } catch (e) {}
+            },
 
-        // 分页加载禁投池证券列表
-        async loadList() {
-            this.loading = true;
-            try {
-                // 复用筛选参数并附带分页
-                const params = Object.assign({}, this.buildQueryParams(), {
-                    pageIndex: this.pagination.pageIndex,
-                    pageSize: this.pagination.pageSize,
+            // 组装分页查询参数并调用接口，将结果填入 tableData 与 pagination.total
+            // 组装与列表一致的筛选参数（导出时不带分页）
+            buildQueryParams() {
+                return {
+                    currentUserId: window.RrsAuth.getCurrentUser().userId,
+                    securityCode: this.searchForm.securityCode || null,
+                    securityShortName: this.searchForm.securityShortName || null,
+                    securityType: this.searchForm.securityType || null,
+                    categoryType: this.searchForm.categoryType || null,
+                    securityStatus: this.searchForm.securityStatus || null,
+                    // 入池日期范围起止，无选择时传 null
+                    entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
+                        ? this.searchForm.entryTimeRange[0] : null,
+                    entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1]
+                        ? this.searchForm.entryTimeRange[1] : null,
+                    adjusterName: this.searchForm.adjusterName || null,
+                    issuer: this.searchForm.issuer || null,
+                    registerNumber: this.searchForm.registerNumber || null,
+                };
+            },
+
+            // 分页加载禁投池证券列表
+            async loadList() {
+                this.loading = true;
+                try {
+                    // 复用筛选参数并附带分页
+                    const params = Object.assign({}, this.buildQueryParams(), {
+                        pageIndex: this.pagination.pageIndex,
+                        pageSize: this.pagination.pageSize,
+                    });
+                    const data = await this.apiPost('/api/v1/forbiddenPoolQuery/queryForbiddenPoolPage', params);
+                    this.tableData = data.records || [];
+                    this.pagination.total = data.total || 0;
+                } catch (e) {}
+                this.loading = false;
+            },
+
+
+            // 按当前筛选条件导出全部命中记录
+            async handleExport() {
+                this.exporting = true;
+                try {
+                    // 导出接口不传分页，按当前筛选全量下载
+                    const file = await this.apiPost('/api/v1/forbiddenPoolQuery/exportForbiddenPoolExcel', this.buildQueryParams());
+                    // 触发浏览器下载
+                    this.downloadBase64File(file.contentBase64, file.fileName, file.contentType);
+                    this.$message.success('导出成功');
+                } finally {
+                    this.exporting = false;
+                }
+            },
+
+            // 点击查询按钮：重置页码为第 1 页并重新加载列表
+            handleSearch() {
+                this.pagination.pageIndex = 1;
+                this.loadList();
+            },
+
+            // 点击重置按钮：清空所有搜索条件，重置页码，并重新加载列表
+            handleReset() {
+                this.searchForm = {
+                    securityCode: '',
+                    securityShortName: '',
+                    securityType: '',
+                    categoryType: '',
+                    securityStatus: '',
+                    entryTimeRange: null,
+                    adjusterName: '',
+                    issuer: '',
+                    registerNumber: '',
+                };
+                this.pagination.pageIndex = 1;
+                this.loadList();
+            },
+
+            // 切换页码：更新当前页码并重新加载列表
+            handlePageChange(page) {
+                this.pagination.pageIndex = page;
+                this.loadList();
+            },
+            // 修改每页条数：重置到第 1 页并重新加载列表
+            handleSizeChange(size) {
+                this.pagination.pageSize = size;
+                this.pagination.pageIndex = 1;
+                this.loadList();
+            },
+
+            // 判断当前记录是否为公司主体禁投池记录
+            isCompany(row) {
+                return row.categoryType === 'company';
+            },
+
+            // 打开禁投池对应的调库详情页（工作台内按对象新开页签，同键复用）
+            openPoolAdjustDetail(row) {
+                const params = new URLSearchParams();
+                const isCompany = this.isCompany(row);
+                const targetCode = row.securityCode || row.windCode || '';
+                const name = row.securityShortName || row.companyName || targetCode;
+                if (targetCode) params.set(isCompany ? 'companyCode' : 'securityCode', targetCode);
+                if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
+                const adjustLogId = window.RrsWorkbench.resolveAdjustLogId(row, false);
+                if (adjustLogId) params.set('adjustLogId', adjustLogId);
+                if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
+                params.set('entryMode', 'view');
+                const page = isCompany ? this.pagePaths.forbiddenPoolAdjustDetail : this.pagePaths.securityPoolAdjustDetail;
+                const prefix = isCompany ? 'forbidden-detail' : 'security-detail';
+                const opened = window.RrsWorkbench.openDetailTab({
+                    index: window.RrsWorkbench.buildTabIndex(prefix, [targetCode, adjustLogId, row.adjustBatchNo, row.targetPoolId]),
+                    title: window.RrsWorkbench.formatDetailTitle(name, targetCode),
+                    page: page,
+                    query: params.toString(),
                 });
-                const data = await this.apiPost('/api/v1/forbiddenPoolQuery/queryForbiddenPoolPage', params);
-                this.tableData = data.records || [];
-                this.pagination.total = data.total || 0;
-            } catch (e) {}
-            this.loading = false;
-        },
-
-
-        // 按当前筛选条件导出全部命中记录
-        async handleExport() {
-            this.exporting = true;
-            try {
-                // 导出接口不传分页，按当前筛选全量下载
-                const file = await this.apiPost('/api/v1/forbiddenPoolQuery/exportForbiddenPoolExcel', this.buildQueryParams());
-                // 触发浏览器下载
-                this.downloadBase64File(file.contentBase64, file.fileName, file.contentType);
-                this.$message.success('导出成功');
-            } finally {
-                this.exporting = false;
-            }
-        },
-
-        // 点击查询按钮：重置页码为第 1 页并重新加载列表
-        handleSearch() {
-            this.pagination.pageIndex = 1;
-            this.loadList();
-        },
-
-        // 点击重置按钮：清空所有搜索条件，重置页码，并重新加载列表
-        handleReset() {
-            this.searchForm = {
-                securityCode: '',
-                securityShortName: '',
-                securityType: '',
-                categoryType: '',
-                securityStatus: '',
-                entryTimeRange: null,
-                adjusterName: '',
-                issuer: '',
-                registerNumber: '',
-            };
-            this.pagination.pageIndex = 1;
-            this.loadList();
-        },
-
-        // 切换页码：更新当前页码并重新加载列表
-        handlePageChange(page) {
-            this.pagination.pageIndex = page;
-            this.loadList();
-        },
-        // 修改每页条数：重置到第 1 页并重新加载列表
-        handleSizeChange(size) {
-            this.pagination.pageSize = size;
-            this.pagination.pageIndex = 1;
-            this.loadList();
-        },
-
-        // 判断当前记录是否为公司主体禁投池记录
-        isCompany(row) {
-            return row.categoryType === 'company';
-        },
-
-        // 打开禁投池对应的调库详情页（工作台内按对象新开页签，同键复用）
-        openPoolAdjustDetail(row) {
-            const params = new URLSearchParams();
-            const isCompany = this.isCompany(row);
-            const targetCode = row.securityCode || row.windCode || '';
-            const name = row.securityShortName || row.companyName || targetCode;
-            if (targetCode) params.set(isCompany ? 'companyCode' : 'securityCode', targetCode);
-            if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
-            const adjustLogId = window.RrsWorkbench.resolveAdjustLogId(row, false);
-            if (adjustLogId) params.set('adjustLogId', adjustLogId);
-            if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
-            params.set('entryMode', 'view');
-            const page = isCompany ? this.pagePaths.forbiddenPoolAdjustDetail : this.pagePaths.securityPoolAdjustDetail;
-            const prefix = isCompany ? 'forbidden-detail' : 'security-detail';
-            const opened = window.RrsWorkbench.openDetailTab({
-                index: window.RrsWorkbench.buildTabIndex(prefix, [targetCode, adjustLogId, row.adjustBatchNo, row.targetPoolId]),
-                title: window.RrsWorkbench.formatDetailTitle(name, targetCode),
-                page: page,
-                query: params.toString(),
-            });
-            if (opened) return;
-            window.RrsAuth.appendUserParams(params);
-            window.location.href = page + '?' + params.toString();
-        },
-    }
-});
+                if (opened) return;
+                window.RrsAuth.appendUserParams(params);
+                window.location.href = page + '?' + params.toString();
+            },
+        }
+    });
 </script>
 </body>
 </html>

@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="../css/common.css">
 </head>
 <body class="fund-pool-excel-import-page">
+
 <div id="fund_pool_excel_import">
     <header class="topbar">
         <div class="topbar-brand"><div class="topbar-icon"><i class="el-icon-upload2"></i></div><h2>基金池Excel导入</h2></div>
@@ -182,610 +183,611 @@
         <span slot="footer"><el-button size="small" :disabled="submitting" @click="flowDialogVisible = false">取消</el-button><el-button type="primary" size="small" :disabled="!canSubmit" :loading="submitting" @click="confirmFlowSelection">确认</el-button></span>
     </el-dialog>
 </div>
-<script>
-new Vue({
-    el: '#fund_pool_excel_import',
-    // 初始化页面数据和交互状态
-    data() {
-        const user = window.RrsAuth.getCurrentUser()
-        return {
-            // 流程 ID → 流程描述，悬停展示用
-            flowDescMap: {},
-            loading: false, checking: false, submitting: false, // 串行处理上传、校验与提交
-            form: {
-                direction: 'in',
-                clearTarget: false,
-                allowLinkMutex: true,
-                clearFundScore: '',
-                clearFundInvestmentType: '',
-                clearNeedRiskLeaderApproval: '',
-                adjustReason: '',
-                adjustAdvice: ''
-            }, // 整批参数
-            investmentTypeOptions: [ // 基金投资类型选项
-                { value: 'stock', label: '股票型' }, { value: 'equity_hybrid', label: '偏股混合型' },
-                { value: 'money_market', label: '货币型' }, { value: 'bond_hybrid', label: '偏债混合型' }, { value: 'other', label: '其余类型' }
-            ],
-            templateColumns: ['父池名称', '子池名称', '基金名称', '基金代码', '基金评分', '基金投资类型', '风管领导审批'], // Excel 七列
-            fileList: [], fileName: '', impId: '', task: {}, // 当前批次与文件
-            tableData: [], checkItems: [], activeResultTab: 'import', // 预览与调库校验结果
-            flowDialogVisible: false, filterChkRslt: '', keyword: '', // 弹窗与明细筛选
-            pagination: {
-                pageIndex: 1,
-                pageSize: 20,
-                total: 0
-            }, // 导入明细分页
-            currentUserId: user.userId, currentUserName: user.userName // 操作人
-        }
-    },
-    computed: {
-        // 顶栏日期。
-        currentDateText() {
-            return moment().format('YYYY-MM-DD')
-        },
-        // 正在处理的操作禁止交叉请求。
-        busy() {
-            return this.loading || this.checking || this.submitting
-        },
-        // 提交后只读展示该批次。
-        isSubmitted() {
-            return String(this.task.saveRslt) === '1'
-        },
-        // 导入选项与清空信息上传后锁定。
-        parametersLocked() {
-            return !!this.impId || this.busy
-        },
-        // 上传区域在处理期间和已提交时禁用。
-        isUploadDisabled() {
-            return this.busy || this.isSubmitted
-        },
-        // 导入批次号沿用证券页，仅管理员可见。
-        isAdmin() {
-            return String(this.currentUserId) === '1'
-        },
-        // 主项未通过时，同来源的附属项也不进入提交集合。
-        validCheckItems() {
-            const failedSources = new Set(this.checkItems.filter(row => this.isManualItem(row) && !row.canAdjust).map(row => this.sourceKey(row)))
-            return this.checkItems.filter(row => row.canAdjust && !failedSources.has(this.sourceKey(row)))
-        },
-        // 手工与清空主项均需要选择流程。
-        validManualCheckItems() {
-            return this.validCheckItems.filter(row => this.isManualItem(row))
-        },
-        // 可提交总条数包含主项及其联动、互斥项。
-        validCheckCount() {
-            return this.validCheckItems.length
-        },
-        // 每个主项必须选择已有且可选的流程候选。
-        allValidRowsHaveFlow() {
-            return this.validManualCheckItems.length > 0 && this.validManualCheckItems.every(row => !!this.selectedRowFlowOption(row))
-        },
-        // 仅校验完成、未提交且流程完备的批次允许提交。
-        canSubmit() {
-            return !!this.impId && !this.busy && !!this.task.checkDone && !this.isSubmitted && this.validCheckCount > 0 && this.allValidRowsHaveFlow
-        },
-        // 禁用提交时提示缺少的前置步骤。
-        submitDisabledTip() {
-            if (!this.impId) {
-                return '请先上传 Excel'
-            }
-            if (this.isSubmitted) {
-                return '该批次已提交'
-            }
-            if (!this.task.checkDone) {
-                return '请先点击校验'
-            }
-            if (!this.validCheckCount) {
-                return '没有可提交的校验结果'
-            }
-            if (!this.allValidRowsHaveFlow) {
-                return '请为所有可提交的手工及清空项选择审批流程'
-            }
-            return ''
-        },
-        // 校验结果区说明。
-        checkHint() {
-            if (!this.impId) {
-                return '上传并校验后展示'
-            }
-            if (this.isSubmitted) {
-                return this.task.saveDscr || '基金池调库申请已提交'
-            }
-            if (!this.task.checkDone) {
-                return this.task.chkDscr || '请先点击「校验」'
-            }
-            return this.form.allowLinkMutex ? '含手工 / 联动 / 互斥及清空项' : '仅 Excel 手工及清空项（未勾选联动与互斥）'
-        }
-    },
-    methods: {
 
-        // 流程 ID 是主键，直接按 ID 建描述索引
-        loadFlowDescriptions() {
-            this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
-                const map = {};
-                (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
-                this.flowDescMap = map;
-            }).catch(() => {});
-        },
-        flowDesc(flow) {
-            return this.flowDescMap[flow.flowId] || '';
-        },
-        // 空值保持空白，数字 0 仍为有效值。
-        hasValue(value) {
-            return value !== null && value !== undefined && String(value).trim() !== ''
-        },
-        // 投资类型展示中文，非法编码保留原始值供定位。
-        investmentTypeLabel(value) {
-            const found = this.investmentTypeOptions.find(item => item.value === String(value).trim())
-            return found ? found.label : (this.hasValue(value) ? String(value) : '')
-        },
-        // 领导审批展示中文，非法原始值不隐藏。
-        riskLeaderLabel(value) {
-            const text = this.hasValue(value) ? String(value).trim() : ''
-            return text === '0' ? '否' : (text === '1' ? '是' : text)
-        },
-        // 方向文案与基金单笔一致。
-        directionLabel(value) {
-            return value === 'in' ? '调入' : (value === 'out' ? '调出' : value || '')
-        },
-        // 调出不允许清空目标池。
-        onDirectionChange(direction) {
-            if (direction === 'out') {
-                this.form.clearTarget = false
-            }
-        },
-        // 校验上传参数，清空评分不限定范围。
-        validateImportParameters() {
-            if (this.form.direction !== 'in' && this.form.direction !== 'out') {
-                return '请选择调整方向'
-            }
-            if (this.form.direction !== 'in' || !this.form.clearTarget) {
-                return ''
-            }
-            if (!this.hasValue(this.form.clearFundScore) || !Number.isFinite(Number(this.form.clearFundScore))) {
-                return '请输入合法数字的清空评分'
-            }
-            if (!this.investmentTypeOptions.some(item => item.value === this.form.clearFundInvestmentType)) {
-                return '请选择清空投资类型'
-            }
-            if (this.form.clearNeedRiskLeaderApproval !== 0 && this.form.clearNeedRiskLeaderApproval !== 1) {
-                return '请选择清空领导审批'
-            }
-            return ''
-        },
-        // 下载后端维护的基金模板。
-        async handleDownloadTemplate() {
-            try {
-                const data = await this.apiPost('/api/v1/commonFile/downloadTemplate', { templateCode: 'fund_pool_import' })
-                if (!data || !data.contentBase64) {
-                    this.$message.error('模板内容为空')
-                    return
-                }
-                // 将 Base64 模板转为浏览器下载。
-                this.downloadBase64File(data.contentBase64, data.fileName || '基金池导入模板.xlsx', data.contentType)
-                this.$message.success('基金模板已开始下载')
-            } catch (e) {
-                /* api 已提示 */
-            }
-        },
-        // Base64 文件下载与证券 Excel 导入一致。
-        downloadBase64File(base64, fileName, contentType) {
-            const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0))
-            const url = URL.createObjectURL(new Blob([bytes], { type: contentType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
-            const anchor = document.createElement('a')
-            anchor.href = url
-            anchor.download = fileName
-            document.body.appendChild(anchor)
-            anchor.click()
-            document.body.removeChild(anchor)
-            URL.revokeObjectURL(url)
-        },
-        // 单文件区域再次选择时替换未提交批次。
-        async handleFileExceed(files) {
-            if (files && files.length) {
-                await this.processSelectedFile(files[0])
-            }
-        },
-        // 只处理新选择的 ready 文件。
-        async handleFileChange(file) {
-            if (file && file.status && file.status !== 'ready') {
-                return
-            }
-            const raw = file && (file.raw || file)
-            if (raw) {
-                await this.processSelectedFile(raw)
-            }
-        },
-        // 验证文件及参数，成功取消旧批次后上传新文件。
-        async processSelectedFile(file) {
-            if (this.isUploadDisabled) {
-                return
-            }
-            if (!/\.(xls|xlsx)$/i.test(file.name || '')) {
-                this.$message.warning('请选择 xls 或 xlsx 文件')
-                return
-            }
-            if (file.size > 5 * 1024 * 1024) {
-                this.$message.warning('Excel 文件不能超过 5MB')
-                return
-            }
-            // 校验整批参数，领导审批否值 0 不按空值处理。
-            const error = this.validateImportParameters()
-            if (error) {
-                this.$message.warning(error)
-                return
-            }
-            this.loading = true
-            try {
-                if (this.impId) {
-                    await this.apiPost('/api/v1/fundPoolExcelImport/cancelImport', { impId: this.impId })
-                    // 成功取消后清除旧结果，保留本批参数。
-                    this.clearTaskDataKeepForm()
-                }
-                const clearing = this.form.direction === 'in' && this.form.clearTarget
-                const request = {
-                    direction: this.form.direction,
-                    clearTarget: clearing,
-                    allowLinkMutex: !!this.form.allowLinkMutex,
-                    clearFundScore: clearing ? Number(this.form.clearFundScore) : null,
-                    clearFundInvestmentType: clearing ? this.form.clearFundInvestmentType : null,
-                    clearNeedRiskLeaderApproval: clearing ? this.form.clearNeedRiskLeaderApproval : null,
-                    adjustReason: this.form.adjustReason || null,
-                    adjustAdvice: this.form.adjustAdvice || null,
-                    currentUserId: this.currentUserId,
-                    currentUserName: this.currentUserName,
+<script>
+    new Vue({
+        el: '#fund_pool_excel_import',
+        // 初始化页面数据和交互状态
+        data() {
+            const user = window.RrsAuth.getCurrentUser()
+            return {
+                // 流程 ID → 流程描述，悬停展示用
+                flowDescMap: {},
+                loading: false, checking: false, submitting: false, // 串行处理上传、校验与提交
+                form: {
+                    direction: 'in',
+                    clearTarget: false,
+                    allowLinkMutex: true,
+                    clearFundScore: '',
+                    clearFundInvestmentType: '',
+                    clearNeedRiskLeaderApproval: '',
+                    adjustReason: '',
+                    adjustAdvice: ''
+                }, // 整批参数
+                investmentTypeOptions: [ // 基金投资类型选项
+                    { value: 'stock', label: '股票型' }, { value: 'equity_hybrid', label: '偏股混合型' },
+                    { value: 'money_market', label: '货币型' }, { value: 'bond_hybrid', label: '偏债混合型' }, { value: 'other', label: '其余类型' }
+                ],
+                templateColumns: ['父池名称', '子池名称', '基金名称', '基金代码', '基金评分', '基金投资类型', '风管领导审批'], // Excel 七列
+                fileList: [], fileName: '', impId: '', task: {}, // 当前批次与文件
+                tableData: [], checkItems: [], activeResultTab: 'import', // 预览与调库校验结果
+                flowDialogVisible: false, filterChkRslt: '', keyword: '', // 弹窗与明细筛选
+                pagination: {
                     pageIndex: 1,
-                    pageSize: this.pagination.pageSize
+                    pageSize: 20,
+                    total: 0
+                }, // 导入明细分页
+                currentUserId: user.userId, currentUserName: user.userName // 操作人
+            }
+        },
+        computed: {
+            // 顶栏日期。
+            currentDateText() {
+                return moment().format('YYYY-MM-DD')
+            },
+            // 正在处理的操作禁止交叉请求。
+            busy() {
+                return this.loading || this.checking || this.submitting
+            },
+            // 提交后只读展示该批次。
+            isSubmitted() {
+                return String(this.task.saveRslt) === '1'
+            },
+            // 导入选项与清空信息上传后锁定。
+            parametersLocked() {
+                return !!this.impId || this.busy
+            },
+            // 上传区域在处理期间和已提交时禁用。
+            isUploadDisabled() {
+                return this.busy || this.isSubmitted
+            },
+            // 导入批次号沿用证券页，仅管理员可见。
+            isAdmin() {
+                return String(this.currentUserId) === '1'
+            },
+            // 主项未通过时，同来源的附属项也不进入提交集合。
+            validCheckItems() {
+                const failedSources = new Set(this.checkItems.filter(row => this.isManualItem(row) && !row.canAdjust).map(row => this.sourceKey(row)))
+                return this.checkItems.filter(row => row.canAdjust && !failedSources.has(this.sourceKey(row)))
+            },
+            // 手工与清空主项均需要选择流程。
+            validManualCheckItems() {
+                return this.validCheckItems.filter(row => this.isManualItem(row))
+            },
+            // 可提交总条数包含主项及其联动、互斥项。
+            validCheckCount() {
+                return this.validCheckItems.length
+            },
+            // 每个主项必须选择已有且可选的流程候选。
+            allValidRowsHaveFlow() {
+                return this.validManualCheckItems.length > 0 && this.validManualCheckItems.every(row => !!this.selectedRowFlowOption(row))
+            },
+            // 仅校验完成、未提交且流程完备的批次允许提交。
+            canSubmit() {
+                return !!this.impId && !this.busy && !!this.task.checkDone && !this.isSubmitted && this.validCheckCount > 0 && this.allValidRowsHaveFlow
+            },
+            // 禁用提交时提示缺少的前置步骤。
+            submitDisabledTip() {
+                if (!this.impId) {
+                    return '请先上传 Excel'
                 }
-                const formData = new FormData()
-                formData.append('request', new Blob([JSON.stringify(request)], { type: 'application/json' }))
-                formData.append('file', file)
-                formData.append('originalFileNameListJson', JSON.stringify([file.name || '']))
-                const data = await this.apiPost('/api/v1/fundPoolExcelImport/uploadExcel', formData)
-                // 回填后端批次、原始七列和统计。
-                this.applyTask(data)
-                this.fileName = file.name || ''
-                this.fileList = [{ name: this.fileName, raw: file }]
-                this.$message.success('上传成功')
-            } catch (e) {
-                /* api 已提示，取消失败时保留旧批次 */
-            } finally {
-                this.loading = false
+                if (this.isSubmitted) {
+                    return '该批次已提交'
+                }
+                if (!this.task.checkDone) {
+                    return '请先点击校验'
+                }
+                if (!this.validCheckCount) {
+                    return '没有可提交的校验结果'
+                }
+                if (!this.allValidRowsHaveFlow) {
+                    return '请为所有可提交的手工及清空项选择审批流程'
+                }
+                return ''
+            },
+            // 校验结果区说明。
+            checkHint() {
+                if (!this.impId) {
+                    return '上传并校验后展示'
+                }
+                if (this.isSubmitted) {
+                    return this.task.saveDscr || '基金池调库申请已提交'
+                }
+                if (!this.task.checkDone) {
+                    return this.task.chkDscr || '请先点击「校验」'
+                }
+                return this.form.allowLinkMutex ? '含手工 / 联动 / 互斥及清空项' : '仅 Excel 手工及清空项（未勾选联动与互斥）'
             }
         },
-        // 清除批次结果但保留方向、原因和清空参数。
-        clearTaskDataKeepForm() {
-            this.impId = ''
-            this.task = {}
-            this.tableData = []
-            this.checkItems = []
-            this.fileName = ''
-            this.fileList = []
-            this.activeResultTab = 'import'
-            this.flowDialogVisible = false
-            this.filterChkRslt = ''
-            this.keyword = ''
-            this.pagination = {
-                pageIndex: 1,
-                pageSize: this.pagination.pageSize || 20,
-                total: 0
-            }
-        },
-        // 回填服务端批次，部分提交响应不覆盖本地已有数据。
-        applyTask(data) {
-            if (!data) {
-                return
-            }
-            this.impId = data.impId || this.impId
-            this.task = Object.assign({}, this.task, data)
-            if (data.bizMode) {
-                this.form.direction = data.bizMode
-            }
-            if (typeof data.allowLinkMutex === 'boolean') {
-                this.form.allowLinkMutex = data.allowLinkMutex
-            }
-            if (data.reason != null) {
-                this.form.adjustReason = data.reason
-            }
-            if (data.advice != null) {
-                this.form.adjustAdvice = data.advice
-            }
-            if (data.clearFundScore != null) {
-                this.form.clearFundScore = String(data.clearFundScore)
-            }
-            if (data.clearFundInvestmentType != null) {
-                this.form.clearFundInvestmentType = data.clearFundInvestmentType
-            }
-            if (data.clearNeedRiskLeaderApproval != null) {
-                this.form.clearNeedRiskLeaderApproval = Number(data.clearNeedRiskLeaderApproval)
-            }
-            if (data.items) {
-                this.tableData = data.items.records || []
-                this.pagination.total = data.items.total || 0
-                this.pagination.pageIndex = data.items.pageIndex || 1
-                this.pagination.pageSize = data.items.pageSize || this.pagination.pageSize
-            }
-            if (Array.isArray(data.checkItems)) {
-                // 同步后端校验快照与默认推荐流程。
-                this.checkItems = this.normalizeCheckItems(data.checkItems)
-            }
-        },
-        // 筛选明细时返回第一页。
-        onFilterChange() {
-            if (!this.impId || this.busy) {
-                return
-            }
-            this.pagination.pageIndex = 1
-            this.loadItemPage()
-        },
-        // 分页与批次摘要串行刷新。
-        async loadItemPage() {
-            if (!this.impId || this.busy) {
-                return
-            }
-            this.loading = true
-            try {
-                const page = await this.apiPost('/api/v1/fundPoolExcelImport/queryItemPage', {
-                    impId: this.impId,
-                    chkRslt: this.filterChkRslt || null,
-                    keyword: this.keyword || null,
-                    pageIndex: this.pagination.pageIndex,
-                    pageSize: this.pagination.pageSize
-                })
-                this.tableData = (page && page.records) || []
-                this.pagination.total = (page && page.total) || 0
-                const task = await this.apiPost('/api/v1/fundPoolExcelImport/queryTask', { impId: this.impId })
-                // 摘要刷新保留当前明细页及用户已选流程。
-                const choices = this.checkItems.map(row => ({
-                    source: this.sourceKey(row),
-                    pool: row.targetPoolId,
-                    direction: row.adjustDirection,
-                    key: row.selectedFlowKey,
-                    id: row.selectedFlowId,
-                    type: row.selectedFlowType
-                }))
-                this.applyTask(Object.assign({}, task, { items: null }))
-                this.checkItems.forEach(row => {
-                    const choice = choices.find(item => item.source === this.sourceKey(row) && item.pool === row.targetPoolId && item.direction === row.adjustDirection)
-                    if (!choice) {
+        methods: {
+
+            // 流程 ID 是主键，直接按 ID 建描述索引
+            loadFlowDescriptions() {
+                this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                    const map = {};
+                    (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                    this.flowDescMap = map;
+                }).catch(() => {});
+            },
+            flowDesc(flow) {
+                return this.flowDescMap[flow.flowId] || '';
+            },
+            // 空值保持空白，数字 0 仍为有效值。
+            hasValue(value) {
+                return value !== null && value !== undefined && String(value).trim() !== ''
+            },
+            // 投资类型展示中文，非法编码保留原始值供定位。
+            investmentTypeLabel(value) {
+                const found = this.investmentTypeOptions.find(item => item.value === String(value).trim())
+                return found ? found.label : (this.hasValue(value) ? String(value) : '')
+            },
+            // 领导审批展示中文，非法原始值不隐藏。
+            riskLeaderLabel(value) {
+                const text = this.hasValue(value) ? String(value).trim() : ''
+                return text === '0' ? '否' : (text === '1' ? '是' : text)
+            },
+            // 方向文案与基金单笔一致。
+            directionLabel(value) {
+                return value === 'in' ? '调入' : (value === 'out' ? '调出' : value || '')
+            },
+            // 调出不允许清空目标池。
+            onDirectionChange(direction) {
+                if (direction === 'out') {
+                    this.form.clearTarget = false
+                }
+            },
+            // 校验上传参数，清空评分不限定范围。
+            validateImportParameters() {
+                if (this.form.direction !== 'in' && this.form.direction !== 'out') {
+                    return '请选择调整方向'
+                }
+                if (this.form.direction !== 'in' || !this.form.clearTarget) {
+                    return ''
+                }
+                if (!this.hasValue(this.form.clearFundScore) || !Number.isFinite(Number(this.form.clearFundScore))) {
+                    return '请输入合法数字的清空评分'
+                }
+                if (!this.investmentTypeOptions.some(item => item.value === this.form.clearFundInvestmentType)) {
+                    return '请选择清空投资类型'
+                }
+                if (this.form.clearNeedRiskLeaderApproval !== 0 && this.form.clearNeedRiskLeaderApproval !== 1) {
+                    return '请选择清空领导审批'
+                }
+                return ''
+            },
+            // 下载后端维护的基金模板。
+            async handleDownloadTemplate() {
+                try {
+                    const data = await this.apiPost('/api/v1/commonFile/downloadTemplate', { templateCode: 'fund_pool_import' })
+                    if (!data || !data.contentBase64) {
+                        this.$message.error('模板内容为空')
                         return
                     }
-                    const option = row.flowOptions.find(item => item.selectable && item.flowId === choice.id && item.flowKey === choice.key && item.flowType === choice.type)
-                    if (option) {
-                        row.selectedFlowOptionKey = option.optionKey
-                        this.handleRowFlowChange(row)
+                    // 将 Base64 模板转为浏览器下载。
+                    this.downloadBase64File(data.contentBase64, data.fileName || '基金池导入模板.xlsx', data.contentType)
+                    this.$message.success('基金模板已开始下载')
+                } catch (e) {
+                    /* api 已提示 */
+                }
+            },
+            // Base64 文件下载与证券 Excel 导入一致。
+            downloadBase64File(base64, fileName, contentType) {
+                const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0))
+                const url = URL.createObjectURL(new Blob([bytes], { type: contentType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+                const anchor = document.createElement('a')
+                anchor.href = url
+                anchor.download = fileName
+                document.body.appendChild(anchor)
+                anchor.click()
+                document.body.removeChild(anchor)
+                URL.revokeObjectURL(url)
+            },
+            // 单文件区域再次选择时替换未提交批次。
+            async handleFileExceed(files) {
+                if (files && files.length) {
+                    await this.processSelectedFile(files[0])
+                }
+            },
+            // 只处理新选择的 ready 文件。
+            async handleFileChange(file) {
+                if (file && file.status && file.status !== 'ready') {
+                    return
+                }
+                const raw = file && (file.raw || file)
+                if (raw) {
+                    await this.processSelectedFile(raw)
+                }
+            },
+            // 验证文件及参数，成功取消旧批次后上传新文件。
+            async processSelectedFile(file) {
+                if (this.isUploadDisabled) {
+                    return
+                }
+                if (!/\.(xls|xlsx)$/i.test(file.name || '')) {
+                    this.$message.warning('请选择 xls 或 xlsx 文件')
+                    return
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    this.$message.warning('Excel 文件不能超过 5MB')
+                    return
+                }
+                // 校验整批参数，领导审批否值 0 不按空值处理。
+                const error = this.validateImportParameters()
+                if (error) {
+                    this.$message.warning(error)
+                    return
+                }
+                this.loading = true
+                try {
+                    if (this.impId) {
+                        await this.apiPost('/api/v1/fundPoolExcelImport/cancelImport', { impId: this.impId })
+                        // 成功取消后清除旧结果，保留本批参数。
+                        this.clearTaskDataKeepForm()
                     }
-                })
-            } catch (e) {
-                /* api 已提示 */
-            } finally {
-                this.loading = false
-            }
-        },
-        // 切换明细页。
-        handlePageChange(page) {
-            if (this.busy) {
-                return
-            }
-            this.pagination.pageIndex = page
-            this.loadItemPage()
-        },
-        // 修改每页条数。
-        handleSizeChange(size) {
-            if (this.busy) {
-                return
-            }
-            this.pagination.pageSize = size
-            this.pagination.pageIndex = 1
-            this.loadItemPage()
-        },
-        // 执行整批校验，重新校验时清除旧流程与结果。
-        async handleCheck() {
-            if (!this.impId || this.busy || this.isSubmitted) {
-                return
-            }
-            this.checking = true
-            this.flowDialogVisible = false
-            this.checkItems = []
-            this.$set(this.task, 'checkDone', false)
-            try {
-                const data = await this.apiPost('/api/v1/fundPoolExcelImport/checkImport', {
-                    impId: this.impId,
-                    currentUserId: this.currentUserId,
-                    currentUserName: this.currentUserName,
-                    pageIndex: 1,
-                    pageSize: this.pagination.pageSize
-                })
+                    const clearing = this.form.direction === 'in' && this.form.clearTarget
+                    const request = {
+                        direction: this.form.direction,
+                        clearTarget: clearing,
+                        allowLinkMutex: !!this.form.allowLinkMutex,
+                        clearFundScore: clearing ? Number(this.form.clearFundScore) : null,
+                        clearFundInvestmentType: clearing ? this.form.clearFundInvestmentType : null,
+                        clearNeedRiskLeaderApproval: clearing ? this.form.clearNeedRiskLeaderApproval : null,
+                        adjustReason: this.form.adjustReason || null,
+                        adjustAdvice: this.form.adjustAdvice || null,
+                        currentUserId: this.currentUserId,
+                        currentUserName: this.currentUserName,
+                        pageIndex: 1,
+                        pageSize: this.pagination.pageSize
+                    }
+                    const formData = new FormData()
+                    formData.append('request', new Blob([JSON.stringify(request)], { type: 'application/json' }))
+                    formData.append('file', file)
+                    formData.append('originalFileNameListJson', JSON.stringify([file.name || '']))
+                    const data = await this.apiPost('/api/v1/fundPoolExcelImport/uploadExcel', formData)
+                    // 回填后端批次、原始七列和统计。
+                    this.applyTask(data)
+                    this.fileName = file.name || ''
+                    this.fileList = [{ name: this.fileName, raw: file }]
+                    this.$message.success('上传成功')
+                } catch (e) {
+                    /* api 已提示，取消失败时保留旧批次 */
+                } finally {
+                    this.loading = false
+                }
+            },
+            // 清除批次结果但保留方向、原因和清空参数。
+            clearTaskDataKeepForm() {
+                this.impId = ''
+                this.task = {}
+                this.tableData = []
+                this.checkItems = []
+                this.fileName = ''
+                this.fileList = []
+                this.activeResultTab = 'import'
+                this.flowDialogVisible = false
                 this.filterChkRslt = ''
+                this.keyword = ''
+                this.pagination = {
+                    pageIndex: 1,
+                    pageSize: this.pagination.pageSize || 20,
+                    total: 0
+                }
+            },
+            // 回填服务端批次，部分提交响应不覆盖本地已有数据。
+            applyTask(data) {
+                if (!data) {
+                    return
+                }
+                this.impId = data.impId || this.impId
+                this.task = Object.assign({}, this.task, data)
+                if (data.bizMode) {
+                    this.form.direction = data.bizMode
+                }
+                if (typeof data.allowLinkMutex === 'boolean') {
+                    this.form.allowLinkMutex = data.allowLinkMutex
+                }
+                if (data.reason != null) {
+                    this.form.adjustReason = data.reason
+                }
+                if (data.advice != null) {
+                    this.form.adjustAdvice = data.advice
+                }
+                if (data.clearFundScore != null) {
+                    this.form.clearFundScore = String(data.clearFundScore)
+                }
+                if (data.clearFundInvestmentType != null) {
+                    this.form.clearFundInvestmentType = data.clearFundInvestmentType
+                }
+                if (data.clearNeedRiskLeaderApproval != null) {
+                    this.form.clearNeedRiskLeaderApproval = Number(data.clearNeedRiskLeaderApproval)
+                }
+                if (data.items) {
+                    this.tableData = data.items.records || []
+                    this.pagination.total = data.items.total || 0
+                    this.pagination.pageIndex = data.items.pageIndex || 1
+                    this.pagination.pageSize = data.items.pageSize || this.pagination.pageSize
+                }
+                if (Array.isArray(data.checkItems)) {
+                    // 同步后端校验快照与默认推荐流程。
+                    this.checkItems = this.normalizeCheckItems(data.checkItems)
+                }
+            },
+            // 筛选明细时返回第一页。
+            onFilterChange() {
+                if (!this.impId || this.busy) {
+                    return
+                }
                 this.pagination.pageIndex = 1
-                // 采用后端本次校验快照。
-                this.applyTask(data)
-                this.activeResultTab = 'check'
-                if (String(data && data.chkRslt) === '1') {
-                    this.$message.success('校验全部通过')
-                } else {
-                    this.$message.warning((data && data.chkDscr) || '存在校验失败项')
+                this.loadItemPage()
+            },
+            // 分页与批次摘要串行刷新。
+            async loadItemPage() {
+                if (!this.impId || this.busy) {
+                    return
                 }
-            } catch (e) {
-                /* api 已提示 */
-            } finally {
-                this.checking = false
-            }
-        },
-        // 打开所有通过主项的流程确认弹窗。
-        openSubmitDialog() {
-            if (this.canSubmit) {
-                this.flowDialogVisible = true
-            }
-        },
-        // 提交已有校验快照及其候选流程，不修改业务字段。
-        async confirmFlowSelection() {
-            if (!this.canSubmit) {
-                return
-            }
-            const checkItems = this.validCheckItems.map(row => {
-                const item = Object.assign({}, row)
-                delete item.selectedFlowOptionKey
-                delete item.groupColorIndex
-                delete item.flowOptions
-                if (this.isManualItem(row)) {
-                    // 仅从校验快照中已有且可选的流程候选写入三字段。
-                    const option = this.selectedRowFlowOption(row)
-                    item.selectedFlowId = option.flowId
-                    item.selectedFlowKey = option.flowKey
-                    item.selectedFlowType = option.flowType
+                this.loading = true
+                try {
+                    const page = await this.apiPost('/api/v1/fundPoolExcelImport/queryItemPage', {
+                        impId: this.impId,
+                        chkRslt: this.filterChkRslt || null,
+                        keyword: this.keyword || null,
+                        pageIndex: this.pagination.pageIndex,
+                        pageSize: this.pagination.pageSize
+                    })
+                    this.tableData = (page && page.records) || []
+                    this.pagination.total = (page && page.total) || 0
+                    const task = await this.apiPost('/api/v1/fundPoolExcelImport/queryTask', { impId: this.impId })
+                    // 摘要刷新保留当前明细页及用户已选流程。
+                    const choices = this.checkItems.map(row => ({
+                        source: this.sourceKey(row),
+                        pool: row.targetPoolId,
+                        direction: row.adjustDirection,
+                        key: row.selectedFlowKey,
+                        id: row.selectedFlowId,
+                        type: row.selectedFlowType
+                    }))
+                    this.applyTask(Object.assign({}, task, { items: null }))
+                    this.checkItems.forEach(row => {
+                        const choice = choices.find(item => item.source === this.sourceKey(row) && item.pool === row.targetPoolId && item.direction === row.adjustDirection)
+                        if (!choice) {
+                            return
+                        }
+                        const option = row.flowOptions.find(item => item.selectable && item.flowId === choice.id && item.flowKey === choice.key && item.flowType === choice.type)
+                        if (option) {
+                            row.selectedFlowOptionKey = option.optionKey
+                            this.handleRowFlowChange(row)
+                        }
+                    })
+                } catch (e) {
+                    /* api 已提示 */
+                } finally {
+                    this.loading = false
                 }
-                return item
-            })
-            this.submitting = true
-            this.flowDialogVisible = false
-            try {
-                const data = await this.apiPost('/api/v1/fundPoolExcelImport/submitImport', {
-                    impId: this.impId,
-                    adjustReason: this.form.adjustReason,
-                    adjustAdvice: this.form.adjustAdvice,
-                    currentUserId: this.currentUserId,
-                    currentUserName: this.currentUserName,
-                    checkItems: checkItems
+            },
+            // 切换明细页。
+            handlePageChange(page) {
+                if (this.busy) {
+                    return
+                }
+                this.pagination.pageIndex = page
+                this.loadItemPage()
+            },
+            // 修改每页条数。
+            handleSizeChange(size) {
+                if (this.busy) {
+                    return
+                }
+                this.pagination.pageSize = size
+                this.pagination.pageIndex = 1
+                this.loadItemPage()
+            },
+            // 执行整批校验，重新校验时清除旧流程与结果。
+            async handleCheck() {
+                if (!this.impId || this.busy || this.isSubmitted) {
+                    return
+                }
+                this.checking = true
+                this.flowDialogVisible = false
+                this.checkItems = []
+                this.$set(this.task, 'checkDone', false)
+                try {
+                    const data = await this.apiPost('/api/v1/fundPoolExcelImport/checkImport', {
+                        impId: this.impId,
+                        currentUserId: this.currentUserId,
+                        currentUserName: this.currentUserName,
+                        pageIndex: 1,
+                        pageSize: this.pagination.pageSize
+                    })
+                    this.filterChkRslt = ''
+                    this.pagination.pageIndex = 1
+                    // 采用后端本次校验快照。
+                    this.applyTask(data)
+                    this.activeResultTab = 'check'
+                    if (String(data && data.chkRslt) === '1') {
+                        this.$message.success('校验全部通过')
+                    } else {
+                        this.$message.warning((data && data.chkDscr) || '存在校验失败项')
+                    }
+                } catch (e) {
+                    /* api 已提示 */
+                } finally {
+                    this.checking = false
+                }
+            },
+            // 打开所有通过主项的流程确认弹窗。
+            openSubmitDialog() {
+                if (this.canSubmit) {
+                    this.flowDialogVisible = true
+                }
+            },
+            // 提交已有校验快照及其候选流程，不修改业务字段。
+            async confirmFlowSelection() {
+                if (!this.canSubmit) {
+                    return
+                }
+                const checkItems = this.validCheckItems.map(row => {
+                    const item = Object.assign({}, row)
+                    delete item.selectedFlowOptionKey
+                    delete item.groupColorIndex
+                    delete item.flowOptions
+                    if (this.isManualItem(row)) {
+                        // 仅从校验快照中已有且可选的流程候选写入三字段。
+                        const option = this.selectedRowFlowOption(row)
+                        item.selectedFlowId = option.flowId
+                        item.selectedFlowKey = option.flowKey
+                        item.selectedFlowType = option.flowType
+                    }
+                    return item
                 })
-                // 保存状态采用服务端响应，防止重复提交。
-                this.applyTask(data)
-                const count = data && Array.isArray(data.logIds) ? data.logIds.length : checkItems.length
-                const batches = (data && data.adjustBatchNoList) || []
-                const batchText = this.isAdmin && batches.length ? '，调库批次 ' + batches[0] + (batches.length > 1 ? ' 等 ' + batches.length + ' 个批次' : '') : ''
-                this.$message.success('基金池调库申请已提交，共 ' + count + ' 条' + batchText)
-            } catch (e) {
-                /* api 已提示 */
-            } finally {
-                this.submitting = false
-            }
-        },
-        // 取消未提交批次并解除参数锁定。
-        async handleReset() {
-            if (this.busy) {
-                return
-            }
-            this.loading = true
-            try {
-                if (this.impId && !this.isSubmitted) {
-                    await this.apiPost('/api/v1/fundPoolExcelImport/cancelImport', { impId: this.impId })
+                this.submitting = true
+                this.flowDialogVisible = false
+                try {
+                    const data = await this.apiPost('/api/v1/fundPoolExcelImport/submitImport', {
+                        impId: this.impId,
+                        adjustReason: this.form.adjustReason,
+                        adjustAdvice: this.form.adjustAdvice,
+                        currentUserId: this.currentUserId,
+                        currentUserName: this.currentUserName,
+                        checkItems: checkItems
+                    })
+                    // 保存状态采用服务端响应，防止重复提交。
+                    this.applyTask(data)
+                    const count = data && Array.isArray(data.logIds) ? data.logIds.length : checkItems.length
+                    const batches = (data && data.adjustBatchNoList) || []
+                    const batchText = this.isAdmin && batches.length ? '，调库批次 ' + batches[0] + (batches.length > 1 ? ' 等 ' + batches.length + ' 个批次' : '') : ''
+                    this.$message.success('基金池调库申请已提交，共 ' + count + ' 条' + batchText)
+                } catch (e) {
+                    /* api 已提示 */
+                } finally {
+                    this.submitting = false
                 }
-                // 仅成功取消或已提交后清除页面数据。
-                this.clearTaskDataKeepForm()
-                this.form.clearTarget = false
-                this.form.allowLinkMutex = true
-                this.form.clearFundScore = ''
-                this.form.clearFundInvestmentType = ''
-                this.form.clearNeedRiskLeaderApproval = ''
-            } catch (e) {
-                /* api 已提示，取消失败时不丢失批次 */
-            } finally {
-                this.loading = false
-            }
-        },
-        // 主项类型包含 Excel 清空。
-        isManualItem(row) {
-            return row.itemTag === 'manual' || row.itemTag === 'clear'
-        },
-        // 来源行独立分组，避免同基金不同池互相影响。
-        sourceKey(row) {
-            return row.fundCode + '_' + (row.sourceItemId != null ? row.sourceItemId : row.adjustGroupKey || row.rowNo || row.targetPoolId)
-        },
-        // 格式化流程候选与默认推荐选项。
-        normalizeCheckItems(list) {
-            const groupIndexes = new Map()
-            return list.map((row, rowIndex) => {
-                const options = (row.flowOptions || []).map((option, index) => Object.assign({}, option, {
-                    optionKey: rowIndex + '_' + index,
-                    selectable: option.selectable !== false,
-                    matchReasons: option.matchReasons || [],
-                    unmatchReasons: option.unmatchReasons || []
-                }))
-                const selected = options.find(option => option.selectable && this.hasValue(row.selectedFlowKey) && option.flowKey === row.selectedFlowKey && option.flowId === row.selectedFlowId && option.flowType === row.selectedFlowType)
-                    || options.find(option => option.recommended && option.selectable) || options.find(option => option.selectable)
-                const group = row.adjustGroupKey || this.sourceKey(row)
-                if (!groupIndexes.has(group)) {
-                    groupIndexes.set(group, groupIndexes.size % 5)
+            },
+            // 取消未提交批次并解除参数锁定。
+            async handleReset() {
+                if (this.busy) {
+                    return
                 }
-                const next = Object.assign({}, row, {
-                    flowOptions: options,
-                    selectedFlowOptionKey: selected ? selected.optionKey : '',
-                    groupColorIndex: groupIndexes.get(group)
+                this.loading = true
+                try {
+                    if (this.impId && !this.isSubmitted) {
+                        await this.apiPost('/api/v1/fundPoolExcelImport/cancelImport', { impId: this.impId })
+                    }
+                    // 仅成功取消或已提交后清除页面数据。
+                    this.clearTaskDataKeepForm()
+                    this.form.clearTarget = false
+                    this.form.allowLinkMutex = true
+                    this.form.clearFundScore = ''
+                    this.form.clearFundInvestmentType = ''
+                    this.form.clearNeedRiskLeaderApproval = ''
+                } catch (e) {
+                    /* api 已提示，取消失败时不丢失批次 */
+                } finally {
+                    this.loading = false
+                }
+            },
+            // 主项类型包含 Excel 清空。
+            isManualItem(row) {
+                return row.itemTag === 'manual' || row.itemTag === 'clear'
+            },
+            // 来源行独立分组，避免同基金不同池互相影响。
+            sourceKey(row) {
+                return row.fundCode + '_' + (row.sourceItemId != null ? row.sourceItemId : row.adjustGroupKey || row.rowNo || row.targetPoolId)
+            },
+            // 格式化流程候选与默认推荐选项。
+            normalizeCheckItems(list) {
+                const groupIndexes = new Map()
+                return list.map((row, rowIndex) => {
+                    const options = (row.flowOptions || []).map((option, index) => Object.assign({}, option, {
+                        optionKey: rowIndex + '_' + index,
+                        selectable: option.selectable !== false,
+                        matchReasons: option.matchReasons || [],
+                        unmatchReasons: option.unmatchReasons || []
+                    }))
+                    const selected = options.find(option => option.selectable && this.hasValue(row.selectedFlowKey) && option.flowKey === row.selectedFlowKey && option.flowId === row.selectedFlowId && option.flowType === row.selectedFlowType)
+                        || options.find(option => option.recommended && option.selectable) || options.find(option => option.selectable)
+                    const group = row.adjustGroupKey || this.sourceKey(row)
+                    if (!groupIndexes.has(group)) {
+                        groupIndexes.set(group, groupIndexes.size % 5)
+                    }
+                    const next = Object.assign({}, row, {
+                        flowOptions: options,
+                        selectedFlowOptionKey: selected ? selected.optionKey : '',
+                        groupColorIndex: groupIndexes.get(group)
+                    })
+                    // 将界面默认选中同步到提交用流程三字段。
+                    this.handleRowFlowChange(next)
+                    return next
                 })
-                // 将界面默认选中同步到提交用流程三字段。
-                this.handleRowFlowChange(next)
-                return next
-            })
+            },
+            // 从原始候选中取得可选流程，禁止任意 optionKey。
+            selectedRowFlowOption(row) {
+                return (row.flowOptions || []).find(option => option.selectable && option.optionKey === row.selectedFlowOptionKey) || null
+            },
+            // 行内下拉与弹窗共用流程选择。
+            handleRowFlowChange(row) {
+                // 根据选择写回流程身份，不改基金、池或方向。
+                const option = this.selectedRowFlowOption(row)
+                row.selectedFlowId = option ? option.flowId : null
+                row.selectedFlowKey = option ? option.flowKey : ''
+                row.selectedFlowType = option ? option.flowType : ''
+            },
+            // 优先展示流程名称，避免展示纯编码。
+            resolveFlowDisplayName(option) {
+                return option.flowName || (this.flowTypeLabel(option.flowType) + '流程')
+            },
+            // 流程类型复用基金单笔字典。
+            flowTypeLabel(type) {
+                return {
+                    whitelistInbound: '白名单',
+                    simpleInbound: '简易',
+                    normalInbound: '默认调入',
+                    specialInbound: '特殊审批',
+                    upgradeInbound: '上调',
+                    downgradeInbound: '下调',
+                    normalOutbound: '调出'
+                }[type] || '一般'
+            },
+            // 流程类型样式复用基金单笔。
+            flowTypeClass(type) {
+                return {
+                    whitelistInbound: 'whitelist',
+                    simpleInbound: 'simple',
+                    normalInbound: 'normal',
+                    specialInbound: 'special',
+                    upgradeInbound: 'upgrade',
+                    downgradeInbound: 'downgrade',
+                    normalOutbound: 'outbound'
+                }[type] || 'normal'
+            },
+            // 流程卡片标签颜色复用基金单笔。
+            getFlowOptionTagType(option) {
+                return option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound' ? 'success' : (option.flowType === 'specialInbound' || option.flowType === 'downgradeInbound' ? 'warning' : 'info')
+            },
+            // 流程弹窗行类名与证券导入一致。
+            getFlowRowColorClass(index) {
+                return 'flow-row-color-' + (index % 5)
+            },
+            // 调库校验同组底色。
+            getAdjustReviewRowClass({ row }) {
+                return 'adjust-group-color-' + (row.groupColorIndex || 0)
+            },
+            // 校验枚举标签颜色。
+            chkTagType(value) {
+                return String(value) === '1' ? 'success' : (String(value) === '2' ? 'danger' : 'info')
+            },
+            // 校验枚举文案。
+            chkLabel(value) {
+                return String(value) === '1' ? '通过' : (String(value) === '2' ? '失败' : '待校验')
+            },
+            // 调整类型使用既有渠道及联动、互斥配色。
+            adjustTypeTagType(type) {
+                return type === '互斥调整' ? 'danger' : (type === '联动调整' || type === 'Excel清空' ? 'warning' : 'info')
+            }
         },
-        // 从原始候选中取得可选流程，禁止任意 optionKey。
-        selectedRowFlowOption(row) {
-            return (row.flowOptions || []).find(option => option.selectable && option.optionKey === row.selectedFlowOptionKey) || null
+        mounted() {
+            this.loadFlowDescriptions();
         },
-        // 行内下拉与弹窗共用流程选择。
-        handleRowFlowChange(row) {
-            // 根据选择写回流程身份，不改基金、池或方向。
-            const option = this.selectedRowFlowOption(row)
-            row.selectedFlowId = option ? option.flowId : null
-            row.selectedFlowKey = option ? option.flowKey : ''
-            row.selectedFlowType = option ? option.flowType : ''
-        },
-        // 优先展示流程名称，避免展示纯编码。
-        resolveFlowDisplayName(option) {
-            return option.flowName || (this.flowTypeLabel(option.flowType) + '流程')
-        },
-        // 流程类型复用基金单笔字典。
-        flowTypeLabel(type) {
-            return {
-                whitelistInbound: '白名单',
-                simpleInbound: '简易',
-                normalInbound: '默认调入',
-                specialInbound: '特殊审批',
-                upgradeInbound: '上调',
-                downgradeInbound: '下调',
-                normalOutbound: '调出'
-            }[type] || '一般'
-        },
-        // 流程类型样式复用基金单笔。
-        flowTypeClass(type) {
-            return {
-                whitelistInbound: 'whitelist',
-                simpleInbound: 'simple',
-                normalInbound: 'normal',
-                specialInbound: 'special',
-                upgradeInbound: 'upgrade',
-                downgradeInbound: 'downgrade',
-                normalOutbound: 'outbound'
-            }[type] || 'normal'
-        },
-        // 流程卡片标签颜色复用基金单笔。
-        getFlowOptionTagType(option) {
-            return option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound' ? 'success' : (option.flowType === 'specialInbound' || option.flowType === 'downgradeInbound' ? 'warning' : 'info')
-        },
-        // 流程弹窗行类名与证券导入一致。
-        getFlowRowColorClass(index) {
-            return 'flow-row-color-' + (index % 5)
-        },
-        // 调库校验同组底色。
-        getAdjustReviewRowClass({ row }) {
-            return 'adjust-group-color-' + (row.groupColorIndex || 0)
-        },
-        // 校验枚举标签颜色。
-        chkTagType(value) {
-            return String(value) === '1' ? 'success' : (String(value) === '2' ? 'danger' : 'info')
-        },
-        // 校验枚举文案。
-        chkLabel(value) {
-            return String(value) === '1' ? '通过' : (String(value) === '2' ? '失败' : '待校验')
-        },
-        // 调整类型使用既有渠道及联动、互斥配色。
-        adjustTypeTagType(type) {
-            return type === '互斥调整' ? 'danger' : (type === '联动调整' || type === 'Excel清空' ? 'warning' : 'info')
-        }
-    },
-    mounted() {
-        this.loadFlowDescriptions();
-    },
-})
+    });
 </script>
 </body>
 </html>

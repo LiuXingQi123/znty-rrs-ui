@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="../css/common.css">
 </head>
 <body class="stock-pool-adjust-page">
+
 <div id="stock_pool_adjust">
     <div class="page" :class="{ active: currentPage === 'list' }">
         <header class="topbar">
@@ -737,1054 +738,1054 @@
 </div>
 
 <script>
-new Vue({
-    el: '#stock_pool_adjust',
-    // 初始化股票研究页面的查询条件、业务数据和操作状态
-    data() {
-        const user = window.RrsAuth.getCurrentUser()
-        return {
-            // 流程 ID → 流程描述，悬停展示用
-            flowDescMap: {},
-            currentPage: 'list',          // 当前显示页：list=列表页 / detail=调库详情页
-            currentUser: user,            // 当前登录用户
-            listLoading: false,           // 股票列表加载状态
-            detailLoading: false,         // 股票调库详情加载状态
-            adjustCheckLoading: false,    // 下一步校验接口加载状态
-            listRequestId: 0, // 列表请求序号，忽略迟到响应
-            detailRequestId: 0, // 详情请求序号，忽略迟到响应
-            adjustCheckSeq: 0, // 调库校验序号，忽略迟到响应
-            submitLoading: false,         // 调库提交防重复点击状态
-            adjustStep: 1,                // 调库步骤：1=选择池 / 2=校验确认
-            searchForm: { // 列表查询条件
-                stockCode: '', // 股票代码关键词
-                stockShortName: '', // 股票简称关键词
-                industryCode: '', // 行业编码筛选条件
-                marketCode: '' // 交易市场编码筛选条件
-            },
-            pagination: { // 当前列表分页参数
-                pageIndex: 1, // 当前页码
-                pageSize: 20, // 每页条数
-                total: 0 // 总记录数
-            },
-            stockList: [],                 // 股票列表数据
-            industryOptions: [],           // 股票所属行业选项
-            stockDetail: {},               // 当前股票只读详情
-            stockCurrentPools: [],         // 当前股票所在池
-            currentPoolExpanded: false,   // 当前所在池明细展开状态
-            adjustInTree: [],             // 可调入池树形数据
-            adjustOutTree: [],            // 可调出池树形数据
-            selectedInPools: [],          // 第一步已选择的调入池
-            selectedOutPools: [],         // 第一步已选择的调出池
-            adjustReviewList: [],         // 第二步调库校验结果
-            sectionExpanded: { // 详情区块展开状态
-                stockInfo: true, // 股票基础信息区展开状态
-                currentPools: true, // 当前所在池区展开状态
-                adjustOp: true, // 调库操作区展开状态
-                adjustReview: true, // 调库校验区展开状态
-                reasonAdvice: true // 调整原因和建议区展开状态
-            },
-            submitForm: { // 本次调整原因和建议
-                adjustReason: '', // 本次调整原因
-                adjustAdvice: '' // 本次调整建议
-            },
-            flowDialogVisible: false, // 审批流程确认弹窗显示状态
-            reportRequestIds: { // 内部和外部报告查询序号，忽略迟到响应
-                internal: 0, // 内部报告查询序号
-                external: 0 // 外部报告查询序号
-            },
-            reportDialogVisible: false,    // 报告选择弹窗显示状态
-            reportDialogDirection: '',     // 当前报告所属方向：in / out
-            reportDialogPoolId: null,      // 当前报告所属池 ID
-            reportDialogColumn: '',        // 当前报告目标列：credit / material
-            reportActiveTab: 'internal',   // 报告弹窗当前 Tab
-            internalReportData: [],        // 内部报告当前页数据
-            internalReportFilters: { // 内部报告查询条件
-                title: '', // 报告标题关键词
-                securityCode: '', // 证券代码关键词
-                reportType: '', // 报告类型编码
-                writeDateRange: null // 报告撰写日期范围
-            },
-            internalReportPagination: { // 内部报告分页参数
-                pageIndex: 1, // 当前页码
-                pageSize: 10, // 每页条数
-                total: 0 // 总记录数
-            },
-            internalReportLoading: false,  // 内部报告加载状态
-            selectedInternalReports: [],   // 弹窗会话内已选内部报告
-            externalReportData: [],        // 外部报告当前页数据
-            externalReportFilters: { // 外部报告查询条件
-                title: '', // 报告标题关键词
-                securityCode: '', // 证券代码关键词
-                reportType: '', // 报告类型编码
-                writeDateRange: null // 报告撰写日期范围
-            },
-            externalReportPagination: { // 外部报告分页参数
-                pageIndex: 1, // 当前页码
-                pageSize: 10, // 每页条数
-                total: 0 // 总记录数
-            },
-            externalReportLoading: false,  // 外部报告加载状态
-            selectedExternalReports: [],   // 弹窗会话内已选外部报告
-            restoringReportSelection: false, // 恢复报告勾选状态标志
-            reportTypeDict: { // 报告类型展示字典
-                bond_in_report: '债券入库报告',
-                bond_out_report: '债券出库报告',
-                fund_in_report: '基金入库报告',
-                fund_out_report: '基金出库报告',
-                stock_in_report: '股票入库报告',
-                stock_out_report: '股票出库报告',
-                other_report: '其他报告'
-            },
-            reportSecurityTypeDict: { // 报告证券类型展示字典
-                bond: '债券',
-                fund: '基金',
-                stock: '股票',
-                company: '主体',
-                other: '其他'
-            },
-            creditReportSelections: {},    // 各方向、目标池已选股票报告
-            otherMaterialSelections: {},   // 各方向、目标池已选其他材料
-            attachmentFiles: {},           // 各方向、目标池股票报告上传文件
-            materialFiles: {}              // 各方向、目标池其他材料上传文件
-        }
-    },
-    computed: {
-        // 筛选校验通过的调库明细
-        validAdjustReviewList() {
-            return this.adjustReviewList.filter(item => item.canAdjust)
-        },
-        // 筛选需要选择审批流程的有效手工主项
-        validManualAdjustReviewList() {
-            return this.adjustReviewList.filter(item => item.canAdjust && item.itemTag === 'manual')
-        },
-        // 检查所有有效手工主项是否已选择可用审批流程
-        allValidRowsHaveFlow() {
-            return this.validManualAdjustReviewList.length > 0
-                && this.validManualAdjustReviewList.every(row => !!this.selectedRowFlowOption(row))
-        },
-        // 统计校验通过的调库明细数量
-        validItemCount() {
-            return this.validAdjustReviewList.length
-        },
-        // 返回内部报告当前页数据
-        internalReportPageData() {
-            return this.internalReportData
-        },
-        // 返回外部报告当前页数据
-        externalReportPageData() {
-            return this.externalReportData
-        },
-        // 从报告类型字典生成筛选选项
-        reportTypeOptions() {
-            return Object.keys(this.reportTypeDict)
-        },
-        // 返回内部报告类型筛选选项
-        internalReportTypeOptions() {
-            return this.reportTypeOptions
-        },
-        // 返回外部报告类型筛选选项
-        externalReportTypeOptions() {
-            return this.reportTypeOptions
-        },
-        // 统计弹窗内已选择的内部和外部报告数量
-        totalSelectedReports() {
-            return this.selectedInternalReports.length + this.selectedExternalReports.length
-        },
-        // 根据材料类别生成报告选择弹窗标题
-        reportDialogTitle() {
-            return this.reportDialogColumn === 'material' ? '选择其他材料' : '选择股票报告'
-        }
-    },
-    // 初始化股票行业选项和股票分页列表
-    created() {
-        this.loadFlowDescriptions();
-        this.loadIndustries()
-        this.loadStockList()
-    },
-    methods: {
-
-        // 流程 ID 是主键，直接按 ID 建描述索引
-        loadFlowDescriptions() {
-            this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
-                const map = {};
-                (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
-                this.flowDescMap = map;
-            }).catch(() => {});
-        },
-        flowDesc(flow) {
-            return this.flowDescMap[flow.flowId] || '';
-        },
-        // 可空数值保持空白，零值仍显示为 0。
-        emptyNumber(value) {
-            return value == null ? '' : value;
-        },
-        // 按原始百分数值显示换手率。
-        formatPercent(value) {
-            return value == null || value === '' ? '' : value + '%';
-        },
-        // 交易市场由前端字典显示中文。
-        marketLabel(code) {
+    new Vue({
+        el: '#stock_pool_adjust',
+        // 初始化股票研究页面的查询条件、业务数据和操作状态
+        data() {
+            const user = window.RrsAuth.getCurrentUser()
             return {
-                SSE: '上海证券交易所',
-                SZSE: '深圳证券交易所',
-                HKEX: '香港交易所'
-            }[code] || code || '';
-        },
-        // 股票研究评级编码转展示文案。
-        ratingLabel(code) {
-            return {
-                buy: '买入',
-                overweight: '增持',
-                neutral: '中性',
-                underweight: '减持',
-                sell: '卖出'
-            }[code] || code || '';
-        },
-        // 股票评级沿用证券评级标签配色。
-        ratingTagType() {
-            return 'success';
-        },
-
-        // 加载已有股票行业选项。
-        async loadIndustries() {
-            try {
-                this.industryOptions = await this.apiPost('/api/v1/stockPoolAdjust/queryIndustryList', {}) || [];
-            } catch (e) {
-                this.industryOptions = [];
+                // 流程 ID → 流程描述，悬停展示用
+                flowDescMap: {},
+                currentPage: 'list',          // 当前显示页：list=列表页 / detail=调库详情页
+                currentUser: user,            // 当前登录用户
+                listLoading: false,           // 股票列表加载状态
+                detailLoading: false,         // 股票调库详情加载状态
+                adjustCheckLoading: false,    // 下一步校验接口加载状态
+                listRequestId: 0, // 列表请求序号，忽略迟到响应
+                detailRequestId: 0, // 详情请求序号，忽略迟到响应
+                adjustCheckSeq: 0, // 调库校验序号，忽略迟到响应
+                submitLoading: false,         // 调库提交防重复点击状态
+                adjustStep: 1,                // 调库步骤：1=选择池 / 2=校验确认
+                searchForm: { // 列表查询条件
+                    stockCode: '', // 股票代码关键词
+                    stockShortName: '', // 股票简称关键词
+                    industryCode: '', // 行业编码筛选条件
+                    marketCode: '' // 交易市场编码筛选条件
+                },
+                pagination: { // 当前列表分页参数
+                    pageIndex: 1, // 当前页码
+                    pageSize: 20, // 每页条数
+                    total: 0 // 总记录数
+                },
+                stockList: [],                 // 股票列表数据
+                industryOptions: [],           // 股票所属行业选项
+                stockDetail: {},               // 当前股票只读详情
+                stockCurrentPools: [],         // 当前股票所在池
+                currentPoolExpanded: false,   // 当前所在池明细展开状态
+                adjustInTree: [],             // 可调入池树形数据
+                adjustOutTree: [],            // 可调出池树形数据
+                selectedInPools: [],          // 第一步已选择的调入池
+                selectedOutPools: [],         // 第一步已选择的调出池
+                adjustReviewList: [],         // 第二步调库校验结果
+                sectionExpanded: { // 详情区块展开状态
+                    stockInfo: true, // 股票基础信息区展开状态
+                    currentPools: true, // 当前所在池区展开状态
+                    adjustOp: true, // 调库操作区展开状态
+                    adjustReview: true, // 调库校验区展开状态
+                    reasonAdvice: true // 调整原因和建议区展开状态
+                },
+                submitForm: { // 本次调整原因和建议
+                    adjustReason: '', // 本次调整原因
+                    adjustAdvice: '' // 本次调整建议
+                },
+                flowDialogVisible: false, // 审批流程确认弹窗显示状态
+                reportRequestIds: { // 内部和外部报告查询序号，忽略迟到响应
+                    internal: 0, // 内部报告查询序号
+                    external: 0 // 外部报告查询序号
+                },
+                reportDialogVisible: false,    // 报告选择弹窗显示状态
+                reportDialogDirection: '',     // 当前报告所属方向：in / out
+                reportDialogPoolId: null,      // 当前报告所属池 ID
+                reportDialogColumn: '',        // 当前报告目标列：credit / material
+                reportActiveTab: 'internal',   // 报告弹窗当前 Tab
+                internalReportData: [],        // 内部报告当前页数据
+                internalReportFilters: { // 内部报告查询条件
+                    title: '', // 报告标题关键词
+                    securityCode: '', // 证券代码关键词
+                    reportType: '', // 报告类型编码
+                    writeDateRange: null // 报告撰写日期范围
+                },
+                internalReportPagination: { // 内部报告分页参数
+                    pageIndex: 1, // 当前页码
+                    pageSize: 10, // 每页条数
+                    total: 0 // 总记录数
+                },
+                internalReportLoading: false,  // 内部报告加载状态
+                selectedInternalReports: [],   // 弹窗会话内已选内部报告
+                externalReportData: [],        // 外部报告当前页数据
+                externalReportFilters: { // 外部报告查询条件
+                    title: '', // 报告标题关键词
+                    securityCode: '', // 证券代码关键词
+                    reportType: '', // 报告类型编码
+                    writeDateRange: null // 报告撰写日期范围
+                },
+                externalReportPagination: { // 外部报告分页参数
+                    pageIndex: 1, // 当前页码
+                    pageSize: 10, // 每页条数
+                    total: 0 // 总记录数
+                },
+                externalReportLoading: false,  // 外部报告加载状态
+                selectedExternalReports: [],   // 弹窗会话内已选外部报告
+                restoringReportSelection: false, // 恢复报告勾选状态标志
+                reportTypeDict: { // 报告类型展示字典
+                    bond_in_report: '债券入库报告',
+                    bond_out_report: '债券出库报告',
+                    fund_in_report: '基金入库报告',
+                    fund_out_report: '基金出库报告',
+                    stock_in_report: '股票入库报告',
+                    stock_out_report: '股票出库报告',
+                    other_report: '其他报告'
+                },
+                reportSecurityTypeDict: { // 报告证券类型展示字典
+                    bond: '债券',
+                    fund: '基金',
+                    stock: '股票',
+                    company: '主体',
+                    other: '其他'
+                },
+                creditReportSelections: {},    // 各方向、目标池已选股票报告
+                otherMaterialSelections: {},   // 各方向、目标池已选其他材料
+                attachmentFiles: {},           // 各方向、目标池股票报告上传文件
+                materialFiles: {}              // 各方向、目标池其他材料上传文件
             }
         },
-        // 按当前查询条件加载股票分页列表。
-        async loadStockList() {
-            this.listLoading = true
-            const requestId = ++this.listRequestId
-            try {
-                const data = await this.apiPost('/api/v1/stockPoolAdjust/queryStockPage', Object.assign({}, this.searchForm, this.pagination))
-                if (requestId !== this.listRequestId) return
-                this.stockList = data.records || []
-                this.pagination.total = data.total || 0
-            } catch (e) {
-                if (requestId === this.listRequestId) {
-                    this.stockList = [];
-                    this.pagination.total = 0
+        computed: {
+            // 筛选校验通过的调库明细
+            validAdjustReviewList() {
+                return this.adjustReviewList.filter(item => item.canAdjust)
+            },
+            // 筛选需要选择审批流程的有效手工主项
+            validManualAdjustReviewList() {
+                return this.adjustReviewList.filter(item => item.canAdjust && item.itemTag === 'manual')
+            },
+            // 检查所有有效手工主项是否已选择可用审批流程
+            allValidRowsHaveFlow() {
+                return this.validManualAdjustReviewList.length > 0
+                    && this.validManualAdjustReviewList.every(row => !!this.selectedRowFlowOption(row))
+            },
+            // 统计校验通过的调库明细数量
+            validItemCount() {
+                return this.validAdjustReviewList.length
+            },
+            // 返回内部报告当前页数据
+            internalReportPageData() {
+                return this.internalReportData
+            },
+            // 返回外部报告当前页数据
+            externalReportPageData() {
+                return this.externalReportData
+            },
+            // 从报告类型字典生成筛选选项
+            reportTypeOptions() {
+                return Object.keys(this.reportTypeDict)
+            },
+            // 返回内部报告类型筛选选项
+            internalReportTypeOptions() {
+                return this.reportTypeOptions
+            },
+            // 返回外部报告类型筛选选项
+            externalReportTypeOptions() {
+                return this.reportTypeOptions
+            },
+            // 统计弹窗内已选择的内部和外部报告数量
+            totalSelectedReports() {
+                return this.selectedInternalReports.length + this.selectedExternalReports.length
+            },
+            // 根据材料类别生成报告选择弹窗标题
+            reportDialogTitle() {
+                return this.reportDialogColumn === 'material' ? '选择其他材料' : '选择股票报告'
+            }
+        },
+        // 初始化股票行业选项和股票分页列表
+        created() {
+            this.loadFlowDescriptions();
+            this.loadIndustries()
+            this.loadStockList()
+        },
+        methods: {
+
+            // 流程 ID 是主键，直接按 ID 建描述索引
+            loadFlowDescriptions() {
+                this.apiPost('/api/v1/flows/queryFlowList', {}).then(list => {
+                    const map = {};
+                    (list || []).forEach(item => { map[item.flowId] = item.description || ''; });
+                    this.flowDescMap = map;
+                }).catch(() => {});
+            },
+            flowDesc(flow) {
+                return this.flowDescMap[flow.flowId] || '';
+            },
+            // 可空数值保持空白，零值仍显示为 0。
+            emptyNumber(value) {
+                return value == null ? '' : value;
+            },
+            // 按原始百分数值显示换手率。
+            formatPercent(value) {
+                return value == null || value === '' ? '' : value + '%';
+            },
+            // 交易市场由前端字典显示中文。
+            marketLabel(code) {
+                return {
+                    SSE: '上海证券交易所',
+                    SZSE: '深圳证券交易所',
+                    HKEX: '香港交易所'
+                }[code] || code || '';
+            },
+            // 股票研究评级编码转展示文案。
+            ratingLabel(code) {
+                return {
+                    buy: '买入',
+                    overweight: '增持',
+                    neutral: '中性',
+                    underweight: '减持',
+                    sell: '卖出'
+                }[code] || code || '';
+            },
+            // 股票评级沿用证券评级标签配色。
+            ratingTagType() {
+                return 'success';
+            },
+
+            // 加载已有股票行业选项。
+            async loadIndustries() {
+                try {
+                    this.industryOptions = await this.apiPost('/api/v1/stockPoolAdjust/queryIndustryList', {}) || [];
+                } catch (e) {
+                    this.industryOptions = [];
                 }
-            }
-            if (requestId === this.listRequestId) this.listLoading = false
-        },
-        // 从第一页执行股票查询。
-        handleSearch() {
-            this.pagination.pageIndex = 1;
-            this.loadStockList()
-        },
-        // 清空股票查询条件并重新查询。
-        handleReset() {
-            this.searchForm = { stockCode: '', stockShortName: '', industryCode: '', marketCode: '' };
-            this.handleSearch()
-        },
-        // 切换股票列表页码。
-        changePage(page) {
-            this.pagination.pageIndex = page;
-            this.loadStockList()
-        },
-        // 切换股票列表每页条数。
-        changeSize(size) {
-            this.pagination.pageSize = size;
-            this.pagination.pageIndex = 1;
-            this.loadStockList()
-        },
-        // 进入股票池调整详情并加载股票、当前池和可调整池。
-        async openAdjust(row) {
-            this.currentPage = 'detail'
-            this.detailLoading = true
-            const requestId = ++this.detailRequestId
-            ++this.adjustCheckSeq
-            this.stockDetail = {}
-            this.adjustStep = 1
-            this.adjustReviewList = []
-            this.selectedInPools = []
-            this.selectedOutPools = []
-            this.currentPoolExpanded = false
-            this.flowDialogVisible = false
-            this.creditReportSelections = {}
-            this.otherMaterialSelections = {}
-            this.attachmentFiles = {}
-            this.materialFiles = {}
-            this.submitForm = { adjustReason: '', adjustAdvice: '' }
-            try {
-                const req = { stockCode: row.stockCode }
-                const poolReq = { stockCode: row.stockCode, currentUserId: this.currentUser.userId }
-                const values = await Promise.all([
-                    this.apiPost('/api/v1/stockPoolAdjust/queryStockDetail', req),
-                    this.apiPost('/api/v1/stockPoolAdjust/queryStockPoolStatus', req),
-                    this.apiPost('/api/v1/stockPoolAdjust/queryAdjustPoolList', Object.assign({ adjustDirection: 'in' }, poolReq)),
-                    this.apiPost('/api/v1/stockPoolAdjust/queryAdjustPoolList', Object.assign({ adjustDirection: 'out' }, poolReq))
-                ])
-                if (requestId !== this.detailRequestId || this.currentPage !== 'detail') return
-                this.stockDetail = values[0] || {}
-                this.stockCurrentPools = values[1] || []
-                const currentIds = new Set(this.stockCurrentPools.map(item => item.targetPoolId))
-                const inList = (values[2] || []).filter(item => !currentIds.has(item.id))
-                const outList = (values[3] || []).filter(item => currentIds.has(item.id) || (values[3] || []).some(child => child.parentId === item.id && currentIds.has(child.id)))
-                this.adjustInTree = this.buildPoolTree(inList)
-                this.adjustOutTree = this.buildPoolTree(outList)
-            } catch (e) {
-                if (requestId !== this.detailRequestId) return
-                this.stockDetail = row || {}
-                this.stockCurrentPools = []
-                this.adjustInTree = []
-                this.adjustOutTree = []
-            }
-            if (requestId === this.detailRequestId) this.detailLoading = false
-        },
-        // 返回股票列表并刷新查询结果。
-        backToList() {
-            this.currentPage = 'list'
-            ++this.detailRequestId
-            ++this.adjustCheckSeq
-            this.adjustCheckLoading = false
-            this.adjustStep = 1
-            this.adjustReviewList = []
-            this.flowDialogVisible = false
-            this.reportDialogVisible = false
-            this.loadStockList()
-        },
-        // 切换详情区块的展开状态。
-        toggleSection(section) {
-            this.sectionExpanded[section] = !this.sectionExpanded[section]
-        },
-        // 将投资池平铺数据转换成树形结构。
-        buildPoolTree(list) {
-            const map = {}
-            ;
-            (list || []).forEach(item => {
-                map[item.id] = Object.assign({}, item, { children: [] })
-            })
-            const roots = []
-            Object.keys(map).forEach(key => {
-                const item = map[key]
-                if (item.parentId != null && map[item.parentId]) map[item.parentId].children.push(item)
-                else roots.push(item)
-            })
-            const trim = rows => rows.map(row => {
-                if (row.children.length) row.children = trim(row.children)
-                else delete row.children
-                return row
-            })
-            return trim(roots)
-        },
-        // 仅允许选择投资池叶子节点。
-        poolRowSelectable(row) {
-            return !row.children || row.children.length === 0
-        },
-        // 清理重复项并只保留投资池叶子节点。
-        normalizeSelectedPools(selection) {
-            const map = {}
-            ;
-            (selection || []).forEach(row => {
-                if (row && this.poolRowSelectable(row)) map[row.id] = row
-            })
-            return Object.keys(map).map(id => map[id])
-        },
-        // 展开树形投资池并返回全部叶子节点。
-        flattenPoolTree(tree) {
-            const result = []
-            const walk = nodes => {
+            },
+            // 按当前查询条件加载股票分页列表。
+            async loadStockList() {
+                this.listLoading = true
+                const requestId = ++this.listRequestId
+                try {
+                    const data = await this.apiPost('/api/v1/stockPoolAdjust/queryStockPage', Object.assign({}, this.searchForm, this.pagination))
+                    if (requestId !== this.listRequestId) return
+                    this.stockList = data.records || []
+                    this.pagination.total = data.total || 0
+                } catch (e) {
+                    if (requestId === this.listRequestId) {
+                        this.stockList = [];
+                        this.pagination.total = 0
+                    }
+                }
+                if (requestId === this.listRequestId) this.listLoading = false
+            },
+            // 从第一页执行股票查询。
+            handleSearch() {
+                this.pagination.pageIndex = 1;
+                this.loadStockList()
+            },
+            // 清空股票查询条件并重新查询。
+            handleReset() {
+                this.searchForm = { stockCode: '', stockShortName: '', industryCode: '', marketCode: '' };
+                this.handleSearch()
+            },
+            // 切换股票列表页码。
+            changePage(page) {
+                this.pagination.pageIndex = page;
+                this.loadStockList()
+            },
+            // 切换股票列表每页条数。
+            changeSize(size) {
+                this.pagination.pageSize = size;
+                this.pagination.pageIndex = 1;
+                this.loadStockList()
+            },
+            // 进入股票池调整详情并加载股票、当前池和可调整池。
+            async openAdjust(row) {
+                this.currentPage = 'detail'
+                this.detailLoading = true
+                const requestId = ++this.detailRequestId
+                ++this.adjustCheckSeq
+                this.stockDetail = {}
+                this.adjustStep = 1
+                this.adjustReviewList = []
+                this.selectedInPools = []
+                this.selectedOutPools = []
+                this.currentPoolExpanded = false
+                this.flowDialogVisible = false
+                this.creditReportSelections = {}
+                this.otherMaterialSelections = {}
+                this.attachmentFiles = {}
+                this.materialFiles = {}
+                this.submitForm = { adjustReason: '', adjustAdvice: '' }
+                try {
+                    const req = { stockCode: row.stockCode }
+                    const poolReq = { stockCode: row.stockCode, currentUserId: this.currentUser.userId }
+                    const values = await Promise.all([
+                        this.apiPost('/api/v1/stockPoolAdjust/queryStockDetail', req),
+                        this.apiPost('/api/v1/stockPoolAdjust/queryStockPoolStatus', req),
+                        this.apiPost('/api/v1/stockPoolAdjust/queryAdjustPoolList', Object.assign({ adjustDirection: 'in' }, poolReq)),
+                        this.apiPost('/api/v1/stockPoolAdjust/queryAdjustPoolList', Object.assign({ adjustDirection: 'out' }, poolReq))
+                    ])
+                    if (requestId !== this.detailRequestId || this.currentPage !== 'detail') return
+                    this.stockDetail = values[0] || {}
+                    this.stockCurrentPools = values[1] || []
+                    const currentIds = new Set(this.stockCurrentPools.map(item => item.targetPoolId))
+                    const inList = (values[2] || []).filter(item => !currentIds.has(item.id))
+                    const outList = (values[3] || []).filter(item => currentIds.has(item.id) || (values[3] || []).some(child => child.parentId === item.id && currentIds.has(child.id)))
+                    this.adjustInTree = this.buildPoolTree(inList)
+                    this.adjustOutTree = this.buildPoolTree(outList)
+                } catch (e) {
+                    if (requestId !== this.detailRequestId) return
+                    this.stockDetail = row || {}
+                    this.stockCurrentPools = []
+                    this.adjustInTree = []
+                    this.adjustOutTree = []
+                }
+                if (requestId === this.detailRequestId) this.detailLoading = false
+            },
+            // 返回股票列表并刷新查询结果。
+            backToList() {
+                this.currentPage = 'list'
+                ++this.detailRequestId
+                ++this.adjustCheckSeq
+                this.adjustCheckLoading = false
+                this.adjustStep = 1
+                this.adjustReviewList = []
+                this.flowDialogVisible = false
+                this.reportDialogVisible = false
+                this.loadStockList()
+            },
+            // 切换详情区块的展开状态。
+            toggleSection(section) {
+                this.sectionExpanded[section] = !this.sectionExpanded[section]
+            },
+            // 将投资池平铺数据转换成树形结构。
+            buildPoolTree(list) {
+                const map = {}
                 ;
-                (nodes || []).forEach(node => {
-                    if (node.children && node.children.length) walk(node.children)
-                    else result.push(node)
+                (list || []).forEach(item => {
+                    map[item.id] = Object.assign({}, item, { children: [] })
                 })
-            }
-            walk(tree)
-            return result
-        },
-        // 处理调入池单项勾选，并自动取消互斥池选择。
-        handleInPoolSelect(selection, row) {
-            const isNowSelected = (selection || []).some(item => item.id === row.id)
-            if (isNowSelected) {
-                const mutexIds = row.inMutexPoolIds || []
-                const conflictIn = this.selectedInPools.filter(item => mutexIds.includes(item.id))
-                const conflictOut = this.selectedOutPools.filter(item => mutexIds.includes(item.id))
-                conflictIn.forEach(item => this.$refs.inTableRef.toggleRowSelection(item, false))
-                conflictOut.forEach(item => this.$refs.outTableRef.toggleRowSelection(item, false))
-                this.selectedInPools = this.selectedInPools.filter(item => !mutexIds.includes(item.id))
-                this.selectedOutPools = this.selectedOutPools.filter(item => !mutexIds.includes(item.id))
-                if (conflictIn.length || conflictOut.length) {
-                    const names = conflictIn.concat(conflictOut).map(item => item.poolName).join('、')
-                    this.$message.warning('「' + names + '」与「' + row.poolName + '」互斥，已自动取消「' + names + '」改选「' + row.poolName + '」')
-                }
-            }
-            this.selectedInPools = isNowSelected
-                ? this.normalizeSelectedPools(this.selectedInPools.concat(row))
-                : this.selectedInPools.filter(item => item.id !== row.id)
-        },
-        // 处理调入池表头全选或取消全选。
-        handleInPoolSelectAll() {
-            const rows = this.flattenPoolTree(this.adjustInTree)
-            const selectedCount = rows.filter(row => this.selectedInPools.some(item => item.id === row.id)).length
-            const selectAll = selectedCount < rows.length
-            rows.forEach(row => {
-                if (this.$refs.inTableRef) this.$refs.inTableRef.toggleRowSelection(row, selectAll)
-                const selected = this.selectedInPools.some(item => item.id === row.id)
-                if (selectAll !== selected) this.handleInPoolSelect(selectAll ? [row] : [], row)
-            })
-        },
-        // 处理调出池单项勾选，并自动取消互斥池选择。
-        handleOutPoolSelect(selection, row) {
-            const isNowSelected = (selection || []).some(item => item.id === row.id)
-            if (isNowSelected) {
-                const mutexIds = row.outMutexPoolIds || []
-                const conflictOut = this.selectedOutPools.filter(item => mutexIds.includes(item.id))
-                const conflictIn = this.selectedInPools.filter(item => mutexIds.includes(item.id))
-                conflictOut.forEach(item => this.$refs.outTableRef.toggleRowSelection(item, false))
-                conflictIn.forEach(item => this.$refs.inTableRef.toggleRowSelection(item, false))
-                this.selectedOutPools = this.selectedOutPools.filter(item => !mutexIds.includes(item.id))
-                this.selectedInPools = this.selectedInPools.filter(item => !mutexIds.includes(item.id))
-                if (conflictOut.length || conflictIn.length) {
-                    const names = conflictOut.concat(conflictIn).map(item => item.poolName).join('、')
-                    this.$message.warning('「' + names + '」与「' + row.poolName + '」互斥，已自动取消「' + names + '」改选「' + row.poolName + '」')
-                }
-            }
-            this.selectedOutPools = isNowSelected
-                ? this.normalizeSelectedPools(this.selectedOutPools.concat(row))
-                : this.selectedOutPools.filter(item => item.id !== row.id)
-        },
-        // 处理调出池表头全选或取消全选。
-        handleOutPoolSelectAll() {
-            const rows = this.flattenPoolTree(this.adjustOutTree)
-            const selectedCount = rows.filter(row => this.selectedOutPools.some(item => item.id === row.id)).length
-            const selectAll = selectedCount < rows.length
-            rows.forEach(row => {
-                if (this.$refs.outTableRef) this.$refs.outTableRef.toggleRowSelection(row, selectAll)
-                const selected = this.selectedOutPools.some(item => item.id === row.id)
-                if (selectAll !== selected) this.handleOutPoolSelect(selectAll ? [row] : [], row)
-            })
-        },
-        // 格式化投资池容量展示文本。
-        capacityText(row) {
-            return (row.currentCount == null ? 0 : row.currentCount) + ' / ' + (row.maxCapacity == null ? '不限' : row.maxCapacity)
-        },
-        // 生成方向与目标池对应的材料选择键。
-        materialKey(direction, poolId) {
-            return direction + '-' + poolId
-        },
-        // 获取指定池的股票报告选择。
-        getCreditReportSelections(direction, poolId) {
-            const key = this.materialKey(direction, poolId)
-            return this.creditReportSelections[key] || []
-        },
-        // 获取指定池的其他材料选择。
-        getOtherMaterialSelections(direction, poolId) {
-            return this.otherMaterialSelections[this.materialKey(direction, poolId)] || []
-        },
-        // 获取指定池的股票报告上传文件。
-        getAttachmentFiles(direction, poolId) {
-            return this.attachmentFiles[this.materialKey(direction, poolId)] || []
-        },
-        // 获取指定池的其他材料上传文件。
-        getMaterialFiles(direction, poolId) {
-            return this.materialFiles[this.materialKey(direction, poolId)] || []
-        },
-        // 保存股票报告本地上传文件。
-        handleAttachmentChange(direction, poolId, file, fileList) {
-            const key = this.materialKey(direction, poolId)
-            const current = this.getAttachmentFiles(direction, poolId)
-            if (!file.raw || current.some(item => item.name === file.name)) return
-            this.$set(this.attachmentFiles, key, [...current, file])
-        },
-        // 保存其他材料本地上传文件。
-        handleMaterialChange(direction, poolId, file, fileList) {
-            const key = this.materialKey(direction, poolId)
-            const current = this.getMaterialFiles(direction, poolId)
-            if (!file.raw || current.some(item => item.name === file.name)) return
-            this.$set(this.materialFiles, key, [...current, file])
-        },
-        // 删除指定池的股票报告本地文件。
-        removeAttachmentFile(direction, poolId, index) {
-            const key = this.materialKey(direction, poolId)
-            const files = this.getAttachmentFiles(direction, poolId).slice()
-            files.splice(index, 1)
-            this.$set(this.attachmentFiles, key, files)
-        },
-        // 删除指定池的其他材料本地文件。
-        removeMaterialFile(direction, poolId, index) {
-            const key = this.materialKey(direction, poolId)
-            const files = this.getMaterialFiles(direction, poolId).slice()
-            files.splice(index, 1)
-            this.$set(this.materialFiles, key, files)
-        },
-        // 删除指定池的股票报告选择。
-        removeCreditReportSelection(direction, poolId, index) {
-            const key = this.materialKey(direction, poolId)
-            const reports = this.getCreditReportSelections(direction, poolId).slice()
-            reports.splice(index, 1)
-            this.$set(this.creditReportSelections, key, reports)
-        },
-        // 删除指定池的其他材料选择。
-        removeOtherMaterialSelection(direction, poolId, index) {
-            const key = this.materialKey(direction, poolId)
-            const reports = this.getOtherMaterialSelections(direction, poolId).slice()
-            reports.splice(index, 1)
-            this.$set(this.otherMaterialSelections, key, reports)
-        },
-        // 下载当前页面手工选择的本地附件。
-        downloadLocalFile(file) {
-            if (!file || !file.raw) return
-            const url = URL.createObjectURL(file.raw)
-            const link = document.createElement('a')
-            link.href = url
-            link.download = file.name || file.raw.name || '附件'
-            link.click()
-            URL.revokeObjectURL(url)
-        },
-        // 打开股票报告或其他材料选择弹窗。
-        openReportDialog(direction, poolId, column) {
-            this.reportDialogDirection = direction
-            this.reportDialogPoolId = poolId
-            this.reportDialogColumn = column
-            this.reportActiveTab = 'internal'
-            const existing = column === 'credit'
-                ? this.getCreditReportSelections(direction, poolId)
-                : this.getOtherMaterialSelections(direction, poolId)
-            this.selectedInternalReports = existing.filter(report => report.source === 'internal')
-            this.selectedExternalReports = existing.filter(report => report.source === 'external')
-            this.resetInternalReportFiltersSilent()
-            this.resetExternalReportFiltersSilent()
-            const stockCode = this.stockDetail.stockCode || ''
-            this.internalReportFilters.securityCode = stockCode
-            this.externalReportFilters.securityCode = stockCode
-            this.internalReportPagination.pageIndex = 1
-            this.externalReportPagination.pageIndex = 1
-            this.reportDialogVisible = true
-            this.queryInternalReports()
-            this.queryExternalReports()
-        },
-        // 清理报告选择弹窗会话状态。
-        handleReportDialogClosed() {
-            ++this.reportRequestIds.internal
-            ++this.reportRequestIds.external
-            this.internalReportLoading = false
-            this.externalReportLoading = false
-            this.reportDialogDirection = ''
-            this.reportDialogPoolId = null
-            this.reportDialogColumn = ''
-            this.reportActiveTab = 'internal'
-            this.selectedInternalReports = []
-            this.selectedExternalReports = []
-            this.restoringReportSelection = false
-            this.resetInternalReportFiltersSilent()
-            this.resetExternalReportFiltersSilent()
-        },
-        // 查询内部或外部报告分页数据。
-        async queryReportListPage(source) {
-            const internal = source === 'internal'
-            const requestId = ++this.reportRequestIds[source]
-            const filters = internal ? this.internalReportFilters : this.externalReportFilters
-            const pagination = internal ? this.internalReportPagination : this.externalReportPagination
-            if (internal) this.internalReportLoading = true
-            else this.externalReportLoading = true
-            this.restoringReportSelection = true
-            try {
-                const range = filters.writeDateRange || []
-                const path = internal ? '/api/v1/reports/queryInReportPage' : '/api/v1/reports/queryOutReportPage'
-                const data = await this.apiPost(path, {
-                    pageIndex: pagination.pageIndex,
-                    pageSize: pagination.pageSize,
-                    reportTitle: filters.title,
-                    securityCode: filters.securityCode,
-                    reportType: filters.reportType,
-                    crteTimeStart: range.length === 2 ? range[0] : '',
-                    crteTimeEnd: range.length === 2 ? range[1] : ''
+                const roots = []
+                Object.keys(map).forEach(key => {
+                    const item = map[key]
+                    if (item.parentId != null && map[item.parentId]) map[item.parentId].children.push(item)
+                    else roots.push(item)
                 })
-                if (requestId !== this.reportRequestIds[source]) return
-                const records = ((data && data.records) || []).map(item => this.normalizeReportRecord(item, source))
-                pagination.total = (data && data.total) || 0
-                if (internal) this.internalReportData = records
-                else this.externalReportData = records
+                const trim = rows => rows.map(row => {
+                    if (row.children.length) row.children = trim(row.children)
+                    else delete row.children
+                    return row
+                })
+                return trim(roots)
+            },
+            // 仅允许选择投资池叶子节点。
+            poolRowSelectable(row) {
+                return !row.children || row.children.length === 0
+            },
+            // 清理重复项并只保留投资池叶子节点。
+            normalizeSelectedPools(selection) {
+                const map = {}
+                ;
+                (selection || []).forEach(row => {
+                    if (row && this.poolRowSelectable(row)) map[row.id] = row
+                })
+                return Object.keys(map).map(id => map[id])
+            },
+            // 展开树形投资池并返回全部叶子节点。
+            flattenPoolTree(tree) {
+                const result = []
+                const walk = nodes => {
+                    ;
+                    (nodes || []).forEach(node => {
+                        if (node.children && node.children.length) walk(node.children)
+                        else result.push(node)
+                    })
+                }
+                walk(tree)
+                return result
+            },
+            // 处理调入池单项勾选，并自动取消互斥池选择。
+            handleInPoolSelect(selection, row) {
+                const isNowSelected = (selection || []).some(item => item.id === row.id)
+                if (isNowSelected) {
+                    const mutexIds = row.inMutexPoolIds || []
+                    const conflictIn = this.selectedInPools.filter(item => mutexIds.includes(item.id))
+                    const conflictOut = this.selectedOutPools.filter(item => mutexIds.includes(item.id))
+                    conflictIn.forEach(item => this.$refs.inTableRef.toggleRowSelection(item, false))
+                    conflictOut.forEach(item => this.$refs.outTableRef.toggleRowSelection(item, false))
+                    this.selectedInPools = this.selectedInPools.filter(item => !mutexIds.includes(item.id))
+                    this.selectedOutPools = this.selectedOutPools.filter(item => !mutexIds.includes(item.id))
+                    if (conflictIn.length || conflictOut.length) {
+                        const names = conflictIn.concat(conflictOut).map(item => item.poolName).join('、')
+                        this.$message.warning('「' + names + '」与「' + row.poolName + '」互斥，已自动取消「' + names + '」改选「' + row.poolName + '」')
+                    }
+                }
+                this.selectedInPools = isNowSelected
+                    ? this.normalizeSelectedPools(this.selectedInPools.concat(row))
+                    : this.selectedInPools.filter(item => item.id !== row.id)
+            },
+            // 处理调入池表头全选或取消全选。
+            handleInPoolSelectAll() {
+                const rows = this.flattenPoolTree(this.adjustInTree)
+                const selectedCount = rows.filter(row => this.selectedInPools.some(item => item.id === row.id)).length
+                const selectAll = selectedCount < rows.length
+                rows.forEach(row => {
+                    if (this.$refs.inTableRef) this.$refs.inTableRef.toggleRowSelection(row, selectAll)
+                    const selected = this.selectedInPools.some(item => item.id === row.id)
+                    if (selectAll !== selected) this.handleInPoolSelect(selectAll ? [row] : [], row)
+                })
+            },
+            // 处理调出池单项勾选，并自动取消互斥池选择。
+            handleOutPoolSelect(selection, row) {
+                const isNowSelected = (selection || []).some(item => item.id === row.id)
+                if (isNowSelected) {
+                    const mutexIds = row.outMutexPoolIds || []
+                    const conflictOut = this.selectedOutPools.filter(item => mutexIds.includes(item.id))
+                    const conflictIn = this.selectedInPools.filter(item => mutexIds.includes(item.id))
+                    conflictOut.forEach(item => this.$refs.outTableRef.toggleRowSelection(item, false))
+                    conflictIn.forEach(item => this.$refs.inTableRef.toggleRowSelection(item, false))
+                    this.selectedOutPools = this.selectedOutPools.filter(item => !mutexIds.includes(item.id))
+                    this.selectedInPools = this.selectedInPools.filter(item => !mutexIds.includes(item.id))
+                    if (conflictOut.length || conflictIn.length) {
+                        const names = conflictOut.concat(conflictIn).map(item => item.poolName).join('、')
+                        this.$message.warning('「' + names + '」与「' + row.poolName + '」互斥，已自动取消「' + names + '」改选「' + row.poolName + '」')
+                    }
+                }
+                this.selectedOutPools = isNowSelected
+                    ? this.normalizeSelectedPools(this.selectedOutPools.concat(row))
+                    : this.selectedOutPools.filter(item => item.id !== row.id)
+            },
+            // 处理调出池表头全选或取消全选。
+            handleOutPoolSelectAll() {
+                const rows = this.flattenPoolTree(this.adjustOutTree)
+                const selectedCount = rows.filter(row => this.selectedOutPools.some(item => item.id === row.id)).length
+                const selectAll = selectedCount < rows.length
+                rows.forEach(row => {
+                    if (this.$refs.outTableRef) this.$refs.outTableRef.toggleRowSelection(row, selectAll)
+                    const selected = this.selectedOutPools.some(item => item.id === row.id)
+                    if (selectAll !== selected) this.handleOutPoolSelect(selectAll ? [row] : [], row)
+                })
+            },
+            // 格式化投资池容量展示文本。
+            capacityText(row) {
+                return (row.currentCount == null ? 0 : row.currentCount) + ' / ' + (row.maxCapacity == null ? '不限' : row.maxCapacity)
+            },
+            // 生成方向与目标池对应的材料选择键。
+            materialKey(direction, poolId) {
+                return direction + '-' + poolId
+            },
+            // 获取指定池的股票报告选择。
+            getCreditReportSelections(direction, poolId) {
+                const key = this.materialKey(direction, poolId)
+                return this.creditReportSelections[key] || []
+            },
+            // 获取指定池的其他材料选择。
+            getOtherMaterialSelections(direction, poolId) {
+                return this.otherMaterialSelections[this.materialKey(direction, poolId)] || []
+            },
+            // 获取指定池的股票报告上传文件。
+            getAttachmentFiles(direction, poolId) {
+                return this.attachmentFiles[this.materialKey(direction, poolId)] || []
+            },
+            // 获取指定池的其他材料上传文件。
+            getMaterialFiles(direction, poolId) {
+                return this.materialFiles[this.materialKey(direction, poolId)] || []
+            },
+            // 保存股票报告本地上传文件。
+            handleAttachmentChange(direction, poolId, file, fileList) {
+                const key = this.materialKey(direction, poolId)
+                const current = this.getAttachmentFiles(direction, poolId)
+                if (!file.raw || current.some(item => item.name === file.name)) return
+                this.$set(this.attachmentFiles, key, [...current, file])
+            },
+            // 保存其他材料本地上传文件。
+            handleMaterialChange(direction, poolId, file, fileList) {
+                const key = this.materialKey(direction, poolId)
+                const current = this.getMaterialFiles(direction, poolId)
+                if (!file.raw || current.some(item => item.name === file.name)) return
+                this.$set(this.materialFiles, key, [...current, file])
+            },
+            // 删除指定池的股票报告本地文件。
+            removeAttachmentFile(direction, poolId, index) {
+                const key = this.materialKey(direction, poolId)
+                const files = this.getAttachmentFiles(direction, poolId).slice()
+                files.splice(index, 1)
+                this.$set(this.attachmentFiles, key, files)
+            },
+            // 删除指定池的其他材料本地文件。
+            removeMaterialFile(direction, poolId, index) {
+                const key = this.materialKey(direction, poolId)
+                const files = this.getMaterialFiles(direction, poolId).slice()
+                files.splice(index, 1)
+                this.$set(this.materialFiles, key, files)
+            },
+            // 删除指定池的股票报告选择。
+            removeCreditReportSelection(direction, poolId, index) {
+                const key = this.materialKey(direction, poolId)
+                const reports = this.getCreditReportSelections(direction, poolId).slice()
+                reports.splice(index, 1)
+                this.$set(this.creditReportSelections, key, reports)
+            },
+            // 删除指定池的其他材料选择。
+            removeOtherMaterialSelection(direction, poolId, index) {
+                const key = this.materialKey(direction, poolId)
+                const reports = this.getOtherMaterialSelections(direction, poolId).slice()
+                reports.splice(index, 1)
+                this.$set(this.otherMaterialSelections, key, reports)
+            },
+            // 下载当前页面手工选择的本地附件。
+            downloadLocalFile(file) {
+                if (!file || !file.raw) return
+                const url = URL.createObjectURL(file.raw)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = file.name || file.raw.name || '附件'
+                link.click()
+                URL.revokeObjectURL(url)
+            },
+            // 打开股票报告或其他材料选择弹窗。
+            openReportDialog(direction, poolId, column) {
+                this.reportDialogDirection = direction
+                this.reportDialogPoolId = poolId
+                this.reportDialogColumn = column
+                this.reportActiveTab = 'internal'
+                const existing = column === 'credit'
+                    ? this.getCreditReportSelections(direction, poolId)
+                    : this.getOtherMaterialSelections(direction, poolId)
+                this.selectedInternalReports = existing.filter(report => report.source === 'internal')
+                this.selectedExternalReports = existing.filter(report => report.source === 'external')
+                this.resetInternalReportFiltersSilent()
+                this.resetExternalReportFiltersSilent()
+                const stockCode = this.stockDetail.stockCode || ''
+                this.internalReportFilters.securityCode = stockCode
+                this.externalReportFilters.securityCode = stockCode
+                this.internalReportPagination.pageIndex = 1
+                this.externalReportPagination.pageIndex = 1
+                this.reportDialogVisible = true
+                this.queryInternalReports()
+                this.queryExternalReports()
+            },
+            // 清理报告选择弹窗会话状态。
+            handleReportDialogClosed() {
+                ++this.reportRequestIds.internal
+                ++this.reportRequestIds.external
+                this.internalReportLoading = false
+                this.externalReportLoading = false
+                this.reportDialogDirection = ''
+                this.reportDialogPoolId = null
+                this.reportDialogColumn = ''
+                this.reportActiveTab = 'internal'
+                this.selectedInternalReports = []
+                this.selectedExternalReports = []
+                this.restoringReportSelection = false
+                this.resetInternalReportFiltersSilent()
+                this.resetExternalReportFiltersSilent()
+            },
+            // 查询内部或外部报告分页数据。
+            async queryReportListPage(source) {
+                const internal = source === 'internal'
+                const requestId = ++this.reportRequestIds[source]
+                const filters = internal ? this.internalReportFilters : this.externalReportFilters
+                const pagination = internal ? this.internalReportPagination : this.externalReportPagination
+                if (internal) this.internalReportLoading = true
+                else this.externalReportLoading = true
+                this.restoringReportSelection = true
+                try {
+                    const range = filters.writeDateRange || []
+                    const path = internal ? '/api/v1/reports/queryInReportPage' : '/api/v1/reports/queryOutReportPage'
+                    const data = await this.apiPost(path, {
+                        pageIndex: pagination.pageIndex,
+                        pageSize: pagination.pageSize,
+                        reportTitle: filters.title,
+                        securityCode: filters.securityCode,
+                        reportType: filters.reportType,
+                        crteTimeStart: range.length === 2 ? range[0] : '',
+                        crteTimeEnd: range.length === 2 ? range[1] : ''
+                    })
+                    if (requestId !== this.reportRequestIds[source]) return
+                    const records = ((data && data.records) || []).map(item => this.normalizeReportRecord(item, source))
+                    pagination.total = (data && data.total) || 0
+                    if (internal) this.internalReportData = records
+                    else this.externalReportData = records
+                    this.$nextTick(() => {
+                        if (internal) this.restoreInternalReportSelection()
+                        else this.restoreExternalReportSelection()
+                    })
+                } catch (e) {
+                    if (requestId !== this.reportRequestIds[source]) return
+                    pagination.total = 0
+                    if (internal) this.internalReportData = []
+                    else this.externalReportData = []
+                    this.restoringReportSelection = false
+                } finally {
+                    if (requestId !== this.reportRequestIds[source]) return
+                    if (internal) this.internalReportLoading = false
+                    else this.externalReportLoading = false
+                }
+            },
+            // 转换报告接口字段为弹窗展示字段。
+            normalizeReportRecord(item, source) {
+                const crteTime = item.crteTime || ''
+                return Object.assign({}, item, {
+                    title: item.reportTitle || '',
+                    author: item.authorName || '',
+                    writeDate: crteTime ? crteTime.substring(0, 10) : '',
+                    source: source
+                })
+            },
+            // 查询内部报告。
+            queryInternalReports() {
+                return this.queryReportListPage('internal')
+            },
+            // 查询外部报告。
+            queryExternalReports() {
+                return this.queryReportListPage('external')
+            },
+            // 合并内部报告当前页勾选与其他页已选项。
+            handleInternalReportSelectionChange(rows) {
+                if (this.restoringReportSelection) return
+                const visibleIds = this.internalReportPageData.map(report => report.id)
+                const map = {}
+                this.selectedInternalReports.forEach(report => {
+                    if (!visibleIds.includes(report.id)) map[report.id] = report
+                })
+                ;
+                (rows || []).forEach(report => {
+                    map[report.id] = {
+                        id: report.id,
+                        title: report.title,
+                        reportType: report.reportType,
+                        source: 'internal',
+                        attachments: report.attachments || []
+                    }
+                })
+                this.selectedInternalReports = Object.keys(map).map(key => map[key])
+            },
+            // 合并外部报告当前页勾选与其他页已选项。
+            handleExternalReportSelectionChange(rows) {
+                if (this.restoringReportSelection) return
+                const visibleIds = this.externalReportPageData.map(report => report.id)
+                const map = {}
+                this.selectedExternalReports.forEach(report => {
+                    if (!visibleIds.includes(report.id)) map[report.id] = report
+                })
+                ;
+                (rows || []).forEach(report => {
+                    map[report.id] = {
+                        id: report.id,
+                        title: report.title,
+                        reportType: report.reportType,
+                        source: 'external',
+                        attachments: report.attachments || []
+                    }
+                })
+                this.selectedExternalReports = Object.keys(map).map(key => map[key])
+            },
+            // 恢复内部报告当前页勾选状态。
+            restoreInternalReportSelection() {
+                const table = this.$refs.internalReportTableRef
+                if (!table) {
+                    this.restoringReportSelection = false;
+                    return
+                }
+                this.restoringReportSelection = true
+                table.clearSelection()
+                this.internalReportPageData.forEach(row => table.toggleRowSelection(row, this.selectedInternalReports.some(report => report.id === row.id)))
                 this.$nextTick(() => {
-                    if (internal) this.restoreInternalReportSelection()
+                    this.restoringReportSelection = false
+                })
+            },
+            // 恢复外部报告当前页勾选状态。
+            restoreExternalReportSelection() {
+                const table = this.$refs.externalReportTableRef
+                if (!table) {
+                    this.restoringReportSelection = false;
+                    return
+                }
+                this.restoringReportSelection = true
+                table.clearSelection()
+                this.externalReportPageData.forEach(row => table.toggleRowSelection(row, this.selectedExternalReports.some(report => report.id === row.id)))
+                this.$nextTick(() => {
+                    this.restoringReportSelection = false
+                })
+            },
+            // 切换报告来源 Tab 后恢复当前页勾选状态。
+            handleReportTabClick() {
+                this.$nextTick(() => {
+                    if (this.reportActiveTab === 'internal') this.restoreInternalReportSelection()
                     else this.restoreExternalReportSelection()
                 })
-            } catch (e) {
-                if (requestId !== this.reportRequestIds[source]) return
-                pagination.total = 0
-                if (internal) this.internalReportData = []
-                else this.externalReportData = []
-                this.restoringReportSelection = false
-            } finally {
-                if (requestId !== this.reportRequestIds[source]) return
-                if (internal) this.internalReportLoading = false
-                else this.externalReportLoading = false
-            }
-        },
-        // 转换报告接口字段为弹窗展示字段。
-        normalizeReportRecord(item, source) {
-            const crteTime = item.crteTime || ''
-            return Object.assign({}, item, {
-                title: item.reportTitle || '',
-                author: item.authorName || '',
-                writeDate: crteTime ? crteTime.substring(0, 10) : '',
-                source: source
-            })
-        },
-        // 查询内部报告。
-        queryInternalReports() {
-            return this.queryReportListPage('internal')
-        },
-        // 查询外部报告。
-        queryExternalReports() {
-            return this.queryReportListPage('external')
-        },
-        // 合并内部报告当前页勾选与其他页已选项。
-        handleInternalReportSelectionChange(rows) {
-            if (this.restoringReportSelection) return
-            const visibleIds = this.internalReportPageData.map(report => report.id)
-            const map = {}
-            this.selectedInternalReports.forEach(report => {
-                if (!visibleIds.includes(report.id)) map[report.id] = report
-            })
-            ;
-            (rows || []).forEach(report => {
-                map[report.id] = {
-                    id: report.id,
-                    title: report.title,
-                    reportType: report.reportType,
-                    source: 'internal',
-                    attachments: report.attachments || []
+            },
+            // 重置并查询内部报告。
+            resetInternalReportFilters() {
+                this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+                this.internalReportPagination.pageIndex = 1
+                this.queryInternalReports()
+            },
+            // 静默重置内部报告查询条件。
+            resetInternalReportFiltersSilent() {
+                this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+            },
+            // 重置并查询外部报告。
+            resetExternalReportFilters() {
+                this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+                this.externalReportPagination.pageIndex = 1
+                this.queryExternalReports()
+            },
+            // 静默重置外部报告查询条件。
+            resetExternalReportFiltersSilent() {
+                this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
+            },
+            // 设置内部报告类型快捷筛选。
+            setInternalReportTypeFilter(type) {
+                this.internalReportFilters.reportType = type
+                this.internalReportPagination.pageIndex = 1
+                this.queryInternalReports()
+            },
+            // 设置外部报告类型快捷筛选。
+            setExternalReportTypeFilter(type) {
+                this.externalReportFilters.reportType = type
+                this.externalReportPagination.pageIndex = 1
+                this.queryExternalReports()
+            },
+            // 从已选清单移除内部报告。
+            removeInternalSelection(id) {
+                this.selectedInternalReports = this.selectedInternalReports.filter(report => report.id !== id)
+                this.$nextTick(() => this.restoreInternalReportSelection())
+            },
+            // 从已选清单移除外部报告。
+            removeExternalSelection(id) {
+                this.selectedExternalReports = this.selectedExternalReports.filter(report => report.id !== id)
+                this.$nextTick(() => this.restoreExternalReportSelection())
+            },
+            // 清空内部报告选择。
+            clearInternalSelection() {
+                this.selectedInternalReports = []
+                this.$nextTick(() => this.restoreInternalReportSelection())
+            },
+            // 清空外部报告选择。
+            clearExternalSelection() {
+                this.selectedExternalReports = []
+                this.$nextTick(() => this.restoreExternalReportSelection())
+            },
+            // 返回报告类型名称。
+            reportTypeLabel(code) {
+                return this.reportTypeDict[code] || code || ''
+            },
+            // 返回报告证券类型名称。
+            reportSecurityTypeLabel(code) {
+                return this.reportSecurityTypeDict[code] || code || ''
+            },
+            // 返回报告类型样式分组。
+            getReportTypeClass(type) {
+                const map = {
+                    bond_in_report: 'type-rating', bond_out_report: 'type-risk',
+                    stock_in_report: 'type-research', stock_out_report: 'type-risk',
+                    stock_in_report: 'type-rating', stock_out_report: 'type-risk', other_report: 'type-default'
                 }
-            })
-            this.selectedInternalReports = Object.keys(map).map(key => map[key])
-        },
-        // 合并外部报告当前页勾选与其他页已选项。
-        handleExternalReportSelectionChange(rows) {
-            if (this.restoringReportSelection) return
-            const visibleIds = this.externalReportPageData.map(report => report.id)
-            const map = {}
-            this.selectedExternalReports.forEach(report => {
-                if (!visibleIds.includes(report.id)) map[report.id] = report
-            })
-            ;
-            (rows || []).forEach(report => {
-                map[report.id] = {
-                    id: report.id,
-                    title: report.title,
-                    reportType: report.reportType,
-                    source: 'external',
-                    attachments: report.attachments || []
+                return map[type] || 'type-default'
+            },
+            // 返回报告类型标签样式。
+            reportTypeTagType(type) {
+                const value = this.getReportTypeClass(type)
+                if (value === 'type-rating') return 'success'
+                if (value === 'type-risk') return 'danger'
+                if (value === 'type-research') return 'warning'
+                return 'info'
+            },
+            // 确认本次股票报告或其他材料选择。
+            handleConfirmReportDialog() {
+                const reports = this.selectedInternalReports.concat(this.selectedExternalReports)
+                const key = this.materialKey(this.reportDialogDirection, this.reportDialogPoolId)
+                if (this.reportDialogColumn === 'credit') this.$set(this.creditReportSelections, key, reports.slice())
+                else this.$set(this.otherMaterialSelections, key, reports.slice())
+                this.reportDialogVisible = false
+            },
+            // 下载报告库附件。
+            async downloadAttachment(file) {
+                try {
+                    const base64 = await this.apiPost('/api/v1/attachments/downloadAttachment', { id: file.id })
+                    this.downloadBase64File(base64, file.originalFileName, file.contentType)
+                } catch (e) {
+                    this.$message.error(e.message || '操作失败')
                 }
-            })
-            this.selectedExternalReports = Object.keys(map).map(key => map[key])
-        },
-        // 恢复内部报告当前页勾选状态。
-        restoreInternalReportSelection() {
-            const table = this.$refs.internalReportTableRef
-            if (!table) {
-                this.restoringReportSelection = false;
-                return
-            }
-            this.restoringReportSelection = true
-            table.clearSelection()
-            this.internalReportPageData.forEach(row => table.toggleRowSelection(row, this.selectedInternalReports.some(report => report.id === row.id)))
-            this.$nextTick(() => {
-                this.restoringReportSelection = false
-            })
-        },
-        // 恢复外部报告当前页勾选状态。
-        restoreExternalReportSelection() {
-            const table = this.$refs.externalReportTableRef
-            if (!table) {
-                this.restoringReportSelection = false;
-                return
-            }
-            this.restoringReportSelection = true
-            table.clearSelection()
-            this.externalReportPageData.forEach(row => table.toggleRowSelection(row, this.selectedExternalReports.some(report => report.id === row.id)))
-            this.$nextTick(() => {
-                this.restoringReportSelection = false
-            })
-        },
-        // 切换报告来源 Tab 后恢复当前页勾选状态。
-        handleReportTabClick() {
-            this.$nextTick(() => {
-                if (this.reportActiveTab === 'internal') this.restoreInternalReportSelection()
-                else this.restoreExternalReportSelection()
-            })
-        },
-        // 重置并查询内部报告。
-        resetInternalReportFilters() {
-            this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
-            this.internalReportPagination.pageIndex = 1
-            this.queryInternalReports()
-        },
-        // 静默重置内部报告查询条件。
-        resetInternalReportFiltersSilent() {
-            this.internalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
-        },
-        // 重置并查询外部报告。
-        resetExternalReportFilters() {
-            this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
-            this.externalReportPagination.pageIndex = 1
-            this.queryExternalReports()
-        },
-        // 静默重置外部报告查询条件。
-        resetExternalReportFiltersSilent() {
-            this.externalReportFilters = { title: '', securityCode: '', reportType: '', writeDateRange: null }
-        },
-        // 设置内部报告类型快捷筛选。
-        setInternalReportTypeFilter(type) {
-            this.internalReportFilters.reportType = type
-            this.internalReportPagination.pageIndex = 1
-            this.queryInternalReports()
-        },
-        // 设置外部报告类型快捷筛选。
-        setExternalReportTypeFilter(type) {
-            this.externalReportFilters.reportType = type
-            this.externalReportPagination.pageIndex = 1
-            this.queryExternalReports()
-        },
-        // 从已选清单移除内部报告。
-        removeInternalSelection(id) {
-            this.selectedInternalReports = this.selectedInternalReports.filter(report => report.id !== id)
-            this.$nextTick(() => this.restoreInternalReportSelection())
-        },
-        // 从已选清单移除外部报告。
-        removeExternalSelection(id) {
-            this.selectedExternalReports = this.selectedExternalReports.filter(report => report.id !== id)
-            this.$nextTick(() => this.restoreExternalReportSelection())
-        },
-        // 清空内部报告选择。
-        clearInternalSelection() {
-            this.selectedInternalReports = []
-            this.$nextTick(() => this.restoreInternalReportSelection())
-        },
-        // 清空外部报告选择。
-        clearExternalSelection() {
-            this.selectedExternalReports = []
-            this.$nextTick(() => this.restoreExternalReportSelection())
-        },
-        // 返回报告类型名称。
-        reportTypeLabel(code) {
-            return this.reportTypeDict[code] || code || ''
-        },
-        // 返回报告证券类型名称。
-        reportSecurityTypeLabel(code) {
-            return this.reportSecurityTypeDict[code] || code || ''
-        },
-        // 返回报告类型样式分组。
-        getReportTypeClass(type) {
-            const map = {
-                bond_in_report: 'type-rating', bond_out_report: 'type-risk',
-                stock_in_report: 'type-research', stock_out_report: 'type-risk',
-                stock_in_report: 'type-rating', stock_out_report: 'type-risk', other_report: 'type-default'
-            }
-            return map[type] || 'type-default'
-        },
-        // 返回报告类型标签样式。
-        reportTypeTagType(type) {
-            const value = this.getReportTypeClass(type)
-            if (value === 'type-rating') return 'success'
-            if (value === 'type-risk') return 'danger'
-            if (value === 'type-research') return 'warning'
-            return 'info'
-        },
-        // 确认本次股票报告或其他材料选择。
-        handleConfirmReportDialog() {
-            const reports = this.selectedInternalReports.concat(this.selectedExternalReports)
-            const key = this.materialKey(this.reportDialogDirection, this.reportDialogPoolId)
-            if (this.reportDialogColumn === 'credit') this.$set(this.creditReportSelections, key, reports.slice())
-            else this.$set(this.otherMaterialSelections, key, reports.slice())
-            this.reportDialogVisible = false
-        },
-        // 下载报告库附件。
-        async downloadAttachment(file) {
-            try {
-                const base64 = await this.apiPost('/api/v1/attachments/downloadAttachment', { id: file.id })
-                this.downloadBase64File(base64, file.originalFileName, file.contentType)
-            } catch (e) {
-                this.$message.error(e.message || '操作失败')
-            }
-        },
-        // 进入步骤2并调用后端执行股票调库校验。
-        async goToStep2() {
-            this.selectedInPools = this.normalizeSelectedPools(this.selectedInPools)
-            this.selectedOutPools = this.normalizeSelectedPools(this.selectedOutPools)
-            const items = this.selectedInPools.map(pool => ({ targetPoolId: pool.id, targetPoolName: pool.poolName, poolType: pool.poolType, adjustMode: '调入' }))
-                .concat(this.selectedOutPools.map(pool => ({ targetPoolId: pool.id, targetPoolName: pool.poolName, poolType: pool.poolType, adjustMode: '调出' })))
-            if (!items.length) {
-                this.$message.warning('请至少选择一个调入或调出投资池')
-                return
-            }
-            this.adjustReviewList = []
-            this.flowDialogVisible = false
-            this.adjustCheckLoading = true
-            const currentSeq = ++this.adjustCheckSeq
-            try {
-                const data = await this.apiPost('/api/v1/stockPoolAdjust/checkAdjust', { stockCode: this.stockDetail.stockCode, currentUserId: this.currentUser.userId, items: items })
-                if (currentSeq !== this.adjustCheckSeq) return
-                const reviewList = (data.items || []).map((item, rowIndex) => {
-                    const flowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex)
-                    const flow = flowOptions.find(option => option.recommended && option.selectable)
-                        || flowOptions.find(option => option.selectable)
-                        || {}
-                    const direction = item.adjustMode === '调入' ? 'in' : 'out'
-                    const manual = item.itemTag === 'manual'
-                    return Object.assign({}, item, {
-                        flowOptions: flowOptions,
-                        selectedFlowKey: flow.optionKey || '',
-                        flowId: flow.flowId,
-                        flowKey: flow.flowKey,
-                        flowType: flow.flowType,
-                        flowName: flow.flowName,
-                        creditReports: manual ? this.getCreditReportSelections(direction, item.targetPoolId).slice() : [],
-                        otherMaterials: manual ? this.getOtherMaterialSelections(direction, item.targetPoolId).slice() : [],
-                        attachmentFiles: manual ? this.getAttachmentFiles(direction, item.targetPoolId).slice() : [],
-                        materialFiles: manual ? this.getMaterialFiles(direction, item.targetPoolId).slice() : []
-                    })
-                })
-                this.adjustReviewList = this.applyAdjustGroupColors(reviewList)
-                this.adjustStep = 2
-            } catch (e) {
+            },
+            // 进入步骤2并调用后端执行股票调库校验。
+            async goToStep2() {
+                this.selectedInPools = this.normalizeSelectedPools(this.selectedInPools)
+                this.selectedOutPools = this.normalizeSelectedPools(this.selectedOutPools)
+                const items = this.selectedInPools.map(pool => ({ targetPoolId: pool.id, targetPoolName: pool.poolName, poolType: pool.poolType, adjustMode: '调入' }))
+                    .concat(this.selectedOutPools.map(pool => ({ targetPoolId: pool.id, targetPoolName: pool.poolName, poolType: pool.poolType, adjustMode: '调出' })))
+                if (!items.length) {
+                    this.$message.warning('请至少选择一个调入或调出投资池')
+                    return
+                }
                 this.adjustReviewList = []
-                this.$message.error(e.message || '操作失败')
-            } finally {
-                if (currentSeq === this.adjustCheckSeq) this.adjustCheckLoading = false
-            }
-        },
-        // 返回步骤1并保留已选择的投资池和材料。
-        goToStep1() {
-            this.adjustStep = 1
-            this.flowDialogVisible = false
-        },
-        // 按调库分组为校验结果附加稳定颜色序号。
-        applyAdjustGroupColors(rows) {
-            const groupIndexes = {}
-            let nextIndex = 0
-            return (rows || []).map(row => {
-                const key = row.adjustGroupKey || (row.targetPoolId + '_' + row.adjustMode)
-                if (groupIndexes[key] == null) groupIndexes[key] = nextIndex++
-                return Object.assign({}, row, { groupColorIndex: groupIndexes[key] })
-            })
-        },
-        // 返回校验结果表格的同组行样式。
-        getAdjustReviewRowClass({ row }) {
-            const index = row && row.groupColorIndex != null ? row.groupColorIndex : 0
-            return 'adjust-group-color-' + (index % 5)
-        },
-        // 格式化单条股票调库项的流程候选。
-        formatRowFlowOptions(options, rowIndex) {
-            return (options || []).map((option, index) => ({
-                optionKey: (option.flowKey || option.flowType || 'flow') + '_' + rowIndex + '_' + index,
-                flowType: option.flowType,
-                flowName: option.flowName,
-                flowId: option.flowId,
-                flowKey: option.flowKey,
-                matched: !!option.matched,
-                selectable: option.selectable !== false,
-                recommended: !!option.recommended,
-                matchReasons: option.matchReasons || [],
-                unmatchReasons: option.unmatchReasons || []
-            }))
-        },
-        // 返回调库项当前选择的流程。
-        selectedRowFlowOption(row) {
-            if (!row || !row.selectedFlowKey) return null
-            return (row.flowOptions || []).find(option => option.optionKey === row.selectedFlowKey) || null
-        },
-        // 流程变化时同步股票提交字段。
-        handleRowFlowChange(row) {
-            const flow = this.selectedRowFlowOption(row)
-            row.flowId = flow ? flow.flowId : null
-            row.flowKey = flow ? flow.flowKey : ''
-            row.flowType = flow ? flow.flowType : ''
-            row.flowName = flow ? flow.flowName : ''
-        },
-        // 返回流程类型展示名称。
-        flowTypeLabel(type) {
-            const map = {
-                whitelistInbound: '白名单', simpleInbound: '简易', normalInbound: '默认调入',
-                specialInbound: '特殊审批', upgradeInbound: '上调', downgradeInbound: '下调',
-                normalOutbound: '调出', fastInbound: '快速调入', fastOutbound: '快速调出'
-            }
-            return map[type] || type || ''
-        },
-        // 返回流程类型标签样式。
-        flowTypeTagType(type) {
-            if (type === 'whitelistInbound' || type === 'simpleInbound' || type === 'fastInbound' || type === 'fastOutbound') return 'success'
-            if (type === 'specialInbound' || type === 'downgradeInbound') return 'warning'
-            if (type === 'normalOutbound') return 'danger'
-            return 'info'
-        },
-        // 返回流程下拉的类型样式类。
-        flowTypeClass(type) {
-            const map = {
-                whitelistInbound: 'whitelist', simpleInbound: 'simple', normalInbound: 'normal',
-                specialInbound: 'special', upgradeInbound: 'upgrade', downgradeInbound: 'downgrade',
-                normalOutbound: 'outbound', fastInbound: 'simple', fastOutbound: 'simple'
-            }
-            return map[type] || 'standard'
-        },
-        // 返回流程候选标签样式。
-        getFlowOptionTagType(option) {
-            if (!option) return 'info'
-            if (option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound' || option.flowType === 'fastInbound' || option.flowType === 'fastOutbound') return 'success'
-            if (option.flowType === 'specialInbound' || option.flowType === 'downgradeInbound') return 'warning'
-            return 'info'
-        },
-        // 返回流程选择卡片的分组颜色类。
-        getFlowRowColorClass(index) {
-            return 'flow-row-color-' + (index % 5)
-        },
-        // 返回调库明细来源标签名称。
-        itemTagLabel(tag) {
-            return {
-                manual: '手工',
-                linkage: '联动',
-                mutex: '互斥'
-            }[tag] || tag || ''
-        },
-        // 返回调库明细调整类型名称。
-        adjustTypeLabel(tag) {
-            return this.itemTagLabel(tag) ? this.itemTagLabel(tag) + '调整' : ''
-        },
-        // 返回调库明细来源标签样式。
-        itemTagType(tag) {
-            return tag === 'mutex' ? 'danger' : (tag === 'linkage' ? 'warning' : 'info')
-        },
-        // 返回调库明细默认一般流程名称。
-        flowName(row) {
-            return row.flowName || (row.flowOptions && row.flowOptions.length ? row.flowOptions[0].flowName : '')
-        },
-        // 返回投资池类型中文名称。
-        poolTypeLabel(poolType) {
-            const map = {
-                credit_bond: '信用债', offshore_bond: '境外债', convertible_bond: '转债',
-                bond_product: '债券产品', special_account: '专户', stock: '股票',
-                stock_product: '股票产品', forbidden: '禁止库',
-                observe: '观察池', blacklist: '黑名单', restricted: '限制名单',
-                whitelist: '白名单', crmw: 'CRMW库', other: '其他'
-            }
-            return map[poolType] || poolType || ''
-        },
-        // 构建调库校验结果的调整说明。
-        adjustResultNote(row) {
-            const warnings = row.warnings || []
-            const label = this.adjustTypeLabel(row.itemTag) + (row.adjustMode || '')
-            return warnings.length ? label + '（警告：' + warnings.join('；') + '）' : label
-        },
-        // 返回校验结果状态文案。
-        checkStatusLabel(row) {
-            if (!row.canAdjust) return '不可调整'
-            return (row.warnings || []).length ? '可调整(警告)' : '可调整'
-        },
-        // 返回校验结果状态颜色类名。
-        checkStatusClass(row) {
-            if (!row.canAdjust) return 'check-status-text is-danger'
-            return (row.warnings || []).length ? 'check-status-text is-warning' : 'check-status-text is-success'
-        },
-        // 收集系统报告所关联的源附件 ID。
-        collectSourceAttachmentIds(reports) {
-            const ids = []
-            ;
-            (reports || []).forEach(report => (report.attachments || []).forEach(file => {
-                if (file.id != null && ids.indexOf(file.id) < 0) ids.push(file.id)
-            }))
-            return ids
-        },
-        // 组装提交参数、本地附件及其原始文件名。
-        buildSubmitPayloadAndFiles() {
-            const files = []
-            const originalNames = []
-            const items = this.validAdjustReviewList.map(item => {
-                const reportFileIndexes = []
-                const materialFileIndexes = []
-                ;
-                (item.attachmentFiles || []).forEach(file => {
-                    reportFileIndexes.push(files.length);
-                    files.push(file.raw);
-                    originalNames.push(file.name)
+                this.flowDialogVisible = false
+                this.adjustCheckLoading = true
+                const currentSeq = ++this.adjustCheckSeq
+                try {
+                    const data = await this.apiPost('/api/v1/stockPoolAdjust/checkAdjust', { stockCode: this.stockDetail.stockCode, currentUserId: this.currentUser.userId, items: items })
+                    if (currentSeq !== this.adjustCheckSeq) return
+                    const reviewList = (data.items || []).map((item, rowIndex) => {
+                        const flowOptions = this.formatRowFlowOptions(item.flowOptions || [], rowIndex)
+                        const flow = flowOptions.find(option => option.recommended && option.selectable)
+                            || flowOptions.find(option => option.selectable)
+                            || {}
+                        const direction = item.adjustMode === '调入' ? 'in' : 'out'
+                        const manual = item.itemTag === 'manual'
+                        return Object.assign({}, item, {
+                            flowOptions: flowOptions,
+                            selectedFlowKey: flow.optionKey || '',
+                            flowId: flow.flowId,
+                            flowKey: flow.flowKey,
+                            flowType: flow.flowType,
+                            flowName: flow.flowName,
+                            creditReports: manual ? this.getCreditReportSelections(direction, item.targetPoolId).slice() : [],
+                            otherMaterials: manual ? this.getOtherMaterialSelections(direction, item.targetPoolId).slice() : [],
+                            attachmentFiles: manual ? this.getAttachmentFiles(direction, item.targetPoolId).slice() : [],
+                            materialFiles: manual ? this.getMaterialFiles(direction, item.targetPoolId).slice() : []
+                        })
+                    })
+                    this.adjustReviewList = this.applyAdjustGroupColors(reviewList)
+                    this.adjustStep = 2
+                } catch (e) {
+                    this.adjustReviewList = []
+                    this.$message.error(e.message || '操作失败')
+                } finally {
+                    if (currentSeq === this.adjustCheckSeq) this.adjustCheckLoading = false
+                }
+            },
+            // 返回步骤1并保留已选择的投资池和材料。
+            goToStep1() {
+                this.adjustStep = 1
+                this.flowDialogVisible = false
+            },
+            // 按调库分组为校验结果附加稳定颜色序号。
+            applyAdjustGroupColors(rows) {
+                const groupIndexes = {}
+                let nextIndex = 0
+                return (rows || []).map(row => {
+                    const key = row.adjustGroupKey || (row.targetPoolId + '_' + row.adjustMode)
+                    if (groupIndexes[key] == null) groupIndexes[key] = nextIndex++
+                    return Object.assign({}, row, { groupColorIndex: groupIndexes[key] })
                 })
+            },
+            // 返回校验结果表格的同组行样式。
+            getAdjustReviewRowClass({ row }) {
+                const index = row && row.groupColorIndex != null ? row.groupColorIndex : 0
+                return 'adjust-group-color-' + (index % 5)
+            },
+            // 格式化单条股票调库项的流程候选。
+            formatRowFlowOptions(options, rowIndex) {
+                return (options || []).map((option, index) => ({
+                    optionKey: (option.flowKey || option.flowType || 'flow') + '_' + rowIndex + '_' + index,
+                    flowType: option.flowType,
+                    flowName: option.flowName,
+                    flowId: option.flowId,
+                    flowKey: option.flowKey,
+                    matched: !!option.matched,
+                    selectable: option.selectable !== false,
+                    recommended: !!option.recommended,
+                    matchReasons: option.matchReasons || [],
+                    unmatchReasons: option.unmatchReasons || []
+                }))
+            },
+            // 返回调库项当前选择的流程。
+            selectedRowFlowOption(row) {
+                if (!row || !row.selectedFlowKey) return null
+                return (row.flowOptions || []).find(option => option.optionKey === row.selectedFlowKey) || null
+            },
+            // 流程变化时同步股票提交字段。
+            handleRowFlowChange(row) {
+                const flow = this.selectedRowFlowOption(row)
+                row.flowId = flow ? flow.flowId : null
+                row.flowKey = flow ? flow.flowKey : ''
+                row.flowType = flow ? flow.flowType : ''
+                row.flowName = flow ? flow.flowName : ''
+            },
+            // 返回流程类型展示名称。
+            flowTypeLabel(type) {
+                const map = {
+                    whitelistInbound: '白名单', simpleInbound: '简易', normalInbound: '默认调入',
+                    specialInbound: '特殊审批', upgradeInbound: '上调', downgradeInbound: '下调',
+                    normalOutbound: '调出', fastInbound: '快速调入', fastOutbound: '快速调出'
+                }
+                return map[type] || type || ''
+            },
+            // 返回流程类型标签样式。
+            flowTypeTagType(type) {
+                if (type === 'whitelistInbound' || type === 'simpleInbound' || type === 'fastInbound' || type === 'fastOutbound') return 'success'
+                if (type === 'specialInbound' || type === 'downgradeInbound') return 'warning'
+                if (type === 'normalOutbound') return 'danger'
+                return 'info'
+            },
+            // 返回流程下拉的类型样式类。
+            flowTypeClass(type) {
+                const map = {
+                    whitelistInbound: 'whitelist', simpleInbound: 'simple', normalInbound: 'normal',
+                    specialInbound: 'special', upgradeInbound: 'upgrade', downgradeInbound: 'downgrade',
+                    normalOutbound: 'outbound', fastInbound: 'simple', fastOutbound: 'simple'
+                }
+                return map[type] || 'standard'
+            },
+            // 返回流程候选标签样式。
+            getFlowOptionTagType(option) {
+                if (!option) return 'info'
+                if (option.flowType === 'whitelistInbound' || option.flowType === 'simpleInbound' || option.flowType === 'fastInbound' || option.flowType === 'fastOutbound') return 'success'
+                if (option.flowType === 'specialInbound' || option.flowType === 'downgradeInbound') return 'warning'
+                return 'info'
+            },
+            // 返回流程选择卡片的分组颜色类。
+            getFlowRowColorClass(index) {
+                return 'flow-row-color-' + (index % 5)
+            },
+            // 返回调库明细来源标签名称。
+            itemTagLabel(tag) {
+                return {
+                    manual: '手工',
+                    linkage: '联动',
+                    mutex: '互斥'
+                }[tag] || tag || ''
+            },
+            // 返回调库明细调整类型名称。
+            adjustTypeLabel(tag) {
+                return this.itemTagLabel(tag) ? this.itemTagLabel(tag) + '调整' : ''
+            },
+            // 返回调库明细来源标签样式。
+            itemTagType(tag) {
+                return tag === 'mutex' ? 'danger' : (tag === 'linkage' ? 'warning' : 'info')
+            },
+            // 返回调库明细默认一般流程名称。
+            flowName(row) {
+                return row.flowName || (row.flowOptions && row.flowOptions.length ? row.flowOptions[0].flowName : '')
+            },
+            // 返回投资池类型中文名称。
+            poolTypeLabel(poolType) {
+                const map = {
+                    credit_bond: '信用债', offshore_bond: '境外债', convertible_bond: '转债',
+                    bond_product: '债券产品', special_account: '专户', stock: '股票',
+                    stock_product: '股票产品', forbidden: '禁止库',
+                    observe: '观察池', blacklist: '黑名单', restricted: '限制名单',
+                    whitelist: '白名单', crmw: 'CRMW库', other: '其他'
+                }
+                return map[poolType] || poolType || ''
+            },
+            // 构建调库校验结果的调整说明。
+            adjustResultNote(row) {
+                const warnings = row.warnings || []
+                const label = this.adjustTypeLabel(row.itemTag) + (row.adjustMode || '')
+                return warnings.length ? label + '（警告：' + warnings.join('；') + '）' : label
+            },
+            // 返回校验结果状态文案。
+            checkStatusLabel(row) {
+                if (!row.canAdjust) return '不可调整'
+                return (row.warnings || []).length ? '可调整(警告)' : '可调整'
+            },
+            // 返回校验结果状态颜色类名。
+            checkStatusClass(row) {
+                if (!row.canAdjust) return 'check-status-text is-danger'
+                return (row.warnings || []).length ? 'check-status-text is-warning' : 'check-status-text is-success'
+            },
+            // 收集系统报告所关联的源附件 ID。
+            collectSourceAttachmentIds(reports) {
+                const ids = []
                 ;
-                (item.materialFiles || []).forEach(file => {
-                    materialFileIndexes.push(files.length);
-                    files.push(file.raw);
-                    originalNames.push(file.name)
+                (reports || []).forEach(report => (report.attachments || []).forEach(file => {
+                    if (file.id != null && ids.indexOf(file.id) < 0) ids.push(file.id)
+                }))
+                return ids
+            },
+            // 组装提交参数、本地附件及其原始文件名。
+            buildSubmitPayloadAndFiles() {
+                const files = []
+                const originalNames = []
+                const items = this.validAdjustReviewList.map(item => {
+                    const reportFileIndexes = []
+                    const materialFileIndexes = []
+                    ;
+                    (item.attachmentFiles || []).forEach(file => {
+                        reportFileIndexes.push(files.length);
+                        files.push(file.raw);
+                        originalNames.push(file.name)
+                    })
+                    ;
+                    (item.materialFiles || []).forEach(file => {
+                        materialFileIndexes.push(files.length);
+                        files.push(file.raw);
+                        originalNames.push(file.name)
+                    })
+                    return {
+                        targetPoolId: item.targetPoolId, targetPoolName: item.poolName, poolType: item.poolType,
+                        adjustMode: item.adjustMode, itemTag: item.itemTag, adjustGroupKey: item.adjustGroupKey,
+                        flowId: item.flowId, flowKey: item.flowKey, flowType: item.flowType,
+                        adjustmentNote: this.adjustResultNote(item),
+                        reportFileIndexes: reportFileIndexes, materialFileIndexes: materialFileIndexes,
+                        reportSourceAttachmentIds: this.collectSourceAttachmentIds(item.creditReports),
+                        materialSourceAttachmentIds: this.collectSourceAttachmentIds(item.otherMaterials)
+                    }
                 })
                 return {
-                    targetPoolId: item.targetPoolId, targetPoolName: item.poolName, poolType: item.poolType,
-                    adjustMode: item.adjustMode, itemTag: item.itemTag, adjustGroupKey: item.adjustGroupKey,
-                    flowId: item.flowId, flowKey: item.flowKey, flowType: item.flowType,
-                    adjustmentNote: this.adjustResultNote(item),
-                    reportFileIndexes: reportFileIndexes, materialFileIndexes: materialFileIndexes,
-                    reportSourceAttachmentIds: this.collectSourceAttachmentIds(item.creditReports),
-                    materialSourceAttachmentIds: this.collectSourceAttachmentIds(item.otherMaterials)
+                    payload: {
+                        stockCode: this.stockDetail.stockCode,
+                        adjustType: '手工调整', adjustReason: this.submitForm.adjustReason,
+                        adjustAdvice: this.submitForm.adjustAdvice, adjusterId: this.currentUser.userId,
+                        adjusterName: this.currentUser.userName, items: items
+                    }, files: files, originalNames: originalNames
                 }
-            })
-            return {
-                payload: {
-                    stockCode: this.stockDetail.stockCode,
-                    adjustType: '手工调整', adjustReason: this.submitForm.adjustReason,
-                    adjustAdvice: this.submitForm.adjustAdvice, adjusterId: this.currentUser.userId,
-                    adjusterName: this.currentUser.userName, items: items
-                }, files: files, originalNames: originalNames
-            }
-        },
-        // 校验提交页输入并打开调库流程选择弹窗。
-        handleSubmit() {
-            if (this.submitLoading) return
-            if (this.validItemCount === 0) {
-                this.$message.warning('没有可提交的调库申请，请检查校验结果')
-                return
-            }
-            if (!this.allValidRowsHaveFlow) {
+            },
+            // 校验提交页输入并打开调库流程选择弹窗。
+            handleSubmit() {
+                if (this.submitLoading) return
+                if (this.validItemCount === 0) {
+                    this.$message.warning('没有可提交的调库申请，请检查校验结果')
+                    return
+                }
+                if (!this.allValidRowsHaveFlow) {
+                        this.$message.warning('请为所有可提交调库项选择审批流程')
+                        return
+                    }
+                    this.flowDialogVisible = true
+
+            },
+            // 确认调库流程选择并正式提交申请。
+            async confirmFlowSelection() {
+                if (this.submitLoading) return
+                if (!this.allValidRowsHaveFlow) {
                     this.$message.warning('请为所有可提交调库项选择审批流程')
                     return
                 }
-                this.flowDialogVisible = true
-
-        },
-        // 确认调库流程选择并正式提交申请。
-        async confirmFlowSelection() {
-            if (this.submitLoading) return
-            if (!this.allValidRowsHaveFlow) {
-                this.$message.warning('请为所有可提交调库项选择审批流程')
-                return
-            }
-            this.flowDialogVisible = false
-            await this.submitAdjustLog()
-        },
-        // 执行股票池调整申请提交。
-        async submitAdjustLog() {
-            if (this.submitLoading) return
-            this.submitLoading = true
-            try {
-                const data = this.buildSubmitPayloadAndFiles()
-                if (data.files.length) {
-                    const formData = new FormData()
-                    formData.append('request', new Blob([JSON.stringify(data.payload)], { type: 'application/json' }))
-                    data.files.forEach(file => formData.append('files', file))
-                    formData.append('originalFileNameListJson', JSON.stringify(data.originalNames))
-                    await this.apiPost('/api/v1/stockPoolAdjust/addAdjustLogWithFiles', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-                } else {
-                    await this.apiPost('/api/v1/stockPoolAdjust/addAdjustLog', data.payload)
+                this.flowDialogVisible = false
+                await this.submitAdjustLog()
+            },
+            // 执行股票池调整申请提交。
+            async submitAdjustLog() {
+                if (this.submitLoading) return
+                this.submitLoading = true
+                try {
+                    const data = this.buildSubmitPayloadAndFiles()
+                    if (data.files.length) {
+                        const formData = new FormData()
+                        formData.append('request', new Blob([JSON.stringify(data.payload)], { type: 'application/json' }))
+                        data.files.forEach(file => formData.append('files', file))
+                        formData.append('originalFileNameListJson', JSON.stringify(data.originalNames))
+                        await this.apiPost('/api/v1/stockPoolAdjust/addAdjustLogWithFiles', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+                    } else {
+                        await this.apiPost('/api/v1/stockPoolAdjust/addAdjustLog', data.payload)
+                    }
+                    this.$message.success('股票池调整申请已提交')
+                    this.backToList()
+                } catch (e) {
+                    this.$message.error(e.message || '操作失败')
+                } finally {
+                    this.submitLoading = false
                 }
-                this.$message.success('股票池调整申请已提交')
-                this.backToList()
-            } catch (e) {
-                this.$message.error(e.message || '操作失败')
-            } finally {
-                this.submitLoading = false
+            },
+            // 导出当前股票池调整页面为 PDF。
+            exportPdf() {
+                window.RrsPrintExport.print({
+                    fileTitle: ['股票池调整', this.stockDetail.stockCode],
+                    nextTick: callback => this.$nextTick(callback),
+                    prepare: () => ({ currentPage: this.currentPage }),
+                    restore: () => {}
+                })
             }
-        },
-        // 导出当前股票池调整页面为 PDF。
-        exportPdf() {
-            window.RrsPrintExport.print({
-                fileTitle: ['股票池调整', this.stockDetail.stockCode],
-                nextTick: callback => this.$nextTick(callback),
-                prepare: () => ({ currentPage: this.currentPage }),
-                restore: () => {}
-            })
         }
-    }
-})
+    });
 </script>
 </body>
 </html>

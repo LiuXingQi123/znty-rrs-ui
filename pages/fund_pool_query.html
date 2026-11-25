@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="../css/common.css">
 </head>
 <body class="fund-pool-query-page">
+
 <div id="fund_pool_query">
     <!-- ── 顶栏 ── -->
     <div class="topbar">
@@ -192,348 +193,348 @@
 </div>
 
 <script>
-new Vue({
-    el: '#fund_pool_query',
-    // 初始化筛选条件、投资池树、列表和分页状态
-    data() {
-        return {
-            moment: moment, // 日期处理工具
-            pagePaths: { // 页面跳转路径
-                fundPoolAdjustDetail: 'fund_pool_adjust_detail.html', // 基金池调库详情页
-            },
-            today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
-            searchForm: { // 搜索表单
-                poolIds: [],           // 选中的池ID列表（多选）
-                fundCode: '',          // 基金代码关键词
-                fundName: '',          // 基金名称关键词（包含简称）
-                securityType: '',      // 基金类型（下拉选中值）
-                entryTimeRange: null,  // 入池时间范围 [startDate, endDate]
-                adjusterName: '',      // 调整人姓名关键词
-            },
-            fundTypeOptions: [],   // 基金类型下拉（动态加载）
-            // 投资池树相关
-            poolTreeData: [],          // 树形结构数据（由扁平列表构建）
-            poolTreeVisible: false,    // 投资池选择弹出层显隐状态
-            poolTreeKeyword: '',       // 投资池树搜索词
-            selectedPoolTags: [],      // 已选池标签列表 [{id, poolName}]，用于标签行展示
-            treeProps: {              // 投资池树字段配置
-                children: 'children',  // 子节点字段名
-                label: 'poolName',     // 节点显示文字字段名
-                // 禁止选择有子节点的投资池
-                disabled(data) {
-                    return data.children && data.children.length > 0;
-                }
-            },
-            // 表格与分页
-            tableData: [],             // 当前页表格数据
-            loading: false,            // 表格加载状态
-            exporting: false,          // 导出文件处理中状态
-            pagination: {             // 分页参数
-                pageIndex: 1,          // 当前页码
-                pageSize: 20,          // 每页条数
-                total: 0,              // 总记录数
-            },
-        };
-    },
-    // 挂载后加载筛选选项和列表，并监听窗口尺寸变化
-    mounted() {
-        // 加载基金品种投资池树
-        this.loadPoolTree();
-        // 加载基金类型下拉选项
-        this.loadFundTypeOptions();
-        // 加载当前页基金池记录
-        this.loadList();
-        // 窗口尺寸变化时延迟重算表格布局
-        this.handleWindowResize = () => {
-            window.clearTimeout(this.resizeLayoutTimer);
-            this.resizeLayoutTimer = window.setTimeout(() => {
-                // 窗口尺寸变化后同步所有表格固定列布局
-                this.refreshAllTableLayout();
-            }, 120);
-        };
-        window.addEventListener('resize', this.handleWindowResize);
-    },
-    // 销毁前移除窗口监听并取消待执行的布局刷新
-    beforeDestroy() {
-        window.removeEventListener('resize', this.handleWindowResize);
-        window.clearTimeout(this.resizeLayoutTimer);
-    },
-    methods: {
-        // 格式化百分数展示。
-        formatPercent(value) {
-            return value === null || value === undefined || value === '' ? '' : value + '%';
-        },
-        // 基金类型编码映射固定标签颜色。
-        fundTypeTagType(code) {
-            const map = {
-                closed_fund: 'danger',
-                open_fund: 'info',
-                qdii_fund: 'primary',
-                lof_fund: 'warning',
-                etf_fund: 'success',
+    new Vue({
+        el: '#fund_pool_query',
+        // 初始化筛选条件、投资池树、列表和分页状态
+        data() {
+            return {
+                moment: moment, // 日期处理工具
+                pagePaths: { // 页面跳转路径
+                    fundPoolAdjustDetail: 'fund_pool_adjust_detail.html', // 基金池调库详情页
+                },
+                today: moment().format('YYYY年MM月DD日'), // 顶栏当前日期展示文字
+                searchForm: { // 搜索表单
+                    poolIds: [],           // 选中的池ID列表（多选）
+                    fundCode: '',          // 基金代码关键词
+                    fundName: '',          // 基金名称关键词（包含简称）
+                    securityType: '',      // 基金类型（下拉选中值）
+                    entryTimeRange: null,  // 入池时间范围 [startDate, endDate]
+                    adjusterName: '',      // 调整人姓名关键词
+                },
+                fundTypeOptions: [],   // 基金类型下拉（动态加载）
+                // 投资池树相关
+                poolTreeData: [],          // 树形结构数据（由扁平列表构建）
+                poolTreeVisible: false,    // 投资池选择弹出层显隐状态
+                poolTreeKeyword: '',       // 投资池树搜索词
+                selectedPoolTags: [],      // 已选池标签列表 [{id, poolName}]，用于标签行展示
+                treeProps: {              // 投资池树字段配置
+                    children: 'children',  // 子节点字段名
+                    label: 'poolName',     // 节点显示文字字段名
+                    // 禁止选择有子节点的投资池
+                    disabled(data) {
+                        return data.children && data.children.length > 0;
+                    }
+                },
+                // 表格与分页
+                tableData: [],             // 当前页表格数据
+                loading: false,            // 表格加载状态
+                exporting: false,          // 导出文件处理中状态
+                pagination: {             // 分页参数
+                    pageIndex: 1,          // 当前页码
+                    pageSize: 20,          // 每页条数
+                    total: 0,              // 总记录数
+                },
             };
-            return map[code] || 'info';
         },
-        // 在工作台打开对应基金的调库详情页。
-        openFundAdjustDetail(row) {
-            const code = row.fundCode || '';
-            const name = row.fundName || code;
-            const params = new URLSearchParams();
-            if (code) params.set('fundCode', code);
-            if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
-            const adjustLogId = window.RrsWorkbench.resolveAdjustLogId(row, false);
-            if (adjustLogId) params.set('adjustLogId', adjustLogId);
-            if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
-            const opened = window.RrsWorkbench.openDetailTab({
-                index: window.RrsWorkbench.buildTabIndex('fund-detail', [code, adjustLogId, row.adjustBatchNo, row.targetPoolId]),
-                title: window.RrsWorkbench.formatDetailTitle(name, code),
-                page: this.pagePaths.fundPoolAdjustDetail,
-                query: params.toString(),
-            });
-            if (opened) return;
-            window.RrsAuth.appendUserParams(params);
-            window.location.href = this.pagePaths.fundPoolAdjustDetail + '?' + params.toString();
+        // 挂载后加载筛选选项和列表，并监听窗口尺寸变化
+        mounted() {
+            // 加载基金品种投资池树
+            this.loadPoolTree();
+            // 加载基金类型下拉选项
+            this.loadFundTypeOptions();
+            // 加载当前页基金池记录
+            this.loadList();
+            // 窗口尺寸变化时延迟重算表格布局
+            this.handleWindowResize = () => {
+                window.clearTimeout(this.resizeLayoutTimer);
+                this.resizeLayoutTimer = window.setTimeout(() => {
+                    // 窗口尺寸变化后同步所有表格固定列布局
+                    this.refreshAllTableLayout();
+                }, 120);
+            };
+            window.addEventListener('resize', this.handleWindowResize);
         },
-        // 加载投资池树
-        async loadPoolTree() {
-            try {
-                const data = await this.apiPost('/api/v1/common/queryPoolTreeList', {
-                    includeVarietyCodes: ['fund']
+        // 销毁前移除窗口监听并取消待执行的布局刷新
+        beforeDestroy() {
+            window.removeEventListener('resize', this.handleWindowResize);
+            window.clearTimeout(this.resizeLayoutTimer);
+        },
+        methods: {
+            // 格式化百分数展示。
+            formatPercent(value) {
+                return value === null || value === undefined || value === '' ? '' : value + '%';
+            },
+            // 基金类型编码映射固定标签颜色。
+            fundTypeTagType(code) {
+                const map = {
+                    closed_fund: 'danger',
+                    open_fund: 'info',
+                    qdii_fund: 'primary',
+                    lof_fund: 'warning',
+                    etf_fund: 'success',
+                };
+                return map[code] || 'info';
+            },
+            // 在工作台打开对应基金的调库详情页。
+            openFundAdjustDetail(row) {
+                const code = row.fundCode || '';
+                const name = row.fundName || code;
+                const params = new URLSearchParams();
+                if (code) params.set('fundCode', code);
+                if (row.targetPoolId) params.set('targetPoolId', row.targetPoolId);
+                const adjustLogId = window.RrsWorkbench.resolveAdjustLogId(row, false);
+                if (adjustLogId) params.set('adjustLogId', adjustLogId);
+                if (row.adjustBatchNo) params.set('adjustBatchNo', row.adjustBatchNo);
+                const opened = window.RrsWorkbench.openDetailTab({
+                    index: window.RrsWorkbench.buildTabIndex('fund-detail', [code, adjustLogId, row.adjustBatchNo, row.targetPoolId]),
+                    title: window.RrsWorkbench.formatDetailTitle(name, code),
+                    page: this.pagePaths.fundPoolAdjustDetail,
+                    query: params.toString(),
                 });
-                // 将投资池列表转换为可选择的树结构
-                this.poolTreeData = this.buildPoolTree(data || []);
-            } catch (e) {}
-        },
+                if (opened) return;
+                window.RrsAuth.appendUserParams(params);
+                window.location.href = this.pagePaths.fundPoolAdjustDetail + '?' + params.toString();
+            },
+            // 加载投资池树
+            async loadPoolTree() {
+                try {
+                    const data = await this.apiPost('/api/v1/common/queryPoolTreeList', {
+                        includeVarietyCodes: ['fund']
+                    });
+                    // 将投资池列表转换为可选择的树结构
+                    this.poolTreeData = this.buildPoolTree(data || []);
+                } catch (e) {}
+            },
 
-        // 加载基金类型下拉选项。
-        async loadFundTypeOptions() {
-            try {
-                this.fundTypeOptions = await this.apiPost('/api/v1/fundPoolQuery/queryFundTypeList', {});
-            } catch (e) {}
-        },
+            // 加载基金类型下拉选项。
+            async loadFundTypeOptions() {
+                try {
+                    this.fundTypeOptions = await this.apiPost('/api/v1/fundPoolQuery/queryFundTypeList', {});
+                } catch (e) {}
+            },
 
-        // 构建树结构（扁平列表 → 嵌套树），同时为每个节点挂载 fullPath 用于标签展示
-        buildPoolTree(list) {
-            if (!list || list.length === 0) return [];
-            const map = {};
-            const roots = [];
-            list.forEach(function(item) {
-                map[item.id] = Object.assign({}, item, { children: [] });
-            });
-            list.forEach(function(item) {
-                const node = map[item.id];
-                if (item.parentId != null && map[item.parentId]) {
-                    const parent = map[item.parentId];
-                    node.fullPath = node.poolFullName || parent.poolName + '/' + node.poolName;
-                    parent.children.push(node);
-                } else {
-                    node.fullPath = node.poolFullName || node.poolName;
-                    roots.push(node);
-                }
-            });
-            return roots;
-        },
-
-        // 树节点搜索过滤
-        filterPoolNode(value, data) {
-            if (!value) return true;
-            const searchableText = data.fullPath || data.poolName || '';
-            return String(searchableText).toLowerCase().indexOf(value.toLowerCase()) !== -1;
-        },
-
-        // 按投资池名称过滤选择树
-        filterPoolTree(value) {
-            if (this.$refs.poolTreeRef) {
-                this.$refs.poolTreeRef.filter(value.trim());
-            }
-        },
-
-        // 关闭选择弹层后清空搜索条件
-        handlePoolTreeHide() {
-            this.poolTreeKeyword = '';
-            if (this.$refs.poolTreeRef) {
-                this.$refs.poolTreeRef.filter('');
-            }
-        },
-
-        // 确认池树选择
-        handlePoolTreeConfirm() {
-            const checkedKeys = this.$refs.poolTreeRef.getCheckedKeys();
-            const halfCheckedKeys = this.$refs.poolTreeRef.getHalfCheckedKeys();
-            const allKeys = checkedKeys.concat(halfCheckedKeys);
-            this.searchForm.poolIds = allKeys;
-            // 构建标签展示数据
-            const flatList = this.flattenTree(this.poolTreeData);
-        this.selectedPoolTags = flatList.filter(function(n) {
-            return allKeys.indexOf(n.id) !== -1;
-        }).map(function(n) {
-            return { id: n.id, poolName: n.fullPath };
-        });
-        this.poolTreeVisible = false;
-        // 按最新选择的投资池重新查询
-        this.handleSearch();
-        },
-
-        // 移除已选池标签
-        removePoolTag(poolId) {
-            this.searchForm.poolIds = this.searchForm.poolIds.filter(function(id) {
-                return id !== poolId;
-            });
-            this.selectedPoolTags = this.selectedPoolTags.filter(function(p) {
-                return p.id !== poolId;
-            });
-            // 同步 tree 勾选状态
-            this.$refs.poolTreeRef.setCheckedKeys(this.searchForm.poolIds);
-            // 按剩余投资池重新查询
-            this.handleSearch();
-        },
-
-        // 清空全部已选投资池并同步取消树节点勾选
-        clearPoolSelection() {
-            this.searchForm.poolIds = [];
-            this.selectedPoolTags = [];
-            if (this.$refs.poolTreeRef) {
-                this.$refs.poolTreeRef.setCheckedKeys([]);
-            }
-            // 按清空后的投资池条件重新查询
-            this.handleSearch();
-        },
-
-        // 树扁平化
-        flattenTree(nodes) {
-            let result = [];
-            // 递归收集投资池树的所有节点
-            (function walk(list) {
-                list.forEach(function(n) {
-                    result.push(n);
-                    if (n.children && n.children.length > 0) {
-                        // 继续收集当前节点的子节点
-                        walk(n.children);
+            // 构建树结构（扁平列表 → 嵌套树），同时为每个节点挂载 fullPath 用于标签展示
+            buildPoolTree(list) {
+                if (!list || list.length === 0) return [];
+                const map = {};
+                const roots = [];
+                list.forEach(function(item) {
+                    map[item.id] = Object.assign({}, item, { children: [] });
+                });
+                list.forEach(function(item) {
+                    const node = map[item.id];
+                    if (item.parentId != null && map[item.parentId]) {
+                        const parent = map[item.parentId];
+                        node.fullPath = node.poolFullName || parent.poolName + '/' + node.poolName;
+                        parent.children.push(node);
+                    } else {
+                        node.fullPath = node.poolFullName || node.poolName;
+                        roots.push(node);
                     }
                 });
-            })(nodes);
-            return result;
-        },
+                return roots;
+            },
 
-        // 加载列表
-        async loadList() {
-            this.loading = true;
-            try {
-                const params = {
+            // 树节点搜索过滤
+            filterPoolNode(value, data) {
+                if (!value) return true;
+                const searchableText = data.fullPath || data.poolName || '';
+                return String(searchableText).toLowerCase().indexOf(value.toLowerCase()) !== -1;
+            },
+
+            // 按投资池名称过滤选择树
+            filterPoolTree(value) {
+                if (this.$refs.poolTreeRef) {
+                    this.$refs.poolTreeRef.filter(value.trim());
+                }
+            },
+
+            // 关闭选择弹层后清空搜索条件
+            handlePoolTreeHide() {
+                this.poolTreeKeyword = '';
+                if (this.$refs.poolTreeRef) {
+                    this.$refs.poolTreeRef.filter('');
+                }
+            },
+
+            // 确认池树选择
+            handlePoolTreeConfirm() {
+                const checkedKeys = this.$refs.poolTreeRef.getCheckedKeys();
+                const halfCheckedKeys = this.$refs.poolTreeRef.getHalfCheckedKeys();
+                const allKeys = checkedKeys.concat(halfCheckedKeys);
+                this.searchForm.poolIds = allKeys;
+                // 构建标签展示数据
+                const flatList = this.flattenTree(this.poolTreeData);
+            this.selectedPoolTags = flatList.filter(function(n) {
+                return allKeys.indexOf(n.id) !== -1;
+            }).map(function(n) {
+                return { id: n.id, poolName: n.fullPath };
+            });
+            this.poolTreeVisible = false;
+            // 按最新选择的投资池重新查询
+            this.handleSearch();
+            },
+
+            // 移除已选池标签
+            removePoolTag(poolId) {
+                this.searchForm.poolIds = this.searchForm.poolIds.filter(function(id) {
+                    return id !== poolId;
+                });
+                this.selectedPoolTags = this.selectedPoolTags.filter(function(p) {
+                    return p.id !== poolId;
+                });
+                // 同步 tree 勾选状态
+                this.$refs.poolTreeRef.setCheckedKeys(this.searchForm.poolIds);
+                // 按剩余投资池重新查询
+                this.handleSearch();
+            },
+
+            // 清空全部已选投资池并同步取消树节点勾选
+            clearPoolSelection() {
+                this.searchForm.poolIds = [];
+                this.selectedPoolTags = [];
+                if (this.$refs.poolTreeRef) {
+                    this.$refs.poolTreeRef.setCheckedKeys([]);
+                }
+                // 按清空后的投资池条件重新查询
+                this.handleSearch();
+            },
+
+            // 树扁平化
+            flattenTree(nodes) {
+                let result = [];
+                // 递归收集投资池树的所有节点
+                (function walk(list) {
+                    list.forEach(function(n) {
+                        result.push(n);
+                        if (n.children && n.children.length > 0) {
+                            // 继续收集当前节点的子节点
+                            walk(n.children);
+                        }
+                    });
+                })(nodes);
+                return result;
+            },
+
+            // 加载列表
+            async loadList() {
+                this.loading = true;
+                try {
+                    const params = {
+                        poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
+                        fundCode: this.searchForm.fundCode || null,
+                        fundName: this.searchForm.fundName || null,
+                        securityType: this.searchForm.securityType || null,
+                        entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
+                            ? this.searchForm.entryTimeRange[0] + ' 00:00:00' : null,
+                        entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1]
+                            ? this.searchForm.entryTimeRange[1] + ' 23:59:59' : null,
+                        adjusterName: this.searchForm.adjusterName || null,
+                        pageIndex: this.pagination.pageIndex,
+                        pageSize: this.pagination.pageSize,
+                    };
+                    const data = await this.apiPost('/api/v1/fundPoolQuery/queryFundPoolPage', params);
+                    this.tableData = data.records || [];
+                    this.pagination.total = data.total || 0;
+                } catch (e) {}
+                this.loading = false;
+                // 数据渲染后同步列表固定列布局
+                this.refreshTableLayout('fundTableRef');
+            },
+
+            // 构建当前筛选条件请求参数
+            buildQueryParams() {
+                return {
                     poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
                     fundCode: this.searchForm.fundCode || null,
                     fundName: this.searchForm.fundName || null,
                     securityType: this.searchForm.securityType || null,
-                    entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0]
-                        ? this.searchForm.entryTimeRange[0] + ' 00:00:00' : null,
-                    entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1]
-                        ? this.searchForm.entryTimeRange[1] + ' 23:59:59' : null,
+                    entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0] ? this.searchForm.entryTimeRange[0] + ' 00:00:00' : null,
+                    entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1] ? this.searchForm.entryTimeRange[1] + ' 23:59:59' : null,
                     adjusterName: this.searchForm.adjusterName || null,
-                    pageIndex: this.pagination.pageIndex,
-                    pageSize: this.pagination.pageSize,
                 };
-                const data = await this.apiPost('/api/v1/fundPoolQuery/queryFundPoolPage', params);
-                this.tableData = data.records || [];
-                this.pagination.total = data.total || 0;
-            } catch (e) {}
-            this.loading = false;
-            // 数据渲染后同步列表固定列布局
-            this.refreshTableLayout('fundTableRef');
-        },
+            },
 
-        // 构建当前筛选条件请求参数
-        buildQueryParams() {
-            return {
-                poolIds: this.searchForm.poolIds.length > 0 ? this.searchForm.poolIds : null,
-                fundCode: this.searchForm.fundCode || null,
-                fundName: this.searchForm.fundName || null,
-                securityType: this.searchForm.securityType || null,
-                entryTimeStart: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[0] ? this.searchForm.entryTimeRange[0] + ' 00:00:00' : null,
-                entryTimeEnd: this.searchForm.entryTimeRange && this.searchForm.entryTimeRange[1] ? this.searchForm.entryTimeRange[1] + ' 23:59:59' : null,
-                adjusterName: this.searchForm.adjusterName || null,
-            };
-        },
-
-        // 按当前筛选条件导出全部命中记录
-        async handleExport() {
-            this.exporting = true;
-            try {
-                // 使用当前筛选条件查询全部导出记录
-                const file = await this.apiPost('/api/v1/fundPoolQuery/exportFundPoolExcel', this.buildQueryParams());
-                this.downloadBase64File(file.contentBase64, file.fileName, file.contentType);
-                this.$message.success('导出成功');
-            } finally {
-                this.exporting = false;
-            }
-        },
-
-        // 重新计算指定表格固定列布局（数据渲染后 $nextTick + doLayout）
-        refreshTableLayout(refName) {
-            this.$nextTick(() => {
-                const table = this.$refs[refName];
-                if (table && typeof table.doLayout === 'function') {
-                    table.doLayout();
+            // 按当前筛选条件导出全部命中记录
+            async handleExport() {
+                this.exporting = true;
+                try {
+                    // 使用当前筛选条件查询全部导出记录
+                    const file = await this.apiPost('/api/v1/fundPoolQuery/exportFundPoolExcel', this.buildQueryParams());
+                    this.downloadBase64File(file.contentBase64, file.fileName, file.contentType);
+                    this.$message.success('导出成功');
+                } finally {
+                    this.exporting = false;
                 }
-            });
-        },
+            },
 
-        // 重新计算当前页面所有表格固定列布局
-        refreshAllTableLayout() {
-            this.$nextTick(() => {
-                Object.keys(this.$refs || {}).forEach(refName => {
-                    const ref = this.$refs[refName];
-                    const table = Array.isArray(ref) ? ref[0] : ref;
+            // 重新计算指定表格固定列布局（数据渲染后 $nextTick + doLayout）
+            refreshTableLayout(refName) {
+                this.$nextTick(() => {
+                    const table = this.$refs[refName];
                     if (table && typeof table.doLayout === 'function') {
                         table.doLayout();
                     }
                 });
-            });
-        },
+            },
 
-        // 触发查询：重置到第一页后重新加载列表
-        handleSearch() {
-            this.pagination.pageIndex = 1;
-            // 从第一页查询更新后的筛选结果
-            this.loadList();
-        },
+            // 重新计算当前页面所有表格固定列布局
+            refreshAllTableLayout() {
+                this.$nextTick(() => {
+                    Object.keys(this.$refs || {}).forEach(refName => {
+                        const ref = this.$refs[refName];
+                        const table = Array.isArray(ref) ? ref[0] : ref;
+                        if (table && typeof table.doLayout === 'function') {
+                            table.doLayout();
+                        }
+                    });
+                });
+            },
 
-        // 重置所有搜索条件：清空表单、已选标签、树勾选，并重新查询
-        handleReset() {
-            this.searchForm = {
-                poolIds: [],
-                fundCode: '',
-                fundName: '',
-                securityType: '',
-                entryTimeRange: null,
-                adjusterName: '',
-            };
-            this.selectedPoolTags = [];
-            this.pagination.pageIndex = 1;
-            if (this.$refs.poolTreeRef) {
-                // 同步清空树的勾选状态
-                this.$refs.poolTreeRef.setCheckedKeys([]);
-            }
-            // 按重置后的筛选条件重新查询
-            this.loadList();
-        },
+            // 触发查询：重置到第一页后重新加载列表
+            handleSearch() {
+                this.pagination.pageIndex = 1;
+                // 从第一页查询更新后的筛选结果
+                this.loadList();
+            },
 
-        // 翻页：更新当前页码并重新加载
-        handlePageChange(page) {
-            this.pagination.pageIndex = page;
-            // 加载选中的分页数据
-            this.loadList();
-        },
+            // 重置所有搜索条件：清空表单、已选标签、树勾选，并重新查询
+            handleReset() {
+                this.searchForm = {
+                    poolIds: [],
+                    fundCode: '',
+                    fundName: '',
+                    securityType: '',
+                    entryTimeRange: null,
+                    adjusterName: '',
+                };
+                this.selectedPoolTags = [];
+                this.pagination.pageIndex = 1;
+                if (this.$refs.poolTreeRef) {
+                    // 同步清空树的勾选状态
+                    this.$refs.poolTreeRef.setCheckedKeys([]);
+                }
+                // 按重置后的筛选条件重新查询
+                this.loadList();
+            },
 
-        // 切换每页条数：重置到第一页并重新加载
-        handleSizeChange(size) {
-            this.pagination.pageSize = size;
-            this.pagination.pageIndex = 1;
-            // 按新的每页条数从第一页查询
-            this.loadList();
-        },
+            // 翻页：更新当前页码并重新加载
+            handlePageChange(page) {
+                this.pagination.pageIndex = page;
+                // 加载选中的分页数据
+                this.loadList();
+            },
 
-    }
-});
+            // 切换每页条数：重置到第一页并重新加载
+            handleSizeChange(size) {
+                this.pagination.pageSize = size;
+                this.pagination.pageIndex = 1;
+                // 按新的每页条数从第一页查询
+                this.loadList();
+            },
+
+        }
+    });
 </script>
 </body>
 </html>

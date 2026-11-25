@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="../css/common.css">
 </head>
 <body class="report-detail-page">
+
 <div id="report_detail" v-loading="loading">
     <div class="detail-body">
         <template v-if="report">
@@ -111,119 +112,120 @@
         </div>
     </div>
 </div>
+
 <script>
-new Vue({
-    el: '#report_detail',
-    // 报告由来源和 ID 共同定位，内外报告 ID 可以相同。
-    data() {
-        return {
-            source: this.getUrlParam('source'),       // 报告来源，与 ID 共同定位报告
-            reportId: this.getUrlParam('reportId'),   // 报告主键
-            report: null,                            // 报告信息及完整附件列表
-            loading: false,                          // 报告加载状态
-            error: '',                               // 读取失败的原因
-            downloading: {}                          // 各附件下载状态，防止重复点击
-        };
-    },
-    // 从调库页面进入时加载报告，菜单直接进入时保留入口说明。
-    created() {
-        if (this.source || this.reportId) {
-            this.loadReport();
-        }
-    },
-    methods: {
-        // 获取普通 Query 或 Hash 路由中的 URL 参数
-        getUrlParam(name) {
-            // 优先读取普通 Query，参数存在时不再使用 Hash 中的同名值
-            const searchParams = new URLSearchParams(window.location.search);
-            if (searchParams.has(name)) return searchParams.get(name) || '';
-
-            // 普通 Query 未命中时，读取 Hash 路由问号后的查询参数
-            const hash = window.location.hash || '';
-            const hashQueryIndex = hash.indexOf('?');
-            if (hashQueryIndex < 0) return '';
-            return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
-        },
-
-        // 精确读取报告，不通过标题或列表分页寻找报告。
-        async loadReport() {
-            this.loading = true;
-            this.error = '';
-            this.report = null;
-            try {
-                this.report = await this.apiPost('/api/v1/reports/queryReportDetail', {
-                    source: this.source,
-                    reportId: this.reportId
-                });
-            } catch (e) {
-                this.error = e.message || '报告加载失败';
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        // 展示统一报告类型字典。
-        reportTypeLabel(code) {
+    new Vue({
+        el: '#report_detail',
+        // 报告由来源和 ID 共同定位，内外报告 ID 可以相同。
+        data() {
             return {
-                bond_in_report: '债券入库报告',
-                bond_out_report: '债券出库报告',
-                fund_in_report: '基金入库报告',
-                fund_out_report: '基金出库报告',
-                stock_in_report: '股票入库报告',
-                stock_out_report: '股票出库报告',
-                other_report: '其他报告'
-            }[code] || code || '';
+                source: this.getUrlParam('source'),       // 报告来源，与 ID 共同定位报告
+                reportId: this.getUrlParam('reportId'),   // 报告主键
+                report: null,                            // 报告信息及完整附件列表
+                loading: false,                          // 报告加载状态
+                error: '',                               // 读取失败的原因
+                downloading: {}                          // 各附件下载状态，防止重复点击
+            };
         },
-
-        // 展示统一数据来源字典。
-        dataSourceLabel(code) {
-            return {
-                migrated: '迁移数据',
-                uploaded: '系统上传数据'
-            }[code] || code || '';
+        // 从调库页面进入时加载报告，菜单直接进入时保留入口说明。
+        created() {
+            if (this.source || this.reportId) {
+                this.loadReport();
+            }
         },
+        methods: {
+            // 获取普通 Query 或 Hash 路由中的 URL 参数
+            getUrlParam(name) {
+                // 优先读取普通 Query，参数存在时不再使用 Hash 中的同名值
+                const searchParams = new URLSearchParams(window.location.search);
+                if (searchParams.has(name)) return searchParams.get(name) || '';
 
-        // 格式化附件大小，零字节与未知大小分别显示。
-        formatFileSize(size) {
-            if (size == null) {
-                return '';
-            }
-            if (size < 1024) {
-                return size + ' B';
-            }
-            if (size < 1048576) {
-                return (size / 1024).toFixed(1) + ' KB';
-            }
-            return (size / 1048576).toFixed(1) + ' MB';
-        },
+                // 普通 Query 未命中时，读取 Hash 路由问号后的查询参数
+                const hash = window.location.hash || '';
+                const hashQueryIndex = hash.indexOf('?');
+                if (hashQueryIndex < 0) return '';
+                return new URLSearchParams(hash.slice(hashQueryIndex + 1)).get(name) || '';
+            },
 
-        // 下载单个附件，沿用系统 Base64 下载协议。
-        async downloadAttachment(file) {
-            if (this.downloading[file.id]) {
-                return;
-            }
-            this.$set(this.downloading, file.id, true);
-            try {
-                const base64 = await this.apiPost('/api/v1/attachments/downloadAttachment', { id: file.id });
-                // 将系统下载协议返回的 Base64 内容转成浏览器可保存的文件。
-                const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-                const url = URL.createObjectURL(new Blob([bytes], {
-                    type: file.contentType || 'application/octet-stream'
-                }));
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = file.originalFileName;
-                link.click();
-                // 延后释放临时地址，让浏览器先完成文件读取。
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-            } catch (e) {
-                this.$message.error(e.message || '附件下载失败');
-            } finally {
-                this.$set(this.downloading, file.id, false);
+            // 精确读取报告，不通过标题或列表分页寻找报告。
+            async loadReport() {
+                this.loading = true;
+                this.error = '';
+                this.report = null;
+                try {
+                    this.report = await this.apiPost('/api/v1/reports/queryReportDetail', {
+                        source: this.source,
+                        reportId: this.reportId
+                    });
+                } catch (e) {
+                    this.error = e.message || '报告加载失败';
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            // 展示统一报告类型字典。
+            reportTypeLabel(code) {
+                return {
+                    bond_in_report: '债券入库报告',
+                    bond_out_report: '债券出库报告',
+                    fund_in_report: '基金入库报告',
+                    fund_out_report: '基金出库报告',
+                    stock_in_report: '股票入库报告',
+                    stock_out_report: '股票出库报告',
+                    other_report: '其他报告'
+                }[code] || code || '';
+            },
+
+            // 展示统一数据来源字典。
+            dataSourceLabel(code) {
+                return {
+                    migrated: '迁移数据',
+                    uploaded: '系统上传数据'
+                }[code] || code || '';
+            },
+
+            // 格式化附件大小，零字节与未知大小分别显示。
+            formatFileSize(size) {
+                if (size == null) {
+                    return '';
+                }
+                if (size < 1024) {
+                    return size + ' B';
+                }
+                if (size < 1048576) {
+                    return (size / 1024).toFixed(1) + ' KB';
+                }
+                return (size / 1048576).toFixed(1) + ' MB';
+            },
+
+            // 下载单个附件，沿用系统 Base64 下载协议。
+            async downloadAttachment(file) {
+                if (this.downloading[file.id]) {
+                    return;
+                }
+                this.$set(this.downloading, file.id, true);
+                try {
+                    const base64 = await this.apiPost('/api/v1/attachments/downloadAttachment', { id: file.id });
+                    // 将系统下载协议返回的 Base64 内容转成浏览器可保存的文件。
+                    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                    const url = URL.createObjectURL(new Blob([bytes], {
+                        type: file.contentType || 'application/octet-stream'
+                    }));
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = file.originalFileName;
+                    link.click();
+                    // 延后释放临时地址，让浏览器先完成文件读取。
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                } catch (e) {
+                    this.$message.error(e.message || '附件下载失败');
+                } finally {
+                    this.$set(this.downloading, file.id, false);
+                }
             }
         }
-    }
-});
+    });
 </script>
 </body>
 </html>
