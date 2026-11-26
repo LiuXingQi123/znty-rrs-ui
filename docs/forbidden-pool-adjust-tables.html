@@ -405,7 +405,7 @@
             <article class="card"><h3>接口与池范围</h3>
                 <ul>
                     <li>API 前缀：<code>/api/v1/forbiddenAbsPoolAdjust</code>；附件 <code>/api/v1/attachments/*</code>，报告 <code>/api/v1/reports/*</code>。</li>
-                    <li>列表/校验强制 <code>abs_flag=1</code>（仅 ABS 债）；可调池同样限定 15/16/17/23，前端按在池状态生成调入/调出树。</li>
+                    <li>列表和校验要求 <code>abs_flag=1</code>。选池查询按权限返回 15、16、17、23，前端按在池状态生成调入和调出树。校验和提交要求填写目标池 ID，并按实际目标池执行原有规则。</li>
                     <li>校验 <code>checkAdjust</code>、提交 <code>addAdjustLogWithFiles</code> 与证券池单笔同构，仅处理当前 ABS 债券。</li>
                     <li>直通或初始步骤自动结束时，落池成功后与正常审批共用 <code>ReportService.addInternalReportsOnFinish</code>：每条有手工信评附件的记录生成一份内部报告（<code>data_source=uploaded</code>），该记录下全部手工信评附件绑定为 <code>rrs_report_in + report_in</code> 库附件；其他材料和库引用附件不生成新报告。落池、报告与附件写入同事务，失败整体回滚。</li>
                     <li>单只 ABS 调入17时，发行主体须命中三个条件之一；调出17时须三个条件全部不满足。该门槛不替代原有锁池、容量、限制和互斥校验。</li>
@@ -434,6 +434,7 @@
                     <li>接口 <code>POST .../queryAdjustPoolList</code> 实际调用 <code>queryCompanyAdjustPoolList</code>：硬编码 <code>ALLOWED_MANUAL_POOL_IDS = {15,16,17,23}</code>（演示库语义：禁投池/观察池/黑名单质押库/重点观察名单），四池须均存在且启用，缺一即报错。</li>
                     <li>校验/提交时手工项 <code>targetPoolId</code> 必须属于上述集合，否则拒绝（与可选池同源）。</li>
                     <li>非管理员再按 adjustable 权限过滤；返回互斥、容量与层级；in/out 两次请求返回同一四池集合，前端按主体当前在池状态生成调入/调出树。</li>
+                    <li>固定四池范围用于选池查询。主体校验和提交按实际目标池执行，目标池 ID 必填。</li>
                     <li><strong>不走</strong>信用债主体内评×期限矩阵（目标池非 <code>credit_bond</code>，对象为 company）。</li>
                 </ul>
             </article>
