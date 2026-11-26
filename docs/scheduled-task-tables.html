@@ -471,6 +471,7 @@
                     <li>普通池及 CRMW 标的复用人工整组转正：按正式码的非空 ISIN 查询全部同券市场代码，逐码记账、统一出入池。在途主项换码并补关联项/快照，沿用原审批；已在池临时退出，正式组未在池时整体进入。CRMW 在同一凭证下逐标的市场代码处理，凭证自身不扩展；即时出入库调整人为系统，流程中原发起人保留。</li>
                     <li>业务校验仅三类：信用债大库及各级库的独立在途、市场、池关系。调入互斥按目标池配置逐码补配套调出，不反向推断关系；流程中沿用原批次等待审批，已在池转换随本次即时生效，已有同批调出不重复生成。容量、池启停、业务锁定、报告、评级和冻结期不重新阻断转正；主数据、相关池整组状态、去重、写入行数和事务保护保留。</li>
                     <li>成功后状态置 updated、<code>oprt_source=job</code>；失败记录保留 temporary 供重试。</li>
+                    <li>Excel 来源的普通池及 CRMW 组合池记录也按原规则转正。</li>
                     <li>成功转换固定向 <code>rrs_temp_security_code_update_log</code> 写一条旧新码映射，<code>replace_table_name=rrs_temp_security_code</code>、<code>replace_record_id=登记ID</code>；无业务引用也写，有业务引用时另存原有逐记录明细。日志插入须影响 1 行，否则整次回滚。</li>
                     <li>本任务调整原因及失败提示中的投资池使用名称，不显示池 ID；不额外拼接层级全名，历史日志不改写。</li>
                     <li>这是独立任务，不调用、不修改 <code>wind_code_sync</code>。</li>
@@ -484,6 +485,7 @@
                     <li>同步 <code>ip_pool_status</code>、<code>ip_pool_status_crmw</code> 的证券类型及当前关联的 <code>ip_adjust_log</code>。</li>
                     <li>主档最新类型属于有效债券大类且与流水类型不同时，按证券代码补齐已审批通过且未删除的调入和调出流水。池状态已经一致或证券已出池时仍可同步，执行摘要单列补齐的流水条数。</li>
                     <li>CRMW 凭证自身类型 <code>crmw_stype</code> 和提交时保存的证券快照继续保留。</li>
+                    <li>Excel 来源的池状态和调库流水也参与类型同步。</li>
                 </ul>
             </article>
 
@@ -523,6 +525,7 @@
                     <li>每天 09:00 执行（Cron：<code>0 0 9 * * ?</code>），对应老系统 <code>BlackPoolRemindJob</code>。</li>
                     <li>参数 <code>{"poolIds":[17]}</code>。首次从当天 00:00:00 扫描，之后以上次成功执行开始时间为下界，以本次开始时间为上界。审核时间须达到下界且早于上界。</li>
                     <li>读取指定池在时间窗口内审批通过的债券、主体调入调出流水。债券须关联证券主档、状态不为 D，且摘牌日为 NULL 或晚于当天。</li>
+                    <li>读取增量候选后，任务按流水 ID 排除 Excel 导入、同批配套及 Excel 主体跟随产生的调入和调出流水。</li>
                     <li>当前生成提醒候选和过程日志；通知通道尚未接入，任务摘要明确显示“未发送”，不会伪报成功。</li>
                 </ul>
             </article>
@@ -531,7 +534,7 @@
                 <ul>
                     <li>每天 09:00 执行（Cron：<code>0 0 9 * * ?</code>），对应老系统 <code>RemindLimitPoolToNewBondJob</code>。</li>
                     <li>同池参数：<code>{"poolIds":[15]}</code>；跨池参数：<code>{"mappings":[{"bondPoolId":17,"companyPoolId":15}]}</code>。</li>
-                    <li>扫描债券池中已生效、但发行主体未在对应主体池生效的债券；排除 CRMW，普通债和 ABS 参与。</li>
+                    <li>扫描债券池中已生效、但发行主体未在对应主体池生效的债券。普通债和 ABS 参与，排除 CRMW 及受 Excel 入池保护的在池记录。</li>
                     <li>主体主数据缺失也作为候选暴露；当前只写过程日志，邮件/站内信投递统一预留在 <code>ScheduledReminderDeliveryService</code>。</li>
                 </ul>
             </article>
@@ -567,6 +570,7 @@
                     <li>扫描 <code>ip_pool_status_crmw</code> 中已生效且未删除的凭证与标的组合，包含 ABS 债券作为标的的组合。<code>ip_pool_status</code> 中的 CRMW 券由到期证券自动出池任务扫描。</li>
                     <li>按凭证代码读取主档状态与摘牌日。凭证状态为 D 或凭证摘牌日有值且严格早于截止日时进入到期候选。日期范围默认早于昨天（T-2）。</li>
                     <li>CRMW 组合按凭证状态和摘牌日判断。标的债券单独到期时，组合不会出池。</li>
+                    <li>按在池状态 ID 排除 Excel 导入及同批配套调入的组合，只关闭本轮选中的状态。</li>
                     <li>扫描时按标的证券代码、凭证代码和凭证类型匹配调出限制池。命中限制则跳过，仅软删成功才写日志。</li>
                 </ul>
             </article>
@@ -590,6 +594,7 @@
             <article class="card">
                 <h3>外评AA-及以下主体自动入池（仅主体） company_outer_rating_aa_minus_auto_in</h3>
                 <ul>
+                    <li>目标池最新生效的 Excel 主体决定为调出时跳过。</li>
                     <li>每天 23:15 执行。Demo 参数 <code>{"poolIds":[17]}</code>，与投资池关系配置中绑定本任务的自动调入池取并集。未配置有效认可评级机构或扫描范围为空时，本轮失败。</li>
                     <li>尚未在目标池生效的主体，满足任一条件即进入候选。
                         <ol>
@@ -663,6 +668,7 @@
             </article>
             <article class="card">
                 <h3>Wind代码变更同步（仅债券） wind_code_sync</h3>
+                <p>Excel 来源的普通池及 CRMW 组合池记录也参与换码。</p>
                 <h4>执行调用链与各步写入</h4>
                 <p>这里的“登记”是 <code>rrs_temp_security_code</code> 业务表中的一条记录，普通 <code>official</code> 证券换码也会使用该表。准备登记和完成转正是两个步骤：新增登记时先保存旧码和 <code>temporary</code> 状态，后续方法才写入正式码和 <code>updated</code> 状态；复用已有登记时，原有目标码必须与本次新码一致。</p>
                 <div class="table-wrap">
@@ -839,15 +845,15 @@ TempSecurityCodeService.editWindCodeChangeByJob(change)
 <ol>
 <li>标的债券：A 公司发行的债券，是接受信用保护的对象</li>
 <li>CRMW 凭证：由 B 机构创设／提供信用保护，与标的债券形成在库组合</li>
-<li>标的债券、A 公司、CRMW 凭证、B 机构任一已在有效禁止库，就清退对应在库组合；主体分别取各自主档的发行主体代码</li>
+<li>按当前在池状态 ID 排除 Excel 导入及同批配套调入的组合。其他组合的标的债券、A 公司、CRMW 凭证或 B 机构任一已在有效禁止库时清退，主体分别取各自主档的发行主体代码</li>
 <li>只生成系统自动CRMW出库记录，不重复进入禁止库，不连带禁投另一端，不自动恢复旧组合；观察、重点观察、黑名单质押库和低内评不单独触发本任务</li>
 <li>组合通常一千多条、最多不到一万条，一次读取全部有效组合，不分页不排序，批量读取证券与主体依据，按原状态主键精确退出；同组合多原因合并，同一凭证或标的关联多个组合时分别处理</li>
-<li>每个组合独立事务，单条状态和日志同时提交；该条失败只回滚自己、记录错误并继续，不影响其他正常组合。主档或双方唯一主体代码缺失也只记录该条错误，不推断未确认ABS权益人。任务结果汇总成功和失败数量，只有公共查询异常才返回任务级失败</li>
+<li>每个组合独立事务，同组合在本池最后一条生效状态退出时，状态和出库流水同时提交。该条失败只回滚自己、记录错误并继续。主档或双方唯一主体代码缺失时只记录该条错误。任务结果汇总成功和失败数量，公共查询异常时返回任务级失败</li>
 <li>扫描和出库均在任务Service内：入口不加整体事务，执行时通过ObjectProvider取得任务的Spring代理，逐条调用本类公开方法，由 <code>@Transactional(rollbackFor = Exception.class)</code> 管理该组合的出库和日志；避免this自调用绕过事务，无需开启循环依赖，也不依赖CRMW调整Service。单条失败回滚后，继续处理下一条</li>
 <li>禁投硬清退不执行人工锁定、冻结期、开放日、调出限制或到期日校验。当前不修改CRMW调入及最终审批校验，在两次任务之间可能仍入库，下一轮再清退</li>
 <li>部署后在定时任务管理新增配置，先手动执行核对再启用；不为增加任务重置现有业务数据。不同任务无编排，Cron错开不保证前序完成，需按实际耗时留间隔</li>
 </ol></section>
-<section class="panel"><h2>CRMW规则提醒</h2><p>债券业务新增独立“CRMW规则提醒”Tab；任务crmw_rule_alert每天09:13、默认关闭。独立CrmwRuleAlertTaskService通过execute()包装计时、日志、异常和结果，私有doScanCrmwRuleAlerts()负责扫描；任务Mapper与提醒页面Mapper分开。按凭证创设方最新内评低于3档或观察/重点观察状态生成独立待办，只提醒不改池，所有变更保存审计。<a href="crmw-rule-alert-tables.html">规则、接口、表结构及启用说明</a></p></section>
+<section class="panel"><h2>CRMW规则提醒</h2><p>债券业务新增独立“CRMW规则提醒”Tab；任务crmw_rule_alert每天09:13、默认关闭。独立CrmwRuleAlertTaskService通过execute()包装计时、日志、异常和结果，私有doScanCrmwRuleAlerts()负责扫描；任务Mapper与提醒页面Mapper分开。复核前排除 Excel 导入及同批配套调入的组合。按凭证创设方最新内评低于3档或观察/重点观察状态生成独立待办，只提醒不改池，所有变更保存审计。<a href="crmw-rule-alert-tables.html">规则、接口、表结构及启用说明</a></p></section>
 </main>
 </body>
 </html>
