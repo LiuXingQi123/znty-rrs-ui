@@ -438,6 +438,20 @@
                     </div>
                 </div>
                 <el-table ref="adjustReviewTableRef" :data="adjustReviewList" stripe border size="small" style="width:100%;" :row-class-name="getAdjustReviewRowClass" empty-text="暂无校验结果">
+                    <el-table-column width="48" align="center" class-name="check-selection-column"
+                                     label-class-name="check-selection-column">
+                        <template slot="header" slot-scope="scope">
+                            <el-checkbox :value="allReviewRowsSelected"
+                                         :indeterminate="selectedAdjustReviewList.length > 0 && !allReviewRowsSelected"
+                                         :disabled="submitLoading || !selectableAdjustReviewList.length"
+                                         aria-label="全选可调整项" @change="setAllReviewRowsSelected"></el-checkbox>
+                        </template>
+                        <template slot-scope="{ row }">
+                            <el-checkbox :value="row.valid && row.selected" :disabled="submitLoading || !row.valid"
+                                         :aria-label="'勾选调库项 ' + row.securityCode"
+                                         @change="setReviewRowSelected(row, $event)"></el-checkbox>
+                        </template>
+                    </el-table-column>
                     <el-table-column label="序号" width="50" align="center">
                         <template slot-scope="{ $index }">{{ $index + 1 }}</template>
                     </el-table-column>
@@ -471,6 +485,7 @@
                                 </el-option>
                             </el-select>
                             </el-tooltip>
+                            <span v-else-if="row.inboundFlowBlocked && row.flowName">{{ row.flowName }}</span>
                         </template>
                     </el-table-column>
                     <el-table-column label="调整说明" min-width="280">
@@ -520,10 +535,10 @@
                 <div class="action-footer">
                     <el-button size="small" icon="el-icon-arrow-left" @click="backToPoolList">返回</el-button>
                     <el-button size="small" icon="el-icon-arrow-left" @click="goToStep1">上一步</el-button>
-                    <el-button type="primary" size="small" icon="el-icon-check" :disabled="validCount === 0 || !allValidRowsHaveFlow || submitLoading"
+                    <el-button type="primary" size="small" icon="el-icon-check" :disabled="!selectedAdjustReviewList.length || submitLoading"
                                :loading="submitLoading" @click="submitAdjust">
                         提交
-                        <span v-if="validCount > 0" style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">{{ validCount }}</span>
+                        <span v-if="selectedAdjustReviewList.length > 0" style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:10px;padding:0 6px;font-size:11px;">{{ selectedAdjustReviewList.length }}</span>
                     </el-button>
                 </div>
             </div>
@@ -594,10 +609,10 @@
                custom-class="flow-dialog" :close-on-click-modal="false" :show-close="false">
         <span slot="title" class="flow-dialog-title">
             <span class="flow-dialog-title-text">选择调库流程</span>
-            <span class="flow-dialog-submit-hint" v-if="validManualAdjustReviewList.length > 0">本次共 {{ validManualAdjustReviewList.length }} 项将选择流程并提交</span>
+            <span class="flow-dialog-submit-hint" v-if="selectedManualAdjustReviewList.length > 0">本次共 {{ selectedManualAdjustReviewList.length }} 项将选择流程并提交</span>
         </span>
         <div class="flow-option-list">
-            <div v-for="(row, rowIndex) in validManualAdjustReviewList" :key="row.securityCode + '_' + row.poolId + '_' + rowIndex"
+            <div v-for="(row, rowIndex) in selectedManualAdjustReviewList" :key="row.securityCode + '_' + row.poolId + '_' + rowIndex"
                  class="flow-option-card flow-row-card"
                  :class="getFlowRowColorClass(rowIndex)">
                 <div class="flow-option-head">
@@ -630,14 +645,14 @@
                     </el-radio>
                 </el-radio-group>
             </div>
-            <div v-if="validManualAdjustReviewList.length === 0" style="color:var(--c-text-3);font-size:13px;">
+            <div v-if="selectedManualAdjustReviewList.length === 0" style="color:var(--c-text-3);font-size:13px;">
                 暂无可选择流程的手工调库项
             </div>
         </div>
         <span slot="footer">
             <el-button size="small" :disabled="submitLoading" @click="flowDialogVisible = false">取消</el-button>
             <el-button type="primary" size="small"
-                       :disabled="!allValidRowsHaveFlow || submitLoading"
+                       :disabled="!allSelectedRowsHaveFlow || submitLoading"
                        :loading="submitLoading"
                        @click="confirmFlowSelection">确认</el-button>
         </span>
@@ -1057,21 +1072,31 @@
                 return Object.keys(this.selectedSecurityMap).map(code => this.selectedSecurityMap[code])
             },
 
-            // 可提交调库项数量
-            validCount() {
-                return this.adjustReviewList.filter(item => item.valid).length
+            // 可勾选的调库项
+            selectableAdjustReviewList() {
+                return this.adjustReviewList.filter(item => item.valid)
             },
 
-            // 可提交的手工调整项（联动/互斥项共用同组手工项的流程，无需单独选流程）
-            validManualAdjustReviewList() {
-                return this.adjustReviewList.filter(item => item.valid && item.itemTag === 'manual')
+            // 本次勾选的调库项
+            selectedAdjustReviewList() {
+                return this.selectableAdjustReviewList.filter(item => item.selected)
             },
 
+            // 是否已勾选全部可调整项
+            allReviewRowsSelected() {
+                return this.selectedAdjustReviewList.length > 0
+                    && this.selectedAdjustReviewList.length === this.selectableAdjustReviewList.length
+            },
 
-            // 有效手工调整项是否都已选择审批流程（仅手工项需要选流程）
-            allValidRowsHaveFlow() {
-                return this.validManualAdjustReviewList.length > 0
-                    && this.validManualAdjustReviewList.every(item => !!this.selectedRowFlowOption(item))
+            // 联动、互斥和关联项沿用同组手工项的流程
+            selectedManualAdjustReviewList() {
+                return this.selectedAdjustReviewList.filter(item => item.itemTag === 'manual')
+            },
+
+            // 本次勾选的手工项是否都已选择审批流程
+            allSelectedRowsHaveFlow() {
+                return this.selectedManualAdjustReviewList.length > 0
+                    && this.selectedManualAdjustReviewList.every(item => !!this.selectedRowFlowOption(item))
             },
 
             // 内部报告当前页数据
@@ -1706,6 +1731,7 @@
 
             // 进入步骤2并执行调库校验
             async goToStep2() {
+                // 1. 检查是否已选证券，以及需要的权益人和担保人是否已选好
                 if (this.selectedSecurities.length === 0) {
                     this.$message.warning('请至少选择一只证券')
                     return
@@ -1723,6 +1749,7 @@
                 }
                 this.checkLoading = true
                 try {
+                    // 2. 把目标池和本次选择交给后端校验
                     const checkParams = {
                         currentUserId: this.currentUserId,
                         direction: this.direction,
@@ -1741,14 +1768,21 @@
                         }))
                     };
                     const data = await this.apiPost('/api/v1/batchSecurityPoolAdjust/checkAdjust', checkParams)
-                    this.adjustReviewList = this.applyAdjustGroupColors((data.items || []).map((item, index) => this.buildReviewRow(item, index)))
+                    // 3. 生成结果行，批量调入再按默认流程判断哪些项可调整
+                    const reviewRows = (data.items || []).map((item, index) => this.buildReviewRow(item, index))
+                    if (this.isInbound) this.applyInboundReviewRule(reviewRows)
+                    // 4. 把可调整项排在前面，并用相同底色标识同组明细
+                    this.adjustReviewList = this.applyAdjustGroupColors([
+                        ...reviewRows.filter(row => row.valid),
+                        ...reviewRows.filter(row => !row.valid)
+                    ])
                     this.adjustStep = 2
                 } catch (e) {
                     this.$message.error(e.message || '操作失败')
                 } finally {
                     this.checkLoading = false
                 }
-                // 校验结果表渲染后同步右侧固定列
+                // 5. 表格渲染后重新对齐右侧固定列
                 this.refreshTableLayout('adjustReviewTableRef')
             },
 
@@ -1779,6 +1813,7 @@
                 const failReasons = item.failReasons || []
                 const failReason = failReasons.join('；')
                 const warningStr = (item.warnings || []).join('；')
+                // 优先选后端推荐的可用流程，没有推荐时取第一个可用流程
                 const flowOptions = this.formatRowFlowOptions(item.flowOptions || [], index)
                 const recommended = flowOptions.find(option => option.recommended && option.selectable)
                     || flowOptions.find(option => option.selectable)
@@ -1795,6 +1830,8 @@
                     itemTag: item.itemTag,
                     adjustGroupKey: item.adjustGroupKey,
                     valid: item.canAdjust,
+                    selected: item.canAdjust, // 默认勾选可调整项，之后随复选框更新
+                    inboundFlowBlocked: false, // 标记需要只读展示原默认流程的手工项
                     materialExemptionType: item.materialExemptionType || '',
                     hasWarning: warningStr !== '',
                     failReasons,
@@ -1810,6 +1847,37 @@
                     creditMaterialCount: this.creditMaterialCount,
                     otherMaterialCount: this.otherMaterialCount
                 }
+            },
+
+            // 按信用债的快速入库流程筛选批量调入项
+            applyInboundReviewRule(rows) {
+                // 1. 按手工项的默认流程判断每组能否调整，通过时只保留这条快速入库流程
+                const blockedGroups = new Map()
+                rows.forEach(row => {
+                    if (!row.valid || row.itemTag !== 'manual') return
+                    if (row.flowType === 'simpleInbound') {
+                        row.flowOptions = [this.selectedRowFlowOption(row)]
+                    } else {
+                        blockedGroups.set(row.adjustGroupKey || row, row)
+                    }
+                })
+                // 2. 将未通过的同组明细设为不可调整，取消勾选并写明原因
+                rows.forEach(row => {
+                    const manual = blockedGroups.get(row.adjustGroupKey || row)
+                    if (!manual || !row.valid) return
+                    row.valid = false
+                    row.selected = false
+                    if (row === manual) {
+                        const simpleFlow = row.flowOptions.find(option => option.flowType === 'simpleInbound')
+                        row.inboundFlowBlocked = true
+                        row.failReasons = row.failReasons.concat(
+                            '批量调入仅支持快速入库。其他入库流程请到「证券池调整」办理',
+                            simpleFlow ? simpleFlow.unmatchReasons : []
+                        )
+                    } else {
+                        row.failReasons = row.failReasons.concat('同组手工调入项未默认选中快速入库流程，本项不可调整')
+                    }
+                })
             },
 
             // 格式化行内流程候选项
@@ -1852,39 +1920,65 @@
                 row.flowName = option ? option.flowName : ''
             },
 
+            // 逐行勾选或取消可调整项
+            setReviewRowSelected(row, selected) {
+                if (row.valid) row.selected = selected
+            },
+
+            // 勾选或取消全部可调整项
+            setAllReviewRowsSelected(selected) {
+                this.selectableAdjustReviewList.forEach(row => { row.selected = selected })
+            },
+
             // 返回步骤1
             goToStep1() {
                 this.adjustStep = 1
             },
 
-            // 提交批量调库申请：先弹窗确认调库流程，再执行提交
+            // 提交前检查勾选范围、同组配套项和手工项流程
+            validateSelectedReviewRows() {
+                // 1. 至少勾选一条可调整项
+                if (this.selectedAdjustReviewList.length === 0) {
+                    this.$message.warning('请勾选要提交的调库项')
+                    return false
+                }
+                // 2. 找出已选组里漏勾的可调整项，并提示补齐
+                const selectedGroups = new Set(this.selectedAdjustReviewList.map(row => row.adjustGroupKey))
+                const missingRows = this.selectableAdjustReviewList.filter(row => !row.selected
+                    && row.adjustGroupKey && selectedGroups.has(row.adjustGroupKey))
+                if (missingRows.length) {
+                    const details = missingRows.map(row => row.securityCode + '（' + row.poolName + '，' + row.adjustType + '）')
+                    this.$message.warning('请补勾同组调库项：' + details.join('；'))
+                    return false
+                }
+                // 3. 检查已勾选的手工项是否都选好了审批流程
+                if (!this.allSelectedRowsHaveFlow) {
+                    this.$message.warning('请为勾选的手工调整项选择审批流程')
+                    return false
+                }
+                return true
+            },
+
+            // 检查勾选项后打开流程确认弹窗
             async submitAdjust() {
-                if (this.validCount === 0) {
-                    this.$message.warning('没有可提交的' + this.directionLabel + '申请，请检查校验结果')
-                    return
-                }
-                if (!this.allValidRowsHaveFlow) {
-                    this.$message.warning('请为所有可提交的手工调整项选择审批流程')
-                    return
-                }
+                if (!this.validateSelectedReviewRows()) return
                 this.flowDialogVisible = true
             },
 
             // 确认调库流程后执行提交
             async confirmFlowSelection() {
-                if (this.submitLoading) return
-                if (!this.allValidRowsHaveFlow) {
-                    this.$message.warning('请为所有可提交的手工调整项选择审批流程')
-                    return
-                }
+                // 1. 再次检查勾选项和流程，提交期间防止重复点击
+                if (this.submitLoading || !this.validateSelectedReviewRows()) return
                 this.flowDialogVisible = false
                 this.submitLoading = true
                 try {
+                    // 2. 整理整批共用的上传文件和报告附件
                     const submitFiles = []
                     const creditReportFileIndexes = this.collectSubmitFiles(this.creditReportFiles, submitFiles)
                     const materialFileIndexes = this.collectSubmitFiles(this.materialFiles, submitFiles)
                     const creditReportSourceAttachmentIds = this.collectReportAttachmentIds(this.selectedCreditReports)
                     const materialSourceAttachmentIds = this.collectReportAttachmentIds(this.selectedMaterialReports)
+                    // 3. 只把已勾选的调库项和对应的流程、材料放进请求
                     const payload = {
                         currentUserId: this.currentUserId,
                         direction: this.direction,
@@ -1896,7 +1990,7 @@
                         adjustReason: this.adjustReason,
                         adjustAdvice: this.adjustAdvice,
                         releaseRules: this.releaseRules,
-                        items: this.adjustReviewList.filter(item => item.valid).map(item => ({
+                        items: this.selectedAdjustReviewList.map(item => ({
                             securityCode: item.securityCode,
                             securityShortName: item.securityShortName || '',
                             securityType: item.securityType || '',
@@ -1921,6 +2015,7 @@
                             materialSourceAttachmentIds
                         }))
                     }
+                    // 4. 提交成功后返回投资池列表并刷新
                     await this.submitAdjustMultipart('/api/v1/batchSecurityPoolAdjust/addAdjustLogWithFiles', payload, submitFiles)
                     this.$message.success('批量' + this.directionLabel + '提交成功')
                     this.backToPoolList()
