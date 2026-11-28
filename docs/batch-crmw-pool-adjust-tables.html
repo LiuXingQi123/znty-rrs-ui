@@ -372,7 +372,7 @@
         <p>校验在手工、联动、互斥项后追加 <code>itemTag=related</code> 关联调整项。每个代码按自身市场、凭证与标的组合在池状态、活动池组、冻结期及原规则独立校验，同池调入累计容量。每个同券市场代码单独显示一条校验记录。退市、到期或调出时不在目标池的关联码保留在结果中，该行不可调整并显示原因。其余有效码继续按组校验，任一有效码命中在途等阻断规则时，有效组不可提交。明确选中的主标的到期时仍展示各市场结果，本组不可提交。其他独立调库组不受影响。</p>
         <p>后端按当前同券范围核对单笔调入明细，批量及 Excel 复用校验后的实际代码集合。普通调库提交及终审逐码复核调入，实际提交的代码到期时要求重新校验整组。Excel 提交及终审沿用到期作为调整提示的口径。逐券活动流程检查继续执行。</p>
         <p>关联项沿用原凭证、主项分组、流程和批次，仅手工项创建步骤，报告要求由同组手工项承担。提交 <code>items[]</code> 携带实际 <code>securityCode/securityShortName/securityType</code>，日志、快照和池状态均保留实际标的代码；直通即时生效，人工审批最终通过后同批生效。出池按原凭证、实际标的及目标池精确处理，保留其他凭证的组合。</p>
-        <p>批量及 Excel 导入复用相同逻辑，同批多个同券主行展开的重复组合按凭证、标的、目标池、方向去重，显式手工项优先；Excel 关联项全称、市场和类型按自身主档展示。活动流程通过同批任一组合定位，关联码审批中不能重复申请同池组。</p>
+        <p>批量同时勾选同一凭证下的同券标的时，同一目标池和方向合并为一个校验组。首个组合为手工主项，其余代码作为关联项展示。评级主体选择冲突时本组不可调整，不同凭证各自校验。活动流程通过同批任一组合定位，关联码审批中不能重复申请同池组。</p>
         <p><code>queryCrmwAdjustLogList</code> 展示当前组合全部历史及同批关联项，不按请求批次或终态过滤，返回项增加实际标的代码和名称；校验表及审核、详情记录表展示这些字段。自动到期调出继续按实际在池组合逐条处理。本次不变更表结构或迁移历史数据。</p>
     </section>
 
@@ -416,11 +416,12 @@
         </div>
     </section>
     <section class="panel" id="logic-2"><h2>批量校验与提交</h2>
-        <p class="sub">批量层负责聚合，规则与 CRMW 单笔调库一致。步骤2校验结果列：证券名称、证券代码、CRMW名称、CRMW代码、投资池名称、调整类型、调整方向、审批流程、调整说明、校验结果。</p><span class="api">POST /api/v1/batchCrmwPoolAdjust/checkAdjust · addAdjustLogWithFiles</span>
+        <p class="sub">批量层负责聚合，规则与 CRMW 单笔调库一致。步骤2校验结果列：勾选框、序号、证券名称、证券代码、CRMW名称、CRMW代码、投资池名称、调整类型、调整方向、审批流程、调整说明、校验结果。</p><span class="api">POST /api/v1/batchCrmwPoolAdjust/checkAdjust · addAdjustLogWithFiles</span>
         <div class="logic">
             <article class="card"><h3>逐券校验与页面展示</h3>
                 <ul>
                     <li>每个组合转换为单笔 <code>AdjustCheckReq</code>（含 <code>crmwScode/crmwStype/crmwName</code>），调用 <code>crmwPoolAdjustService.checkBatchAdjust</code>，复用 CRMW 组合校验、联动互斥扩展与反阻断。结果项身份、流程候选与 <code>warnings</code> 透传单笔返回。</li>
+                    <li>校验后可调整项排在前面，不可调整项排在末尾，两类各自保留校验顺序，同组明细使用同一底色。默认全选可调整项，支持逐行勾选和表头全选，不可调整项禁选。只提交已勾选项。选中一组中的任意一行时，同组其他可调整项须一并勾选，只有已勾选的手工主项进入流程确认。</li>
                     <li><strong>调入/调出顺序</strong>与 CRMW 单笔 <code>checkInConditions</code> / <code>checkOutConditions</code> 一致：目标池必须是 CRMW 池；已在池按凭证+标的组合判断；弹性禁投写 warnings 不阻断。CRMW 单笔<strong>不走</strong>主体债入库矩阵，也<strong>不消费</strong> <code>releaseRules</code> / <code>fundRate</code>。</li>
                     <li>页面工作台保留与证券池批量相同的「是否放开规则」和「担保人*」控件（多担保人默认不选、下一步必选）。批量编排层把每个标的的 <code>guarantorCode</code> 透传到单笔校验与提交，用于关系复核、担保人评级下调判断及申请快照保存；<code>releaseRules=yes</code> 仅在提交时把「放开主体债入库矩阵规则」追加到调整意见/调整说明。</li>
                     <li>流程候选保留完整单笔结果，由 <code>checkBatchAdjust</code> 追加已配置的 batchIn/batchOut 并推荐；未配置时保留单笔推荐，操作员可改选。</li>

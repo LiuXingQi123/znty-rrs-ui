@@ -60,3 +60,41 @@ for (const name of ['crmw_pool_adjust', 'crmw_pool_adjust_detail', 'crmw_pool_ad
         if (page.getAdjustTypeLabel) assert.equal(page.getAdjustTypeLabel('related'), '关联调整');
     });
 }
+
+test('CRMW 批量调入和调出把不可调整项稳定放到末尾', async () => {
+    const { page } = harness('batch_crmw_pool_adjust');
+    page.currentPool = { id: 18, poolType: 'crmw' };
+    page.selectedSecurityMap = { 'C.IB|A.IB': { crmwScode: 'C.IB', securityCode: 'A.IB' } };
+    page.refreshTableLayout = () => {};
+    const group = { adjustGroupKey: 'GROUP', crmwScode: 'C.IB', targetPoolId: 18 };
+    for (const direction of ['in', 'out']) {
+        page.direction = direction;
+        const adjustMode = direction === 'in' ? '调入' : '调出';
+        const flowType = direction === 'in' ? 'batchInbound' : 'batchOutbound';
+        page.apiPost = async () => ({ items: [
+            { ...group, securityCode: 'A.SZ', itemTag: 'related', adjustMode, canAdjust: false, failReasons: ['标的已摘牌'] },
+            { ...group, securityCode: 'A.IB', itemTag: 'manual', adjustMode, canAdjust: true,
+                flowOptions: [{ flowId: 1, flowType, selectable: true, recommended: true }] },
+            { ...group, securityCode: 'B.IB', itemTag: 'manual', adjustGroupKey: 'OTHER', adjustMode,
+                canAdjust: false, failReasons: ['存在在途流程'] },
+            { ...group, securityCode: 'A.SH', itemTag: 'related', adjustMode, canAdjust: true }
+        ] });
+
+        await page.goToStep2();
+
+        const [main, related, inactive, blocked] = page.adjustReviewList;
+        assert.deepEqual(Array.from(page.adjustReviewList, row => row.securityCode), ['A.IB', 'A.SH', 'A.SZ', 'B.IB']);
+        assert.equal(main.flowType, flowType);
+        assert.equal(main.groupColorIndex, related.groupColorIndex);
+        assert.equal(main.groupColorIndex, inactive.groupColorIndex);
+        assert.equal(inactive.failReasons[0], '标的已摘牌');
+        assert.equal(blocked.failReasons[0], '存在在途流程');
+        assert.deepEqual(Array.from(page.selectedAdjustReviewList, row => row.securityCode), ['A.IB', 'A.SH']);
+        page.setReviewRowSelected(related, false);
+        page.setReviewRowSelected(inactive, true);
+        assert.equal(page.allReviewRowsSelected, false);
+        assert.equal(inactive.selected, false);
+        page.setReviewRowSelected(related, true);
+        assert.equal(page.allReviewRowsSelected, true);
+    }
+});

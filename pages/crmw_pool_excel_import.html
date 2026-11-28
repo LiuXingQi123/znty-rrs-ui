@@ -142,7 +142,7 @@
                             </div>
                         </div>
                         <div class="table-wrap table-wrap-import">
-                            <el-table :data="tableData"
+                            <el-table ref="importTable" :data="tableData"
                                       border stripe size="small" empty-text="暂无数据"
                                       height="100%" :header-cell-style="{ background: '#F7F8FA' }">
                                 <el-table-column label="序号" width="50" align="center" fixed>
@@ -274,9 +274,9 @@
                                 <el-tooltip :content="submitDisabledTip" :disabled="canSubmit" placement="top">
                                     <span>
                                         <el-button size="small" type="primary" icon="el-icon-check"
-                                                   :disabled="!canSubmit || busy" @click="openSubmitDialog" :loading="submitting">
+                                                   :disabled="!canSubmit" @click="openSubmitDialog" :loading="submitting">
                                             提交
-                                            <span v-if="validCheckCount > 0" class="btn-count">{{ validCheckCount }}</span>
+                                            <span v-if="selectedCheckCount > 0" class="btn-count">{{ selectedCheckCount }}</span>
                                         </el-button>
                                     </span>
                                 </el-tooltip>
@@ -288,6 +288,22 @@
                                       height="100%" style="width:100%;"
                                       :header-cell-style="{ background: '#F7F8FA' }"
                                       :row-class-name="getAdjustReviewRowClass">
+                                <el-table-column width="48" align="center" class-name="check-selection-column"
+                                                 label-class-name="check-selection-column">
+                                    <template slot="header" slot-scope="scope">
+                                        <el-checkbox :value="allCheckItemsSelected"
+                                                     :indeterminate="selectedCheckCount > 0 && !allCheckItemsSelected"
+                                                     :disabled="busy || task.saveRslt === '1' || !selectableCheckItems.length"
+                                                     aria-label="全选可调整项"
+                                                     @change="setAllCheckItemsSelected"></el-checkbox>
+                                    </template>
+                                    <template slot-scope="{ row }">
+                                        <el-checkbox :value="isCheckRowSelected(row)"
+                                                     :disabled="busy || task.saveRslt === '1' || !row.canAdjust"
+                                                     :aria-label="'勾选调库项 ' + (row.crmwScode || '') + ' ' + (row.securityCode || '')"
+                                                     @change="setCheckItemSelected(row, $event)"></el-checkbox>
+                                    </template>
+                                </el-table-column>
                                 <el-table-column label="序号" width="50" align="center">
                                     <template slot-scope="{ $index }">{{ $index + 1 }}</template>
                                 </el-table-column>
@@ -385,10 +401,10 @@
                custom-class="flow-dialog" :close-on-click-modal="false" :show-close="false">
         <span slot="title" class="flow-dialog-title">
             <span class="flow-dialog-title-text">选择调库流程</span>
-            <span class="flow-dialog-submit-hint" v-if="validManualCheckItems.length > 0">本次共 {{ validManualCheckItems.length }} 项将选择流程并提交</span>
+            <span class="flow-dialog-submit-hint">本次提交 {{ selectedCheckCount }} 项</span>
         </span>
         <div class="flow-option-list">
-            <div v-for="(row, rowIndex) in validManualCheckItems"
+            <div v-for="(row, rowIndex) in selectedManualCheckItems"
                  :key="(row.crmwScode || '') + '_' + (row.securityCode || '') + '_' + rowIndex"
                  class="flow-option-card flow-row-card"
                  :class="getFlowRowColorClass(rowIndex)">
@@ -424,14 +440,14 @@
                     </el-radio>
                 </el-radio-group>
             </div>
-            <div v-if="validManualCheckItems.length === 0" style="color:var(--c-text-3);font-size:13px;">
-                暂无可选择流程的手工调库项
+            <div v-if="selectedManualCheckItems.length === 0" style="color:var(--c-text-3);font-size:13px;">
+                所选配套项沿用来源主项的默认流程
             </div>
         </div>
         <span slot="footer">
             <el-button size="small" :disabled="submitting" @click="flowDialogVisible = false">取消</el-button>
             <el-button type="primary" size="small"
-                       :disabled="!allValidRowsHaveFlow || submitting"
+                       :disabled="!allSelectedRowsHaveFlow || submitting"
                        :loading="submitting"
                        @click="confirmFlowSelection">确认</el-button>
         </span>
@@ -531,6 +547,7 @@
                 task: {},                       // 批次任务信息
                 tableData: [],                  // 导入明细表格数据
                 checkItems: [],                 // 调库校验结果
+                uncheckedCheckItemKeys: new Set(), // 用户取消勾选的校验项
                 activeResultTab: 'import',      // 结果区 Tab：import / check
                 flowDialogVisible: false,       // 选择调库流程弹窗
                 filterChkRslt: '',              // 明细校验结果筛选
@@ -573,37 +590,41 @@
             canEditRatingCompanies() {
                 return !!this.impId && !this.busy && this.task.saveRslt !== '1'
             },
-            // 可调整的校验项
-            validCheckItems() {
-                return (this.checkItems || []).filter(item => item && item.canAdjust)
+            selectableCheckItems() {
+                return this.checkItems.filter(row => row.canAdjust)
             },
-            // 可调整的手工项（需选流程）
-            validManualCheckItems() {
-                return this.validCheckItems.filter(item => this.isManualItem(item))
+            allCheckItemsSelected() {
+                return this.selectedCheckCount > 0 && this.selectedCheckCount === this.selectableCheckItems.length
             },
-            // 可提交条数
-            validCheckCount() {
-                return this.validCheckItems.length
+            selectedCheckItems() {
+                return this.selectableCheckItems.filter(row => this.isCheckRowSelected(row))
             },
-            // 手工项是否均已选流程
-            allValidRowsHaveFlow() {
-                const manuals = this.validManualCheckItems
-                if (manuals.length === 0) return this.validCheckCount > 0
-                return manuals.every(row => !!row.selectedFlowKey)
+            selectedManualCheckItems() {
+                return this.selectedCheckItems.filter(row => this.isManualItem(row))
+            },
+            selectedCheckCount() {
+                return this.selectedCheckItems.length
+            },
+            // 单独提交的配套项沿用来源手工项的默认流程
+            allSelectedRowsHaveFlow() {
+                return this.selectedCheckCount > 0
+                    && this.selectedManualCheckItems.every(row => !!row.selectedFlowKey)
             },
             // 是否允许提交
             canSubmit() {
                 return !!this.impId
+                    && !this.busy
                     && this.task.checkDone
                     && this.task.saveRslt !== '1'
-                    && this.validCheckCount > 0
+                    && this.selectedCheckCount > 0
             },
             // 提交按钮禁用提示
             submitDisabledTip() {
                 if (!this.impId) return '请先上传 Excel'
                 if (this.task.saveRslt === '1') return '该批次已提交'
                 if (!this.task.checkDone) return '请先点击校验'
-                if (this.validCheckCount === 0) return '没有可提交的校验结果'
+                if (!this.selectableCheckItems.length) return '没有可提交的校验结果'
+                if (!this.selectedCheckCount) return '请先勾选要提交的调库项'
                 return ''
             },
             // 校验结果区提示文案
@@ -619,6 +640,14 @@
             // 是否管理员（仅管理员可见导入批次号）
             isAdmin() {
                 return this.currentUser && String(this.currentUser.userId) === '1'
+            },
+        },
+        watch: {
+            // 担保人和权益人列随明细增减，渲染后同步固定列位置
+            tableData() {
+                this.$nextTick(() => {
+                    this.$refs.importTable.doLayout()
+                })
             },
         },
         mounted() {
@@ -717,6 +746,7 @@
                     this.$set(row, 'selectedRelatedCompanyCode', isAbs ? row.relatedCompanyCode || '' : '')
                     this.$set(row, 'selectedGuarantorCode', (isAbs ? row.guarantorCode : row.relatedCompanyCode) || '')
                     this.checkItems = []
+                    this.uncheckedCheckItemKeys = new Set()
                     this.$set(this.task, 'checkDone', false)
                     this.filterChkRslt = ''
                     await this.loadItemPage()
@@ -886,6 +916,7 @@
                 this.task = {}
                 this.tableData = []
                 this.checkItems = []
+                this.uncheckedCheckItemKeys = new Set()
                 this.activeResultTab = 'import'
                 this.flowDialogVisible = false
                 this.selfRightsHolderDialogVisible = false
@@ -929,7 +960,7 @@
                 this.loading = false
             },
             // 回填批次任务与表格数据
-            applyTask(data) {
+            applyTask(data, keepCheckSelection = false) {
                 if (!data) return
                 this.impId = data.impId || ''
                 this.task = data || {}
@@ -943,6 +974,7 @@
                 this.pagination.pageIndex = page.pageIndex || 1
                 this.pagination.pageSize = page.pageSize || this.pagination.pageSize
                 this.checkItems = this.normalizeCheckItems(data.checkItems || [])
+                if (!keepCheckSelection) this.uncheckedCheckItemKeys = new Set()
             },
             // 明细筛选变更
             onFilterChange() {
@@ -987,7 +1019,7 @@
             },
             // 执行校验
             async handleCheck() {
-                if (!this.impId || this.busy) return
+                if (!this.impId || this.busy || this.task.saveRslt === '1') return
                 this.checking = true
                 try {
                     const data = await this.apiPost('/api/v1/crmwPoolExcelImport/checkImport', {
@@ -1001,33 +1033,30 @@
                     this.pagination.pageIndex = 1
                     this.applyTask(data)
                     this.activeResultTab = 'check'
-                    if (data && data.chkRslt === '1') this.$message.success(data.chkDscr || '校验全部通过')
-                    else this.$message.warning((data && data.chkDscr) || '存在校验失败项')
+                    if (data && data.chkRslt === '1') {
+                        const hasAdjustTips = this.checkItems.some(row => row.canAdjust && row.failReasons && row.failReasons.length)
+                        if (hasAdjustTips) this.$message.warning(data.chkDscr || '全部可调整，存在调整提示')
+                        else this.$message.success('校验全部通过')
+                    } else {
+                        this.$message.warning((data && data.chkDscr) || '存在校验失败项')
+                    }
                 } catch (e) { /* api 已提示 */ }
                 this.checking = false
             },
             // 打开选择调库流程弹窗
             openSubmitDialog() {
-                if (!this.canSubmit || this.busy) return
-                if (this.validCheckCount === 0) {
-                    this.$message.warning('没有可提交的调库项')
-                    return
-                }
-                if (!this.allValidRowsHaveFlow) {
-                    this.$message.warning('请为所有可提交的手工调整项选择审批流程')
+                if (!this.canSubmit) return
+                if (!this.allSelectedRowsHaveFlow) {
+                    this.$message.warning('请为勾选的手工调整项选择审批流程')
                     return
                 }
                 this.flowDialogVisible = true
             },
             // 确认流程并提交
             async confirmFlowSelection() {
-                if (!this.canSubmit || this.busy) return
-                if (!this.allValidRowsHaveFlow) {
-                    this.$message.warning('请为所有可提交的手工调整项选择审批流程')
-                    return
-                }
-                if (this.validCheckCount === 0) {
-                    this.$message.warning('没有可提交的调库项')
+                if (!this.canSubmit) return
+                if (!this.allSelectedRowsHaveFlow) {
+                    this.$message.warning('请为勾选的手工调整项选择审批流程')
                     return
                 }
                 this.flowDialogVisible = false
@@ -1039,11 +1068,11 @@
                         adjustAdvice: this.form.adjustAdvice,
                         currentUserId: this.currentUser.userId,
                         currentUserName: this.currentUser.userName,
-                        checkItems: this.validCheckItems,
+                        checkItems: this.selectedCheckItems,
                     })
                     const batchNo = data && data.adjustBatchNoList && data.adjustBatchNoList[0]
                     this.$message.success(batchNo ? ('调库提交成功，批次号 ' + batchNo) : '调库提交成功')
-                    this.applyTask(Object.assign({}, this.task, data || {}))
+                    this.applyTask(Object.assign({}, this.task, data || {}), true)
                 } catch (e) { /* api 已提示 */ }
                 this.submitting = false
             },
@@ -1059,6 +1088,7 @@
                 this.task = {}
                 this.tableData = []
                 this.checkItems = []
+                this.uncheckedCheckItemKeys = new Set()
                 this.activeResultTab = 'import'
                 this.flowDialogVisible = false
                 this.selfRightsHolderDialogVisible = false
@@ -1073,10 +1103,26 @@
             isManualItem(row) {
                 return !row.itemTag || row.itemTag === 'manual' || row.itemTag === ''
             },
+            // 按实际调整项记住勾选状态，切换明细页时不会丢失
+            checkItemKey(row) {
+                return JSON.stringify([row.sourceItemId, row.crmwScode, row.securityCode, row.targetPoolId, row.adjustMode, row.itemTag])
+            },
+            isCheckRowSelected(row) {
+                return row.canAdjust && !this.uncheckedCheckItemKeys.has(this.checkItemKey(row))
+            },
+            setCheckItemSelected(row, selected) {
+                const unchecked = new Set(this.uncheckedCheckItemKeys)
+                const key = this.checkItemKey(row)
+                if (selected) unchecked.delete(key)
+                else unchecked.add(key)
+                this.uncheckedCheckItemKeys = unchecked
+            },
+            setAllCheckItemsSelected(selected) {
+                this.uncheckedCheckItemKeys = selected ? new Set() : new Set(this.selectableCheckItems.map(row => this.checkItemKey(row)))
+            },
             // 规范化校验结果
             normalizeCheckItems(list) {
-                const colored = this.applyAdjustGroupColors(list || [])
-                return colored.map((row, rowIndex) => {
+                const rows = (list || []).map((row, rowIndex) => {
                     const options = this.formatRowFlowOptions(row.flowOptions || [], rowIndex)
                     let selected = this.matchSelectedFlowKey(row, options)
                     if (!selected && options.length) {
@@ -1092,6 +1138,11 @@
                     this.applySelectedFlow(next)
                     return next
                 })
+                // 可调整项排在前面，同组仍用同一底色
+                return this.applyAdjustGroupColors([
+                    ...rows.filter(row => row.canAdjust),
+                    ...rows.filter(row => !row.canAdjust)
+                ])
             },
             // 格式化行内流程候选项
             formatRowFlowOptions(options, rowIndex) {
@@ -1128,17 +1179,19 @@
                 if (!text) return true
                 return /^[a-zA-Z0-9_.:\-]+$/.test(text) && !/[\u4e00-\u9fa5]/.test(text)
             },
-            // 按已选 flowId/flowKey 匹配 optionKey
+            // 恢复已选流程时区分共用同一流程定义的单笔和批量候选
             matchSelectedFlowKey(row, options) {
                 if (!row || !options || !options.length) return ''
                 if (row.selectedFlowKey) {
                     const byKey = options.find(o => o.optionKey === row.selectedFlowKey)
                     if (byKey) return byKey.optionKey
                 }
-                if (row.flowId != null || row.flowKey) {
+                if (row.flowId != null || row.flowKey || row.flowType) {
                     const byId = options.find(o => {
+                        if (row.flowType && o.flowType !== row.flowType) return false
                         if (row.flowId != null && o.flowId != null) return String(o.flowId) === String(row.flowId)
-                        return (o.flowKey || '') === (row.flowKey || '')
+                        if (row.flowKey || o.flowKey) return row.flowKey === o.flowKey
+                        return row.flowId == null && o.flowId == null
                     })
                     if (byId) return byId.optionKey
                 }
