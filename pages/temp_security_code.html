@@ -329,7 +329,8 @@
 
     <!-- ── 更新弹窗（临时证券信息只读 + 正式证券远程选券） ── -->
     <el-dialog title="更新正式证券" :visible.sync="updateDialogVisible" width="50%" :close-on-click-modal="false">
-        <div class="form-tip">临时证券信息仅供对照、不可修改。请选择已有正式证券。普通证券池及CRMW池的标的债券均按同券全部市场代码整组转正，各代码分别记录调库；流程中的申请沿用原审批，即时出入库记录调整人为系统，任一代码校验失败则整次更新失败。</div>
+        <div v-if="updateForm.tempSecurityType === 'crmw'" class="form-tip">请选择正式 CRMW 凭证。已入库的临时组合会先出库，正式组合尚未在同一池时再入库。未结束的申请沿用原审批，申请冲突时整次更新失败。</div>
+        <div v-else class="form-tip">临时证券信息仅供对照、不可修改。请选择已有正式证券。普通证券池及CRMW池的标的债券均按同券全部市场代码整组转正，各代码分别记录调库；流程中的申请沿用原审批，即时出入库记录调整人为系统，任一代码校验失败则整次更新失败。</div>
         <el-form ref="updateFormRef" :model="updateForm" :rules="updateRules" label-width="132px" size="small">
             <!-- 临时证券信息（只读） -->
             <div class="form-section">
@@ -738,7 +739,8 @@
                 this.formalSecurityLoading = true
                 try {
                     const data = await this.apiPost('/api/v1/tempSecurityCode/queryFormalSecurityOptionList', {
-                        securityKeyword: keyword || ''
+                        securityKeyword: keyword || '',
+                        tempSecurityType: this.updateForm.tempSecurityType
                     })
                     this.formalSecurityOptions = data || []
                 } catch (e) {

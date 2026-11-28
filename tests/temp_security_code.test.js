@@ -143,3 +143,23 @@ test('临时代码删除采用永久删除确认，清空当前页后返回上�
     assert.equal(page.pagination.pageIndex, 1);
     assert.equal(reloads, 1);
 });
+
+test('CRMW 转正搜索传入临时证券类型并显示返回的凭证', async () => {
+    const { page, requests } = harness();
+    page.$refs.updateFormRef = { clearValidate() {} };
+    const formalCrmw = { securityCode: 'FORMAL-CRMW.IB', securityType: 'crmw' };
+    page.apiPost = async (url, body) => {
+        requests.push({ url, body: JSON.parse(JSON.stringify(body)) });
+        return [formalCrmw];
+    };
+
+    page.openUpdateDialog({ id: 2, tempSecurityType: 'crmw' });
+    await page.searchFormalSecurityOptions('正式');
+
+    assert.deepEqual(requests.at(-1), {
+        url: '/api/v1/tempSecurityCode/queryFormalSecurityOptionList',
+        body: { securityKeyword: '正式', tempSecurityType: 'crmw' }
+    });
+    assert.deepEqual(page.formalSecurityOptions, [formalCrmw]);
+    assert.equal(page.formalSecurityLoading, false);
+});
