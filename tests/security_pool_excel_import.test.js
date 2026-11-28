@@ -63,6 +63,37 @@ function manual() {
     };
 }
 
+test('只勾选两个关联市场时，确认弹窗展示默认流程并只提交这两个代码', async () => {
+    const page = harness();
+    const main = manual();
+    main.flowOptions[0].flowName = '债券批量入库流程';
+    main.flowOptions.push({ flowId: 101, flowKey: 'bond:normal', flowType: 'normalInbound', selectable: true });
+    const related = ['A.SH', 'A.SZ'].map(securityCode => ({
+        ...main, securityCode, itemTag: 'related', flowOptions: []
+    }));
+    const task = { impId: 'EXCEL_RELATED', importType: 'security', saveRslt: '0', checkDone: true, checkItems: [main, ...related] };
+    page.applyTask(task);
+
+    const source = page.checkItems[0];
+    source.selectedFlowKey = source.flowOptions[1].optionKey;
+    page.handleRowFlowChange(source);
+    page.setCheckItemSelected(source, false);
+    page.openSubmitDialog();
+
+    assert.equal(page.flowDialogVisible, true);
+    assert.equal(page.selectedManualCheckItems.length, 0);
+    assert.equal(page.selectedCompanionFlowGroups.length, 1);
+    const [group] = page.selectedCompanionFlowGroups;
+    assert.deepEqual(Array.from(group.rows, row => row.securityCode), ['A.SH', 'A.SZ']);
+    assert.equal(group.flow.flowName, '债券批量入库流程');
+    assert.match(html, /resolveFlowDisplayName\(group\.flow\)/);
+
+    let submitted;
+    page.apiPost = async (url, request) => { submitted = request.checkItems; return { ...task, saveRslt: '1' }; };
+    await page.confirmFlowSelection();
+    assert.deepEqual(Array.from(submitted, row => row.securityCode), ['A.SH', 'A.SZ']);
+});
+
 test('有业务调整提示的行仍进入提交集合，同组关联项一并提交', async () => {
     const page = harness();
     const row = manual();

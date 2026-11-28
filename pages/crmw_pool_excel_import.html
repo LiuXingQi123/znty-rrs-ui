@@ -440,8 +440,24 @@
                     </el-radio>
                 </el-radio-group>
             </div>
-            <div v-if="selectedManualCheckItems.length === 0" style="color:var(--c-text-3);font-size:13px;">
-                所选配套项沿用来源主项的默认流程
+            <div v-for="(group, groupIndex) in selectedCompanionFlowGroups" :key="'companion_' + group.sourceItemId"
+                 class="flow-option-card flow-row-card"
+                 :class="getFlowRowColorClass(selectedManualCheckItems.length + groupIndex)">
+                <div class="flow-option-head">
+                    <span class="flow-option-name flow-pool-name">
+                        {{ group.rows[0].crmwScode }} / {{ group.rows.map(row => row.securityCode).join('、') }}
+                    </span>
+                </div>
+                <div v-if="group.flow" class="flow-option-card flow-choice-card is-selected">
+                    <div class="flow-option-head">
+                        <span class="flow-option-name">{{ resolveFlowDisplayName(group.flow) }}</span>
+                        <el-tag size="mini" :type="getFlowOptionTagType(group.flow)">{{ flowTypeLabel(group.flow.flowType) }}</el-tag>
+                    </div>
+                    <div class="flow-option-reasons">
+                        <div class="flow-option-reason">沿用来源主项的默认流程</div>
+                    </div>
+                </div>
+                <div v-else class="flow-option-reason warn">来源主项没有可用的默认流程</div>
             </div>
         </div>
         <span slot="footer">
@@ -601,6 +617,25 @@
             },
             selectedManualCheckItems() {
                 return this.selectedCheckItems.filter(row => this.isManualItem(row))
+            },
+            // 只勾选配套项时，按来源行展示将用于提交的默认流程
+            selectedCompanionFlowGroups() {
+                const selectedManualSources = new Set(this.selectedManualCheckItems.map(row => row.sourceItemId))
+                const groups = new Map()
+                for (const row of this.selectedCheckItems) {
+                    if (selectedManualSources.has(row.sourceItemId)) continue
+                    if (!groups.has(row.sourceItemId)) {
+                        groups.set(row.sourceItemId, { sourceItemId: row.sourceItemId, rows: [], flow: null })
+                    }
+                    groups.get(row.sourceItemId).rows.push(row)
+                }
+                for (const row of this.selectableCheckItems) {
+                    const group = groups.get(row.sourceItemId)
+                    if (group && this.isManualItem(row)) {
+                        group.flow = this.defaultCheckFlow(row.flowOptions)
+                    }
+                }
+                return Array.from(groups.values())
             },
             selectedCheckCount() {
                 return this.selectedCheckItems.length
@@ -1124,11 +1159,8 @@
             normalizeCheckItems(list) {
                 const rows = (list || []).map((row, rowIndex) => {
                     const options = this.formatRowFlowOptions(row.flowOptions || [], rowIndex)
-                    let selected = this.matchSelectedFlowKey(row, options)
-                    if (!selected && options.length) {
-                        const rec = options.find(o => o.recommended && o.selectable) || options.find(o => o.selectable)
-                        selected = rec ? rec.optionKey : ''
-                    }
+                    const defaultFlow = this.defaultCheckFlow(options)
+                    const selected = this.matchSelectedFlowKey(row, options) || (defaultFlow ? defaultFlow.optionKey : '')
                     const next = Object.assign({}, row, {
                         ratingCompanyName: row.ratingCompanyName || (row.selectedRatingCompany && row.selectedRatingCompany.companyName),
                         ratingCompanyCode: row.ratingCompanyCode || (row.selectedRatingCompany && row.selectedRatingCompany.companyCode),
@@ -1143,6 +1175,11 @@
                     ...rows.filter(row => row.canAdjust),
                     ...rows.filter(row => !row.canAdjust)
                 ])
+            },
+            // 与后端校验一致，优先使用推荐流程，再取第一个可选流程
+            defaultCheckFlow(options) {
+                return options.find(option => option.recommended && option.selectable)
+                    || options.find(option => option.selectable)
             },
             // 格式化行内流程候选项
             formatRowFlowOptions(options, rowIndex) {
